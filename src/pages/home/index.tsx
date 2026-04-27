@@ -1,6 +1,7 @@
-import { Upload, MessageSquare, FolderOpen, Plus, HelpCircle, Bell } from 'lucide-react';
+import { Upload, MessageSquare, FolderOpen, HelpCircle, Bell } from 'lucide-react';
 import { Link } from 'react-router';
 import { Routes } from '@/routes';
+import { cn } from '@/lib/utils';
 
 const stats = [
   { label: '文档总数', value: '24' },
@@ -20,21 +21,34 @@ const recentChats = [
   { id: '2', name: '文档总结助手', time: '1小时前' },
 ];
 
-export default function HomePage() {
+interface HomePageProps {
+  darkMode?: boolean;
+}
+
+export default function HomePage({ darkMode }: HomePageProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="h-20 px-8 flex items-center justify-between border-b border-border-subtle bg-white/80 backdrop-blur-md shrink-0">
+      <header className={cn(
+        "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
+        darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
+      )}>
         <div className="flex flex-col">
-          <span className="mono-label text-primary">Dashboard</span>
-          <h2 className="text-xl serif-heading">概览</h2>
+          <span className={cn("mono-label text-primary", darkMode && "text-primary")}>Dashboard</span>
+          <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>概览</h2>
         </div>
         <div className="flex items-center gap-4">
-          <button className="text-text-main/40 hover:text-primary transition-colors">
+          <button className={cn(
+            "transition-colors",
+            darkMode ? "text-gray-400 hover:text-gray-100" : "text-text-main/40 hover:text-primary"
+          )}>
             <HelpCircle size={18} />
           </button>
-          <div className="w-px h-4 bg-border-subtle" />
-          <button className="text-text-main/40 hover:text-primary transition-colors relative">
+          <div className={cn("w-px h-4", darkMode ? "bg-gray-700" : "bg-border-subtle")} />
+          <button className={cn(
+            "transition-colors relative",
+            darkMode ? "text-gray-400 hover:text-gray-100" : "text-text-main/40 hover:text-primary"
+          )}>
             <Bell size={18} />
             <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-primary rounded-full" />
           </button>
@@ -45,12 +59,15 @@ export default function HomePage() {
       <div className="flex-1 overflow-y-auto p-8">
         {/* Stats */}
         <section className="mb-8">
-          <h3 className="mono-label mb-4">数据统计</h3>
+          <h3 className={cn("mono-label mb-4", darkMode && "text-gray-400")}>数据统计</h3>
           <div className="grid grid-cols-4 gap-4">
             {stats.map((stat) => (
-              <div key={stat.label} className="art-card rounded-2xl p-4">
-                <div className="text-2xl font-bold text-text-main">{stat.value}</div>
-                <div className="mono-label">{stat.label}</div>
+              <div key={stat.label} className={cn(
+                "rounded-2xl p-4",
+                darkMode ? "bg-gray-800/50 border border-gray-700" : "art-card"
+              )}>
+                <div className={cn("text-2xl font-bold", darkMode && "text-gray-100")}>{stat.value}</div>
+                <div className={cn("mono-label", darkMode && "text-gray-400")}>{stat.label}</div>
               </div>
             ))}
           </div>
@@ -58,38 +75,53 @@ export default function HomePage() {
 
         {/* Quick Actions */}
         <section className="mb-8">
-          <h3 className="mono-label mb-4">快速操作</h3>
+          <h3 className={cn("mono-label mb-4", darkMode && "text-gray-400")}>快速操作</h3>
           <div className="grid grid-cols-3 gap-4">
             <Link
               to={Routes.Files}
-              className="art-card rounded-2xl p-6 hover:border-primary transition-colors group cursor-pointer"
+              className={cn(
+                "rounded-2xl p-6 transition-colors group cursor-pointer",
+                darkMode
+                  ? "bg-gray-800/50 border border-gray-700 hover:border-primary"
+                  : "art-card hover:border-primary"
+              )}
             >
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                 <Upload size={20} className="text-primary" />
               </div>
-              <h4 className="font-bold text-sm uppercase tracking-wider mb-1">上传文档</h4>
+              <h4 className={cn("font-bold text-sm uppercase tracking-wider mb-1", darkMode && "text-gray-100")}>上传文档</h4>
               <p className="text-xs text-text-main/50">支持 PDF、Word、PPT</p>
             </Link>
 
             <Link
               to={Routes.Chats}
-              className="art-card rounded-2xl p-6 hover:border-primary transition-colors group cursor-pointer"
+              className={cn(
+                "rounded-2xl p-6 transition-colors group cursor-pointer",
+                darkMode
+                  ? "bg-gray-800/50 border border-gray-700 hover:border-primary"
+                  : "art-card hover:border-primary"
+              )}
             >
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                 <MessageSquare size={20} className="text-primary" />
               </div>
-              <h4 className="font-bold text-sm uppercase tracking-wider mb-1">知识问答</h4>
+              <h4 className={cn("font-bold text-sm uppercase tracking-wider mb-1", darkMode && "text-gray-100")}>知识问答</h4>
               <p className="text-xs text-text-main/50">基于文档的智能对话</p>
             </Link>
 
             <Link
               to={Routes.Datasets}
-              className="art-card rounded-2xl p-6 hover:border-primary transition-colors group cursor-pointer"
+              className={cn(
+                "rounded-2xl p-6 transition-colors group cursor-pointer",
+                darkMode
+                  ? "bg-gray-800/50 border border-gray-700 hover:border-primary"
+                  : "art-card hover:border-primary"
+              )}
             >
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                 <FolderOpen size={20} className="text-primary" />
               </div>
-              <h4 className="font-bold text-sm uppercase tracking-wider mb-1">管理知识库</h4>
+              <h4 className={cn("font-bold text-sm uppercase tracking-wider mb-1", darkMode && "text-gray-100")}>管理知识库</h4>
               <p className="text-xs text-text-main/50">整理和管理文档</p>
             </Link>
           </div>
@@ -98,10 +130,13 @@ export default function HomePage() {
         {/* Recent Activity */}
         <div className="grid grid-cols-2 gap-6">
           {/* Recent Files */}
-          <section className="art-card rounded-2xl p-6">
+          <section className={cn("rounded-2xl p-6", darkMode ? "bg-gray-800/50 border border-gray-700" : "art-card")}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="mono-label">最近文档</h3>
-              <Link to={Routes.Files} className="text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
+              <h3 className={cn("mono-label", darkMode && "text-gray-400")}>最近文档</h3>
+              <Link to={Routes.Files} className={cn(
+                "text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors",
+                darkMode ? "text-gray-400 hover:text-primary" : "text-text-main/50"
+              )}>
                 查看全部
               </Link>
             </div>
@@ -109,25 +144,31 @@ export default function HomePage() {
               {recentFiles.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center justify-between py-2 border-b border-border-subtle last:border-0"
+                  className={cn(
+                    "flex items-center justify-between py-2",
+                    darkMode ? "border-gray-700 border-b last:border-0" : "border-b border-border-subtle last:border-0"
+                  )}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 border border-text-main/10 flex items-center justify-center text-[8px] font-bold text-primary bg-primary/5 rounded">
+                    <div className="w-6 h-6 border flex items-center justify-center text-[8px] font-bold text-primary bg-primary/5 rounded">
                       {file.type}
                     </div>
-                    <span className="text-xs font-medium uppercase tracking-wider">{file.name}</span>
+                    <span className={cn("text-xs font-medium uppercase tracking-wider", darkMode && "text-gray-100")}>{file.name}</span>
                   </div>
-                  <span className="mono-label">{file.time}</span>
+                  <span className={cn("mono-label", darkMode && "text-gray-400")}>{file.time}</span>
                 </div>
               ))}
             </div>
           </section>
 
           {/* Recent Chats */}
-          <section className="art-card rounded-2xl p-6">
+          <section className={cn("rounded-2xl p-6", darkMode ? "bg-gray-800/50 border border-gray-700" : "art-card")}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="mono-label">最近对话</h3>
-              <Link to={Routes.Chats} className="text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
+              <h3 className={cn("mono-label", darkMode && "text-gray-400")}>最近对话</h3>
+              <Link to={Routes.Chats} className={cn(
+                "text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors",
+                darkMode ? "text-gray-400 hover:text-primary" : "text-text-main/50"
+              )}>
                 查看全部
               </Link>
             </div>
@@ -135,15 +176,18 @@ export default function HomePage() {
               {recentChats.map((chat) => (
                 <div
                   key={chat.id}
-                  className="flex items-center justify-between py-2 border-b border-border-subtle last:border-0 cursor-pointer hover:text-primary transition-colors"
+                  className={cn(
+                    "flex items-center justify-between py-2 cursor-pointer transition-colors",
+                    darkMode ? "border-gray-700 border-b last:border-0" : "border-b border-border-subtle last:border-0"
+                  )}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
                       <MessageSquare size={12} className="text-primary" />
                     </div>
-                    <span className="text-xs font-medium uppercase tracking-wider">{chat.name}</span>
+                    <span className={cn("text-xs font-medium uppercase tracking-wider", darkMode && "text-gray-100")}>{chat.name}</span>
                   </div>
-                  <span className="mono-label">{chat.time}</span>
+                  <span className={cn("mono-label", darkMode && "text-gray-400")}>{chat.time}</span>
                 </div>
               ))}
             </div>

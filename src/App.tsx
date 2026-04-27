@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { Routes as RoutePaths } from './routes';
 import { Sidebar } from './components/Sidebar';
@@ -15,56 +16,51 @@ function ResizeHandle() {
   );
 }
 
-function RightPanel() {
+function RightPanel({ darkMode }: { darkMode: boolean }) {
   return (
     <Panel defaultSize={30} minSize={20}>
-      <aside className="h-full flex flex-col bg-white/40 backdrop-blur-md border border-border-subtle rounded-3xl overflow-hidden relative">
+      <aside className={`h-full flex flex-col backdrop-blur-md border rounded-3xl overflow-hidden relative ${darkMode ? 'bg-gray-800/40 border-gray-700' : 'bg-white/40 border-border-subtle'}`}>
         {/* Recent Activity */}
         <div className="flex-1 min-h-0 flex flex-col">
-          <div className="p-6 pb-2 flex justify-between items-center bg-white/20 shrink-0">
-            <span className="mono-label">最近活动</span>
+          <div className={`p-6 pb-2 flex justify-between items-center shrink-0 ${darkMode ? 'bg-gray-800/20' : 'bg-white/20'}`}>
+            <span className={`mono-label ${darkMode ? 'text-gray-400' : ''}`}>最近活动</span>
           </div>
           <div className="flex-1 p-4 pt-0 overflow-y-auto">
             <div className="space-y-3">
-              <div className="art-card rounded-xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1">人工智能发展报告.pdf</p>
-                <p className="mono-label">2小时前 上传</p>
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card'}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-gray-100' : ''}`}>人工智能发展报告.pdf</p>
+                <p className={`mono-label ${darkMode ? 'text-gray-400' : ''}`}>2小时前 上传</p>
               </div>
-              <div className="art-card rounded-xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1">新建对话：AI 技术问答</p>
-                <p className="mono-label">5分钟前</p>
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card'}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-gray-100' : ''}`}>新建对话：AI 技术问答</p>
+                <p className={`mono-label ${darkMode ? 'text-gray-400' : ''}`}>5分钟前</p>
               </div>
-              <div className="art-card rounded-xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-1">知识库更新：技术架构文档</p>
-                <p className="mono-label">昨天</p>
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card'}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-gray-100' : ''}`}>知识库更新：技术架构文档</p>
+                <p className={`mono-label ${darkMode ? 'text-gray-400' : ''}`}>昨天</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="h-[30%] flex flex-col bg-bg-base/20 border-t border-border-subtle shrink-0">
-          <div className="p-4 border-b border-border-subtle bg-white/10">
-            <span className="mono-label">本月概览</span>
+        <div className={`h-[30%] flex flex-col shrink-0 ${darkMode ? 'bg-gray-900/20 border-gray-700' : 'bg-bg-base/20 border-border-subtle'}`}>
+          <div className={`p-4 shrink-0 ${darkMode ? 'bg-gray-800/10 border-gray-700' : 'bg-white/10 border-border-subtle'}`}>
+            <span className={`mono-label ${darkMode ? 'text-gray-400' : ''}`}>本月概览</span>
           </div>
           <div className="flex-1 p-4 overflow-y-auto">
             <div className="grid grid-cols-2 gap-3">
-              <div className="art-card rounded-xl p-3 text-center">
-                <div className="text-lg font-bold">12</div>
-                <div className="mono-label text-[8px]">上传文件</div>
-              </div>
-              <div className="art-card rounded-xl p-3 text-center">
-                <div className="text-lg font-bold">48</div>
-                <div className="mono-label text-[8px]">问答次数</div>
-              </div>
-              <div className="art-card rounded-xl p-3 text-center">
-                <div className="text-lg font-bold">5</div>
-                <div className="mono-label text-[8px]">新建知识库</div>
-              </div>
-              <div className="art-card rounded-xl p-3 text-center">
-                <div className="text-lg font-bold">156</div>
-                <div className="mono-label text-[8px]">图谱节点</div>
-              </div>
+              {[
+                { value: '12', label: '上传文件' },
+                { value: '48', label: '问答次数' },
+                { value: '5', label: '新建知识库' },
+                { value: '156', label: '图谱节点' },
+              ].map((stat) => (
+                <div key={stat.label} className={`rounded-xl p-3 text-center ${darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card'}`}>
+                  <div className={`text-lg font-bold ${darkMode ? 'text-gray-100' : ''}`}>{stat.value}</div>
+                  <div className={`mono-label text-[8px] ${darkMode ? 'text-gray-400' : ''}`}>{stat.label}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -74,20 +70,22 @@ function RightPanel() {
 }
 
 function App() {
+  const [darkMode, setDarkMode] = useState(false);
+
   return (
-    <div className="flex h-screen bg-bg-base text-text-main font-sans overflow-hidden p-4 gap-4">
+    <div className={`flex h-screen font-sans overflow-hidden p-4 gap-4 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-bg-base text-text-main'}`}>
       {/* Left Sidebar */}
-      <Sidebar />
+      <Sidebar darkMode={darkMode} onDarkModeChange={setDarkMode} />
 
       {/* Main Content + Right Panel */}
       <Group direction="horizontal" className="flex-1 min-w-0">
         {/* Center Content */}
         <Panel defaultSize={70} minSize={50}>
           <Routes>
-            <Route path={RoutePaths.Home} element={<HomePage />} />
-            <Route path={RoutePaths.Datasets} element={<DatasetsPage />} />
-            <Route path={RoutePaths.Chats} element={<ChatsPage />} />
-            <Route path={RoutePaths.Files} element={<FilesPage />} />
+            <Route path={RoutePaths.Home} element={<HomePage darkMode={darkMode} />} />
+            <Route path={RoutePaths.Datasets} element={<DatasetsPage darkMode={darkMode} />} />
+            <Route path={RoutePaths.Chats} element={<ChatsPage darkMode={darkMode} />} />
+            <Route path={RoutePaths.Files} element={<FilesPage darkMode={darkMode} />} />
             <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
           </Routes>
         </Panel>
@@ -95,7 +93,7 @@ function App() {
         <ResizeHandle />
 
         {/* Right Panel */}
-        <RightPanel />
+        <RightPanel darkMode={darkMode} />
       </Group>
     </div>
   );

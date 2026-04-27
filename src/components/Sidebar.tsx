@@ -24,14 +24,17 @@ const navItems = [
   { path: Routes.Files, name: '文件', icon: FolderOpen },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  darkMode: boolean;
+  onDarkModeChange: (dark: boolean) => void;
+}
+
+export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
 
-  // Close user menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -42,36 +45,54 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Apply dark mode to document
-  useEffect(() => {
-    if (darkMode) {
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    onDarkModeChange(newMode);
+    if (newMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [darkMode]);
+  };
 
   return (
     <aside
       className={cn(
-        "bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-3xl border border-border-subtle flex flex-col overflow-hidden shadow-sm transition-all duration-300 shrink-0",
-        collapsed ? "w-[72px]" : "w-[200px]"
+        "rounded-3xl border shadow-sm flex flex-col overflow-hidden shrink-0 transition-all duration-300",
+        collapsed ? "w-[72px]" : "w-[200px]",
+        darkMode
+          ? "bg-gray-800/90 border-gray-700"
+          : "bg-white/80 border-border-subtle"
       )}
     >
       {/* Logo */}
-      <div className="h-20 flex items-center px-6 border-b border-border-subtle overflow-hidden">
+      <div
+        className={cn(
+          "h-20 flex items-center px-6 overflow-hidden",
+          darkMode ? "border-gray-700" : "border-border-subtle",
+          darkMode ? "bg-gray-800/50" : "bg-white/50"
+        )}
+      >
         <div className="flex items-center gap-3 min-w-max">
-          <div className="w-8 h-8 bg-text-main rounded-lg flex items-center justify-center">
+          <div className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center",
+            darkMode ? "bg-gray-700" : "bg-text-main"
+          )}>
             <Share2 className="text-white" size={18} />
           </div>
           {!collapsed && (
-            <h1 className="text-lg font-bold tracking-tighter uppercase">toLink</h1>
+            <h1 className={cn(
+              "text-lg font-bold tracking-tighter uppercase",
+              darkMode ? "text-gray-100" : "text-text-main"
+            )}>
+              toLink
+            </h1>
           )}
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
+      <nav className={cn("flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden", darkMode ? "bg-gray-800/30" : "bg-bg-base/30")}>
         {navItems.map(({ path, name, icon: Icon }) => {
           const isActive = pathname === path;
           return (
@@ -81,11 +102,15 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-4 py-3 transition-all duration-300 group relative rounded-2xl mx-1",
                 isActive
-                  ? "bg-text-main text-white shadow-lg shadow-text-main/10"
-                  : "text-text-main/50 hover:bg-primary/5 hover:text-text-main"
+                  ? darkMode
+                    ? "bg-gray-100 text-gray-900 shadow-lg"
+                    : "bg-text-main text-white shadow-lg shadow-text-main/10"
+                  : darkMode
+                    ? "text-gray-400 hover:bg-gray-700/50 hover:text-gray-100"
+                    : "text-text-main/50 hover:bg-primary/5 hover:text-text-main"
               )}
             >
-              <Icon size={18} className={cn("shrink-0", isActive && "text-primary")} />
+              <Icon size={18} className={cn("shrink-0", isActive && (darkMode ? "text-gray-900" : "text-primary"))} />
               {!collapsed && (
                 <span className="text-xs font-bold uppercase tracking-widest">{name}</span>
               )}
@@ -93,7 +118,10 @@ export function Sidebar() {
                 <div className="absolute right-4 w-1 h-1 bg-primary rounded-full animate-pulse" />
               )}
               {collapsed && (
-                <div className="absolute left-full ml-4 px-3 py-1 bg-text-main text-white text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl">
+                <div className={cn(
+                  "absolute left-full ml-4 px-3 py-1 text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl",
+                  darkMode ? "bg-gray-100 text-gray-900" : "bg-text-main text-white"
+                )}>
                   {name}
                 </div>
               )}
@@ -103,11 +131,16 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border-subtle bg-white/50 dark:bg-gray-900/50">
+      <div className={cn("p-4 shrink-0", darkMode ? "bg-gray-800/50 border-gray-700" : "bg-white/50 border-border-subtle")}>
         {/* Collapse button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center py-2 hover:bg-primary/5 rounded-xl text-text-main/40 hover:text-primary transition-colors mb-2"
+          className={cn(
+            "w-full flex items-center justify-center py-2 rounded-xl transition-colors mb-2",
+            darkMode
+              ? "text-gray-400 hover:bg-gray-700/50 hover:text-gray-100"
+              : "text-text-main/40 hover:bg-primary/5 hover:text-primary"
+          )}
         >
           {collapsed ? (
             <ChevronRight size={18} />
@@ -121,8 +154,13 @@ export function Sidebar() {
 
         {/* Theme Toggle */}
         <button
-          onClick={() => setDarkMode(!darkMode)}
-          className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-primary/5 text-text-main/50 hover:text-primary transition-colors mb-2"
+          onClick={toggleDarkMode}
+          className={cn(
+            "w-full flex items-center gap-3 px-2 py-2 rounded-xl transition-colors mb-2",
+            darkMode
+              ? "text-gray-400 hover:bg-gray-700/50 hover:text-gray-100"
+              : "text-text-main/50 hover:bg-primary/5 hover:text-primary"
+          )}
         >
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           {!collapsed && (
@@ -136,15 +174,21 @@ export function Sidebar() {
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="w-full flex items-center gap-3 px-2 py-3 rounded-2xl bg-bg-base/30 hover:bg-primary/5 transition-colors"
+            className={cn(
+              "w-full flex items-center gap-3 px-2 py-3 rounded-2xl transition-colors",
+              darkMode ? "bg-gray-700/50 hover:bg-gray-700" : "bg-bg-base/30 hover:bg-primary/5"
+            )}
           >
-            <div className="w-8 h-8 rounded-full border border-text-main/10 bg-primary/20 shrink-0 flex items-center justify-center">
-              <User size={14} className="text-text-main/60" />
+            <div className={cn(
+              "w-8 h-8 rounded-full shrink-0 flex items-center justify-center",
+              darkMode ? "bg-gray-600 border-gray-500" : "border-text-main/10 bg-primary/20"
+            )}>
+              <User size={14} className={darkMode ? "text-gray-300" : "text-text-main/60"} />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[10px] font-bold uppercase truncate">Alex Chen</p>
-                <p className="mono-label !text-[8px]">Pro Member</p>
+                <p className={cn("text-[10px] font-bold uppercase truncate", darkMode ? "text-gray-100" : "text-text-main")}>Alex Chen</p>
+                <p className={cn("mono-label !text-[8px]", darkMode ? "text-gray-400" : "")}>Pro Member</p>
               </div>
             )}
           </button>
@@ -152,22 +196,35 @@ export function Sidebar() {
           {/* User Dropdown Menu */}
           {showUserMenu && (
             <div
-              className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl border border-border-subtle shadow-lg overflow-hidden z-50 transition-all duration-200"
+              className={cn(
+                "absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg overflow-hidden z-50 transition-all duration-200",
+                darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border-border-subtle"
+              )}
             >
-              <div className="px-3 py-2 border-b border-border-subtle">
-                <p className="text-xs font-bold">Alex Chen</p>
-                <p className="mono-label !text-[8px]">alex@example.com</p>
+              <div className={cn("px-3 py-2", darkMode ? "border-gray-700 border-b" : "border-border-subtle border-b")}>
+                <p className={cn("text-xs font-bold", darkMode ? "text-gray-100" : "text-text-main")}>Alex Chen</p>
+                <p className={cn("mono-label !text-[8px]", darkMode ? "text-gray-400" : "")}>alex@example.com</p>
               </div>
               <div className="py-1">
-                <button className="w-full flex items-center gap-3 px-3 py-2 hover:bg-primary/5 text-text-main/70 hover:text-text-main transition-colors">
+                <button className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 transition-colors",
+                  darkMode
+                    ? "text-gray-300 hover:bg-gray-700 hover:text-gray-100"
+                    : "text-text-main/70 hover:bg-primary/5 hover:text-text-main"
+                )}>
                   <User size={14} />
                   <span className="text-xs font-medium">个人信息</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2 hover:bg-primary/5 text-text-main/70 hover:text-text-main transition-colors">
+                <button className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 transition-colors",
+                  darkMode
+                    ? "text-gray-300 hover:bg-gray-700 hover:text-gray-100"
+                    : "text-text-main/70 hover:bg-primary/5 hover:text-text-main"
+                )}>
                   <Settings size={14} />
                   <span className="text-xs font-medium">设置</span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-3 py-2 hover:bg-state-error/5 text-state-error transition-colors">
+                <button className="w-full flex items-center gap-3 px-3 py-2 transition-colors text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
                   <LogOut size={14} />
                   <span className="text-xs font-medium">退出登录</span>
                 </button>

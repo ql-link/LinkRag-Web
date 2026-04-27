@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Upload, FileText, FileCode, Presentation, FileSpreadsheet, Search, Grid, List, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const FILE_TYPES: Record<string, { icon: any; color: string }> = {
   PDF: { icon: FileText, color: 'from-red-500/20 to-red-500/5' },
@@ -17,7 +18,11 @@ const mockFiles = [
   { id: '6', name: '产品需求文档.docx', type: 'DOCX', size: '2.1 MB', date: '2024-05-08 15:30' },
 ];
 
-export default function FilesPage() {
+interface FilesPageProps {
+  darkMode?: boolean;
+}
+
+export default function FilesPage({ darkMode }: FilesPageProps) {
   const [searchString, setSearchString] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -25,35 +30,85 @@ export default function FilesPage() {
     f.name.toLowerCase().includes(searchString.toLowerCase())
   );
 
+  const getFileCardClass = (isGrid: boolean) => {
+    if (isGrid) {
+      return darkMode
+        ? 'rounded-2xl p-5 bg-gray-800/50 border border-gray-700 hover:border-primary transition-colors cursor-pointer group'
+        : 'art-card rounded-2xl p-5 hover:border-primary transition-colors cursor-pointer group';
+    }
+    return darkMode
+      ? 'rounded-xl px-4 py-3 bg-gray-800/50 border border-gray-700 hover:border-primary transition-colors cursor-pointer group flex items-center justify-between'
+      : 'art-card rounded-xl px-4 py-3 flex items-center justify-between hover:border-primary transition-colors cursor-pointer group';
+  };
+
+  const getFileIconClass = () => {
+    return darkMode ? 'text-gray-100' : 'text-text-main';
+  };
+
+  const getUploadCardClass = () => {
+    if (viewMode === 'grid') {
+      return darkMode
+        ? 'min-h-[140px] p-5 rounded-2xl border border-gray-700 border-dashed flex flex-col items-center justify-center cursor-pointer text-gray-400 hover:text-primary hover:border-primary transition-colors'
+        : 'min-h-[140px] p-5 rounded-2xl border-dashed art-card flex flex-col items-center justify-center cursor-pointer text-text-main/40 hover:text-primary hover:border-primary transition-colors';
+    }
+    return darkMode
+      ? 'px-4 py-3 rounded-xl border border-gray-700 border-dashed flex items-center justify-center cursor-pointer text-gray-400 hover:text-primary hover:border-primary transition-colors'
+      : 'px-4 py-3 rounded-xl border-dashed art-card flex items-center justify-center cursor-pointer text-text-main/40 hover:text-primary hover:border-primary transition-colors';
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <header className="h-20 px-8 flex items-center justify-between border-b border-border-subtle bg-white/80 backdrop-blur-md shrink-0">
+      <header className={cn(
+        "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
+        darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
+      )}>
         <div className="flex flex-col">
           <span className="mono-label text-primary">Storage</span>
-          <h2 className="text-xl serif-heading">文件</h2>
+          <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>文件</h2>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/30" />
+            <Search size={14} className={cn(
+              "absolute left-3 top-1/2 -translate-y-1/2",
+              darkMode ? "text-gray-400" : "text-text-main/30"
+            )} />
             <input
               type="text"
               placeholder="搜索文件..."
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
-              className="w-48 pl-9 pr-4 py-2 bg-bg-base/50 border border-border-subtle rounded-xl text-xs focus:outline-none focus:border-primary"
+              className={cn(
+                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-primary",
+                darkMode
+                  ? "bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500"
+                  : "bg-bg-base/50 border-border-subtle"
+              )}
             />
           </div>
-          <div className="flex items-center border border-border-subtle rounded-xl overflow-hidden">
+          <div className={cn(
+            "flex items-center rounded-xl overflow-hidden",
+            darkMode ? "border border-gray-700" : "border border-border-subtle"
+          )}>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 ${viewMode === 'grid' ? 'bg-bg-base text-text-main' : 'text-text-main/30 hover:text-text-main'} transition-colors`}
+              className={cn(
+                "p-2 transition-colors",
+                viewMode === 'grid'
+                  ? darkMode ? "bg-gray-700 text-gray-100" : "bg-bg-base text-text-main"
+                  : darkMode ? "text-gray-400 hover:text-gray-100" : "text-text-main/30 hover:text-text-main"
+              )}
             >
               <Grid size={14} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 ${viewMode === 'list' ? 'bg-bg-base text-text-main' : 'text-text-main/30 hover:text-text-main'} transition-colors`}
+              className={cn(
+                "p-2 transition-colors",
+                viewMode === 'list'
+                  ? darkMode ? "bg-gray-700 text-gray-100" : "bg-bg-base text-text-main"
+                  : darkMode ? "text-gray-400 hover:text-gray-100" : "text-text-main/30 hover:text-text-main"
+              )}
             >
               <List size={14} />
             </button>
@@ -68,9 +123,9 @@ export default function FilesPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8">
         {/* Stats Bar */}
-        <div className="flex items-center gap-6 mb-6 mono-label">
+        <div className={cn("flex items-center gap-6 mb-6 mono-label", darkMode && "text-gray-400")}>
           <span>共 {mockFiles.length} 个文件</span>
-          <span className="text-border-subtle">|</span>
+          <span className={darkMode ? "text-gray-600" : "text-border-subtle"}>|</span>
           <span>15.2 MB</span>
         </div>
 
@@ -83,20 +138,24 @@ export default function FilesPage() {
             return (
               <div
                 key={file.id}
-                className={viewMode === 'grid'
-                  ? `art-card rounded-2xl p-5 hover:border-primary transition-colors cursor-pointer group`
-                  : `art-card rounded-xl px-4 py-3 flex items-center justify-between hover:border-primary transition-colors cursor-pointer group`
-                }
+                className={getFileCardClass(viewMode === 'grid')}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center shrink-0`}>
-                    <FileIcon size={18} className="text-text-main" />
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shrink-0",
+                    colorClass
+                  )}>
+                    <FileIcon size={18} className={getFileIconClass()} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className={`font-bold tracking-wider mb-0.5 group-hover:text-primary transition-colors ${viewMode === 'grid' ? 'text-sm' : 'text-xs uppercase'}`}>
+                    <h3 className={cn(
+                      "font-bold tracking-wider mb-0.5 group-hover:text-primary transition-colors",
+                      viewMode === 'grid' ? "text-sm" : "text-xs uppercase",
+                      darkMode && "text-gray-100"
+                    )}>
                       {file.name}
                     </h3>
-                    <div className="flex items-center gap-3 mono-label">
+                    <div className={cn("flex items-center gap-3 mono-label", darkMode && "text-gray-400")}>
                       <span>{file.type}</span>
                       <span>{file.size}</span>
                       <span className="hidden md:inline">{file.date}</span>
@@ -104,14 +163,14 @@ export default function FilesPage() {
                   </div>
                 </div>
                 {viewMode === 'grid' && (
-                  <ArrowRight size={14} className="text-text-main/20 group-hover:text-primary group-hover:translate-x-1 transition-all mt-3" />
+                  <ArrowRight size={14} className={cn("mt-3", darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary")} />
                 )}
               </div>
             );
           })}
 
           {/* Upload Card */}
-          <div className={`art-card rounded-2xl border-dashed flex flex-col items-center justify-center text-text-main/40 hover:text-primary hover:border-primary transition-colors cursor-pointer ${viewMode === 'grid' ? 'min-h-[140px] p-5' : 'px-4 py-3'}`}>
+          <div className={getUploadCardClass()}>
             <Upload size={viewMode === 'grid' ? 24 : 18} className="mb-2" />
             <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
           </div>
