@@ -1,19 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Database, Plus, Search, ArrowRight } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { Dataset } from '@/types';
-
-const mockDatasets: Dataset[] = [
-  { id: 'kb1', name: 'AI 技术文档', count: 12, updated: '2小时前', file_ids: ['1', '5'] },
-  { id: 'kb2', name: '产品需求文档', count: 8, updated: '昨天', file_ids: ['2', '6'] },
-  { id: 'kb3', name: '技术架构文档', count: 15, updated: '3天前', file_ids: ['3'] },
-  { id: 'kb4', name: '市场分析报告', count: 6, updated: '上周', file_ids: [] },
-  { id: 'kb5', name: '用户研究文档', count: 9, updated: '2周前', file_ids: [] },
-  { id: 'kb6', name: '运营数据报告', count: 11, updated: '3周前', file_ids: [] },
-];
+import { getDatasets } from '@/services/dataset';
+import type { DatasetDTO } from '@/types/api';
 
 interface DatasetsPageProps {
   darkMode?: boolean;
@@ -22,7 +14,23 @@ interface DatasetsPageProps {
 export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
   const navigate = useNavigate();
   const [searchString, setSearchString] = useState('');
-  const [datasets] = useState(mockDatasets);
+  const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDatasets();
+  }, []);
+
+  const loadDatasets = async () => {
+    try {
+      const result = await getDatasets(1, 100);
+      setDatasets(result.items);
+    } catch (error) {
+      console.error('Failed to load datasets:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredDatasets = datasets.filter((d) =>
     d.name.toLowerCase().includes(searchString.toLowerCase())
@@ -81,10 +89,6 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
         {/* Stats Bar */}
         <div className={cn("flex items-center gap-6 mb-6 mono-label", darkMode ? "text-[#858585]" : "")}>
           <span>共 {datasets.length} 个知识库</span>
-          <span className={darkMode ? "text-[#3c3c3c]" : "text-border-subtle"}>|</span>
-          <span>{datasets.reduce((acc, d) => acc + d.count, 0)} 个文档</span>
-          <span className={darkMode ? "text-[#3c3c3c]" : "text-border-subtle"}>|</span>
-          <span>{datasets.reduce((acc, d) => acc + d.file_ids.length, 0)} 个文件</span>
         </div>
 
         {/* Dataset Grid */}
@@ -116,9 +120,10 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                 {dataset.name}
               </h3>
               <div className={cn("flex items-center justify-between", darkMode ? "text-[#858585]" : "")}>
-                <span className="mono-label">{dataset.count} 个文档</span>
-                {dataset.file_ids.length > 0 && (
-                  <span className="mono-label text-[#c586c0]">{dataset.file_ids.length} 个文件</span>
+                <span className={cn("mono-label", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+                  {dataset.status}
+                </span>
+                <span className="mono-label">{dataset.updatedAt}</span>
                 )}
               </div>
             </div>
