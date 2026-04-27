@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Routes } from '@/routes';
-import { Upload, FileText, FileCode, Presentation, FileSpreadsheet, Search, Grid, List, ArrowRight } from 'lucide-react';
+import { Upload, FileText, FileCode, Presentation, FileSpreadsheet, Search, Grid, List, ArrowRight, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { DatasetBadgeList } from '@/components/DatasetBadge';
+import { LinkToDatasetDialog } from '@/components/LinkToDatasetDialog';
+import { Dataset, KbInfo } from '@/types';
 
 const FILE_TYPES: Record<string, { icon: any; color: string }> = {
   PDF: { icon: FileText, color: 'from-red-500/20 to-red-500/5' },
@@ -11,13 +14,20 @@ const FILE_TYPES: Record<string, { icon: any; color: string }> = {
   XLSX: { icon: FileSpreadsheet, color: 'from-green-500/20 to-green-500/5' },
 };
 
+const mockDatasets: Dataset[] = [
+  { id: 'kb1', name: 'AI 技术文档', count: 12, updated: '2小时前', file_ids: ['1', '5'] },
+  { id: 'kb2', name: '产品需求文档', count: 8, updated: '昨天', file_ids: ['2', '6'] },
+  { id: 'kb3', name: '技术架构文档', count: 15, updated: '3天前', file_ids: ['3'] },
+  { id: 'kb4', name: '市场分析报告', count: 6, updated: '上周', file_ids: [] },
+];
+
 const mockFiles = [
-  { id: '1', name: '人工智能发展报告.pdf', type: 'PDF', size: '2.4 MB', date: '2024-05-20 14:30' },
-  { id: '2', name: '大模型技术综述.docx', type: 'DOCX', size: '1.8 MB', date: '2024-05-18 09:15' },
-  { id: '3', name: '自然语言处理导论.pptx', type: 'PPTX', size: '3.2 MB', date: '2024-05-15 16:45' },
-  { id: '4', name: '行业研究数据.xlsx', type: 'XLSX', size: '1.2 MB', date: '2024-05-12 11:20' },
-  { id: '5', name: '技术架构设计.pdf', type: 'PDF', size: '4.5 MB', date: '2024-05-10 10:00' },
-  { id: '6', name: '产品需求文档.docx', type: 'DOCX', size: '2.1 MB', date: '2024-05-08 15:30' },
+  { id: '1', name: '人工智能发展报告.pdf', type: 'PDF' as const, size: '2.4 MB', date: '2024-05-20 14:30', kb_ids: ['kb1', 'kb3'] },
+  { id: '2', name: '大模型技术综述.docx', type: 'DOCX' as const, size: '1.8 MB', date: '2024-05-18 09:15', kb_ids: ['kb2'] },
+  { id: '3', name: '自然语言处理导论.pptx', type: 'PPTX' as const, size: '3.2 MB', date: '2024-05-15 16:45', kb_ids: ['kb1'] },
+  { id: '4', name: '行业研究数据.xlsx', type: 'XLSX' as const, size: '1.2 MB', date: '2024-05-12 11:20', kb_ids: [] },
+  { id: '5', name: '技术架构设计.pdf', type: 'PDF' as const, size: '4.5 MB', date: '2024-05-10 10:00', kb_ids: ['kb1', 'kb2', 'kb3'] },
+  { id: '6', name: '产品需求文档.docx', type: 'DOCX' as const, size: '2.1 MB', date: '2024-05-08 15:30', kb_ids: ['kb2'] },
 ];
 
 interface FilesPageProps {
@@ -27,8 +37,42 @@ interface FilesPageProps {
 export default function FilesPage({ darkMode }: FilesPageProps) {
   const [searchString, setSearchString] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [files, setFiles] = useState(mockFiles);
+  const [datasets] = useState(mockDatasets);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
-  const filteredFiles = mockFiles.filter((f) =>
+  const getFileKbInfo = (kbIds: string[]): KbInfo[] => {
+    return kbIds
+      .map((id) => {
+        const ds = datasets.find((d) => d.id === id);
+        return ds ? { kb_id: ds.id, kb_name: ds.name } : null;
+      })
+      .filter(Boolean) as KbInfo[];
+  };
+
+  const handleLinkDatasets = (selectedKbIds: string[]) => {
+    if (selectedFileId) {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === selectedFileId ? { ...f, kb_ids: selectedKbIds } : f
+        )
+      );
+    }
+  };
+
+  const openLinkDialog = (fileId: string) => {
+    setSelectedFileId(fileId);
+    setLinkDialogOpen(true);
+  };
+
+  const getSelectedFileKbIds = () => {
+    if (!selectedFileId) return [];
+    const file = files.find((f) => f.id === selectedFileId);
+    return file?.kb_ids || [];
+  };
+
+  const filteredFiles = files.filter((f) =>
     f.name.toLowerCase().includes(searchString.toLowerCase())
   );
 
@@ -132,7 +176,7 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
       <div className="flex-1 overflow-y-auto p-8">
         {/* Stats Bar */}
         <div className={cn("flex items-center gap-6 mb-6 mono-label", darkMode && "text-gray-400")}>
-          <span>共 {mockFiles.length} 个文件</span>
+          <span>共 {files.length} 个文件</span>
           <span className={darkMode ? "text-gray-600" : "text-border-subtle"}>|</span>
           <span>15.2 MB</span>
         </div>
@@ -183,6 +227,13 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                     <span className={cn("text-xs font-bold uppercase tracking-wider flex-1 min-w-0 truncate", darkMode ? "text-gray-100" : "text-text-main")}>
                       {file.name}
                     </span>
+                    <div className="shrink-0 w-[140px]">
+                      <DatasetBadgeList
+                        items={getFileKbInfo(file.kb_ids)}
+                        darkMode={darkMode}
+                        maxShow={1}
+                      />
+                    </div>
                     <span className={cn("mono-label shrink-0 w-16 text-center", darkMode ? "text-gray-400" : "")}>
                       {file.type}
                     </span>
@@ -192,7 +243,20 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                     <span className={cn("mono-label shrink-0 w-32 text-right hidden sm:block", darkMode ? "text-gray-500" : "text-text-main/30")}>
                       {file.date}
                     </span>
-                    <ArrowRight size={12} className={cn("shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary")} />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openLinkDialog(file.id);
+                      }}
+                      className={cn(
+                        "shrink-0 p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100",
+                        darkMode
+                          ? "text-gray-400 hover:text-primary hover:bg-gray-700"
+                          : "text-text-main/40 hover:text-primary hover:bg-primary/5"
+                      )}
+                    >
+                      <Link2 size={12} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -217,6 +281,15 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
             </div>
           )}
         </div>
+
+        {/* Link To Dataset Dialog */}
+        <LinkToDatasetDialog
+          open={linkDialogOpen}
+          onClose={() => setLinkDialogOpen(false)}
+          onConfirm={handleLinkDatasets}
+          datasets={datasets}
+          currentKbIds={getSelectedFileKbIds()}
+        />
       </div>
     </div>
   );
