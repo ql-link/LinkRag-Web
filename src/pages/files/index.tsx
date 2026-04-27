@@ -26,21 +26,21 @@ interface FilesPageProps {
 
 export default function FilesPage({ darkMode }: FilesPageProps) {
   const [searchString, setSearchString] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   const filteredFiles = mockFiles.filter((f) =>
     f.name.toLowerCase().includes(searchString.toLowerCase())
   );
 
-  const getFileCardClass = (isGrid: boolean) => {
+  const getFileRowClass = (isGrid: boolean) => {
     if (isGrid) {
       return darkMode
         ? 'rounded-2xl p-5 bg-gray-800/50 border border-gray-700 hover:border-primary transition-colors cursor-pointer group'
         : 'art-card rounded-2xl p-5 hover:border-primary transition-colors cursor-pointer group';
     }
     return darkMode
-      ? 'rounded-xl px-4 py-3 bg-gray-800/50 border border-gray-700 hover:border-primary transition-colors cursor-pointer group flex items-center justify-between'
-      : 'art-card rounded-xl px-4 py-3 flex items-center justify-between hover:border-primary transition-colors cursor-pointer group';
+      ? 'rounded-xl px-4 py-3 bg-gray-800/50 border border-gray-700/50 hover:border-primary/50 transition-colors cursor-pointer group'
+      : 'rounded-xl px-4 py-3 border border-transparent hover:border-border-subtle hover:bg-white/50 transition-colors cursor-pointer group';
   };
 
   const getFileIconClass = () => {
@@ -137,7 +137,7 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
           <span>15.2 MB</span>
         </div>
 
-        {/* Files Grid */}
+        {/* Files List */}
         <div className={viewMode === 'grid' ? 'grid grid-cols-4 gap-4' : 'space-y-2'}>
           {filteredFiles.map((file) => {
             const FileIcon = FILE_TYPES[file.type]?.icon || FileText;
@@ -146,42 +146,76 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
             return (
               <div
                 key={file.id}
-                className={getFileCardClass(viewMode === 'grid')}
+                className={getFileRowClass(viewMode === 'grid')}
               >
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shrink-0",
-                    colorClass
-                  )}>
-                    <FileIcon size={18} className={getFileIconClass()} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className={cn(
-                      "font-bold tracking-wider mb-0.5 group-hover:text-primary transition-colors",
-                      viewMode === 'grid' ? "text-sm" : "text-xs uppercase",
-                      darkMode && "text-gray-100"
-                    )}>
-                      {file.name}
-                    </h3>
-                    <div className={cn("flex items-center gap-3 mono-label", darkMode && "text-gray-400")}>
-                      <span>{file.type}</span>
-                      <span>{file.size}</span>
-                      <span className="hidden md:inline">{file.date}</span>
+                {viewMode === 'grid' ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shrink-0",
+                        colorClass
+                      )}>
+                        <FileIcon size={18} className={getFileIconClass()} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className={cn(
+                          "font-bold tracking-wider mb-0.5 group-hover:text-primary transition-colors",
+                          darkMode && "text-gray-100"
+                        )}>
+                          {file.name}
+                        </h3>
+                        <div className={cn("flex items-center gap-3 mono-label", darkMode && "text-gray-400")}>
+                          <span>{file.type}</span>
+                          <span>{file.size}</span>
+                        </div>
+                      </div>
                     </div>
+                    <ArrowRight size={14} className={cn(darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary")} />
+                  </>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center shrink-0",
+                      colorClass
+                    )}>
+                      <FileIcon size={14} className={getFileIconClass()} />
+                    </div>
+                    <span className={cn("text-xs font-bold uppercase tracking-wider flex-1 min-w-0 truncate", darkMode ? "text-gray-100" : "text-text-main")}>
+                      {file.name}
+                    </span>
+                    <span className={cn("mono-label shrink-0 w-16 text-center", darkMode ? "text-gray-400" : "")}>
+                      {file.type}
+                    </span>
+                    <span className={cn("mono-label shrink-0 w-20 text-right", darkMode ? "text-gray-400" : "")}>
+                      {file.size}
+                    </span>
+                    <span className={cn("mono-label shrink-0 w-32 text-right hidden sm:block", darkMode ? "text-gray-500" : "text-text-main/30")}>
+                      {file.date}
+                    </span>
+                    <ArrowRight size={12} className={cn("shrink-0 opacity-0 group-hover:opacity-100 transition-opacity", darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary")} />
                   </div>
-                </div>
-                {viewMode === 'grid' && (
-                  <ArrowRight size={14} className={cn("mt-3", darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary")} />
                 )}
               </div>
             );
           })}
 
           {/* Upload Card */}
-          <div className={getUploadCardClass()}>
-            <Upload size={viewMode === 'grid' ? 24 : 18} className="mb-2" />
-            <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
-          </div>
+          {viewMode === 'grid' ? (
+            <div className={getUploadCardClass()}>
+              <Upload size={24} className="mb-2" />
+              <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
+            </div>
+          ) : (
+            <div className={cn(
+              "rounded-xl px-4 py-3 border border-dashed flex items-center justify-center cursor-pointer transition-colors group",
+              darkMode
+                ? "border-gray-700 text-gray-400 hover:text-primary hover:border-primary/50"
+                : "border-border-subtle text-text-main/40 hover:text-primary hover:border-primary"
+            )}>
+              <Upload size={14} className="mr-2" />
+              <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
