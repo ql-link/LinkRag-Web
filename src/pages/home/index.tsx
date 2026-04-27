@@ -2,6 +2,7 @@ import { Upload, MessageSquare, FolderOpen, HelpCircle, Bell } from 'lucide-reac
 import { Link } from 'react-router';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const stats = [
   { label: '文档总数', value: '24' },
@@ -33,8 +34,11 @@ export default function HomePage({ darkMode }: HomePageProps) {
         "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
         darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
       )}>
-        <div className="flex flex-col">
-          <span className={cn("mono-label text-primary", darkMode && "text-primary")}>Dashboard</span>
+        <div className="flex flex-col gap-1">
+          <Breadcrumb
+            items={[{ label: '首页', path: Routes.Home }]}
+            darkMode={darkMode}
+          />
           <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>概览</h2>
         </div>
         <div className="flex items-center gap-4">

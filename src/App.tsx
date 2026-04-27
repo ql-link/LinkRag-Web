@@ -18,7 +18,7 @@ function ResizeHandle() {
 
 function RightPanel({ darkMode }: { darkMode: boolean }) {
   return (
-    <Panel defaultSize={30} minSize={20}>
+    <Panel defaultSize={20} minSize={15}>
       <aside className={`h-full flex flex-col backdrop-blur-md border rounded-3xl overflow-hidden relative ${darkMode ? 'bg-gray-800/40 border-gray-700' : 'bg-white/40 border-border-subtle'}`}>
         {/* Recent Activity */}
         <div className="flex-1 min-h-0 flex flex-col">
@@ -80,7 +80,7 @@ function App() {
       {/* Main Content + Right Panel */}
       <Group direction="horizontal" className="flex-1 min-w-0">
         {/* Center Content */}
-        <Panel defaultSize={70} minSize={50}>
+        <Panel defaultSize={80} minSize={50}>
           <Routes>
             <Route path={RoutePaths.Home} element={<HomePage darkMode={darkMode} />} />
             <Route path={RoutePaths.Datasets} element={<DatasetsPage darkMode={darkMode} />} />

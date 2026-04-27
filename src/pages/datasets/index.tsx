@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Database, Plus, Search, ArrowRight } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const mockDatasets = [
   { id: '1', name: 'AI 技术文档', count: 12, updated: '2小时前' },
@@ -30,8 +31,14 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
         "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
         darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
       )}>
-        <div className="flex flex-col">
-          <span className="mono-label text-primary">Knowledge</span>
+        <div className="flex flex-col gap-1">
+          <Breadcrumb
+            items={[
+              { label: '首页', path: Routes.Home },
+              { label: '知识库' }
+            ]}
+            darkMode={darkMode}
+          />
           <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>知识库</h2>
         </div>
         <div className="flex items-center gap-4">

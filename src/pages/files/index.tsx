@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Routes } from '@/routes';
 import { Upload, FileText, FileCode, Presentation, FileSpreadsheet, Search, Grid, List, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Breadcrumb } from '@/components/Breadcrumb';
 
 const FILE_TYPES: Record<string, { icon: any; color: string }> = {
   PDF: { icon: FileText, color: 'from-red-500/20 to-red-500/5' },
@@ -63,8 +65,14 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
         "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
         darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
       )}>
-        <div className="flex flex-col">
-          <span className="mono-label text-primary">Storage</span>
+        <div className="flex flex-col gap-1">
+          <Breadcrumb
+            items={[
+              { label: '首页', path: Routes.Home },
+              { label: '文件' }
+            ]}
+            darkMode={darkMode}
+          />
           <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>文件</h2>
         </div>
         <div className="flex items-center gap-4">
