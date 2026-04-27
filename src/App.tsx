@@ -5,7 +5,9 @@ import { Sidebar } from './components/Sidebar';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import HomePage from './pages/home';
 import DatasetsPage from './pages/datasets';
+import DatasetPage from './pages/datasets/dataset';
 import ChatsPage from './pages/chats';
+import ChatPage from './pages/chats/chat';
 import FilesPage from './pages/files';
 
 function ResizeHandle() {
@@ -84,7 +86,9 @@ function App() {
           <Routes>
             <Route path={RoutePaths.Home} element={<HomePage darkMode={darkMode} />} />
             <Route path={RoutePaths.Datasets} element={<DatasetsPage darkMode={darkMode} />} />
+            <Route path={RoutePaths.DatasetDetail} element={<DatasetPage darkMode={darkMode} />} />
             <Route path={RoutePaths.Chats} element={<ChatsPage darkMode={darkMode} />} />
+            <Route path={RoutePaths.ChatDetail} element={<ChatPage darkMode={darkMode} />} />
             <Route path={RoutePaths.Files} element={<FilesPage darkMode={darkMode} />} />
             <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
           </Routes>

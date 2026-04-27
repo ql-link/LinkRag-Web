@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { MessageSquare, Plus, Search, ArrowRight, X } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,7 @@ interface ChatsPageProps {
 }
 
 export default function ChatsPage({ darkMode }: ChatsPageProps) {
+  const navigate = useNavigate();
   const [searchString, setSearchString] = useState('');
   const [chats, setChats] = useState(mockChats);
   const [datasets] = useState(mockDatasets);
@@ -69,7 +71,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
       {/* Header */}
       <header className={cn(
         "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
-        darkMode ? "bg-gray-800/80 border-gray-700" : "bg-white/80 border-border-subtle border-b"
+        darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/80 border-border-subtle border-b"
       )}>
         <div className="flex flex-col gap-1">
           <Breadcrumb
@@ -79,13 +81,13 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
             ]}
             darkMode={darkMode}
           />
-          <h2 className={cn("text-xl serif-heading", darkMode && "text-gray-100")}>对话</h2>
+          <h2 className={cn("text-xl serif-heading", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>对话</h2>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
             <Search size={14} className={cn(
               "absolute left-3 top-1/2 -translate-y-1/2",
-              darkMode ? "text-gray-400" : "text-text-main/30"
+              darkMode ? "text-[#858585]" : "text-text-main/30"
             )} />
             <input
               type="text"
@@ -93,9 +95,9 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-primary",
+                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#c586c0]",
                 darkMode
-                  ? "bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500"
+                  ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                   : "bg-bg-base/50 border-border-subtle"
               )}
             />
@@ -124,10 +126,11 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
           {filteredChats.map((chat) => (
             <div
               key={chat.id}
+              onClick={() => navigate(`/chats/${chat.id}`)}
               className={cn(
                 "rounded-2xl p-5 transition-colors cursor-pointer group",
                 darkMode
-                  ? "bg-gray-800/50 border border-gray-700 hover:border-primary"
+                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#c586c0]"
                   : "art-card hover:border-primary"
               )}
             >
@@ -161,7 +164,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
             className={cn(
               "rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[140px] p-5 cursor-pointer transition-colors",
               darkMode
-                ? "border-gray-700 text-gray-400 hover:text-primary hover:border-primary"
+                ? "border-[#3c3c3c] text-[#858585] hover:text-[#c586c0] hover:border-[#c586c0]"
                 : "art-card text-text-main/40 hover:text-primary hover:border-primary"
             )}
           >
@@ -176,17 +179,17 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)} />
             <div className={cn(
               "relative w-[480px] rounded-2xl shadow-2xl overflow-hidden",
-              darkMode ? "bg-gray-800 border border-gray-700" : "bg-white border border-border-subtle"
+              darkMode ? "bg-[#252526] border border-[#3c3c3c]" : "bg-white border border-border-subtle"
             )}>
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-                <h3 className="text-lg font-bold">新建对话</h3>
-                <button onClick={() => setCreateDialogOpen(false)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <div className={cn("flex items-center justify-between px-6 py-4 border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
+                <h3 className={cn("text-lg font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>新建对话</h3>
+                <button onClick={() => setCreateDialogOpen(false)} className={cn("p-2 rounded-xl hover:bg-[#2d2d2d] transition-colors", darkMode ? "text-[#858585]" : "text-text-main/50")}>
                   <X size={18} />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className={cn("block mb-2 text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-300" : "text-text-main")}>
+                  <label className={cn("block mb-2 text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#cccccc]" : "text-text-main")}>
                     对话名称
                   </label>
                   <input
@@ -195,15 +198,15 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
                     onChange={(e) => setNewChatName(e.target.value)}
                     placeholder="输入对话名称"
                     className={cn(
-                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-primary",
+                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#c586c0]",
                       darkMode
-                        ? "bg-gray-700 border-gray-600 text-gray-100 placeholder:text-gray-400"
+                        ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                         : "bg-bg-base/50 border-border-subtle"
                     )}
                   />
                 </div>
                 <div>
-                  <label className={cn("block mb-2 text-xs font-bold uppercase tracking-wider", darkMode ? "text-gray-300" : "text-text-main")}>
+                  <label className={cn("block mb-2 text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#cccccc]" : "text-text-main")}>
                     关联数据集
                   </label>
                   <DatasetSelector
@@ -214,16 +217,26 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-subtle bg-bg-base/30">
+              <div className={cn("flex items-center justify-end gap-3 px-6 py-4 border-t bg-bg-base/30", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
                 <button
                   onClick={() => setCreateDialogOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors"
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors",
+                    darkMode
+                      ? "text-[#cccccc] hover:bg-[#2d2d2d]"
+                      : "hover:bg-gray-100"
+                  )}
                 >
                   取消
                 </button>
                 <button
                   onClick={handleCreateChat}
-                  className="px-4 py-2 rounded-xl bg-text-main text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity"
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-opacity",
+                    darkMode
+                      ? "bg-[#094771] text-white hover:bg-[#0a5280]"
+                      : "bg-text-main text-white hover:opacity-90"
+                  )}
                 >
                   创建
                 </button>
