@@ -8,15 +8,13 @@ import {
   HelpCircle, 
   ChevronLeft, 
   ChevronRight,
-  Plus,
-  GripVertical
 } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { KnowledgeGraph } from './KnowledgeGraph';
 import { KnowledgeQA } from './KnowledgeQA';
 import { RecentUploads } from './RecentUploads';
 import { cn } from '../lib/utils';
+import type { LucideIcon } from 'lucide-react';
 
 export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -151,7 +149,14 @@ function ResizeHandle() {
   );
 }
 
-function NavItem({ icon: Icon, label, active = false, collapsed = false }: any) {
+interface NavItemProps {
+  icon: LucideIcon;
+  label: string;
+  active?: boolean;
+  collapsed?: boolean;
+}
+
+function NavItem({ icon: Icon, label, active = false, collapsed = false }: NavItemProps) {
   return (
     <a href="#" className={cn(
       "flex items-center gap-3 px-4 py-3 transition-all duration-300 group relative rounded-2xl mx-1",
