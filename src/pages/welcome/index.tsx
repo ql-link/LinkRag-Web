@@ -7,11 +7,11 @@ import {
   type ReactNode,
 } from 'react';
 import { Navigate, useNavigate } from 'react-router';
+import { motion } from 'motion/react';
 import {
   ArrowDown,
   ArrowRight,
   BookOpenText,
-  Database,
   FileCog,
   FolderHeart,
   MessageSquareText,
@@ -41,45 +41,63 @@ const scrollSections = [
 const capabilityCards = [
   {
     icon: FolderHeart,
-    eyebrow: 'Knowledge Space',
-    title: '先把资料放进一个清楚的地方',
+    eyebrow: '知识库管理',
+    title: '按主题组织文档，集中管理',
     description:
-      '你可以按主题或项目建立知识库，把常用文档慢慢收进来，之后查找和问答都会轻松很多。',
+      '创建知识库，按项目或主题归类文档。分类清晰，检索才高效。',
   },
   {
     icon: FileCog,
-    eyebrow: 'File Pipeline',
-    title: '上传文件这件事，会变得简单很多',
+    eyebrow: '文件处理',
+    title: '上传文件，实时追踪处理状态',
     description:
-      '支持把资料上传进系统，也能看到处理状态。你不需要猜文件有没有进来，页面会把过程展示给你。',
+      '支持批量上传，页面展示处理进度。文件是否就绪、解析是否完成，一目了然。',
   },
   {
     icon: MessageSquareText,
-    eyebrow: 'Conversation',
-    title: '当资料准备好之后，就可以开始问问题了',
+    eyebrow: '智能问答',
+    title: '基于知识库内容，获得准确回答',
     description:
-      '对话会和知识库关联在一起，所以你的提问不是空聊，而是围绕已经整理好的内容展开。',
+      '对话与知识库关联，回答基于你上传的内容，并标注引用来源。',
   },
 ];
 
 const timeline = [
   {
-    title: '先建一个知识库',
-    description: '给资料一个归属，后面整理起来会顺很多。',
+    title: '创建知识库',
+    description: '确定主题，为文档建立归属。',
   },
   {
-    title: '再把文件放进来',
-    description: 'PDF、文档、笔记都可以慢慢补进来。',
+    title: '上传文件',
+    description: '支持 PDF、文档、笔记等多种格式。',
   },
   {
-    title: '然后开始提问',
-    description: '围绕这些资料去问，得到的回答会更贴近你的内容。',
+    title: '开始提问',
+    description: '基于知识库内容获取精准回答。',
   },
   {
-    title: '把它用成自己的工作台',
-    description: '资料越完整，它就越像一个真正懂你内容的小助手。',
+    title: '持续丰富',
+    description: '资料越完整，回答质量越高。',
   },
 ];
+
+const staggerContainer = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.12,
+    },
+  },
+};
+
+const fadeUpItem = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+  },
+};
 
 function RevealSection({
   id,
@@ -185,7 +203,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   });
 
   const heading = useMemo(
-    () => (mode === 'login' ? '回到你的知识工作台' : '开始搭建你的知识空间'),
+    () => (mode === 'login' ? '登录' : '注册'),
     [mode],
   );
 
@@ -252,7 +270,12 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
     >
       <WarmRibbonBackground darkMode={darkMode} />
 
-      <header className="fixed inset-x-0 top-0 z-30 px-4 pt-4 lg:px-8">
+      <motion.header
+        initial={{ y: -18, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="fixed inset-x-0 top-0 z-30 px-4 pt-4 lg:px-8"
+      >
         <div
           className={cn(
             'mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 py-3 backdrop-blur-md',
@@ -312,47 +335,64 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
             </button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <main className="relative z-10 mx-auto max-w-[1240px] px-6 pb-24 pt-28 lg:px-8">
         <RevealSection
           id="intro"
           className="min-h-[88vh] flex flex-col justify-center border-b border-border-subtle/60 py-20"
         >
-          <div className="max-w-[820px]">
-            <p className={cn('mono-label mb-6', darkMode ? 'text-[#858585]' : '')}>document intelligence entrance</p>
-            <h2 className={cn('serif-heading text-5xl leading-[1.02] lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-              欢迎来到这里，
+          <motion.div
+            className="max-w-[820px]"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.p variants={fadeUpItem} className={cn('mono-label mb-6', darkMode ? 'text-[#858585]' : '')}>
+              document intelligence platform
+            </motion.p>
+            <motion.h2 variants={fadeUpItem} className={cn('serif-heading text-5xl leading-[1.02] lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+              将文档转化为
               <br />
-              把你的资料慢慢整理成知识
-            </h2>
-            <p className={cn('mt-8 max-w-[700px] text-lg leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
-              这里适合放下文档、整理内容、再围绕资料开始提问。往下看一看，你会更清楚这个空间可以怎么陪你一起工作。
-            </p>
-          </div>
+              可对话的知识库
+            </motion.h2>
+            <motion.p variants={fadeUpItem} className={cn('mt-8 max-w-[700px] text-lg leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
+              上传文档、构建知识库、围绕内容展开问答。toLink 让每份资料都能被检索、被理解、被使用。
+            </motion.p>
+          </motion.div>
 
-          <div className="mt-14 flex flex-wrap gap-4">
-            <button
+          <motion.div
+            className="mt-14 flex flex-wrap gap-4"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.button
+              variants={fadeUpItem}
+              whileHover={{ y: -3 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => scrollToLogin('login')}
               className={cn(
-                'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] transition-opacity',
+                'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] transition-opacity shadow-sm',
                 darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
               )}
             >
-              立即登录
+              开始使用
               <ArrowRight size={16} />
-            </button>
-            <a
+            </motion.button>
+            <motion.a
+              variants={fadeUpItem}
+              whileHover={{ y: -3 }}
               href="#knowledge"
               className={cn(
                 'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em]',
                 darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] border border-[#3c3c3c]' : 'bg-white/70 text-text-main border border-border-subtle',
               )}
             >
-              继续向下看
+              了解更多
               <ArrowDown size={16} />
-            </a>
-          </div>
+            </motion.a>
+          </motion.div>
         </RevealSection>
 
         <RevealSection
@@ -361,23 +401,31 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
         >
           <div className="grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
             <div>
-              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>chapter one</p>
+              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>01</p>
               <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                先把内容放好，
+                构建知识库，
                 <br />
-                心里就会踏实很多
+                让文档有序可查
               </h3>
               <p className={cn('mt-6 max-w-[520px] text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                很多人开始用这类工具时，最怕的不是功能不够，而是资料太散。先建立几个知识库，把内容归到合适的位置，后面会轻松很多。
+                按主题或项目创建知识库，将分散的文档集中管理。分类清晰，检索才高效。
               </p>
             </div>
 
-            <div className="grid gap-4">
+            <motion.div
+              className="grid gap-4"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.2 }}
+            >
               {capabilityCards.map(({ icon: Icon, eyebrow, title, description }, index) => (
-                <article
+                <motion.article
                   key={title}
+                  variants={fadeUpItem}
+                  whileHover={{ y: -5 }}
                   className={cn(
-                    'art-card rounded-[30px] p-6 transition-transform duration-500',
+                    'art-card card-glow rounded-[30px] p-6 transition-transform duration-500',
                     darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : '',
                     index % 2 === 1 ? 'lg:translate-x-8' : '',
                   )}
@@ -399,9 +447,9 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   <p className={cn('mt-3 text-sm leading-7', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/56')}>
                     {description}
                   </p>
-                </article>
+                </motion.article>
               ))}
-            </div>
+            </motion.div>
           </div>
         </RevealSection>
 
@@ -410,36 +458,44 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
           className="min-h-[82vh] flex flex-col justify-center border-b border-border-subtle/60 py-20"
         >
           <div className="max-w-[760px]">
-            <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>chapter two</p>
+            <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>02</p>
             <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-              把文件放进来以后，
+              文件处理，
               <br />
-              事情就开始动起来了
+              状态透明，流程可控
             </h3>
             <p className={cn('mt-6 text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-              上传、查看状态、重新处理，这些动作都很具体，也很让人安心。你能清楚地知道资料有没有进入系统，而不是只能等一个结果。
+              上传、查看状态、重新解析——每一步都清晰可见，无需猜测文件是否就绪。
             </p>
           </div>
 
-          <div className="mt-12 grid gap-5 lg:grid-cols-2">
-            <div
+          <motion.div
+            className="mt-12 grid gap-5 lg:grid-cols-2"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.2 }}
+          >
+            <motion.div
+              variants={fadeUpItem}
+              whileHover={{ y: -4 }}
               className={cn(
-                'rounded-[32px] p-7',
+                'rounded-[32px] p-7 card-glow',
                 darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/76 border border-border-subtle shadow-sm',
               )}
             >
               <div className="mb-4 flex items-center gap-3">
                 <Workflow size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
                 <h4 className={cn('text-lg font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
-                  现在你可以做这些事
+                  支持的操作
                 </h4>
               </div>
               <div className="space-y-3">
                 {[
-                  '数据集详情中查看文件列表',
-                  '上传文件到指定知识库',
-                  '删除文件并刷新状态',
-                  '手动触发解析动作',
+                  '查看文件列表与处理状态',
+                  '上传文档到指定知识库',
+                  '删除文件并刷新视图',
+                  '手动触发重新解析',
                 ].map((item) => (
                   <div
                     key={item}
@@ -452,25 +508,27 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
 
-            <div
+            <motion.div
+              variants={fadeUpItem}
+              whileHover={{ y: -4 }}
               className={cn(
-                'rounded-[32px] p-7',
+                'rounded-[32px] p-7 card-glow',
                 darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/76 border border-border-subtle shadow-sm',
               )}
             >
               <div className="mb-4 flex items-center gap-3">
                 <BookOpenText size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
                 <h4 className={cn('text-lg font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
-                  为什么这一步很重要
+                  文件就绪是问答的前提
                 </h4>
               </div>
               <p className={cn('text-sm leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/60')}>
-                因为只要资料真正进来了，后面的整理、检索和问答才有意义。对使用者来说，这一步顺不顺，几乎决定了整个体验舒不舒服。
+                只有文件成功解析入库，后续的检索和问答才有意义。透明的处理流程让你随时掌握进度。
               </p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </RevealSection>
 
         <RevealSection
@@ -479,20 +537,24 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
         >
           <div className="grid items-center gap-10 lg:grid-cols-[1fr_0.9fr]">
             <div>
-              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>chapter three</p>
+              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>03</p>
               <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                当资料慢慢积累起来，
+                知识问答，
                 <br />
-                对话才会越来越有用
+                基于你的内容，给出有来源的回答
               </h3>
               <p className={cn('mt-6 max-w-[580px] text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                你不需要一次就把所有东西准备完。很多时候，只要先放进几份常用资料，再从几个问题开始，这个空间就会慢慢变得顺手起来。
+                提问时系统检索已上传的文档，结合上下文生成回答，并标注引用来源。
               </p>
             </div>
 
-            <div
+            <motion.div
+              initial={{ opacity: 0, x: 18 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              whileHover={{ y: -4 }}
               className={cn(
-                'rounded-[34px] p-7',
+                'rounded-[34px] p-7 card-glow',
                 darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/78 border border-border-subtle shadow-sm',
               )}
             >
@@ -523,21 +585,21 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           </div>
         </RevealSection>
 
         <RevealSection id="login" className="min-h-[92vh] flex items-center py-24">
           <div ref={loginRef} className="grid w-full items-start gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="pt-4">
-              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>final chapter</p>
+              <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>04</p>
               <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                如果你想开始，
+                从这里开始
                 <br />
-                就从这里进去看看
+                管理你的知识库
               </h3>
               <p className={cn('mt-6 max-w-[480px] text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                你可以直接登录，也可以先注册一个账号。后面进入的就是知识库、文件和对话工作台，所有内容都会从那里开始展开。
+                登录已有账号或注册新账号，进入工作台开始管理你的知识库。
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
@@ -547,7 +609,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                     darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0]' : 'bg-white/80 text-text-main border border-border-subtle',
                   )}
                 >
-                  切到登录
+                  登录
                 </button>
                 <button
                   onClick={() => scrollToLogin('register')}
@@ -556,14 +618,17 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                     darkMode ? 'bg-[#094771] text-white' : 'bg-text-main text-white',
                   )}
                 >
-                  切到注册
+                  注册
                 </button>
               </div>
             </div>
 
-            <div
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
               className={cn(
-                'rounded-[34px] p-7 shadow-xl lg:p-8',
+                'rounded-[34px] p-7 shadow-xl lg:p-8 card-glow',
                 darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/84 backdrop-blur-sm border border-white/85',
               )}
             >
@@ -591,8 +656,8 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 </h3>
                 <p className={cn('mt-3 text-sm leading-7', darkMode ? 'text-[#9b9b9b]' : 'text-text-main/55')}>
                   {mode === 'login'
-                    ? '登录后就会进入工作台，继续整理资料或开始提问。'
-                    : '注册完成后会直接进入首页，从那里开始使用。'}
+                    ? '登录后进入工作台，继续管理知识库和对话。'
+                    : '注册后直接进入首页，开始构建你的知识空间。'}
                 </p>
               </div>
 
@@ -602,7 +667,9 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base/70',
                 )}
               >
-                <button
+                <motion.button
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setMode('login');
                     setError('');
@@ -619,8 +686,10 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   )}
                 >
                   登录
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setMode('register');
                     setError('');
@@ -637,7 +706,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   )}
                 >
                   注册
-                </button>
+                </motion.button>
               </div>
 
               <form className="space-y-4" onSubmit={handleSubmit}>
@@ -727,7 +796,9 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </div>
                 )}
 
-                <button
+                <motion.button
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.985 }}
                   type="submit"
                   disabled={submitting}
                   className={cn(
@@ -738,7 +809,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 >
                   {submitting ? '处理中...' : mode === 'login' ? '登录并进入' : '注册并开始'}
                   {!submitting && <ArrowRight size={16} />}
-                </button>
+                </motion.button>
               </form>
 
               <div
@@ -750,14 +821,14 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 <div className="mb-2 flex items-center gap-2">
                   <ShieldCheck size={15} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
                   <p className={cn('text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
-                    进入逻辑
+                    访问说明
                   </p>
                 </div>
                 <p className={cn('text-sm leading-7', darkMode ? 'text-[#9b9b9b]' : 'text-text-main/55')}>
-                  没登录时会先停留在这里；登录后进入系统；退出时也会回到这个欢迎页。
+                  未登录时停留在此页面；登录后进入系统；退出后回到欢迎页。
                 </p>
               </div>
-            </div>
+            </motion.div>
           </div>
         </RevealSection>
       </main>
