@@ -25,3 +25,5 @@ export async function logout(): Promise<void> {
 export function isLoggedIn(): boolean {
   return !!localStorage.getItem('accessToken');
 }
+
+export { clearToken };

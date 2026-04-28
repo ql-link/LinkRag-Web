@@ -5,6 +5,8 @@ import type {
   CreateDatasetRequest,
   UpdateDatasetRequest,
   PageResult,
+  FileParseResultDTO,
+  FileParseSubmitDTO,
 } from '@/types/api';
 
 export async function getDatasets(
@@ -44,12 +46,10 @@ export async function getKnowledgeFiles(
   pageSize = 20,
   filters?: {
     uploadStatus?: string;
-    parseNoticeStatus?: string;
-    parseStatus?: string;
   }
 ): Promise<PageResult<KnowledgeFileDTO>> {
   return apiClient.get<PageResult<KnowledgeFileDTO>>(
-    `/api/v1/datasets/${datasetId}/knowledge-files`,
+    `/api/v1/datasets/${datasetId}/files`,
     { page, pageSize, ...filters }
   );
 }
@@ -63,19 +63,31 @@ export async function uploadKnowledgeFile(
   formData.append('file', file);
   formData.append('parseImmediately', String(parseImmediately));
   return apiClient.postForm<KnowledgeFileDTO>(
-    `/api/v1/datasets/${datasetId}/knowledge-files`,
+    `/api/v1/datasets/${datasetId}/files`,
     formData
   );
 }
 
 export async function getKnowledgeFile(fileId: number): Promise<KnowledgeFileDTO> {
-  return apiClient.get<KnowledgeFileDTO>(`/api/v1/knowledge-files/${fileId}`);
+  return apiClient.get<KnowledgeFileDTO>(`/api/v1/files/${fileId}`);
 }
 
-export async function createParseTask(fileId: number): Promise<void> {
-  await apiClient.post(`/api/v1/knowledge-files/${fileId}/parse-tasks`);
+export async function createParseTask(fileId: number): Promise<FileParseSubmitDTO> {
+  return apiClient.post<FileParseSubmitDTO>(`/api/v1/files/${fileId}/parse`);
 }
 
 export async function deleteKnowledgeFile(fileId: number): Promise<void> {
-  await apiClient.delete(`/api/v1/knowledge-files/${fileId}`);
+  await apiClient.delete(`/api/v1/files/${fileId}`);
+}
+
+export async function getParseResults(
+  datasetId: number,
+  fileIds: number[]
+): Promise<FileParseResultDTO[]> {
+  return apiClient.get<FileParseResultDTO[]>(
+    `/api/v1/datasets/${datasetId}/files/parse-results`,
+    {
+      fileIds: fileIds.join(','),
+    }
+  );
 }

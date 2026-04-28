@@ -13,6 +13,25 @@ export class ApiError extends Error {
   }
 }
 
+export function isAuthError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 401;
+}
+
+export function isForbiddenError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 403;
+}
+
+export function isConflictError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === 409;
+}
+
+type ToastHandler = (type: 'error' | 'success' | 'info', message: string) => void;
+let toastHandler: ToastHandler | null = null;
+
+export function setToastHandler(handler: ToastHandler) {
+  toastHandler = handler;
+}
+
 function getToken(): string | null {
   return localStorage.getItem('accessToken');
 }
@@ -35,6 +54,7 @@ async function request<T>(
   } = {}
 ): Promise<T> {
   const { body, headers = {}, params } = options;
+  const isFormData = body instanceof FormData;
 
   let url = `${API_BASE_URL}${path}`;
 
@@ -51,10 +71,11 @@ async function request<T>(
     }
   }
 
-  const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...headers,
-  };
+  const requestHeaders: Record<string, string> = { ...headers };
+
+  if (!isFormData) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
 
   const token = getToken();
   if (token) {
@@ -66,21 +87,25 @@ async function request<T>(
     headers: requestHeaders,
   };
 
-  if (body) {
-    config.body = JSON.stringify(body);
+  if (body !== undefined) {
+    config.body = isFormData ? body as FormData : JSON.stringify(body);
   }
 
   const response = await fetch(url, config);
 
   if (response.status === 401) {
     clearToken();
-    window.location.href = '/login';
+    toastHandler?.('error', '请先登录');
     throw new ApiError(401, '未登录或登录已过期');
   }
 
   const result: Result<T> = await response.json();
 
   if (result.code !== 200) {
+    const isAuth = result.code === 401;
+    if (!isAuth) {
+      toastHandler?.('error', result.message || '请求失败');
+    }
     throw new ApiError(result.code, result.message, result.data);
   }
 
@@ -113,15 +138,3 @@ export const apiClient = {
 };
 
 export { setToken, clearToken, getToken };
-
-export function isAuthError(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 401;
-}
-
-export function isForbiddenError(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 403;
-}
-
-export function isConflictError(error: unknown): boolean {
-  return error instanceof ApiError && error.code === 409;
-}

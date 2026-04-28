@@ -12,10 +12,13 @@ import {
   Settings,
   User,
   LogOut,
+  Cpu,
 } from 'lucide-react';
 import { Routes } from '@/routes';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { logout as logoutRequest } from '@/services/auth';
 
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
@@ -34,6 +37,8 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -54,6 +59,21 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
       document.documentElement.classList.remove('dark');
     }
   };
+
+  const displayName = user?.nickname || user?.username || '当前用户';
+  const displayEmail = user?.email || '未设置邮箱';
+
+  async function handleLogout() {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    } finally {
+      logout();
+      setShowUserMenu(false);
+      navigate(Routes.Welcome, { replace: true });
+    }
+  }
 
   return (
     <aside
@@ -187,8 +207,8 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">
-                <p className={cn("text-[10px] font-bold uppercase truncate", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>Alex Chen</p>
-                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>Pro Member</p>
+                <p className={cn("text-[10px] font-bold uppercase truncate", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>{displayName}</p>
+                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>{displayEmail}</p>
               </div>
             )}
           </button>
@@ -202,16 +222,37 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
               )}
             >
               <div className={cn("px-3 py-2", darkMode ? "border-[#3c3c3c] border-b" : "border-border-subtle border-b")}>
-                <p className={cn("text-xs font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>Alex Chen</p>
-                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>alex@example.com</p>
+                <p className={cn("text-xs font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>{displayName}</p>
+                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>{displayEmail}</p>
               </div>
               <div className="py-1">
-                <button className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 transition-colors",
-                  darkMode
-                    ? "text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]"
-                    : "text-text-main/70 hover:bg-primary/5 hover:text-text-main"
-                )}>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    navigate(Routes.LLMPage);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 transition-colors",
+                    darkMode
+                      ? "text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]"
+                      : "text-text-main/70 hover:bg-primary/5 hover:text-text-main"
+                  )}
+                >
+                  <Cpu size={14} />
+                  <span className="text-xs font-medium">LLM 配置</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    navigate(Routes.ProfilePage);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 transition-colors",
+                    darkMode
+                      ? "text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]"
+                      : "text-text-main/70 hover:bg-primary/5 hover:text-text-main"
+                  )}
+                >
                   <User size={14} />
                   <span className="text-xs font-medium">个人信息</span>
                 </button>
@@ -224,7 +265,9 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
                   <Settings size={14} />
                   <span className="text-xs font-medium">设置</span>
                 </button>
-                <button className={cn(
+                <button
+                  onClick={handleLogout}
+                  className={cn(
                   "w-full flex items-center gap-3 px-3 py-2 transition-colors",
                   darkMode
                     ? "text-red-400 hover:bg-[#2d2d2d]"

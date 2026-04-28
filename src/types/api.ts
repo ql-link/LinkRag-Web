@@ -89,21 +89,24 @@ export interface KnowledgeFileDTO {
   originalFilename: string;
   fileSuffix: string;
   fileSize: number;
+  bucketName?: string | null;
+  objectKey?: string | null;
+  fileUrl?: string | null;
   uploadStatus: KnowledgeUploadStatus;
   isUploadSuccess: boolean;
-  parseNoticeStatus: KnowledgeParseNoticeStatus;
-  parseTaskId: string | null;
-  parseStatus: KnowledgeParseStatus;
-  isParseSuccess: boolean;
   failureReason: string | null;
   createdAt: string;
   updatedAt: string;
+  parseNoticeStatus?: KnowledgeParseNoticeStatus | null;
+  parseTaskId?: string | null;
+  parseStatus?: KnowledgeParseStatus | null;
+  isParseSuccess?: boolean | null;
 }
 
 export type KnowledgeUploadStatus =
-  | "UPLOADING"
-  | "UPLOAD_SUCCESS"
-  | "UPLOAD_FAILED";
+  | "uploading"
+  | "success"
+  | "failed";
 
 export type KnowledgeParseNoticeStatus =
   | "PARSE_NOTICE_PENDING"
@@ -116,6 +119,21 @@ export type KnowledgeParseStatus =
   | "PROCESSING"
   | "SUCCESS"
   | "FAILED";
+
+export interface FileParseSubmitDTO {
+  fileId: number;
+  originalFilename: string;
+  frontendStatus: string;
+}
+
+export interface FileParseResultDTO {
+  fileId: number;
+  originalFilename: string;
+  parsedFilename: string | null;
+  frontendStatus: string;
+  parseStatus: string | null;
+  failureReason: string | null;
+}
 
 export interface UsageSummaryDTO {
   totalCalls: number;
@@ -204,4 +222,8 @@ export interface ChatResponse {
   answer: string;
   conversationId: number;
   messageId: number;
+}
+
+export interface OssUploadResult {
+  url: string;
 }

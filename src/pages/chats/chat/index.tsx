@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Send, MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Pin, PinOff, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
-import { getMessages, getConversations, updateConversation, deleteConversation } from '@/services/chat';
+import { getMessages, getConversations, deleteConversation } from '@/services/chat';
 import type { MessageDTO, ConversationDTO } from '@/types/api';
 
 interface ChatPageProps {
@@ -45,23 +45,12 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
 
   const handleSend = async () => {
     if (!inputValue.trim() || !conversation) return;
-
-    // TODO: 调用后端发送消息接口
-    // await sendMessage(conversation.id, inputValue);
-    // 重新加载消息
-    // loadConversation();
-
-    setInputValue('');
+    alert('后端暂未提供发送消息接口，已在 web/docs/ToLink-缺失接口清单.md 中记录。');
   };
 
   const handlePin = async () => {
     if (!conversation) return;
-    try {
-      await updateConversation(conversation.id, { isPinned: !conversation.isPinned });
-      setConversation({ ...conversation, isPinned: !conversation.isPinned });
-    } catch (error) {
-      console.error('Failed to pin conversation:', error);
-    }
+    alert('后端暂未提供会话更新接口，当前无法置顶。');
   };
 
   const handleDelete = async () => {
@@ -159,6 +148,14 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-4">
+          <div className={cn(
+            "rounded-2xl p-4 text-sm",
+            darkMode
+              ? "bg-[#2d2d2d] border border-[#3c3c3c] text-[#cccccc]"
+              : "bg-amber-50 border border-amber-200 text-amber-800"
+          )}>
+            当前页面已接通会话列表、历史消息和删除能力；发送消息、置顶能力仍依赖后端补接口。
+          </div>
           {messages.length === 0 ? (
             <div className={cn(
               "text-center py-12 rounded-2xl",
@@ -212,7 +209,7 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="输入消息..."
+            placeholder="发送能力待后端接口补齐"
             className={cn(
               "flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none",
               darkMode

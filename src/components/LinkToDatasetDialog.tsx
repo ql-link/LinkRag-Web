@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Database, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Dataset } from '@/types';
+import type { DatasetDTO } from '@/types/api';
 
 interface LinkToDatasetDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (selectedIds: string[]) => void;
-  datasets: Dataset[];
+  datasets: DatasetDTO[];
   currentKbIds: string[];
 }
 
@@ -92,11 +92,12 @@ export function LinkToDatasetDialog({
         <div className="px-6 pb-4 max-h-[300px] overflow-y-auto">
           <div className="space-y-2">
             {filteredDatasets.map((dataset) => {
-              const isSelected = selectedIds.includes(dataset.id);
+              const datasetId = String(dataset.id);
+              const isSelected = selectedIds.includes(datasetId);
               return (
                 <button
                   key={dataset.id}
-                  onClick={() => toggleDataset(dataset.id)}
+                  onClick={() => toggleDataset(datasetId)}
                   className={cn(
                     "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
                     isSelected
@@ -120,7 +121,7 @@ export function LinkToDatasetDialog({
                       {dataset.name}
                     </p>
                     <p className="mono-label text-[10px] text-text-main/40">
-                      {dataset.count} 个文档
+                      {dataset.status}
                     </p>
                   </div>
                   <div

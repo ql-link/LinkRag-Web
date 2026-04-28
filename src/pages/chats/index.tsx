@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { MessageSquare, Plus, Search, ArrowRight, X } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,8 @@ import { DatasetBadgeList } from '@/components/DatasetBadge';
 import { DatasetSelector } from '@/components/DatasetSelector';
 import { getConversations, createConversation } from '@/services/chat';
 import { getDatasets } from '@/services/dataset';
-import type { ConversationDTO, Dataset as DatasetType, KbInfo } from '@/types/api';
+import type { ConversationDTO } from '@/types/api';
+import type { Dataset as DatasetType } from '@/types';
 
 interface ChatsPageProps {
   darkMode?: boolean;
@@ -16,6 +17,7 @@ interface ChatsPageProps {
 
 export default function ChatsPage({ darkMode }: ChatsPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchString, setSearchString] = useState('');
   const [chats, setChats] = useState<ConversationDTO[]>([]);
   const [datasets, setDatasets] = useState<DatasetType[]>([]);
@@ -27,6 +29,14 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const datasetId = location.state?.datasetId;
+    if (datasetId) {
+      setNewChatKbIds([String(datasetId)]);
+      setCreateDialogOpen(true);
+    }
+  }, [location.state]);
 
   const loadData = async () => {
     try {
@@ -49,26 +59,22 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
     }
   };
 
-  const getChatKbInfo = (kbIds: string[]): KbInfo[] => {
-    return kbIds
-      .map((id) => {
-        const ds = datasets.find((d) => d.id === id);
-        return ds ? { kb_id: ds.id, kb_name: ds.name } : null;
-      })
-      .filter(Boolean) as KbInfo[];
-  };
-
   const handleCreateChat = async () => {
     if (!newChatName.trim()) return;
+    if (newChatKbIds.length === 0) {
+      alert('请先选择一个数据集');
+      return;
+    }
     try {
       const conv = await createConversation({
         title: newChatName,
-        datasetId: newChatKbIds[0] ? Number(newChatKbIds[0]) : 1,
+        datasetId: Number(newChatKbIds[0]),
       });
-      setChats((prev) => [{ ...conv, kb_ids: newChatKbIds, messages: 0 } as any, ...prev]);
+      setChats((prev) => [conv, ...prev]);
       setNewChatName('');
       setNewChatKbIds([]);
       setCreateDialogOpen(false);
+      navigate(`/chats/${conv.id}`);
     } catch (error) {
       console.error('Failed to create chat:', error);
     }

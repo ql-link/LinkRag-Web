@@ -54,13 +54,14 @@ export function DatasetBadgeList({ items, darkMode, maxShow = 2, onRemove }: Dat
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       {showItems.map((item) => (
-        <DatasetBadge
-          key={item.kb_id}
-          kb_id={item.kb_id}
-          kb_name={item.kb_name}
-          darkMode={darkMode}
-          onRemove={onRemove ? () => onRemove(item.kb_id) : undefined}
-        />
+        <div key={item.kb_id}>
+          <DatasetBadge
+            kb_id={item.kb_id}
+            kb_name={item.kb_name}
+            darkMode={darkMode}
+            onRemove={onRemove ? () => onRemove(item.kb_id) : undefined}
+          />
+        </div>
       ))}
       {moreItems.length > 0 && (
         <div

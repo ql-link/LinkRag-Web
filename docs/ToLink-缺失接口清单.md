@@ -1,51 +1,51 @@
-# 后端缺失接口清单
+# ToLink Web 缺失后端接口清单
 
-> 文档版本：1.0
-> 创建日期：2026-04-27
-> 前置条件：已完成 toLink-Service 前端 API 文档（v2.0）对齐
-
----
-
-## 一、背景说明
-
-根据 `ToLink-Service/docs/ToLink-前端API文档.md` 中的 **第十八节**（接口缺口），以下接口是前端完成完整功能闭环所必需的，但当前后端代码中尚未提供。
+> 文档版本：1.1
+> 更新日期：2026-04-28
+> 扫描范围：`toLink-Web/src`、`toLink-Service/link-api/src/main/java`
+> 结论口径：以当前代码真实存在的 Controller 与前端实际调用为准
 
 ---
 
-## 二、缺失接口清单
+## 一、结论摘要
 
-### 2.1 聊天发送消息接口（P0 - 核心功能）
+当前 `toLink-Web` 和 `toLink-Service` 之间的问题分成两类：
 
-#### 2.1.1 发送消息并获取 AI 回复
+1. **真正缺失的后端接口**
+   前端已有调用意图，后端 Controller 尚未提供对应能力。
+2. **后端已提供，但前端调用路径或交互模型不匹配**
+   这类问题不应归因于后端缺接口，需要优先改前端适配。
 
-**接口**
+本文件只把第 1 类列为“缺失接口”，并在末尾补充第 2 类，避免联调判断失真。
+
+---
+
+## 二、真正缺失的后端接口
+
+### 2.1 发送会话消息
+
+**优先级：P0**
+
+前端位置：
+- `toLink-Web/src/services/chat.ts`
+- `toLink-Web/src/pages/chats/chat/index.tsx`
+
+前端期望：
 
 ```http
 POST /api/v1/chat/conversations/{conversationId}/messages
 ```
 
-**请求头**
-
-```http
-satoken: {accessToken}
-Content-Type: application/json
-```
-
-**请求体**
+建议请求体：
 
 ```json
 {
-  "content": "用户输入的问题",
+  "content": "用户问题",
   "configId": 1
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| content | string | 是 | 用户消息内容，不能为空 |
-| configId | number | 否 | 指定使用的 LLM 配置 ID，不传则使用上次配置或默认配置 |
-
-**响应示例**
+建议返回：
 
 ```json
 {
@@ -55,223 +55,131 @@ Content-Type: application/json
     "id": 1001,
     "conversationId": 100,
     "role": "assistant",
-    "content": "AI 回复内容...",
+    "content": "AI 回复内容",
     "configId": 1,
-    "modelName": "gpt-4",
-    "tokenCount": 150,
-    "createdAt": "2026-04-27T10:30:00"
+    "modelName": "gpt-4o",
+    "tokenCount": 123,
+    "createdAt": "2026-04-28T10:00:00"
   }
 }
 ```
 
-**说明**
-- 后端应调用 LLM API 生成回复
-- 回复消息 role 为 `assistant`
-- 如果配置了流式响应（streamEnabled=true），应支持 SSE 模式
+当前后端现状：
+- `ChatController` 只提供创建会话、查询会话列表、查询消息列表、删除会话
+- 未提供“发送消息并生成回复”的入口
+
+影响：
+- 聊天详情页无法真正完成问答闭环
+- 当前 `handleSend()` 仍是 `TODO`
 
 ---
 
-#### 2.1.2 流式对话接口
+### 2.2 更新会话信息
 
-**接口**
+**优先级：P0**
 
-```http
-POST /api/v1/chat/chat
-Content-Type: application/json
-```
+前端位置：
+- `toLink-Web/src/services/chat.ts`
+- `toLink-Web/src/pages/chats/chat/index.tsx`
 
-**请求体**
-
-```json
-{
-  "datasetId": 10001,
-  "message": "用户问题",
-  "configId": 1,
-  "stream": true
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| datasetId | number | 是 | 数据集 ID，用于知识检索 |
-| message | string | 是 | 用户消息 |
-| configId | number | 否 | LLM 配置 ID |
-| stream | boolean | 否 | 是否返回流式响应，默认 false |
-
-**响应（非流式）**
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "answer": "完整回复内容",
-    "conversationId": 100,
-    "messageId": 1001
-  }
-}
-```
-
-**响应（流式）**
-
-```http
-Content-Type: text/event-stream
-```
-
-```
-data: {"content": "部分", "done": false}
-data: {"content": "回复", "done": false}
-data: {"content": "内容", "done": true}
-```
-
-**说明**
-- 流式响应应通过 SSE（Server-Sent Events）实现
-- 每次发送一个 chunk，包含部分 content
-- 最后一条 done=true 表示完成
-
----
-
-### 2.2 对话编辑能力接口（P1）
-
-#### 2.2.1 修改对话标题
-
-**接口**
+前端期望：
 
 ```http
 PATCH /api/v1/chat/conversations/{conversationId}
 ```
 
-**请求体**
+建议支持字段：
 
 ```json
 {
-  "title": "新对话标题"
-}
-```
-
-**响应**
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": null
-}
-```
-
----
-
-#### 2.2.2 设置对话置顶/取消置顶
-
-**接口**
-
-```http
-PATCH /api/v1/chat/conversations/{conversationId}
-```
-
-**请求体**
-
-```json
-{
+  "title": "新标题",
   "isPinned": true
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| isPinned | boolean | 是 | true=置顶，false=取消置顶 |
+当前后端现状：
+- `ChatController` 不存在 `@PatchMapping("/{id}")`
+
+影响：
+- 对话页“置顶/取消置顶”按钮无法真正生效
+- 后续如果要支持改标题，也没有后端承接点
 
 ---
 
-#### 2.2.3 批量删除对话消息
+### 2.3 更新数据集信息
 
-**接口**
+**优先级：P1**
 
-```http
-DELETE /api/v1/chat/conversations/{conversationId}/messages
-```
+前端位置：
+- `toLink-Web/src/services/dataset.ts`
 
-**说明**
-- 清空指定对话的所有消息
-- 为物理删除，删除后不可恢复
-- 对话本身保留，只清空消息
-
----
-
-### 2.3 数据集编辑能力接口（P2）
-
-#### 2.3.1 修改数据集
-
-**接口**
+前端期望：
 
 ```http
 PATCH /api/v1/datasets/{datasetId}
 ```
 
-**请求体**
+建议支持字段：
 
 ```json
 {
-  "name": "新数据集名称",
-  "description": "新的数据集描述"
+  "name": "新的知识库名称",
+  "description": "新的描述"
 }
 ```
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| name | string | 否 | 新名称，最大 128 字符 |
-| description | string | 否 | 新描述，最大 512 字符 |
+当前后端现状：
+- `DatasetController` 只有创建、列表、详情、删除
+- 不存在数据集更新接口
 
-**说明**
-- 所有字段可选，只传要修改的字段
-- 不允许重名
+影响：
+- 前端已预留 `updateDataset()` 服务，但当前没有实际后端可调用
 
 ---
 
-## 三、接口优先级总结
+## 三、暂不建议作为缺失接口立项，但属于产品能力缺口
 
-| 优先级 | 接口 | 路径 | 说明 |
-|--------|------|------|------|
-| P0 | 发送消息 | `POST /api/v1/chat/conversations/{id}/messages` | 核心聊天功能 |
-| P0 | 流式对话 | `POST /api/v1/chat/chat` | 实时对话体验 |
-| P1 | 修改对话标题 | `PATCH /api/v1/chat/conversations/{id}` | 对话管理 |
-| P1 | 置顶对话 | `PATCH /api/v1/chat/conversations/{id}` | 对话管理 |
-| P1 | 清空消息 | `DELETE /api/v1/chat/conversations/{id}/messages` | 对话管理 |
-| P2 | 修改数据集 | `PATCH /api/v1/datasets/{datasetId}` | 数据集管理 |
+### 3.1 文件重新关联多个知识库
 
----
+前端位置：
+- `toLink-Web/src/pages/files/index.tsx`
+- `toLink-Web/src/components/LinkToDatasetDialog.tsx`
 
-## 四、建议实现顺序
+现状：
+- 当前后端文件模型是“文件属于单个数据集”
+- 前端页面存在“链接到数据集”的交互设想，但代码里已明确注释 `Backend doesn't support updating file-dataset relationships yet`
 
-1. **第一阶段**：`POST /api/v1/chat/conversations/{id}/messages` - 基础聊天功能
-2. **第二阶段**：`POST /api/v1/chat/chat`（流式）- 优化聊天体验
-3. **第三阶段**：对话编辑接口（标题、置顶、清空消息）
-4. **第四阶段**：数据集编辑接口
+说明：
+- 这不是简单少一个 CRUD 接口，而是数据模型是否允许“一个文件挂多个知识库”的设计问题
+- 如果确认需要该能力，建议先统一领域模型，再设计接口
 
 ---
 
-## 五、注意事项
+## 四、后端已提供，但前端必须改造适配的接口
 
-### 5.1 Token 头
+以下不是后端缺失，而是 `toLink-Web` 当前调用路径与后端真实路径不一致：
 
-所有接口都要求请求头携带 `satoken: {accessToken}`，不是 `Authorization: Bearer`。
+| 前端当前调用 | 后端真实接口 | 说明 |
+|---|---|---|
+| `GET /api/v1/datasets/{id}/knowledge-files` | `GET /api/v1/datasets/{id}/files` | 文件列表路径不一致 |
+| `POST /api/v1/datasets/{id}/knowledge-files` | `POST /api/v1/datasets/{id}/files` | 文件上传路径不一致 |
+| `GET /api/v1/knowledge-files/{fileId}` | `GET /api/v1/files/{fileId}` | 文件详情路径不一致 |
+| `DELETE /api/v1/knowledge-files/{fileId}` | `DELETE /api/v1/files/{fileId}` | 文件删除路径不一致 |
+| `POST /api/v1/knowledge-files/{fileId}/parse-tasks` | `POST /api/v1/files/{fileId}/parse` | 手动解析触发路径不一致 |
 
-### 5.2 错误处理
+额外说明：
+- 后端已提供 `GET /api/v1/datasets/{datasetId}/files/parse-events`
+- 后端已提供 `GET /api/v1/datasets/{datasetId}/files/parse-results`
+- 这意味着文件上传与解析链路可以先按现有接口接通，不需要等待新接口
 
-后端应返回标准错误格式：
+---
 
-```json
-{
-  "code": 400,
-  "message": "用户输入不能为空",
-  "data": null
-}
-```
+## 五、建议实现顺序
 
-### 5.3 消息保存
+1. 后端补 `POST /api/v1/chat/conversations/{id}/messages`
+2. 后端补 `PATCH /api/v1/chat/conversations/{id}`
+3. 前端把知识文件相关路径统一改成 `/files`
+4. 前端接入文件上传、删除、手动解析、解析结果轮询或 SSE
+5. 后端补 `PATCH /api/v1/datasets/{id}`
+6. 如产品确认需要，再单独设计“文件关联多个知识库”能力
 
-每次 AI 回复后，后端应自动保存：
-- 用户消息（role: user）
-- AI 回复（role: assistant）
-
-不应让前端手动调用两次发送接口。
