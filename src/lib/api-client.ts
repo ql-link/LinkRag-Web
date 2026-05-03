@@ -99,11 +99,20 @@ async function request<T>(
     throw new ApiError(401, '未登录或登录已过期');
   }
 
-  const result: Result<T> = await response.json();
+  let result: Result<T>;
+  try {
+    result = await response.json();
+  } catch {
+    const message = `服务器响应异常 (${response.status})`;
+    toastHandler?.('error', message);
+    throw new ApiError(response.status, message);
+  }
 
   if (result.code !== 200) {
     const isAuth = result.code === 401;
-    if (!isAuth) {
+    if (isAuth) {
+      clearToken();
+    } else {
       toastHandler?.('error', result.message || '请求失败');
     }
     throw new ApiError(result.code, result.message, result.data);
