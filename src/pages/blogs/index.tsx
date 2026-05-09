@@ -44,7 +44,7 @@ const years = [
 const articles: BlogArticle[] = [
   {
     id: 1,
-    title: '智能体时代的知识库：为什么 toLink 正在进化',
+    title: '智能体时代的知识库：为什么 LinkRag 正在进化',
     date: '2026-05-09',
     readTime: '4 分钟',
     category: '产品更新',
@@ -53,7 +53,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 2,
-    title: 'toLink 与 OpenKnow：企业级知识工具的新接口',
+    title: 'LinkRag 与 OpenKnow：企业级知识工具的新接口',
     date: '2026-04-21',
     readTime: '6 分钟',
     category: 'RAG 实践',
@@ -71,7 +71,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 4,
-    title: 'toLink 0.24.0：让 API、知识库与智能体协同',
+    title: 'LinkRag 0.24.0：让 API、知识库与智能体协同',
     date: '2026-02-14',
     readTime: '7 分钟',
     category: '产品更新',
@@ -89,7 +89,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 6,
-    title: 'toLink 的历史时代：从 0.21 到 0.22 的系统演进',
+    title: 'LinkRag 的历史时代：从 0.21 到 0.22 的系统演进',
     date: '2025-11-17',
     readTime: '6 分钟',
     category: '产品更新',
@@ -125,7 +125,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 10,
-    title: '命令行也可以很优雅：toLink CLI 的设计思路',
+    title: '命令行也可以很优雅：LinkRag CLI 的设计思路',
     date: '2025-07-03',
     readTime: '4 分钟',
     category: '产品更新',
@@ -152,7 +152,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 13,
-    title: 'toLink 0.20.0：多智能体探索与实践',
+    title: 'LinkRag 0.20.0：多智能体探索与实践',
     date: '2025-04-16',
     readTime: '6 分钟',
     category: 'Agent 工作流',
@@ -161,7 +161,7 @@ const articles: BlogArticle[] = [
   },
   {
     id: 14,
-    title: '智能体工作流：toLink 0.20.0 有什么新内容',
+    title: '智能体工作流：LinkRag 0.20.0 有什么新内容',
     date: '2025-03-24',
     readTime: '6 分钟',
     category: '产品更新',
@@ -197,7 +197,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogArticle; darkMode?:
       />
       <div className="absolute inset-x-0 top-0 h-px bg-cyan-400/40" />
       <div className="absolute left-3 top-3 rounded-full bg-cyan-400 px-2 py-0.5 text-[8px] font-bold uppercase text-[#041315]">
-        toLink
+        LinkRag
       </div>
       <div className="absolute bottom-3 left-3 right-3">
         <p className={cn('text-[13px] font-bold leading-tight', darkMode ? 'text-cyan-100' : 'text-text-main')}>
@@ -276,8 +276,8 @@ export default function BlogsPage({ darkMode }: BlogsPageProps) {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[1180px] gap-8 px-6 py-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-10">
-        <aside className="lg:sticky lg:top-28 lg:h-[calc(100vh-8rem)]">
+      <main className="mx-auto max-w-[1180px] px-6 py-8 lg:px-10">
+        <aside className="mb-8 lg:fixed lg:top-40 lg:w-[220px]">
           <div
             className={cn(
               'rounded-2xl border p-4',
@@ -340,7 +340,7 @@ export default function BlogsPage({ darkMode }: BlogsPageProps) {
           </div>
         </aside>
 
-        <section>
+        <section className="lg:ml-[252px]">
           <div
             className={cn(
               'mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3',

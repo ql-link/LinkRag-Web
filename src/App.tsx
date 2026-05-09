@@ -37,7 +37,7 @@ function RightPanel({ darkMode }: { darkMode: boolean }) {
           <div className="flex-1 p-4 pt-0 overflow-y-auto">
             <div className="space-y-3">
               <div className={`rounded-xl p-3 ${darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'}`}>
-                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-[#e0e0e0]' : ''}`}>欢迎进入 toLink</p>
+                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${darkMode ? 'text-[#e0e0e0]' : ''}`}>欢迎进入 LinkRag</p>
                 <p className={`mono-label ${darkMode ? 'text-[#858585]' : ''}`}>前后端联调版工作台</p>
               </div>
               <div className={`rounded-xl p-3 ${darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'}`}>
@@ -143,7 +143,7 @@ function AppContent({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode:
 
   const loadingView = (
     <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
-      <div className="text-sm uppercase tracking-[0.3em]">Loading toLink...</div>
+      <div className="text-sm uppercase tracking-[0.3em]">Loading LinkRag...</div>
     </div>
   );
 

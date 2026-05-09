@@ -34,7 +34,7 @@ export default function Dashboard() {
               <Share2 className="text-white" size={18} />
             </div>
             {!sidebarCollapsed && (
-              <h1 className="text-lg font-bold tracking-tighter uppercase">toLink</h1>
+              <h1 className="text-lg font-bold tracking-tighter uppercase">LinkRag</h1>
             )}
           </div>
         </div>

@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type FormEvent,
   type ReactNode,
 } from 'react';
@@ -12,13 +13,17 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowDown,
   ArrowRight,
-  BookOpenText,
-  FileCog,
-  FolderHeart,
-  MessageSquareText,
+  Database,
+  DatabaseZap,
+  FileCode2,
+  FileText,
+  Layers,
+  SearchCheck,
+  ScissorsLineDashed,
   ShieldCheck,
-  Sparkles,
-  Workflow,
+  Upload,
+  FileType,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -32,32 +37,8 @@ interface WelcomePageProps {
 type AuthMode = 'login' | 'register';
 
 const scrollSections = [
-  { id: 'knowledge', label: '流程' },
+  { id: 'knowledge', label: '功能' },
   { id: 'login', label: '登录' },
-];
-
-const capabilityCards = [
-  {
-    icon: FolderHeart,
-    eyebrow: '知识库管理',
-    title: '按主题组织文档，集中管理',
-    description:
-      '创建知识库，按项目或主题归类文档。分类清晰，检索才高效。',
-  },
-  {
-    icon: FileCog,
-    eyebrow: '文件处理',
-    title: '上传文件，实时追踪处理状态',
-    description:
-      '支持批量上传，页面展示处理进度。文件是否就绪、解析是否完成，一目了然。',
-  },
-  {
-    icon: MessageSquareText,
-    eyebrow: '智能问答',
-    title: '基于知识库内容，获得准确回答',
-    description:
-      '对话与知识库关联，回答基于你上传的内容，并标注引用来源。',
-  },
 ];
 
 const timeline = [
@@ -85,12 +66,12 @@ const workflowSlides = [
     step: '01',
     title: (
       <>
-        构建知识库，
+        上传文件，
         <br />
-        让文档有序可查
+        拖入后自动切成 chunk
       </>
     ),
-    description: '按主题或项目创建知识库，将分散的文档集中管理。分类清晰，检索才高效。',
+    description: 'PDF、Word、Markdown 等文件拖入上传框后，会先完成识别、抽取与分片，再变成结构化 chunk，进入后续索引流程。',
     kind: 'capabilities',
   },
   {
@@ -98,12 +79,12 @@ const workflowSlides = [
     step: '02',
     title: (
       <>
-        文件处理，
+        索引入库，
         <br />
-        状态透明，流程可控
+        向量索引与 ES 双路写入
       </>
     ),
-    description: '上传、查看状态、重新解析——每一步都清晰可见，无需猜测文件是否就绪。',
+    description: '分片完成后，系统生成 embedding 写入向量索引，同时将文本与元数据写入 Elasticsearch，兼顾语义召回与关键词检索。',
     kind: 'operations',
   },
   {
@@ -111,13 +92,26 @@ const workflowSlides = [
     step: '03',
     title: (
       <>
-        知识问答，
+        多路召回，
         <br />
-        基于你的内容，给出有来源的回答
+        从多个检索通道找候选片段
       </>
     ),
-    description: '提问时系统检索已上传的文档，结合上下文生成回答，并标注引用来源。',
+    description: '问题先同时经过向量召回、关键词检索与规则过滤，聚合出相关片段集合，为最终回答准备更完整的上下文。',
     kind: 'timeline',
+  },
+  {
+    id: 'answer',
+    step: '04',
+    title: (
+      <>
+        检索回答，
+        <br />
+        结合上下文生成有来源的答案
+      </>
+    ),
+    description: '模型结合召回片段、对话历史与引用来源生成回答，输出可追溯、可验证的最终结果。',
+    kind: 'answer',
   },
 ] as const;
 
@@ -138,6 +132,54 @@ const fadeUpItem = {
     transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
   },
 };
+
+function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
+  const nodeFill = darkMode ? '#d6bfd7' : '#e4c690';
+  const stroke = darkMode ? '#b997bd' : '#c6a36a';
+
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      className="h-12 w-12 overflow-visible"
+      fill="none"
+    >
+      <path
+        d="M32 12 16 24 18 43 32 52 48 43 50 24 32 12M16 24 32 32 50 24M18 43 32 32 48 43M32 12v20M32 32v20"
+        stroke={stroke}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M50 24c4.2 2.7 4.2 9.2 0 12"
+        stroke={stroke}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        opacity="0.55"
+      />
+      {[
+        [32, 12, 4.7],
+        [16, 24, 5],
+        [50, 24, 4.7],
+        [18, 43, 4.7],
+        [48, 43, 4.7],
+        [32, 52, 5],
+        [32, 32, 5.9],
+      ].map(([cx, cy, r]) => (
+        <circle
+          key={`${cx}-${cy}`}
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill={nodeFill}
+          stroke={stroke}
+          strokeWidth="1.4"
+        />
+      ))}
+    </svg>
+  );
+}
 
 function RevealSection({
   id,
@@ -182,6 +224,405 @@ function RevealSection({
     >
       {children}
     </section>
+  );
+}
+
+const uploadFiles = [
+  {
+    name: 'ml_notes.pdf',
+    type: 'PDF',
+    icon: FileText,
+    delay: 0,
+  },
+  {
+    name: 'training.docx',
+    type: 'DOCX',
+    icon: FileType,
+    delay: 0.55,
+  },
+  {
+    name: 'model.md',
+    type: 'MD',
+    icon: FileCode2,
+    delay: 1.1,
+  },
+] as const;
+
+function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
+  const [draggingFile, setDraggingFile] = useState<string | null>(null);
+  const [droppedFile, setDroppedFile] = useState<string | null>(null);
+  const [stage, setStage] = useState<'idle' | 'parsing' | 'done'>('idle');
+  const parseTimers = useRef<number[]>([]);
+  const chunks = [
+    '监督学习依赖带标签样本，通过损失函数衡量预测值与真实标签的差距。',
+    '梯度下降会沿着损失函数下降最快的方向更新参数，学习率决定每一步的幅度。',
+    '过拟合通常表现为训练集效果很好，但验证集误差持续升高。',
+    '正则化会在目标函数中加入约束项，限制模型参数过大，从而提升泛化能力。',
+    '交叉验证会把数据划分为多个子集，轮流训练和评估，以获得更稳定的性能估计。',
+  ];
+
+  function clearParseTimers() {
+    parseTimers.current.forEach((timer) => window.clearTimeout(timer));
+    parseTimers.current = [];
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!draggingFile || stage !== 'idle') return;
+
+    clearParseTimers();
+    setDroppedFile(draggingFile);
+    setStage('parsing');
+    parseTimers.current.push(window.setTimeout(() => {
+      setDraggingFile(null);
+      setDroppedFile(null);
+    }, 120));
+    parseTimers.current.push(window.setTimeout(() => {
+      setStage('done');
+    }, 320));
+  }
+
+  function handleReset() {
+    clearParseTimers();
+    setDraggingFile(null);
+    setDroppedFile(null);
+    setStage('idle');
+  }
+
+  useEffect(() => () => clearParseTimers(), []);
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className={cn(
+        'relative min-h-[470px] overflow-hidden rounded-[34px] border p-6',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+      )}
+    >
+      <div className="absolute inset-0 welcome-demo-grid opacity-55" />
+      <div className="relative z-10 h-[430px]">
+        <div className="absolute left-[25%] right-[20%] top-[14%] h-2 rounded-full bg-gradient-to-r from-transparent via-primary/18 to-transparent" />
+
+        <AnimatePresence mode="wait">
+          {stage !== 'done' ? (
+            <motion.div
+              key="upload-box"
+              variants={fadeUpItem}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleDrop}
+              initial={{ opacity: 0, y: 14, scale: 0.98 }}
+              animate={{
+                opacity: stage === 'parsing' ? 0.75 : 1,
+                y: 0,
+                scale: stage === 'parsing' ? 0.98 : 1,
+              }}
+              exit={{ opacity: 0, y: -18, scale: 0.94 }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+              className={cn(
+                'absolute left-[55%] top-[46%] flex h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[34px] border p-7',
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_30px_rgba(197,134,192,0.08)]' : 'border-border-subtle bg-white/86 shadow-[0_16px_40px_rgba(212,163,115,0.14)]',
+                stage === 'parsing' ? 'ring-1 ring-primary/20' : '',
+                stage === 'done' ? 'scale-95 opacity-0' : '',
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>upload box</p>
+                  <p className={cn('mt-1 text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
+                    {stage === 'parsing' ? '解析中...' : '拖拽文件到这里'}
+                  </p>
+                </div>
+                <Upload size={20} className={darkMode ? 'text-[#d9d9d9]' : 'text-primary'} />
+              </div>
+
+              <div className={cn('mt-4 flex-1 rounded-[28px] border border-dashed transition-colors', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72', draggingFile ? 'border-primary/50' : '')}>
+                <div className="flex h-full items-center justify-center">
+                  <div className={cn('flex h-20 w-20 items-center justify-center rounded-[26px] border transition-transform', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-primary/12 bg-primary/10', stage === 'parsing' ? 'scale-90' : '')}>
+                    <ScissorsLineDashed size={36} className={cn(darkMode ? 'text-[#d9d9d9]' : 'text-primary', stage === 'parsing' ? 'animate-pulse' : '')} />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        {uploadFiles.map((file, index) => {
+          const Icon = file.icon;
+          const isActive = draggingFile === file.type;
+          const isDropped = stage !== 'idle' && droppedFile === file.type;
+
+          return (
+            <motion.div
+              key={file.name}
+              draggable
+              onDragStart={() => setDraggingFile(file.type)}
+              onDragEnd={() => setDraggingFile(null)}
+              className="absolute cursor-grab active:cursor-grabbing"
+              style={{
+                top: `${22 + index * 18}%`,
+                left: index === 1 ? '1.5%' : '4%',
+              }}
+              animate={{
+                x: isActive ? 330 : 0,
+                y: isActive ? index === 0 ? 26 : index === 1 ? -4 : -34 : 0,
+                opacity: stage === 'done' || (stage === 'parsing' && isDropped) ? 0 : 1,
+                scale: isActive ? 1.08 : 1,
+                rotate: isActive ? -10 : index === 1 ? 4 : -3,
+              }}
+              transition={{ duration: 0.16 }}
+            >
+              <div className="flex flex-col items-center gap-1.5">
+                <Icon size={30} className={darkMode ? 'text-[#e6e6e6]' : 'text-primary'} />
+                <span className={cn('max-w-[82px] truncate text-center font-mono text-[9px] tracking-[0.08em]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                  {file.name}
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
+
+        <AnimatePresence mode="wait">
+          {stage === 'done' ? (
+            <motion.div
+              key="chunks"
+              initial={{ opacity: 0, y: 18, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+              className="absolute left-[55%] top-[48%] w-[min(100%,420px)] -translate-x-1/2 -translate-y-1/2"
+            >
+              <div className="grid gap-3">
+                {chunks.map((chunk, index) => (
+                  <motion.div
+                    key={chunk}
+                    initial={{ opacity: 0, y: 18, scale: 0.94 }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                      x: [0, index % 2 ? 10 : -10, 0],
+                    }}
+                    transition={{ duration: 0.34, delay: index * 0.12 }}
+                  >
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className={cn('h-1.5 w-1.5 rounded-full', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+                      <p className={cn('font-mono text-[10px] uppercase tracking-[0.2em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+                        chunk {index + 1}
+                      </p>
+                    </div>
+                    <p className={cn('text-[12px] leading-6', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/68')}>
+                      {chunk}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <button
+          type="button"
+          onClick={handleReset}
+          className={cn(
+            'absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors',
+            darkMode ? 'border-[#3c3c3c] bg-[#252526] text-[#d9d9d9] hover:bg-[#2d2d2d]' : 'border-border-subtle bg-white text-text-main/56 hover:bg-bg-base',
+          )}
+          aria-label="重置演示"
+        >
+          <RotateCcw size={11} />
+          重置
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className={cn(
+        'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+      )}
+    >
+      <div className="absolute inset-0 welcome-demo-grid opacity-55" />
+      <div className={cn('absolute left-[27%] right-[28%] top-[42%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
+      <div className={cn('absolute left-[27%] right-[28%] top-[62%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
+      <div className={cn('demo-flow-line absolute left-[27%] right-[28%] top-[42%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+      <div className={cn('demo-flow-line demo-flow-delay absolute left-[27%] right-[28%] top-[62%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+
+      <div className="relative z-10 h-[382px]">
+        <motion.div
+          variants={fadeUpItem}
+          className="absolute left-0 top-1/2 grid w-[165px] -translate-y-1/2 gap-3"
+        >
+          {['chunk 01', 'chunk 02', 'chunk 03'].map((label, index) => (
+            <div
+              key={label}
+              className={cn(
+                'rounded-2xl border p-3',
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+              )}
+            >
+              <p className={cn('mb-2 font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+                {label}
+              </p>
+              <span className={cn('mb-1.5 block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width: index === 1 ? 82 : 96 }} />
+              <span className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width: index === 2 ? 58 : 72 }} />
+            </div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          variants={fadeUpItem}
+          className={cn(
+            'absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-3xl border',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_34px_rgba(197,134,192,0.2)]' : 'border-border-subtle bg-white shadow-[0_0_34px_rgba(212,163,115,0.18)]',
+          )}
+        >
+          <div className={cn('demo-pulse-ring absolute h-24 w-24 rounded-full border', darkMode ? 'border-[#c586c0]/35' : 'border-primary/32')} />
+          <Layers size={38} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+          <p className={cn('mt-2 font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+            embedding
+          </p>
+        </motion.div>
+
+        <div className="absolute right-0 top-1/2 flex w-[210px] -translate-y-1/2 flex-col gap-4">
+          <motion.div
+            variants={fadeUpItem}
+            className={cn(
+              'rounded-2xl border p-4',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+            )}
+          >
+            <div className="mb-3 flex items-center gap-3">
+              <DatabaseZap size={23} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+              <div>
+                <p className={cn('text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Vector Index</p>
+                <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>语义召回</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {Array.from({ length: 15 }).map((_, index) => (
+                <span key={index} className={cn('h-1.5 rounded-full', index % 4 === 0 ? 'bg-primary/70' : darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} />
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div
+            variants={fadeUpItem}
+            className={cn(
+              'rounded-2xl border p-4',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+            )}
+          >
+            <div className="mb-3 flex items-center gap-3">
+              <Database size={23} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+              <div>
+                <p className={cn('text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Elasticsearch</p>
+                <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>全文与元数据</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {[112, 86, 124].map((width) => (
+                <span key={width} className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width }} />
+              ))}
+            </div>
+          </motion.div>
+        </div>
+
+        <div className={cn('demo-spark absolute left-[34%] top-[36%]', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+        <div className={cn('demo-spark demo-spark-delay absolute left-[34%] top-[58%]', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+      </div>
+    </motion.div>
+  );
+}
+
+function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className={cn(
+        'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+      )}
+    >
+      <div className="absolute inset-0 welcome-demo-grid opacity-55" />
+      <div className={cn('absolute left-[14%] right-[34%] top-[42%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
+      <div className={cn('absolute left-[14%] right-[34%] top-[66%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
+      <div className={cn('demo-flow-line absolute left-[14%] right-[34%] top-[42%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+      <div className={cn('demo-flow-line demo-flow-delay absolute left-[14%] right-[34%] top-[66%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+
+      <div className="relative z-10 h-[382px]">
+        <motion.div
+          variants={fadeUpItem}
+          className="absolute left-0 top-1/2 flex w-[180px] -translate-y-1/2 flex-col gap-3"
+        >
+          {['vector hit', 'es hit', 'rerank'].map((label, index) => (
+            <div
+              key={label}
+              className={cn(
+                'rounded-2xl border p-3',
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+              )}
+            >
+              <p className={cn('mb-2 font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+                {label}
+              </p>
+              <span className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width: index === 1 ? 96 : 84 }} />
+            </div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          variants={fadeUpItem}
+          className={cn(
+            'absolute left-[26%] top-1/2 flex h-28 w-28 -translate-y-1/2 items-center justify-center rounded-3xl border',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_28px_rgba(197,134,192,0.18)]' : 'border-border-subtle bg-white shadow-[0_0_28px_rgba(212,163,115,0.16)]',
+          )}
+        >
+          <SearchCheck size={40} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+        </motion.div>
+
+        <motion.div
+          variants={fadeUpItem}
+          className={cn(
+            'absolute right-0 top-1/2 flex w-[220px] -translate-y-1/2 flex-col gap-3 rounded-2xl border p-4',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <SearchCheck size={23} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+            <div>
+              <p className={cn('text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>检索回答</p>
+              <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>Answer with citations</p>
+            </div>
+          </div>
+          <div className={cn('rounded-2xl border px-3 py-2', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white')}>
+            <p className={cn('text-[11px] leading-5', darkMode ? 'text-[#d8d8d8]' : 'text-text-main/70')}>
+              基于召回片段生成答案，并标注引用来源。
+            </p>
+          </div>
+          <div className={cn('rounded-2xl border px-3 py-2', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white')}>
+            <p className={cn('font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+              sources
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {[78, 92, 64].map((width) => (
+                <span key={width} className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width }} />
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -236,6 +677,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [activeFlowIndex, setActiveFlowIndex] = useState(0);
+  const [hasUserSelectedFlow, setHasUserSelectedFlow] = useState(false);
   const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(null);
   const [form, setForm] = useState({
     username: '',
@@ -256,6 +698,16 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
     return () => setHeaderPortalTarget(null);
   }, []);
 
+  useEffect(() => {
+    if (hasUserSelectedFlow) return;
+
+    const timer = window.setInterval(() => {
+      setActiveFlowIndex((currentIndex) => (currentIndex + 1) % workflowSlides.length);
+    }, 4200);
+
+    return () => window.clearInterval(timer);
+  }, [hasUserSelectedFlow]);
+
   if (loading) {
     return (
       <div
@@ -264,7 +716,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
           darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
         )}
       >
-        <div className="mono-label !text-xs">loading tolink...</div>
+        <div className="mono-label !text-xs">loading linkrag...</div>
       </div>
     );
   }
@@ -360,36 +812,31 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
           <header className="welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 py-3 lg:px-8">
             <div
               className={cn(
-                'pointer-events-auto mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 py-3 backdrop-blur-xl shadow-lg transition-shadow',
+                'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 py-3 backdrop-blur-xl shadow-lg transition-shadow',
                 darkMode
                   ? 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
                   : 'bg-white/92 border border-white/90 shadow-text-main/10',
               )}
             >
               <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    'flex h-10 w-10 items-center justify-center rounded-2xl',
-                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'bg-bg-base border border-border-subtle',
-                  )}
-                >
-                  <Sparkles size={16} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+                <div className="flex h-12 w-12 items-center justify-center">
+                  <LinkRagMark darkMode={darkMode} />
                 </div>
                 <div>
                   <p className={cn('mono-label mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge workspace</p>
                   <h1 className={cn('text-lg font-bold tracking-tight', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                    toLink
+                    LinkRag
                   </h1>
                 </div>
               </div>
 
-              <nav className="hidden items-center gap-6 lg:flex">
+              <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 lg:flex">
                 {scrollSections.map((item) => (
                   <a
                     key={item.id}
                     href={`#${item.id}`}
                     className={cn(
-                      'text-xs font-bold uppercase tracking-[0.22em] transition-colors',
+                      'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                       darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                     )}
                   >
@@ -399,7 +846,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 <Link
                   to={Routes.Blogs}
                   className={cn(
-                    'text-xs font-bold uppercase tracking-[0.22em] transition-colors',
+                    'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                     darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                   )}
                 >
@@ -453,7 +900,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
               可对话的知识库
             </motion.h2>
             <motion.p variants={fadeUpItem} className={cn('mt-8 max-w-[700px] text-lg leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
-              上传文档、构建知识库、围绕内容展开问答。toLink 让每份资料都能被检索、被理解、被使用。
+              上传文档、构建知识库、围绕内容展开问答。LinkRag 让每份资料都能被检索、被理解、被使用。
             </motion.p>
           </motion.div>
 
@@ -499,7 +946,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
             <div>
               <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>workflow</p>
               <h3 className={cn('text-xl font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                三步了解 toLink
+                三步了解 LinkRag
               </h3>
             </div>
           </div>
@@ -525,101 +972,18 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </div>
 
                   {activeWorkflowSlide.kind === 'capabilities' && (
-                    <motion.div
-                      className="grid gap-4"
-                      variants={staggerContainer}
-                      initial="hidden"
-                      animate="show"
-                    >
-                      {capabilityCards.map(({ icon: Icon, eyebrow, title, description }, index) => (
-                        <motion.article
-                          key={title}
-                          variants={fadeUpItem}
-                          whileHover={{ y: -5 }}
-                          className={cn(
-                            'art-card card-glow rounded-[28px] p-5 transition-transform duration-500',
-                            darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : '',
-                            index % 2 === 1 ? 'lg:translate-x-6' : '',
-                          )}
-                        >
-                          <div className="mb-3 flex items-center gap-3">
-                            <div
-                              className={cn(
-                                'flex h-10 w-10 items-center justify-center rounded-2xl',
-                                darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/75 border border-border-subtle',
-                              )}
-                            >
-                              <Icon size={17} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
-                            </div>
-                            <p className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>{eyebrow}</p>
-                          </div>
-                          <h4 className={cn('text-lg font-bold leading-7', darkMode ? 'text-[#eaeaea]' : 'text-text-main')}>
-                            {title}
-                          </h4>
-                          <p className={cn('mt-2 text-sm leading-7', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/56')}>
-                            {description}
-                          </p>
-                        </motion.article>
-                      ))}
-                    </motion.div>
+                    <UploadChunkDemo darkMode={darkMode} />
                   )}
 
                   {activeWorkflowSlide.kind === 'operations' && (
-                    <div className="grid gap-5 lg:grid-cols-2">
-                      <motion.div
-                        whileHover={{ y: -4 }}
-                        className={cn(
-                          'rounded-[30px] p-6 card-glow',
-                          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/76 border border-border-subtle shadow-sm',
-                        )}
-                      >
-                        <div className="mb-4 flex items-center gap-3">
-                          <Workflow size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
-                          <h4 className={cn('text-lg font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
-                            支持的操作
-                          </h4>
-                        </div>
-                        <div className="space-y-3">
-                          {[
-                            '查看文件列表与处理状态',
-                            '上传文档到指定知识库',
-                            '删除文件并刷新视图',
-                            '手动触发重新解析',
-                          ].map((item) => (
-                            <div
-                              key={item}
-                              className={cn(
-                                'rounded-2xl px-4 py-3 text-sm leading-7',
-                                darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#a9a9a9]' : 'bg-bg-base/70 border border-border-subtle text-text-main/65',
-                              )}
-                            >
-                              {item}
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        whileHover={{ y: -4 }}
-                        className={cn(
-                          'rounded-[30px] p-6 card-glow',
-                          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/76 border border-border-subtle shadow-sm',
-                        )}
-                      >
-                        <div className="mb-4 flex items-center gap-3">
-                          <BookOpenText size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
-                          <h4 className={cn('text-lg font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
-                            文件就绪是问答的前提
-                          </h4>
-                        </div>
-                        <p className={cn('text-sm leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/60')}>
-                          只有文件成功解析入库，后续的检索和问答才有意义。透明的处理流程让你随时掌握进度。
-                        </p>
-                      </motion.div>
-                    </div>
+                    <IndexingDemo darkMode={darkMode} />
                   )}
 
                   {activeWorkflowSlide.kind === 'timeline' && (
+                    <RetrievalDemo darkMode={darkMode} />
+                  )}
+
+                  {activeWorkflowSlide.kind === 'answer' && (
                     <motion.div
                       whileHover={{ y: -4 }}
                       className={cn(
@@ -643,18 +1007,18 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                                 <div className={cn('mt-2 h-12 w-px', darkMode ? 'bg-[#3c3c3c]' : 'bg-border-subtle')} />
                               )}
                             </div>
-                            <div className="pb-4">
-                              <h4 className={cn('text-base font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
-                                {item.title}
-                              </h4>
-                              <p className={cn('mt-2 text-sm leading-7', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                                {item.description}
-                              </p>
-                            </div>
+                          <div className="pb-4">
+                            <h4 className={cn('text-base font-bold', darkMode ? 'text-[#ececec]' : 'text-text-main')}>
+                              {item.title}
+                            </h4>
+                            <p className={cn('mt-2 text-sm leading-7', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
+                              {item.description}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    </motion.div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
                   )}
               </motion.section>
             </AnimatePresence>
@@ -665,7 +1029,10 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
               <button
                 key={slide.id}
                 type="button"
-                onClick={() => setActiveFlowIndex(index)}
+                onClick={() => {
+                  setHasUserSelectedFlow(true);
+                  setActiveFlowIndex(index);
+                }}
                 className={cn(
                   'h-2.5 rounded-full transition-all',
                   activeFlowIndex === index ? 'w-8' : 'w-2.5',

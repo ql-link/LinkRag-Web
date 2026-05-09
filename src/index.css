@@ -215,6 +215,68 @@
   }
 }
 
+@keyframes demoFlow {
+  0% {
+    transform: translateX(-18px) scaleX(0.08);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(220px) scaleX(0.16);
+    opacity: 0;
+  }
+}
+
+@keyframes demoPulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.18;
+  }
+}
+
+@keyframes demoSpark {
+  0%,
+  100% {
+    transform: scale(0.75) rotate(45deg);
+    opacity: 0.28;
+  }
+  50% {
+    transform: scale(1.28) rotate(45deg);
+    opacity: 0.88;
+  }
+}
+
+@keyframes uploadReveal {
+  0%,
+  24% {
+    transform: translateX(14px) scale(0.96);
+    opacity: 0;
+  }
+  36% {
+    transform: translateX(6px) scale(0.98);
+    opacity: 0.85;
+  }
+  58% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  82% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(14px) scale(0.96);
+    opacity: 0;
+  }
+}
+
 .animate-float-slow {
   animation: float-slow 8s ease-in-out infinite;
 }
@@ -232,6 +294,68 @@
     linear-gradient(to right, rgba(26, 26, 26, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(26, 26, 26, 0.05) 1px, transparent 1px);
   background-size: 44px 44px;
+}
+
+.welcome-demo-grid {
+  background-image:
+    linear-gradient(to right, rgba(26, 26, 26, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(26, 26, 26, 0.035) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.dark .welcome-demo-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+}
+
+.demo-flow-line::after {
+  content: '';
+  position: absolute;
+  inset: -1px auto auto 0;
+  height: 3px;
+  width: 72px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 18px currentColor;
+  animation: demoFlow 3s ease-in-out infinite;
+}
+
+.demo-flow-delay::after {
+  animation-delay: 1s;
+}
+
+.demo-pulse-ring {
+  animation: demoPulse 2.8s ease-in-out infinite;
+}
+
+.demo-spark {
+  height: 14px;
+  width: 14px;
+  opacity: 0.6;
+  transform: rotate(45deg);
+  animation: demoSpark 2.6s ease-in-out infinite;
+}
+
+.demo-spark::before,
+.demo-spark::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  height: 2px;
+  width: 28px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.demo-spark::after {
+  width: 2px;
+  height: 28px;
+}
+
+.demo-spark-delay {
+  animation-delay: 1.2s;
 }
 
 .dark .welcome-grid {

@@ -105,7 +105,7 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
               "text-lg font-bold tracking-tighter uppercase",
               darkMode ? "text-[#e0e0e0]" : "text-text-main"
             )}>
-              toLink
+              LinkRag
             </h1>
           )}
         </div>
