@@ -70,6 +70,15 @@
     @apply bg-bg-base text-text-main font-sans selection:bg-primary/30;
   }
 
+  .welcome-floating-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    transform: translateZ(0);
+  }
+
   /* Dark mode - VSCode-like comfortable dark theme */
   .dark {
     --color-bg-base: #1e1e1e;

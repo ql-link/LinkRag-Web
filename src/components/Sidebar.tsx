@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Home,
+  BookOpenText,
   Database,
   MessageSquare,
   FolderOpen,
@@ -18,13 +19,13 @@ import { Routes } from '@/routes';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { logout as logoutRequest } from '@/services/auth';
 
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
   { path: Routes.Datasets, name: '知识库', icon: Database },
   { path: Routes.Chats, name: '对话', icon: MessageSquare },
   { path: Routes.Files, name: '文件', icon: FolderOpen },
+  { path: Routes.Blogs, name: '博客', icon: BookOpenText },
 ];
 
 interface SidebarProps {
@@ -65,11 +66,10 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
 
   async function handleLogout() {
     try {
-      await logoutRequest();
+      await logout();
     } catch (error) {
       console.error('Failed to logout:', error);
     } finally {
-      logout();
       setShowUserMenu(false);
       navigate(Routes.Welcome, { replace: true });
     }

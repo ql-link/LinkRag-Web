@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { Group, Panel, Separator } from 'react-resizable-panels';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Sidebar } from './components/Sidebar';
 import { Routes as RoutePaths } from './routes';
 import { ToastContainer, ToastProvider, useToast } from '@/contexts/ToastContext';
@@ -13,6 +14,7 @@ import DatasetPage from '@/pages/datasets/dataset';
 import ChatsPage from '@/pages/chats';
 import ChatPage from '@/pages/chats/chat';
 import FilesPage from '@/pages/files';
+import BlogsPage from '@/pages/blogs';
 import LLMPage from '@/pages/settings/llm-config';
 import ProfilePage from '@/pages/settings/profile';
 
@@ -114,30 +116,59 @@ function App() {
   );
 }
 
+function RouteTransition({ children }: { children: ReactNode; key?: string }) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <motion.div
+      className="min-h-screen"
+      initial={{ opacity: reduceMotion ? 1 : 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: reduceMotion ? 1 : 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function AppContent({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode: (value: boolean) => void }) {
   const { addToast } = useToast();
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   useEffect(() => {
     setToastHandler(addToast);
   }, [addToast]);
 
-  if (loading) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
-        <div className="text-sm uppercase tracking-[0.3em]">Loading toLink...</div>
-      </div>
-    );
-  }
+  const loadingView = (
+    <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
+      <div className="text-sm uppercase tracking-[0.3em]">Loading toLink...</div>
+    </div>
+  );
 
   return (
-    <Routes>
-      <Route path={RoutePaths.Welcome} element={<WelcomePage darkMode={darkMode} />} />
-      <Route
-        path="*"
-        element={user ? <ProtectedAppShell darkMode={darkMode} setDarkMode={setDarkMode} /> : <Navigate to={RoutePaths.Welcome} replace />}
-      />
-    </Routes>
+    <AnimatePresence mode="wait" initial={false}>
+      <RouteTransition key={location.pathname}>
+        <Routes location={location}>
+          <Route path={RoutePaths.Blogs} element={<BlogsPage darkMode={darkMode} />} />
+          <Route
+            index
+            element={loading ? loadingView : <WelcomePage darkMode={darkMode} />}
+          />
+          <Route
+            path="*"
+            element={
+              loading
+                ? loadingView
+                : user
+                  ? <ProtectedAppShell darkMode={darkMode} setDarkMode={setDarkMode} />
+                  : <Navigate to={RoutePaths.Welcome} replace />
+            }
+          />
+        </Routes>
+      </RouteTransition>
+    </AnimatePresence>
   );
 }
 

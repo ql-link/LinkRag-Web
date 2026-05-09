@@ -7,6 +7,7 @@ export const Routes = {
   Chats: '/chats',
   ChatDetail: '/chats/:id',
   Files: '/files',
+  Blogs: '/blogs',
   Settings: '/settings',
   LLMPage: '/settings/llm-config',
   ProfilePage: '/settings/profile',

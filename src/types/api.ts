@@ -167,15 +167,14 @@ export interface UsageLogDTO {
 
 // Request Types
 export interface LoginRequest {
-  username: string;
+  account: string;
   password: string;
 }
 
 export interface RegisterRequest {
   username: string;
   password: string;
-  nickname?: string;
-  email?: string;
+  email: string;
 }
 
 export interface UpdateProfileRequest {
