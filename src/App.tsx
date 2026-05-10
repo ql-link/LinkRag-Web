@@ -154,7 +154,7 @@ function AppContent({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode:
           <Route path={RoutePaths.Blogs} element={<BlogsPage darkMode={darkMode} />} />
           <Route
             index
-            element={loading ? loadingView : <WelcomePage darkMode={darkMode} />}
+            element={<WelcomePage darkMode={darkMode} />}
           />
           <Route
             path="*"

@@ -91,12 +91,21 @@ async function request<T>(
     config.body = isFormData ? body as FormData : JSON.stringify(body);
   }
 
-  const response = await fetch(url, config);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  config.signal = controller.signal;
 
-  if (response.status === 401) {
-    clearToken();
-    toastHandler?.('error', '请先登录');
-    throw new ApiError(401, '未登录或登录已过期');
+  let response: Response;
+  try {
+    response = await fetch(url, config);
+  } catch (error) {
+    const message = error instanceof DOMException && error.name === 'AbortError'
+      ? '请求超时，请稍后重试'
+      : '网络连接异常，请稍后重试';
+    toastHandler?.('error', message);
+    throw new ApiError(0, message);
+  } finally {
+    window.clearTimeout(timeout);
   }
 
   let result: Result<T>;
@@ -109,13 +118,13 @@ async function request<T>(
   }
 
   if (result.code !== 200) {
-    const isAuth = result.code === 401;
+    const isAuth = response.status === 401 || result.code === 401;
+    const message = result.message || (isAuth ? '未登录或登录已过期' : '请求失败');
     if (isAuth) {
       clearToken();
-    } else {
-      toastHandler?.('error', result.message || '请求失败');
     }
-    throw new ApiError(result.code, result.message, result.data);
+    toastHandler?.('error', message);
+    throw new ApiError(result.code || response.status, message, result.data);
   }
 
   return result.data;
