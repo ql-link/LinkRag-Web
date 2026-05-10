@@ -17,7 +17,6 @@ import {
   DatabaseZap,
   FileCode2,
   FileText,
-  Layers,
   SearchCheck,
   ScissorsLineDashed,
   ShieldCheck,
@@ -440,6 +439,36 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
 }
 
 function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
+  const chunks = [
+    '反向传播会逐层计算损失函数对参数的梯度。',
+    '学习率过大时，模型可能在最优点附近震荡。',
+    '验证集用于观察泛化能力，避免只记住训练样本。',
+  ];
+  const vectorPoints = [
+    { x: 12, y: 22, near: false },
+    { x: 24, y: 58, near: false },
+    { x: 36, y: 34, near: true },
+    { x: 48, y: 68, near: false },
+    { x: 58, y: 42, near: true },
+    { x: 72, y: 24, near: false },
+    { x: 82, y: 62, near: false },
+    { x: 28, y: 76, near: false },
+    { x: 68, y: 74, near: true },
+    { x: 76, y: 44, near: true },
+    { x: 44, y: 18, near: false },
+    { x: 16, y: 42, near: false },
+    { x: 54, y: 84, near: false },
+    { x: 86, y: 30, near: false },
+  ];
+  const esJsonLines = [
+    { indent: 0, text: '{' },
+    { indent: 1, key: '"chunk_id"', value: '"ml-note-042-03",' },
+    { indent: 1, key: '"content"', value: '"梯度下降通过反向传播更新参数",' },
+    { indent: 1, key: '"source"', value: '"ml_notes.pdf",' },
+    { indent: 1, key: '"page"', value: '18' },
+    { indent: 0, text: '}' },
+  ];
+
   return (
     <motion.div
       variants={staggerContainer}
@@ -451,93 +480,165 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
-      <div className={cn('absolute left-[27%] right-[28%] top-[42%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
-      <div className={cn('absolute left-[27%] right-[28%] top-[62%] h-px border-t border-dashed', darkMode ? 'border-[#c586c0]/30' : 'border-primary/36')} />
-      <div className={cn('demo-flow-line absolute left-[27%] right-[28%] top-[42%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
-      <div className={cn('demo-flow-line demo-flow-delay absolute left-[27%] right-[28%] top-[62%] h-px', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
 
-      <div className="relative z-10 h-[382px]">
+      <div className="relative z-10 grid min-h-[382px] items-center gap-4 [grid-template-columns:minmax(150px,0.78fr)_minmax(120px,1fr)_190px] max-[760px]:grid-cols-1 max-[760px]:gap-5">
         <motion.div
           variants={fadeUpItem}
-          className="absolute left-0 top-1/2 grid w-[165px] -translate-y-1/2 gap-3"
+          className="grid gap-3 max-[760px]:mx-auto max-[760px]:w-full max-[760px]:max-w-[420px]"
         >
-          {['chunk 01', 'chunk 02', 'chunk 03'].map((label, index) => (
-            <div
+          {chunks.map((label, index) => (
+            <motion.div
               key={label}
-              className={cn(
-                'rounded-2xl border p-3',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
-              )}
+              animate={{ x: [0, 8, 0], opacity: [0.78, 1, 0.78] }}
+              transition={{ duration: 2.8, delay: index * 0.28, repeat: Infinity, ease: 'easeInOut' }}
+              className="px-1 py-2"
             >
-              <p className={cn('mb-2 font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className={cn('h-1.5 w-1.5 rounded-full', index === 1 ? 'bg-primary/55' : darkMode ? 'bg-[#858585]' : 'bg-text-main/24')} />
+                <p className={cn('font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+                  chunk {index + 1}
+                </p>
+              </div>
+              <p className={cn('text-[12px] leading-5', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/64')}>
                 {label}
               </p>
-              <span className={cn('mb-1.5 block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width: index === 1 ? 82 : 96 }} />
-              <span className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width: index === 2 ? 58 : 72 }} />
-            </div>
+            </motion.div>
           ))}
         </motion.div>
 
-        <motion.div
-          variants={fadeUpItem}
-          className={cn(
-            'absolute left-1/2 top-1/2 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-3xl border',
-            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_34px_rgba(197,134,192,0.2)]' : 'border-border-subtle bg-white shadow-[0_0_34px_rgba(212,163,115,0.18)]',
-          )}
+        <svg
+          className="pointer-events-none h-[198px] w-full min-w-0 overflow-visible max-[760px]:hidden"
+          viewBox="0 0 100 198"
+          preserveAspectRatio="none"
+          fill="none"
+          aria-hidden="true"
         >
-          <div className={cn('demo-pulse-ring absolute h-24 w-24 rounded-full border', darkMode ? 'border-[#c586c0]/35' : 'border-primary/32')} />
-          <Layers size={38} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
-          <p className={cn('mt-2 font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
-            embedding
-          </p>
-        </motion.div>
+          {[
+            'M0 20H27Q34 20 34 32V99',
+            'M0 99H50',
+            'M0 178H27Q34 178 34 166V99',
+            'M50 99H58',
+            'M58 99V28Q58 16 65 16H100',
+            'M58 99V170Q58 182 65 182H100',
+          ].map((path) => (
+            <path
+              key={path}
+              d={path}
+              className={cn('index-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/34')}
+            />
+          ))}
+          <path
+            d="M0 20H27Q34 20 34 32V99H58"
+            className={cn('index-moving-path', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+          />
+          <path
+            d="M0 99H58"
+            className={cn('index-moving-path index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+          />
+          <path
+            d="M0 178H27Q34 178 34 166V99H58"
+            className={cn('index-moving-path index-moving-path-late', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+          />
+          <path
+            d="M58 99V28Q58 16 65 16H100"
+            className={cn('index-moving-path index-moving-path-out', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+          />
+          <path
+            d="M58 99V170Q58 182 65 182H100"
+            className={cn('index-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+          />
+        </svg>
 
-        <div className="absolute right-0 top-1/2 flex w-[210px] -translate-y-1/2 flex-col gap-4">
+        <div className="flex w-[190px] flex-col gap-3 justify-self-end max-[760px]:mx-auto max-[760px]:w-full max-[760px]:max-w-[420px]">
           <motion.div
             variants={fadeUpItem}
             className={cn(
-              'rounded-2xl border p-4',
-              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+              'rounded-2xl border p-3',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/94' : 'border-border-subtle bg-bg-base/90',
             )}
           >
-            <div className="mb-3 flex items-center gap-3">
-              <DatabaseZap size={23} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+            <div className="mb-2.5 flex items-center gap-2.5">
+              <DatabaseZap size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
               <div>
-                <p className={cn('text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Vector Index</p>
-                <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>语义召回</p>
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>向量索引</p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>embedding vectors</p>
               </div>
             </div>
-            <div className="grid grid-cols-5 gap-1">
-              {Array.from({ length: 15 }).map((_, index) => (
-                <span key={index} className={cn('h-1.5 rounded-full', index % 4 === 0 ? 'bg-primary/70' : darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} />
+            <div className={cn('relative h-[74px] overflow-hidden rounded-2xl border', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72')}>
+              <div className={cn('absolute left-[46%] top-[38%] h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#c586c0]/28 bg-[#c586c0]/6' : 'border-primary/28 bg-primary/10')} />
+              <div className={cn('demo-pulse-ring absolute left-[46%] top-[38%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#c586c0]/25' : 'border-primary/24')} />
+              {vectorPoints.map((point, index) => (
+                <motion.span
+                  key={`${point.x}-${point.y}`}
+                  className={cn(
+                    'absolute rounded-full',
+                    point.near
+                      ? darkMode ? 'bg-[#c586c0] shadow-[0_0_16px_rgba(197,134,192,0.45)]' : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
+                      : darkMode ? 'bg-[#5a5a5a]' : 'bg-text-main/18',
+                  )}
+                  style={{
+                    left: `${point.x}%`,
+                    top: `${point.y}%`,
+                    width: point.near ? 6 : 4,
+                    height: point.near ? 6 : 4,
+                  }}
+                  animate={{
+                    scale: point.near ? [1, 1.45, 1] : [1, 1.15, 1],
+                    opacity: point.near ? [0.75, 1, 0.75] : [0.35, 0.72, 0.35],
+                  }}
+                  transition={{ duration: 2.1, delay: index * 0.08, repeat: Infinity, ease: 'easeInOut' }}
+                />
               ))}
+              <motion.span
+                className={cn('absolute left-[58%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white', darkMode ? 'border-[#c586c0]' : 'border-primary')}
+                animate={{ scale: [1, 1.25, 1] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              />
             </div>
           </motion.div>
 
           <motion.div
             variants={fadeUpItem}
             className={cn(
-              'rounded-2xl border p-4',
-              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/86',
+              'rounded-2xl border p-3',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/94' : 'border-border-subtle bg-bg-base/90',
             )}
           >
-            <div className="mb-3 flex items-center gap-3">
-              <Database size={23} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+            <div className="mb-2.5 flex items-center gap-2.5">
+              <Database size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
               <div>
-                <p className={cn('text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Elasticsearch</p>
-                <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>全文与元数据</p>
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>ES 入库</p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>text + metadata</p>
               </div>
             </div>
-            <div className="space-y-1.5">
-              {[112, 86, 124].map((width) => (
-                <span key={width} className={cn('block h-1.5 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/12')} style={{ width }} />
+            <div className={cn('rounded-2xl border px-2.5 py-2 font-mono text-[8px] leading-[1.8]', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72')}>
+              {esJsonLines.map((line, index) => (
+                <p
+                  key={index}
+                  className={cn(
+                    'index-es-row flex min-w-0 whitespace-nowrap',
+                    darkMode ? 'text-[#d9d9d9]' : 'text-text-main/62',
+                  )}
+                  style={{
+                    paddingLeft: `${line.indent * 10}px`,
+                    animationDelay: `${index * 0.16 + 0.1}s`,
+                  }}
+                >
+                  {'key' in line ? (
+                    <>
+                      <span className={cn('shrink-0', darkMode ? 'text-[#c586c0]' : 'text-primary')}>{line.key}</span>
+                      <span className={cn('shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>: </span>
+                      <span className="min-w-0 flex-1 truncate">{line.value}</span>
+                    </>
+                  ) : (
+                    line.text
+                  )}
+                </p>
               ))}
             </div>
           </motion.div>
         </div>
 
-        <div className={cn('demo-spark absolute left-[34%] top-[36%]', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
-        <div className={cn('demo-spark demo-spark-delay absolute left-[34%] top-[58%]', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
       </div>
     </motion.div>
   );

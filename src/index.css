@@ -253,6 +253,27 @@
   }
 }
 
+@keyframes indexDashFlow {
+  0% {
+    stroke-dashoffset: 36;
+  }
+  100% {
+    stroke-dashoffset: -36;
+  }
+}
+
+@keyframes indexEsWrite {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateX(4px);
+    opacity: 1;
+  }
+}
+
 @keyframes uploadReveal {
   0%,
   24% {
@@ -323,6 +344,39 @@
 
 .demo-flow-delay::after {
   animation-delay: 1s;
+}
+
+.index-dashed-path {
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 9 11;
+}
+
+.index-moving-path {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 22 26;
+  animation: indexDashFlow 1.6s linear infinite;
+}
+
+.index-moving-path-delay {
+  animation-delay: 0.45s;
+}
+
+.index-moving-path-late {
+  animation-delay: 0.9s;
+}
+
+.index-moving-path-out {
+  animation-duration: 1.35s;
+}
+
+.index-es-row {
+  animation: indexEsWrite 2.2s ease-in-out infinite;
 }
 
 .demo-pulse-ring {
