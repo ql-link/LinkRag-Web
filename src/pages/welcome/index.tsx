@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { login, register } from '@/services/auth';
 
 interface WelcomePageProps {
@@ -999,7 +1000,8 @@ function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
 export default function WelcomePage({ darkMode }: WelcomePageProps) {
   const navigate = useNavigate();
   const loginRef = useRef<HTMLDivElement | null>(null);
-  const { user, setUser, refreshProfile, loading } = useAuth();
+  const { user, setUser, refreshProfile } = useAuth();
+  const { addToast } = useToast();
   const [mode, setMode] = useState<AuthMode>('login');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -1034,19 +1036,6 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
 
     return () => window.clearInterval(timer);
   }, [hasUserSelectedFlow]);
-
-  if (loading) {
-    return (
-      <div
-        className={cn(
-          'min-h-screen flex items-center justify-center',
-          darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
-        )}
-      >
-        <div className="mono-label !text-xs">loading linkrag...</div>
-      </div>
-    );
-  }
 
   if (user) {
     return <Navigate to={Routes.Home} replace />;
@@ -1115,6 +1104,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
       }
 
       await refreshProfile();
+      addToast('success', mode === 'login' ? '登录成功' : '注册成功');
       navigate(Routes.Home, { replace: true });
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : '认证失败，请稍后再试';
@@ -1222,9 +1212,9 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
               document intelligence platform
             </motion.p>
             <motion.h2 variants={fadeUpItem} className={cn('serif-heading text-5xl leading-[1.02] lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-              将文档转化为
+              欢迎来到
               <br />
-              可对话的知识库
+              LinkRag
             </motion.h2>
             <motion.p variants={fadeUpItem} className={cn('mt-8 max-w-[700px] text-lg leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
               上传文档、构建知识库、围绕内容展开问答。LinkRag 让每份资料都能被检索、被理解、被使用。
@@ -1273,7 +1263,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
             <div>
               <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>workflow</p>
               <h3 className={cn('text-xl font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                三步了解 LinkRag
+                四步了解 LinkRag
               </h3>
             </div>
           </div>

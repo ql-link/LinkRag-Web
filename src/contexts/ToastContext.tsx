@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { X, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +44,14 @@ export function useToast() {
 }
 
 function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: string) => void }) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      onClose(toast.id);
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [toast.id, onClose]);
+
   return (
     <div className={cn(
       "flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg animate-slide-in",
@@ -68,7 +76,7 @@ export function ToastContainer() {
   const { toasts, removeToast } = context;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2">
+    <div className="fixed left-1/2 top-6 z-[100] flex -translate-x-1/2 flex-col items-center gap-2">
       {toasts.map((toast) => (
         <div key={toast.id}>
           <ToastItem toast={toast} onClose={removeToast} />

@@ -1,13 +1,13 @@
-import { Upload, MessageSquare, FolderOpen } from 'lucide-react';
+import { ArrowRight, DatabaseZap, FileUp, MessagesSquare, Sparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 
 const quickActions = [
-  { path: Routes.Files, icon: Upload, title: '上传文档', desc: '支持 PDF、Word、PPT' },
-  { path: Routes.Chats, icon: MessageSquare, title: '知识问答', desc: '基于文档的智能对话' },
-  { path: Routes.Datasets, icon: FolderOpen, title: '管理知识库', desc: '整理和管理文档' },
+  { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
+  { path: Routes.Chats, icon: MessagesSquare, title: '知识问答', desc: '基于引用片段生成回答' },
+  { path: Routes.Datasets, icon: DatabaseZap, title: '管理知识库', desc: '维护数据集与索引状态' },
 ];
 
 function getGreeting() {
@@ -38,7 +38,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
             items={[{ label: '首页', path: Routes.Home }]}
             darkMode={darkMode}
           />
-          <h2 className={cn("text-xl font-medium", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>概览</h2>
+          <h2 className={cn("text-xl font-semibold tracking-tight", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>概览</h2>
         </div>
       </header>
 
@@ -46,11 +46,19 @@ export default function HomePage({ darkMode }: HomePageProps) {
       <div className="flex-1 overflow-y-auto p-8">
         {/* Greeting */}
         <div className="mb-8">
-          <h1 className={cn("text-2xl font-bold mb-1", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-            {getGreeting()}，Alex Chen
-          </h1>
-          <p className={cn("text-sm", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-            今天有什么可以帮您的？
+          <div className="flex items-center gap-3 mb-2">
+            <div className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl border",
+              darkMode ? "border-[#3c3c3c] bg-[#2d2d2d] text-[#c586c0]" : "border-primary/25 bg-primary/10 text-primary"
+            )}>
+              <Sparkles size={18} />
+            </div>
+            <h1 className={cn("text-2xl font-semibold tracking-tight", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+              {getGreeting()}，Alex Chen
+            </h1>
+          </div>
+          <p className={cn("text-sm", darkMode ? "text-[#858585]" : "text-text-main/55")}>
+            选择一个入口，继续处理文档、知识库或对话任务。
           </p>
         </div>
 
@@ -62,20 +70,29 @@ export default function HomePage({ darkMode }: HomePageProps) {
                 key={path}
                 to={path}
                 className={cn(
-                  "rounded-2xl p-5 transition-all duration-300 group cursor-pointer",
+                  "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
                   darkMode
-                    ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#c586c0]"
+                    ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#c586c0]"
                     : "bg-white border-border-subtle hover:border-primary hover:shadow-lg"
                 )}
               >
-                <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors",
-                  darkMode ? "bg-[#c586c0]/10 group-hover:bg-[#c586c0]/20" : "bg-primary/10 group-hover:bg-primary/20"
-                )}>
-                  <Icon size={20} className="text-[#c586c0]" />
+                <div className="mb-4 flex items-start justify-between">
+                  <div className={cn(
+                    "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
+                    darkMode ? "bg-[#c586c0]/10 text-[#c586c0] group-hover:bg-[#c586c0]/20" : "bg-primary/10 text-primary group-hover:bg-primary/20"
+                  )}>
+                    <Icon size={21} strokeWidth={1.8} />
+                  </div>
+                  <ArrowRight
+                    size={16}
+                    className={cn(
+                      "mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100",
+                      darkMode ? "text-[#c586c0]" : "text-primary",
+                    )}
+                  />
                 </div>
-                <h4 className={cn("font-bold text-sm uppercase tracking-wider mb-1", darkMode ? "text-[#e0e0e0]" : "")}>{title}</h4>
-                <p className={cn("text-xs", darkMode ? "text-[#858585]" : "text-text-main/50")}>{desc}</p>
+                <h4 className={cn("font-semibold text-sm tracking-tight mb-1", darkMode ? "text-[#e0e0e0]" : "")}>{title}</h4>
+                <p className={cn("text-xs leading-5", darkMode ? "text-[#858585]" : "text-text-main/55")}>{desc}</p>
               </Link>
             ))}
           </div>

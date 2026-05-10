@@ -91,7 +91,24 @@
 - 第四步左右两个大框高度已拉长，避免内部 chunk 和 AI 回答被外框遮挡。
 - 第四步 `AI 回答` 框已向左收，右侧留出缝隙，并与左侧 `Top-K 片段` 顶部对齐。
 
-### 1.4 博客页面
+### 1.4 字体与主视觉标准
+
+当前欢迎页主视觉标题以 `serif-heading` 为标准：
+
+- `serif-heading` 定义在 `src/index.css`：
+  - `font-serif`
+  - `italic`
+  - `tracking-tighter`
+- `font-serif` 的字体栈：
+  - 英文优先使用 `Playfair Display`
+  - 中文主要使用 `Noto Serif SC`
+  - fallback 为系统 `serif`
+- 当前首页大标题为：
+  - `欢迎来到`
+  - `LinkRag`
+- 其中 `LinkRag` 的英文效果应继续保持 `Playfair Display` 的斜体衬线风格，后续不要随意改成无衬线或其它品牌字体，除非用户明确要求整体改品牌字体。
+
+### 1.5 博客页面
 
 新增博客页面：
 
@@ -117,7 +134,7 @@
 - `src/components/Sidebar.tsx`
   - 工作台侧边栏新增“博客”
 
-### 1.5 路由过渡动画
+### 1.6 路由过渡动画
 
 在 `src/App.tsx` 增加全局路由过渡：
 
@@ -130,7 +147,7 @@
 - 公开博客页放在认证 loading 逻辑之外。
 - 根路径欢迎页使用 `index` 路由，避免 `/blogs` 被 `/` 路由吞掉。
 
-### 1.6 已执行验证
+### 1.7 已执行验证
 
 以下命令已多次通过：
 
