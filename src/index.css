@@ -298,6 +298,50 @@
   }
 }
 
+@keyframes multiNodePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes multiCoreBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes multiCoreDot {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+}
+
+@keyframes multiChannelActivate {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(4px) scale(1.025);
+  }
+}
+
 .animate-float-slow {
   animation: float-slow 8s ease-in-out infinite;
 }
@@ -375,8 +419,54 @@
   animation-duration: 1.35s;
 }
 
+.recall-dashed-path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  stroke-dasharray: 10 11;
+}
+
+.recall-moving-path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  stroke-dasharray: 24 24;
+  animation: indexDashFlow 1.6s linear infinite;
+}
+
 .index-es-row {
   animation: indexEsWrite 2.2s ease-in-out infinite;
+}
+
+.recall-core-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.recall-core-line {
+  stroke-width: 2.6;
+}
+
+.multi-node-pulse {
+  animation: multiNodePulse 4.8s ease-in-out infinite;
+}
+
+.multi-core {
+  animation: multiCoreBreathe 4.8s ease-in-out infinite;
+}
+
+.multi-core-dot {
+  animation: multiCoreDot 2.2s ease-in-out infinite;
+}
+
+.multi-channel-card {
+  animation: multiChannelActivate 4.8s ease-in-out infinite;
 }
 
 .demo-pulse-ring {
