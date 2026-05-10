@@ -38,7 +38,7 @@ export interface LLMConfigDTO {
   providerType: string;
   providerName: string;
   modelName: string;
-  capabilities: string | null;
+  capability: LLMCapability;
   apiKeyMasked: string;
   customApiBaseUrl: string | null;
   priority: number;
@@ -50,6 +50,19 @@ export interface LLMConfigDTO {
   extraConfig: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type LLMCapability = "CHAT" | "EMBEDDING" | "OCR" | "VISION" | "REASONING" | "CODE";
+
+export interface ModelCapabilityDTO {
+  modelName: string;
+  capabilities: LLMCapability[];
+}
+
+export interface ProviderModelDTO {
+  providerType: string;
+  providerName: string;
+  models: ModelCapabilityDTO[];
 }
 
 export interface ConversationDTO {
