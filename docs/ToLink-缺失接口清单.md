@@ -1,7 +1,7 @@
 # ToLink Web 缺失后端接口清单
 
-> 文档版本：1.1
-> 更新日期：2026-04-28
+> 文档版本：1.3
+> 更新日期：2026-05-11
 > 扫描范围：`toLink-Web/src`、`toLink-Service/link-api/src/main/java`
 > 结论口径：以当前代码真实存在的 Controller 与前端实际调用为准
 
@@ -9,14 +9,15 @@
 
 ## 一、结论摘要
 
-当前 `toLink-Web` 和 `toLink-Service` 之间的问题分成两类：
+当前 `toLink-Web` 和 `toLink-Service` 之间仍待后端补充的接口，只记录在本文件中。
 
-1. **真正缺失的后端接口**
-   前端已有调用意图，后端 Controller 尚未提供对应能力。
-2. **后端已提供，但前端调用路径或交互模型不匹配**
-   这类问题不应归因于后端缺接口，需要优先改前端适配。
+本文件只记录“前端已有调用意图，但后端 Controller 尚未提供”的接口。
 
-本文件只把第 1 类列为“缺失接口”，并在末尾补充第 2 类，避免联调判断失真。
+已实现接口的维护口径：
+
+1. 后端实现后，先核对 Controller 路径、请求字段和响应字段。
+2. 前端完成接入并通过基础验证后，必须从本清单删除对应条目。
+3. 后端已提供但前端尚未适配的问题，不写入本清单，改写到交接文档或联通计划待办中。
 
 ---
 
@@ -106,37 +107,6 @@ PATCH /api/v1/chat/conversations/{conversationId}
 
 ---
 
-### 2.3 更新数据集信息
-
-**优先级：P1**
-
-前端位置：
-- `toLink-Web/src/services/dataset.ts`
-
-前端期望：
-
-```http
-PATCH /api/v1/datasets/{datasetId}
-```
-
-建议支持字段：
-
-```json
-{
-  "name": "新的知识库名称",
-  "description": "新的描述"
-}
-```
-
-当前后端现状：
-- `DatasetController` 只有创建、列表、详情、删除
-- 不存在数据集更新接口
-
-影响：
-- 前端已预留 `updateDataset()` 服务，但当前没有实际后端可调用
-
----
-
 ## 三、暂不建议作为缺失接口立项，但属于产品能力缺口
 
 ### 3.1 文件重新关联多个知识库
@@ -155,31 +125,8 @@ PATCH /api/v1/datasets/{datasetId}
 
 ---
 
-## 四、后端已提供，但前端必须改造适配的接口
-
-以下不是后端缺失，而是 `toLink-Web` 当前调用路径与后端真实路径不一致：
-
-| 前端当前调用 | 后端真实接口 | 说明 |
-|---|---|---|
-| `GET /api/v1/datasets/{id}/knowledge-files` | `GET /api/v1/datasets/{id}/files` | 文件列表路径不一致 |
-| `POST /api/v1/datasets/{id}/knowledge-files` | `POST /api/v1/datasets/{id}/files` | 文件上传路径不一致 |
-| `GET /api/v1/knowledge-files/{fileId}` | `GET /api/v1/files/{fileId}` | 文件详情路径不一致 |
-| `DELETE /api/v1/knowledge-files/{fileId}` | `DELETE /api/v1/files/{fileId}` | 文件删除路径不一致 |
-| `POST /api/v1/knowledge-files/{fileId}/parse-tasks` | `POST /api/v1/files/{fileId}/parse` | 手动解析触发路径不一致 |
-
-额外说明：
-- 后端已提供 `GET /api/v1/datasets/{datasetId}/files/parse-events`
-- 后端已提供 `GET /api/v1/datasets/{datasetId}/files/parse-results`
-- 这意味着文件上传与解析链路可以先按现有接口接通，不需要等待新接口
-
----
-
-## 五、建议实现顺序
+## 四、建议实现顺序
 
 1. 后端补 `POST /api/v1/chat/conversations/{id}/messages`
 2. 后端补 `PATCH /api/v1/chat/conversations/{id}`
-3. 前端把知识文件相关路径统一改成 `/files`
-4. 前端接入文件上传、删除、手动解析、解析结果轮询或 SSE
-5. 后端补 `PATCH /api/v1/datasets/{id}`
-6. 如产品确认需要，再单独设计“文件关联多个知识库”能力
-
+3. 如产品确认需要，再单独设计“文件关联多个知识库”能力

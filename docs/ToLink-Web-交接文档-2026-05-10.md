@@ -208,6 +208,58 @@ npm run build
 
 `build` 会提示 chunk 超过 500KB，这是 Vite/Rollup 的体积警告，不是当前改动引入的编译错误。
 
+### 1.8 2026-05-11 数据集基础联通
+
+本轮开始推进数据集方向的基础联通，后端真实契约确认如下：
+
+- 列表：`GET /api/v1/datasets`
+- 详情：`GET /api/v1/datasets/{datasetId}`
+- 创建：`POST /api/v1/datasets`
+- 更新：`PATCH /api/v1/datasets/{datasetId}`
+- 删除：`DELETE /api/v1/datasets/{datasetId}`
+
+前端已完成：
+
+- `src/pages/datasets/index.tsx`
+  - 知识库列表接入真实分页接口。
+  - 新建知识库接入真实创建接口。
+  - 列表卡片整体点击直接进入知识库详情，不再保留右上角箭头按钮。
+  - 列表卡片右下角放置编辑、删除入口；删除调用 `DELETE /api/v1/datasets/{datasetId}`。
+  - 编辑入口已接入真实编辑弹窗，保存时调用 `PATCH /api/v1/datasets/{datasetId}` 更新名称与描述。
+  - 增加列表加载态、失败态、空态、搜索空态。
+  - 创建按钮增加提交态和必填禁用。
+  - 创建成功后弹出成功提示并更新列表。
+- `src/pages/datasets/dataset/index.tsx`
+  - 数据集详情、文件列表继续接入真实接口。
+  - 对话列表加载失败不再阻断数据集详情展示。
+  - 增加详情加载失败提示。
+  - 删除知识库、上传文件、删除文件、提交解析任务增加操作态和成功提示。
+  - 上传失败或未上传成功的文件禁用解析按钮，避免直接触发后端失败。
+
+验证结果：
+
+```bash
+npm run lint
+npm run build
+```
+
+均已通过。`build` 仍有 chunk 超过 500KB 的既有提醒。
+
+文档规则已补充：
+
+- 联通过程中发现后端未实现的接口，写入 `docs/ToLink-缺失接口清单.md`。
+- 后端实现并完成前端适配后，从缺失接口清单中删除，不保留已解决项。
+
+2026-05-11 联调修复：
+
+- 删除数据集时后端报 `Unknown column 'parse_notice_status' in 'field list'`。
+- 根因：`KnowledgeOriginalFile` 实体仍映射旧解析字段，但当前 `document_original_file` 表职责已收敛为原文件上传事实。
+- 修复：移除 `KnowledgeOriginalFile` 上旧解析字段映射，避免 MyBatis-Plus 默认查询不存在的列。
+- 删除数据集继续报 `Unknown column 'is_deleted' in 'field list'`。
+- 根因：`ChatConversation` 实体和 H2 测试 schema 仍按旧软删除字段建模，但当前 `chat_conversation` 主 schema 没有 `is_deleted`。
+- 修复：移除 `ChatConversation.isDeleted` 与 `@TableLogic`，会话删除改为先删消息再物理删除会话；同步调整测试 schema 和断言。
+- 验证：`mvn -pl link-service -am -DskipTests compile`、`mvn -pl link-api -am -Dtest=DatasetControllerTest -DfailIfNoTests=false test` 通过。
+
 ## 2. 当前还没有做
 
 ### 2.1 登录真实联调未完成

@@ -32,8 +32,8 @@ export async function createDataset(
 export async function updateDataset(
   datasetId: number,
   data: UpdateDatasetRequest
-): Promise<void> {
-  await apiClient.patch(`/api/v1/datasets/${datasetId}`, data);
+): Promise<DatasetDTO> {
+  return apiClient.patch<DatasetDTO>(`/api/v1/datasets/${datasetId}`, data);
 }
 
 export async function deleteDataset(datasetId: number): Promise<void> {

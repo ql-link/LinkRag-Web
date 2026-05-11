@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { FileText, MessageSquare, RefreshCw, Trash2, Upload, Wand2 } from 'lucide-react';
+import { AlertCircle, FileText, Loader2, MessageSquare, RefreshCw, Trash2, Upload, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
+import { useToast } from '@/contexts/ToastContext';
 import {
   createParseTask,
   deleteDataset,
@@ -20,13 +21,16 @@ interface DatasetPageProps {
 }
 
 function formatSize(bytes: number) {
+  if (!Number.isFinite(bytes)) return '-';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN');
+  if (!value) return '-';
+  const time = new Date(value);
+  return Number.isNaN(time.getTime()) ? value : time.toLocaleString('zh-CN');
 }
 
 function getFileStatusLabel(file: KnowledgeFileDTO) {
@@ -42,13 +46,19 @@ function getFileStatusLabel(file: KnowledgeFileDTO) {
 export default function DatasetPage({ darkMode }: DatasetPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'files' | 'conversations'>('files');
   const [uploading, setUploading] = useState(false);
+  const [deletingDataset, setDeletingDataset] = useState(false);
+  const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
+  const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -58,32 +68,58 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
 
   async function loadDataset() {
     if (!id) return;
+    const datasetId = Number(id);
+    if (Number.isNaN(datasetId)) {
+      setDataset(null);
+      setErrorMessage('数据集地址不正确。');
+      setLoading(false);
+      return;
+    }
+
+    setErrorMessage('');
+    if (dataset) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
-      const ds = await getDataset(Number(id));
+      const ds = await getDataset(datasetId);
       setDataset(ds);
 
-      const [filesResult, convResult] = await Promise.all([
-        getKnowledgeFiles(ds.id, 1, 100),
-        getConversations(1, 100),
-      ]);
+      const filesResult = await getKnowledgeFiles(ds.id, 1, 100);
 
       setFiles(filesResult.items);
-      setConversations(convResult.items.filter((item) => item.datasetId === ds.id));
+
+      try {
+        const convResult = await getConversations(1, 100);
+        setConversations(convResult.items.filter((item) => item.datasetId === ds.id));
+      } catch (error) {
+        console.error('Failed to load dataset conversations:', error);
+        setConversations([]);
+      }
     } catch (error) {
       console.error('Failed to load dataset:', error);
+      setErrorMessage('知识库详情加载失败，请检查后端服务或稍后重试。');
+      setDataset(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
   async function handleDeleteDataset() {
     if (!dataset) return;
     if (!confirm('确定要删除这个数据集吗？删除后无法恢复。')) return;
+    setDeletingDataset(true);
     try {
       await deleteDataset(dataset.id);
+      addToast('success', '知识库已删除');
       navigate(Routes.Datasets);
     } catch (error) {
       console.error('Failed to delete dataset:', error);
+    } finally {
+      setDeletingDataset(false);
     }
   }
 
@@ -97,6 +133,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
     setUploading(true);
     try {
       await uploadKnowledgeFile(dataset.id, file);
+      addToast('success', '文件已上传');
       await loadDataset();
     } catch (error) {
       console.error('Failed to upload knowledge file:', error);
@@ -107,27 +144,38 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
 
   async function handleDeleteFile(fileId: number) {
     if (!confirm('确定删除这个文件吗？')) return;
+    setDeletingFileIds((prev) => [...prev, fileId]);
     try {
       await deleteKnowledgeFile(fileId);
       setFiles((prev) => prev.filter((item) => item.id !== fileId));
+      addToast('success', '文件已删除');
     } catch (error) {
       console.error('Failed to delete knowledge file:', error);
+    } finally {
+      setDeletingFileIds((prev) => prev.filter((item) => item !== fileId));
     }
   }
 
   async function handleParseFile(fileId: number) {
+    setParsingFileIds((prev) => [...prev, fileId]);
     try {
       await createParseTask(fileId);
+      addToast('success', '解析任务已提交');
       await loadDataset();
     } catch (error) {
       console.error('Failed to create parse task:', error);
+    } finally {
+      setParsingFileIds((prev) => prev.filter((item) => item !== fileId));
     }
   }
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+        <div className="flex flex-col items-center">
+          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+          <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+        </div>
       </div>
     );
   }
@@ -135,7 +183,11 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
   if (!dataset) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
-        <p className={cn('text-lg mb-4', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>数据集不存在</p>
+        <AlertCircle size={30} className="mb-3 text-red-500" />
+        <p className={cn('text-lg mb-2', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>数据集不可用</p>
+        <p className={cn('text-sm mb-4', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+          {errorMessage || '数据集不存在或无权访问'}
+        </p>
         <button
           onClick={() => navigate(Routes.Datasets)}
           className={cn(
@@ -197,21 +249,27 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
           </button>
           <button
             onClick={() => void loadDataset()}
+            disabled={refreshing}
             className={cn(
               'p-2 rounded-xl transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40'
+              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
+              refreshing && 'opacity-60'
             )}
+            title="刷新知识库"
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={handleDeleteDataset}
+            disabled={deletingDataset}
             className={cn(
               'p-2 rounded-xl transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40'
+              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
+              deletingDataset && 'opacity-60'
             )}
+            title="删除知识库"
           >
-            <Trash2 size={18} />
+            {deletingDataset ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
           </button>
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
         </div>
@@ -266,7 +324,12 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                 <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>点击右上角开始上传</p>
               </div>
             ) : (
-              files.map((file) => (
+              files.map((file) => {
+                const parsing = parsingFileIds.includes(file.id);
+                const deleting = deletingFileIds.includes(file.id);
+                const canParse = file.isUploadSuccess && file.uploadStatus === 'success' && !file.failureReason;
+
+                return (
                 <div
                   key={file.id}
                   className={cn(
@@ -298,26 +361,29 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => void handleParseFile(file.id)}
+                      disabled={!canParse || parsing}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
+                        'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
                         darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-primary text-white hover:bg-primary/90'
                       )}
                     >
-                      <Wand2 size={12} />
-                      解析
+                      {parsing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                      {parsing ? '提交中' : '解析'}
                     </button>
                     <button
                       onClick={() => void handleDeleteFile(file.id)}
+                      disabled={deleting}
                       className={cn(
-                        'p-2 rounded-xl transition-colors',
+                        'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                         darkMode ? 'hover:bg-[#3c3c3c] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40'
                       )}
                     >
-                      <Trash2 size={16} />
+                      {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         ) : (
