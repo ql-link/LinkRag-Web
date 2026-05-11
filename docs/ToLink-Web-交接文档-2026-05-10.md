@@ -260,6 +260,81 @@ npm run build
 - 修复：移除 `ChatConversation.isDeleted` 与 `@TableLogic`，会话删除改为先删消息再物理删除会话；同步调整测试 schema 和断言。
 - 验证：`mvn -pl link-service -am -DskipTests compile`、`mvn -pl link-api -am -Dtest=DatasetControllerTest -DfailIfNoTests=false test` 通过。
 
+### 1.9 2026-05-11 文件方向基础联通
+
+本轮继续推进文件方向基础联通，后端真实契约确认如下：
+
+- 文件列表：`GET /api/v1/datasets/{datasetId}/files`
+- 文件上传：`POST /api/v1/datasets/{datasetId}/files`
+- 文件详情：`GET /api/v1/files/{fileId}`
+- 文件删除：`DELETE /api/v1/files/{fileId}`
+- 提交解析：`POST /api/v1/files/{fileId}/parse`
+- 解析结果：`GET /api/v1/datasets/{datasetId}/files/parse-results`
+- 解析事件：`GET /api/v1/datasets/{datasetId}/files/parse-events`
+
+前端已完成：
+
+- `src/services/dataset.ts`
+  - 新增 `enrichKnowledgeFilesWithParseResults()`，列表加载后按文件 ID 合并解析状态、解析文件名和解析失败原因。
+- `src/pages/files/index.tsx`
+  - 文件总览页加载所有知识库下文件，并合并解析结果。
+  - 上传支持选择目标知识库和“上传后解析”。
+  - 上传入口限制为后端当前白名单格式，并展示 `md / markdown / pdf / docx / txt` 提示。
+  - 删除、解析按钮增加操作态和成功提示。
+  - 增加文件列表加载态、失败态、空态。
+- `src/pages/datasets/dataset/index.tsx`
+  - 知识库详情页文件列表合并解析结果。
+  - 上传支持“上传后解析”。
+  - 上传入口限制为后端当前白名单格式，并展示 `md / markdown / pdf / docx / txt` 提示。
+  - 文件状态文案收敛为上传失败、待解析、解析中、解析完成、解析失败。
+
+当前未做：
+
+- SSE 实时解析事件尚未接入，当前通过刷新/重新加载查询 `parse-results` 兜底展示状态。
+
+### 1.10 2026-05-11 接口状态全量扫描与前端清理
+
+本轮对后端全部 12 个 Controller（45 个端点）做了源码级扫描，确认前后端接口对齐状态。
+
+**确认结果：**
+
+| 模块 | 后端接口数 | 前端已接通 | 缺失 |
+|------|-----------|-----------|------|
+| Auth | 3 | 3 | 0 |
+| User | 2 | 2 | 0 |
+| LLM Config | 6 | 6 | 0 |
+| LLM Providers | 1 | 1 | 0 |
+| Usage | 3 | 3 | 0 |
+| Dataset | 5 | 5 | 0 |
+| Knowledge Files | 7 | 7 | 0 |
+| Chat | 4 | 4（列表/创建/历史/删除） | **2（发送消息、更新会话）** |
+| OSS | 2 | 1（头像上传） | 1（公共预览是内部接口） |
+| Admin | 10 | 0（前端无页面） | 0（接口已有，前端未实现） |
+| Internal | 2 | 0（服务间接口） | 0 |
+
+**前端已完成的清理：**
+
+- `src/pages/chats/index.tsx`
+  - 移除硬编码 "89 条消息"，改为动态显示对话数量。
+- `src/pages/chats/chat/index.tsx`
+  - 移除 `handleSend()` 和 `handlePin()` 中的 `alert()` 占位，改为 TODO 注释。
+  - 移除黄色提示 banner。
+  - 发送按钮、置顶按钮、输入框全部设为 `disabled`，带 `title` 提示后端接口待补齐。
+  - 输入框 placeholder 改为 "输入消息..."。
+  - 视觉上发送区域变为灰色不可用状态，hover 时显示 tooltip。
+
+**后端启动问题记录：**
+
+- `mvn spring-boot:run` 启动失败，报 `NoClassDefFoundError: com/qingluo/link/model/dto/request/UpdateDatasetRequest`。
+- 根因：`spring-boot:run` 插件使用旧的 link-model jar，而非 target/classes。
+- `mvn clean compile` 和 `mvn install` 均成功，但 `install` 因 `.m2/repository` 权限问题无法写入。
+- 本地环境问题，不影响代码正确性。前端 lint + build 均通过。
+
+**当前缺失接口清单（2 个 P0，后端源码确认不存在）：**
+
+1. `POST /api/v1/chat/conversations/{id}/messages` — 发送消息
+2. `PATCH /api/v1/chat/conversations/{id}` — 更新会话（置顶/重命名）
+
 ## 2. 当前还没有做
 
 ### 2.1 登录真实联调未完成

@@ -44,13 +44,13 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim() || !conversation) return;
-    alert('后端暂未提供发送消息接口，已在 web/docs/ToLink-缺失接口清单.md 中记录。');
+    // TODO: 后端暂未提供发送消息接口 (POST /api/v1/chat/conversations/{id}/messages)
+    // 缺失接口清单: toLink-Web/docs/ToLink-缺失接口清单.md
   };
 
   const handlePin = async () => {
-    if (!conversation) return;
-    alert('后端暂未提供会话更新接口，当前无法置顶。');
+    // TODO: 后端暂未提供会话更新接口 (PATCH /api/v1/chat/conversations/{id})
+    // 缺失接口清单: toLink-Web/docs/ToLink-缺失接口清单.md
   };
 
   const handleDelete = async () => {
@@ -122,11 +122,13 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePin}
+            disabled
+            title="后端暂未提供会话更新接口"
             className={cn(
-              "p-2 rounded-xl transition-colors",
+              "p-2 rounded-xl transition-colors cursor-not-allowed",
               darkMode
-                ? "hover:bg-[#2d2d2d] text-[#858585]"
-                : "hover:bg-gray-100 text-text-main/40"
+                ? "text-[#3c3c3c]"
+                : "text-text-main/20"
             )}
           >
             {conversation.isPinned ? <PinOff size={18} /> : <Pin size={18} />}
@@ -148,14 +150,6 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-4">
-          <div className={cn(
-            "rounded-2xl p-4 text-sm",
-            darkMode
-              ? "bg-[#2d2d2d] border border-[#3c3c3c] text-[#cccccc]"
-              : "bg-amber-50 border border-amber-200 text-amber-800"
-          )}>
-            当前页面已接通会话列表、历史消息和删除能力；发送消息、置顶能力仍依赖后端补接口。
-          </div>
           {messages.length === 0 ? (
             <div className={cn(
               "text-center py-12 rounded-2xl",
@@ -209,26 +203,25 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="发送能力待后端接口补齐"
+            placeholder="输入消息..."
+            disabled
+            title="后端暂未提供发送消息接口"
             className={cn(
-              "flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none",
+              "flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none cursor-not-allowed",
               darkMode
-                ? "bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
-                : "bg-bg-base/50 border border-border-subtle"
+                ? "bg-[#1e1e1e] border border-[#3c3c3c] text-[#6b6b6b] placeholder:text-[#3c3c3c]"
+                : "bg-gray-100 border border-border-subtle text-gray-400"
             )}
           />
           <button
             onClick={handleSend}
-            disabled={!inputValue.trim()}
+            disabled
+            title="后端暂未提供发送消息接口"
             className={cn(
-              "p-3 rounded-xl transition-colors",
-              inputValue.trim()
-                ? darkMode
-                  ? "bg-[#094771] text-white hover:bg-[#0a5280]"
-                  : "bg-primary text-white hover:bg-primary/90"
-                : darkMode
-                  ? "bg-[#3c3c3c] text-[#6b6b6b] cursor-not-allowed"
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              "p-3 rounded-xl transition-colors cursor-not-allowed",
+              darkMode
+                ? "bg-[#3c3c3c] text-[#6b6b6b]"
+                : "bg-gray-200 text-gray-400"
             )}
           >
             <Send size={18} />

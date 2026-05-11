@@ -9,6 +9,7 @@ import {
   createParseTask,
   deleteDataset,
   deleteKnowledgeFile,
+  enrichKnowledgeFilesWithParseResults,
   getDataset,
   getKnowledgeFiles,
   uploadKnowledgeFile,
@@ -19,6 +20,10 @@ import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api'
 interface DatasetPageProps {
   darkMode?: boolean;
 }
+
+const SUPPORTED_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'txt'];
+const FILE_ACCEPT = SUPPORTED_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
+const SUPPORTED_FILE_HINT = `支持 ${SUPPORTED_FILE_SUFFIXES.join(' / ')}`;
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes)) return '-';
@@ -34,13 +39,33 @@ function formatTime(value: string) {
 }
 
 function getFileStatusLabel(file: KnowledgeFileDTO) {
-  if (file.failureReason) {
+  if (file.frontendStatus === 'upload_failed' || file.failureReason) {
     return '上传失败';
   }
+  if (file.frontendStatus === 'parse_waiting') return '待解析';
+  if (file.frontendStatus === 'parsing') return '解析中';
+  if (file.frontendStatus === 'parse_success') return '解析完成';
+  if (file.frontendStatus === 'parse_failed') return '解析失败';
   if (file.parseStatus) {
     return file.parseStatus;
   }
   return file.uploadStatus;
+}
+
+function getFileStatusTone(file: KnowledgeFileDTO) {
+  if (file.frontendStatus === 'upload_failed' || file.frontendStatus === 'parse_failed' || file.failureReason || file.parseFailureReason) {
+    return 'text-red-500';
+  }
+  if (file.frontendStatus === 'parsing') return 'text-blue-500';
+  if (file.frontendStatus === 'parse_success') return 'text-emerald-500';
+  return '';
+}
+
+function canSubmitParse(file: KnowledgeFileDTO) {
+  return file.isUploadSuccess
+    && file.uploadStatus === 'success'
+    && !file.failureReason
+    && file.frontendStatus !== 'parsing';
 }
 
 export default function DatasetPage({ darkMode }: DatasetPageProps) {
@@ -56,6 +81,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'files' | 'conversations'>('files');
   const [uploading, setUploading] = useState(false);
+  const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingDataset, setDeletingDataset] = useState(false);
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
   const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
@@ -88,8 +114,9 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
       setDataset(ds);
 
       const filesResult = await getKnowledgeFiles(ds.id, 1, 100);
+      const enrichedFiles = await enrichKnowledgeFilesWithParseResults(ds.id, filesResult.items);
 
-      setFiles(filesResult.items);
+      setFiles(enrichedFiles);
 
       try {
         const convResult = await getConversations(1, 100);
@@ -132,8 +159,8 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
 
     setUploading(true);
     try {
-      await uploadKnowledgeFile(dataset.id, file);
-      addToast('success', '文件已上传');
+      await uploadKnowledgeFile(dataset.id, file, parseAfterUpload);
+      addToast('success', parseAfterUpload ? '文件已上传，解析任务已提交' : '文件已上传');
       await loadDataset();
     } catch (error) {
       console.error('Failed to upload knowledge file:', error);
@@ -160,6 +187,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
     setParsingFileIds((prev) => [...prev, fileId]);
     try {
       await createParseTask(fileId);
+      setFiles((prev) => prev.map((item) => item.id === fileId ? { ...item, frontendStatus: 'parsing', parseStatus: 'created' } : item));
       addToast('success', '解析任务已提交');
       await loadDataset();
     } catch (error) {
@@ -247,6 +275,15 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
             <Upload size={14} />
             {uploading ? '上传中' : '上传文件'}
           </button>
+          <label className={cn('flex items-center gap-2 px-2 text-xs', darkMode ? 'text-[#cccccc]' : 'text-text-main/70')}>
+            <input
+              type="checkbox"
+              checked={parseAfterUpload}
+              onChange={(event) => setParseAfterUpload(event.target.checked)}
+              className="accent-[#3b82f6]"
+            />
+            上传后解析
+          </label>
           <button
             onClick={() => void loadDataset()}
             disabled={refreshing}
@@ -271,7 +308,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
           >
             {deletingDataset ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
           </button>
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} />
+          <input ref={fileInputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleUpload} />
         </div>
       </header>
 
@@ -307,6 +344,9 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
         >
           关联对话 ({conversations.length})
         </button>
+        <span className={cn('ml-auto flex items-center text-[10px] uppercase tracking-wider', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+          {SUPPORTED_FILE_HINT}
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
@@ -327,7 +367,8 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
               files.map((file) => {
                 const parsing = parsingFileIds.includes(file.id);
                 const deleting = deletingFileIds.includes(file.id);
-                const canParse = file.isUploadSuccess && file.uploadStatus === 'success' && !file.failureReason;
+                const canParse = canSubmitParse(file);
+                const statusTone = getFileStatusTone(file);
 
                 return (
                 <div
@@ -351,10 +392,11 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                         {file.originalFilename}
                       </p>
                       <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                        {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} · {getFileStatusLabel(file)}
+                        {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} ·{' '}
+                        <span className={statusTone}>{getFileStatusLabel(file)}</span>
                       </p>
-                      {file.failureReason && (
-                        <p className="text-xs text-red-500 mt-1">{file.failureReason}</p>
+                      {(file.failureReason || file.parseFailureReason) && (
+                        <p className="text-xs text-red-500 mt-1">{file.failureReason || file.parseFailureReason}</p>
                       )}
                     </div>
                   </div>

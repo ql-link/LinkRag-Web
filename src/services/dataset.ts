@@ -91,3 +91,26 @@ export async function getParseResults(
     }
   );
 }
+
+export async function enrichKnowledgeFilesWithParseResults(
+  datasetId: number,
+  files: KnowledgeFileDTO[]
+): Promise<KnowledgeFileDTO[]> {
+  if (files.length === 0) return files;
+
+  const results = await getParseResults(datasetId, files.map((file) => file.id));
+  const resultMap = new Map(results.map((result) => [result.fileId, result]));
+
+  return files.map((file) => {
+    const result = resultMap.get(file.id);
+    if (!result) return file;
+
+    return {
+      ...file,
+      frontendStatus: result.frontendStatus as KnowledgeFileDTO['frontendStatus'],
+      parsedFilename: result.parsedFilename,
+      parseStatus: result.parseStatus as KnowledgeFileDTO['parseStatus'],
+      parseFailureReason: result.failureReason,
+    };
+  });
+}

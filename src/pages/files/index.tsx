@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { ChevronDown, FileSpreadsheet, FileText, Presentation, RefreshCw, Search, Trash2, Upload, Wand2 } from 'lucide-react';
+import { AlertCircle, FileSpreadsheet, FileText, Loader2, Presentation, RefreshCw, Search, Trash2, Upload, Wand2 } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { DatasetBadgeList } from '@/components/DatasetBadge';
+import { useToast } from '@/contexts/ToastContext';
 import {
   createParseTask,
   deleteKnowledgeFile,
+  enrichKnowledgeFilesWithParseResults,
   getDatasets,
   getKnowledgeFiles,
   uploadKnowledgeFile,
@@ -19,6 +21,9 @@ const FILE_TYPES: Record<string, typeof FileText> = {
   PPTX: Presentation,
   XLSX: FileSpreadsheet,
 };
+const SUPPORTED_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'txt'];
+const FILE_ACCEPT = SUPPORTED_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
+const SUPPORTED_FILE_HINT = `支持 ${SUPPORTED_FILE_SUFFIXES.join(' / ')}`;
 
 interface FileWithDataset extends KnowledgeFileDTO {
   dataset: DatasetDTO;
@@ -39,30 +44,57 @@ function formatDate(dateStr: string) {
 }
 
 function getFileStatus(file: KnowledgeFileDTO) {
-  if (file.failureReason) {
+  if (file.frontendStatus === 'upload_failed' || file.failureReason) {
     return '上传失败';
   }
+  if (file.frontendStatus === 'parse_waiting') return '待解析';
+  if (file.frontendStatus === 'parsing') return '解析中';
+  if (file.frontendStatus === 'parse_success') return '解析完成';
+  if (file.frontendStatus === 'parse_failed') return '解析失败';
   if (file.parseStatus) {
     return file.parseStatus;
   }
   return file.uploadStatus;
 }
 
+function getFileStatusTone(file: KnowledgeFileDTO) {
+  if (file.frontendStatus === 'upload_failed' || file.frontendStatus === 'parse_failed' || file.failureReason || file.parseFailureReason) {
+    return 'text-red-500';
+  }
+  if (file.frontendStatus === 'parsing') return 'text-blue-500';
+  if (file.frontendStatus === 'parse_success') return 'text-emerald-500';
+  return '';
+}
+
+function canSubmitParse(file: KnowledgeFileDTO) {
+  return file.isUploadSuccess
+    && file.uploadStatus === 'success'
+    && !file.failureReason
+    && file.frontendStatus !== 'parsing';
+}
+
 export default function FilesPage({ darkMode }: FilesPageProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { addToast } = useToast();
   const [searchString, setSearchString] = useState('');
   const [files, setFiles] = useState<FileWithDataset[]>([]);
   const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
   const [uploadDatasetId, setUploadDatasetId] = useState<number | null>(null);
+  const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
+  const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
 
   useEffect(() => {
     void loadData();
   }, []);
 
   async function loadData() {
+    setLoading(true);
+    setErrorMessage('');
     try {
       const dsResult = await getDatasets(1, 100);
       setDatasets(dsResult.items);
@@ -70,15 +102,17 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
       const nestedResults = await Promise.all(
         dsResult.items.map(async (dataset) => {
           const filesResult = await getKnowledgeFiles(dataset.id, 1, 100);
-          return filesResult.items.map((file) => ({ ...file, dataset }));
+          const enrichedFiles = await enrichKnowledgeFilesWithParseResults(dataset.id, filesResult.items);
+          return enrichedFiles.map((file) => ({ ...file, dataset }));
         })
       );
 
       const merged = nestedResults.flat().sort((a, b) => b.id - a.id);
       setFiles(merged);
-      setUploadDatasetId(dsResult.items[0]?.id ?? null);
+      setUploadDatasetId((current) => current ?? dsResult.items[0]?.id ?? null);
     } catch (error) {
       console.error('Failed to load files:', error);
+      setErrorMessage('文件列表加载失败，请检查后端服务或稍后重试。');
     } finally {
       setLoading(false);
     }
@@ -93,7 +127,8 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
 
     setUploading(true);
     try {
-      await uploadKnowledgeFile(uploadDatasetId, file);
+      await uploadKnowledgeFile(uploadDatasetId, file, parseAfterUpload);
+      addToast('success', parseAfterUpload ? '文件已上传，解析任务已提交' : '文件已上传');
       await loadData();
     } catch (error) {
       console.error('Failed to upload file:', error);
@@ -104,20 +139,28 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
 
   async function handleDelete(fileId: number) {
     if (!confirm('确定删除这个文件吗？')) return;
+    setDeletingFileIds((prev) => [...prev, fileId]);
     try {
       await deleteKnowledgeFile(fileId);
       setFiles((prev) => prev.filter((item) => item.id !== fileId));
+      addToast('success', '文件已删除');
     } catch (error) {
       console.error('Failed to delete file:', error);
+    } finally {
+      setDeletingFileIds((prev) => prev.filter((id) => id !== fileId));
     }
   }
 
   async function handleParse(fileId: number) {
+    setParsingFileIds((prev) => [...prev, fileId]);
     try {
       await createParseTask(fileId);
+      addToast('success', '解析任务已提交');
       await loadData();
     } catch (error) {
       console.error('Failed to parse file:', error);
+    } finally {
+      setParsingFileIds((prev) => prev.filter((id) => id !== fileId));
     }
   }
 
@@ -185,14 +228,26 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
               </option>
             ))}
           </select>
+          <label className={cn('flex items-center gap-2 text-xs', darkMode ? 'text-gray-300' : 'text-text-main/70')}>
+            <input
+              type="checkbox"
+              checked={parseAfterUpload}
+              onChange={(event) => setParseAfterUpload(event.target.checked)}
+              className="accent-[#3b82f6]"
+            />
+            上传后解析
+          </label>
           <button
             onClick={() => void loadData()}
+            disabled={loading}
             className={cn(
               'p-2 rounded-xl transition-colors',
-              darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-text-main/50 hover:bg-primary/5'
+              darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-text-main/50 hover:bg-primary/5',
+              loading && 'opacity-60'
             )}
+            title="刷新文件"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={() => inputRef.current?.click()}
@@ -206,7 +261,7 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
             <Upload size={14} />
             <span className="text-xs font-bold uppercase tracking-wider">{uploading ? '上传中' : '上传'}</span>
           </button>
-          <input ref={inputRef} type="file" className="hidden" onChange={handleUpload} />
+          <input ref={inputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleUpload} />
         </div>
       </header>
 
@@ -215,10 +270,28 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
           <span>共 {visibleFiles.length} 个文件</span>
           <span className={darkMode ? 'text-gray-600' : 'text-border-subtle'}>|</span>
           <span>按后端真实接口展示</span>
+          <span className={darkMode ? 'text-gray-500' : 'text-text-main/40'}>{SUPPORTED_FILE_HINT}</span>
         </div>
 
         {loading ? (
-          <div className={cn('mono-label', darkMode ? 'text-gray-400' : 'text-text-main/40')}>加载中...</div>
+          <div className={cn('h-56 flex flex-col items-center justify-center rounded-2xl', darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card')}>
+            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+            <p className={cn('mono-label', darkMode ? 'text-gray-400' : 'text-text-main/50')}>正在加载文件</p>
+          </div>
+        ) : errorMessage ? (
+          <div className={cn('h-56 flex flex-col items-center justify-center rounded-2xl text-center', darkMode ? 'bg-gray-800/50 border border-gray-700' : 'art-card')}>
+            <AlertCircle size={26} className="mb-3 text-red-500" />
+            <p className={cn('text-sm mb-4', darkMode ? 'text-gray-200' : 'text-text-main')}>{errorMessage}</p>
+            <button
+              onClick={() => void loadData()}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
+                darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90'
+              )}
+            >
+              重试
+            </button>
+          </div>
         ) : visibleFiles.length === 0 ? (
           <div
             className={cn(
@@ -235,6 +308,9 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
             {visibleFiles.map((file) => {
               const fileType = file.originalFilename.split('.').pop()?.toUpperCase() || file.fileSuffix.toUpperCase();
               const FileIcon = FILE_TYPES[fileType] || FileText;
+              const parsing = parsingFileIds.includes(file.id);
+              const deleting = deletingFileIds.includes(file.id);
+              const parseDisabled = !canSubmitParse(file) || parsing;
 
               return (
                 <div
@@ -253,7 +329,7 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                         <span className={cn('text-xs font-bold uppercase tracking-wider truncate', darkMode ? 'text-gray-100' : 'text-text-main')}>
                           {file.originalFilename}
                         </span>
-                        <span className={cn('mono-label shrink-0', darkMode ? 'text-gray-500' : 'text-text-main/30')}>
+                        <span className={cn('mono-label shrink-0', getFileStatusTone(file), !getFileStatusTone(file) && (darkMode ? 'text-gray-500' : 'text-text-main/30'))}>
                           {getFileStatus(file)}
                         </span>
                       </div>
@@ -269,27 +345,31 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                           {formatDate(file.createdAt)}
                         </span>
                       </div>
-                      {file.failureReason && <p className="text-xs text-red-500 mt-1">{file.failureReason}</p>}
+                      {(file.failureReason || file.parseFailureReason) && (
+                        <p className="text-xs text-red-500 mt-1">{file.failureReason || file.parseFailureReason}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => void handleParse(file.id)}
+                        disabled={parseDisabled}
                         className={cn(
-                          'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
+                          'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
                           darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-primary text-white hover:bg-primary/90'
                         )}
                       >
-                        <Wand2 size={12} />
-                        解析
+                        {parsing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                        {parsing ? '提交中' : '解析'}
                       </button>
                       <button
                         onClick={() => void handleDelete(file.id)}
+                        disabled={deleting}
                         className={cn(
-                          'p-2 rounded-xl transition-colors',
+                          'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                           darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-text-main/40 hover:bg-gray-100'
                         )}
                       >
-                        <Trash2 size={14} />
+                        {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       </button>
                     </div>
                   </div>

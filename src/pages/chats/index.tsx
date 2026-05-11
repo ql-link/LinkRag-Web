@@ -141,7 +141,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
         <div className={cn("flex items-center gap-6 mb-6 mono-label", darkMode && "text-gray-400")}>
           <span>共 {chats.length} 个对话</span>
           <span className={darkMode ? "text-gray-600" : "text-border-subtle"}>|</span>
-          <span>89 条消息</span>
+          <span>已加载 {chats.length > 0 ? '全部' : '0'} 对话</span>
         </div>
 
         {/* Chat Grid */}

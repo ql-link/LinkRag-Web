@@ -110,10 +110,13 @@ export interface KnowledgeFileDTO {
   failureReason: string | null;
   createdAt: string;
   updatedAt: string;
+  frontendStatus?: FileParseFrontendStatus | null;
+  parsedFilename?: string | null;
   parseNoticeStatus?: KnowledgeParseNoticeStatus | null;
   parseTaskId?: string | null;
   parseStatus?: KnowledgeParseStatus | null;
   isParseSuccess?: boolean | null;
+  parseFailureReason?: string | null;
 }
 
 export type KnowledgeUploadStatus =
@@ -127,11 +130,23 @@ export type KnowledgeParseNoticeStatus =
   | "PARSE_NOTICE_FAILED";
 
 export type KnowledgeParseStatus =
+  | "created"
+  | "processing"
+  | "success"
+  | "failed"
   | "NOT_STARTED"
   | "PENDING"
   | "PROCESSING"
   | "SUCCESS"
   | "FAILED";
+
+export type FileParseFrontendStatus =
+  | "uploaded"
+  | "upload_failed"
+  | "parse_waiting"
+  | "parsing"
+  | "parse_success"
+  | "parse_failed";
 
 export interface FileParseSubmitDTO {
   fileId: number;
