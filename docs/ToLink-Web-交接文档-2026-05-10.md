@@ -1,6 +1,6 @@
 # ToLink Web 交接文档
 
-> 日期：2026-05-10  
+> 日期：2026-05-12  
 > 模块：`toLink-Web`  
 > 目标：让下一轮对话快速接上当前前端联通与欢迎页/博客页改造进度。
 
@@ -322,6 +322,25 @@ npm run build
   - 发送按钮、置顶按钮、输入框全部设为 `disabled`，带 `title` 提示后端接口待补齐。
   - 输入框 placeholder 改为 "输入消息..."。
   - 视觉上发送区域变为灰色不可用状态，hover 时显示 tooltip。
+
+### 1.11 2026-05-12 对话与文件联通收尾
+
+本轮继续完成对话、知识库和文件页面的基础联通与样式收口：
+
+- 对话模块：
+  - `src/pages/chats/index.tsx` 的对话记录卡片改成中性灰系图标与标题，卡片内展示数据集名称和更新时间，点击卡片直接进入详情。
+  - 新建对话弹窗已接入真实 `DatasetSelector` 单选样式，选中后显示数据集标题文字，而不是小标签。
+  - `src/pages/chats/chat/index.tsx` 已接通发送消息、置顶更新和删除接口。
+  - `src/services/chat.ts` 的 `updateConversation()` 已改为返回更新后的会话对象，方便前端即时回显。
+- 知识库与文件模块：
+  - `src/pages/datasets/index.tsx` 已完成卡片大小收口，编辑/删除入口保留在卡片右下角。
+  - `src/pages/datasets/dataset/index.tsx` 已把“上传后立即解析”改为开关，上传入口改成点击虚线框触发。
+  - `src/pages/files/index.tsx` 已把文件页卡片调整得更接近文件夹中的文件列表效果，并移除了“暂无文件”的大卡片。
+  - `src/components/DatasetSelector.tsx` 已支持对话创建场景的单选展示。
+- 文档同步：
+  - `docs/ToLink-前后端联通计划表.md` 已更新对话模块状态。
+  - `docs/ToLink-缺失接口清单.md` 已删除已实现的对话接口缺口。
+  - `toLink-Service/project_info.md` 已补充对话接口能力现状。
 
 **后端启动问题记录：**
 
