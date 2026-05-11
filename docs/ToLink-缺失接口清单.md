@@ -1,7 +1,7 @@
 # ToLink Web 缺失后端接口清单
 
-> 文档版本：1.3
-> 更新日期：2026-05-11
+> 文档版本：1.4
+> 更新日期：2026-05-12
 > 扫描范围：`toLink-Web/src`、`toLink-Service/link-api/src/main/java`
 > 结论口径：以当前代码真实存在的 Controller 与前端实际调用为准
 
@@ -23,87 +23,12 @@
 
 ## 二、真正缺失的后端接口
 
-### 2.1 发送会话消息
+当前扫描结果：`toLink-Web` 代码中已无“前端已有调用意图但后端 Controller 未提供”的接口。
 
-**优先级：P0**
-
-前端位置：
-- `toLink-Web/src/services/chat.ts`
-- `toLink-Web/src/pages/chats/chat/index.tsx`
-
-前端期望：
-
-```http
-POST /api/v1/chat/conversations/{conversationId}/messages
-```
-
-建议请求体：
-
-```json
-{
-  "content": "用户问题",
-  "configId": 1
-}
-```
-
-建议返回：
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "id": 1001,
-    "conversationId": 100,
-    "role": "assistant",
-    "content": "AI 回复内容",
-    "configId": 1,
-    "modelName": "gpt-4o",
-    "tokenCount": 123,
-    "createdAt": "2026-04-28T10:00:00"
-  }
-}
-```
-
-当前后端现状：
-- `ChatController` 只提供创建会话、查询会话列表、查询消息列表、删除会话
-- 未提供“发送消息并生成回复”的入口
-
-影响：
-- 聊天详情页无法真正完成问答闭环
-- 当前 `handleSend()` 仍是 `TODO`
-
----
-
-### 2.2 更新会话信息
-
-**优先级：P0**
-
-前端位置：
-- `toLink-Web/src/services/chat.ts`
-- `toLink-Web/src/pages/chats/chat/index.tsx`
-
-前端期望：
-
-```http
-PATCH /api/v1/chat/conversations/{conversationId}
-```
-
-建议支持字段：
-
-```json
-{
-  "title": "新标题",
-  "isPinned": true
-}
-```
-
-当前后端现状：
-- `ChatController` 不存在 `@PatchMapping("/{id}")`
-
-影响：
-- 对话页“置顶/取消置顶”按钮无法真正生效
-- 后续如果要支持改标题，也没有后端承接点
+> 说明：2026-05-12 已完成以下接口并完成前端接入，因此从缺失清单移除：
+>
+> 1. `POST /api/v1/chat/conversations/{id}/messages`
+> 2. `PATCH /api/v1/chat/conversations/{id}`
 
 ---
 
@@ -127,6 +52,5 @@ PATCH /api/v1/chat/conversations/{conversationId}
 
 ## 四、建议实现顺序
 
-1. 后端补 `POST /api/v1/chat/conversations/{id}/messages`
-2. 后端补 `PATCH /api/v1/chat/conversations/{id}`
-3. 如产品确认需要，再单独设计“文件关联多个知识库”能力
+1. 当前优先关注“文件关联多个知识库”能力是否需要立项。
+2. 若确认需要，先统一数据模型，再补充后端接口与前端交互。

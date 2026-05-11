@@ -148,7 +148,7 @@
     color: #cccccc;
   }
   .dark input::placeholder { color: #6b6b6b; }
-  .dark input:focus { border-color: #3b82f6; }
+  .dark input:focus { border-color: #4a4a4a; }
 
   /* Scrollbars */
   .dark ::-webkit-scrollbar-thumb { background: #424242; }
@@ -212,6 +212,17 @@
   }
   50% {
     transform: translate3d(0, -12px, 0);
+  }
+}
+
+@keyframes datasetDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
   }
 }
 

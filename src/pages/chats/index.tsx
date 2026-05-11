@@ -4,7 +4,6 @@ import { MessageSquare, Plus, Search, ArrowRight, X } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { DatasetBadgeList } from '@/components/DatasetBadge';
 import { DatasetSelector } from '@/components/DatasetSelector';
 import { getConversations, createConversation } from '@/services/chat';
 import { getDatasets } from '@/services/dataset';
@@ -13,6 +12,12 @@ import type { Dataset as DatasetType } from '@/types';
 
 interface ChatsPageProps {
   darkMode?: boolean;
+}
+
+function formatTime(value: string) {
+  if (!value) return '-';
+  const time = new Date(value);
+  return Number.isNaN(time.getTime()) ? value : time.toLocaleString('zh-CN');
 }
 
 export default function ChatsPage({ darkMode }: ChatsPageProps) {
@@ -88,6 +93,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
   const filteredChats = chats.filter((c) =>
     c.title.toLowerCase().includes(searchString.toLowerCase())
   );
+  const datasetNameById = new Map(datasets.map((dataset) => [Number(dataset.id), dataset.name]));
 
   return (
     <div className="h-full flex flex-col">
@@ -118,7 +124,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#3b82f6]",
+                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-border-subtle",
                 darkMode
                   ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                   : "bg-bg-base/50 border-border-subtle"
@@ -151,37 +157,42 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               key={chat.id}
               onClick={() => navigate(`/chats/${chat.id}`)}
               className={cn(
-                "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
-                darkMode
-                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
-                  : "art-card hover:border-primary"
+              "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
+              darkMode
+                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#4a4a4a]"
+                  : "art-card hover:border-border-subtle"
               )}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                  <MessageSquare size={18} className="text-blue-500" />
+                <div className={cn(
+                  "w-10 h-10 rounded-xl flex items-center justify-center border",
+                  darkMode ? "bg-[#2d2d2d] border-[#3c3c3c]" : "bg-bg-base/60 border-border-subtle"
+                )}>
+                  <MessageSquare size={18} className={darkMode ? "text-[#bdbdbd]" : "text-[#7d746b]"} />
                 </div>
                 <ArrowRight size={14} className={cn(
                   "group-hover:translate-x-1 transition-all",
-                  darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary"
+                  darkMode ? "text-gray-500 group-hover:text-[#d0d0d0]" : "text-text-main/20 group-hover:text-text-main/50"
                 )} />
               </div>
-              <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-2 group-hover:text-[#3b82f6] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
+              <h3 className={cn("font-bold text-sm tracking-wide line-clamp-2 mb-2 group-hover:text-text-main/90 transition-colors", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
                 {chat.title}
               </h3>
-              {chat.datasetId && (
-                <div className="mb-3">
+              <p className={cn("text-sm mb-3 truncate", darkMode ? "text-[#cccccc]" : "text-text-main/75")}>
+                {datasetNameById.get(chat.datasetId) ?? `数据集 #${chat.datasetId}`}
+              </p>
+              <div className="mt-auto flex items-center justify-between">
+                <span className={cn("mono-label", darkMode ? "text-[#858585]" : "text-text-main/45")}>
+                  更新于 {formatTime(chat.updatedAt)}
+                </span>
+                {chat.isPinned && (
                   <span className={cn(
                     "px-2 py-1 rounded-lg text-[10px] font-bold uppercase",
-                    darkMode ? "bg-[#094771] text-blue-400" : "bg-blue-100 text-blue-600"
+                    darkMode ? "bg-[#2d2d2d] text-[#bdbdbd] border border-[#3c3c3c]" : "bg-bg-base/70 text-text-main/60 border border-border-subtle"
                   )}>
-                    数据集 #{chat.datasetId}
+                    置顶
                   </span>
-                </div>
-              )}
-              <div className={cn("mt-auto flex items-center justify-between", darkMode ? "text-[#858585]" : "")}>
-                <span className="mono-label">dataset #{chat.datasetId}</span>
-                <span className="mono-label">{chat.updatedAt}</span>
+                )}
               </div>
             </div>
           ))}
@@ -192,8 +203,8 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
             className={cn(
               "rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors",
               darkMode
-                ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
-                : "art-card text-text-main/40 hover:text-primary hover:border-primary"
+                ? "border-[#3c3c3c] text-[#858585] hover:text-[#d0d0d0] hover:border-[#4a4a4a]"
+                : "art-card text-text-main/40 hover:text-text-main/60 hover:border-border-subtle"
             )}
           >
             <Plus size={24} className="mb-2" />
@@ -206,7 +217,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)} />
             <div className={cn(
-              "relative w-[480px] rounded-2xl shadow-2xl overflow-hidden",
+              "relative w-[480px] rounded-2xl shadow-2xl overflow-visible",
               darkMode ? "bg-[#252526] border border-[#3c3c3c]" : "bg-white border border-border-subtle"
             )}>
               <div className={cn("flex items-center justify-between px-6 py-4 border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
@@ -221,27 +232,29 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
                     对话名称
                   </label>
                   <input
-                    type="text"
-                    value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
-                    placeholder="输入对话名称"
-                    className={cn(
-                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6]",
+                      type="text"
+                      value={newChatName}
+                      onChange={(e) => setNewChatName(e.target.value)}
+                      placeholder="输入对话名称"
+                      className={cn(
+                      "w-full px-4 py-2.5 rounded-xl border shadow-none text-sm focus:outline-none focus:ring-0 focus:border-border-subtle",
                       darkMode
                         ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
-                        : "bg-bg-base/50 border-border-subtle"
+                        : "bg-white border-border-subtle"
                     )}
                   />
                 </div>
                 <div>
                   <label className={cn("block mb-2 text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#cccccc]" : "text-text-main")}>
-                    关联数据集
+                    关联数据集（单选）
                   </label>
                   <DatasetSelector
                     datasets={datasets}
                     selectedKbIds={newChatKbIds}
                     onChange={setNewChatKbIds}
                     darkMode={darkMode}
+                    single
+                    placeholder="请选择一个数据集"
                   />
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { ArrowLeft, Send, Pin, PinOff, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
-import { getMessages, getConversations, deleteConversation } from '@/services/chat';
+import { getMessages, getConversations, deleteConversation, sendMessage, updateConversation } from '@/services/chat';
 import type { MessageDTO, ConversationDTO } from '@/types/api';
 
 interface ChatPageProps {
@@ -18,6 +18,8 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [pinning, setPinning] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -44,13 +46,33 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
   };
 
   const handleSend = async () => {
-    // TODO: 后端暂未提供发送消息接口 (POST /api/v1/chat/conversations/{id}/messages)
-    // 缺失接口清单: toLink-Web/docs/ToLink-缺失接口清单.md
+    if (!conversation) return;
+    const content = inputValue.trim();
+    if (!content || sending) return;
+
+    setSending(true);
+    try {
+      const message = await sendMessage(conversation.id, content);
+      setMessages((prev) => [...prev, message]);
+      setInputValue('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handlePin = async () => {
-    // TODO: 后端暂未提供会话更新接口 (PATCH /api/v1/chat/conversations/{id})
-    // 缺失接口清单: toLink-Web/docs/ToLink-缺失接口清单.md
+    if (!conversation || pinning) return;
+    setPinning(true);
+    try {
+      const updated = await updateConversation(conversation.id, { isPinned: !conversation.isPinned });
+      setConversation(updated);
+    } catch (error) {
+      console.error('Failed to update conversation:', error);
+    } finally {
+      setPinning(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -122,13 +144,12 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePin}
-            disabled
-            title="后端暂未提供会话更新接口"
+            disabled={pinning}
             className={cn(
-              "p-2 rounded-xl transition-colors cursor-not-allowed",
+              "p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60",
               darkMode
-                ? "text-[#3c3c3c]"
-                : "text-text-main/20"
+                ? "hover:bg-[#2d2d2d] text-[#858585]"
+                : "hover:bg-gray-100 text-text-main/40"
             )}
           >
             {conversation.isPinned ? <PinOff size={18} /> : <Pin size={18} />}
@@ -165,11 +186,11 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
               <div
                 key={msg.id}
                 className={cn(
-                  "rounded-2xl p-4",
-                  msg.role === 'user'
-                    ? darkMode
-                      ? "bg-[#094771] ml-12"
-                      : "bg-primary/10 mr-12"
+              "rounded-2xl p-4",
+              msg.role === 'user'
+                ? darkMode
+                      ? "bg-[#2d2d2d] border border-[#3c3c3c] ml-12"
+                      : "bg-bg-base/70 border border-border-subtle mr-12"
                     : darkMode
                       ? "bg-[#2d2d2d] border border-[#3c3c3c] mr-12"
                       : "art-card ml-12"
@@ -204,24 +225,20 @@ export default function ChatPage({ darkMode }: ChatPageProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="输入消息..."
-            disabled
-            title="后端暂未提供发送消息接口"
+            disabled={sending}
             className={cn(
-              "flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none cursor-not-allowed",
+              "flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none",
               darkMode
-                ? "bg-[#1e1e1e] border border-[#3c3c3c] text-[#6b6b6b] placeholder:text-[#3c3c3c]"
-                : "bg-gray-100 border border-border-subtle text-gray-400"
+                ? "bg-[#1e1e1e] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
+                : "bg-bg-base/50 border border-border-subtle text-text-main"
             )}
           />
           <button
             onClick={handleSend}
-            disabled
-            title="后端暂未提供发送消息接口"
+            disabled={sending || !inputValue.trim()}
             className={cn(
-              "p-3 rounded-xl transition-colors cursor-not-allowed",
-              darkMode
-                ? "bg-[#3c3c3c] text-[#6b6b6b]"
-                : "bg-gray-200 text-gray-400"
+              "p-3 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+              "bg-text-main text-white hover:opacity-90"
             )}
           >
             <Send size={18} />
