@@ -187,14 +187,14 @@ satoken: {accessToken}
 
 补充说明：
 - 登录接口会按最新实现更新用户 `lastLoginAt`
-- 注册接口会自动登录，并在昵称为空时默认使用用户名作为昵称
+- 注册接口会自动登录，并由后端生成默认昵称
 - 登录与注册都会返回 `AuthResult`，前端仍建议紧接着调用 `GET /api/v1/user/profile` 获取完整用户资料
 
 ### 4.1.1 LoginRequest
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| username | string | 是 | 用户名，后端会先做 trim |
+| account | string | 是 | 登录账号，可为用户名或邮箱，后端会先做 trim |
 | password | string | 是 | 登录密码 |
 
 ### 4.1.2 RegisterRequest
@@ -203,8 +203,7 @@ satoken: {accessToken}
 |------|------|------|------|
 | username | string | 是 | 用户名，长度 3-64，后端会先做 trim |
 | password | string | 是 | 密码，长度 6-128 |
-| nickname | string | 否 | 昵称，未传时默认使用用户名 |
-| email | string | 否 | 邮箱，若传入则需格式正确且不可重复 |
+| email | string | 是 | 邮箱，需格式正确且不可重复 |
 
 ### 4.2 UserProfileDTO
 

@@ -228,7 +228,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
           className={cn(
             'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
             activeTab === 'files'
-              ? 'border-[#c586c0] text-[#c586c0]'
+              ? 'border-[#3b82f6] text-[#3b82f6]'
               : darkMode
                 ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
                 : 'border-transparent text-text-main/50 hover:text-text-main'
@@ -241,7 +241,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
           className={cn(
             'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
             activeTab === 'conversations'
-              ? 'border-[#c586c0] text-[#c586c0]'
+              ? 'border-[#3b82f6] text-[#3b82f6]'
               : darkMode
                 ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
                 : 'border-transparent text-text-main/50 hover:text-text-main'
@@ -340,7 +340,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                   onClick={() => navigate(`/chats/${conversation.id}`)}
                   className={cn(
                     'rounded-xl p-4 flex items-center justify-between cursor-pointer transition-colors',
-                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#c586c0]' : 'art-card hover:border-primary'
+                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]' : 'art-card hover:border-primary'
                   )}
                 >
                   <div>

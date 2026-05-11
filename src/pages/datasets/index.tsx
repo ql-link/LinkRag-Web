@@ -81,7 +81,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#c586c0]",
+                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#3b82f6]",
                 darkMode
                   ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                   : "bg-bg-base/50 border-border-subtle"
@@ -119,7 +119,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
               className={cn(
                 "rounded-2xl p-5 transition-colors cursor-pointer group",
                 darkMode
-                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#c586c0]"
+                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
                   : "art-card hover:border-primary"
               )}
             >
@@ -128,14 +128,14 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                   "w-10 h-10 rounded-xl flex items-center justify-center",
                   darkMode ? "bg-[#094771]/30" : "bg-primary/20"
                 )}>
-                  <Database size={18} className={darkMode ? "text-[#c586c0]" : "text-primary"} />
+                  <Database size={18} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
                 </div>
                 <ArrowRight size={14} className={cn(
                   "group-hover:translate-x-1 transition-all",
-                  darkMode ? "text-[#6b6b6b] group-hover:text-[#c586c0]" : "text-text-main/20 group-hover:text-primary"
+                  darkMode ? "text-[#6b6b6b] group-hover:text-[#3b82f6]" : "text-text-main/20 group-hover:text-primary"
                 )} />
               </div>
-              <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-1 group-hover:text-[#c586c0] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
+              <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-1 group-hover:text-[#3b82f6] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
                 {dataset.name}
               </h3>
               <div className={cn("flex items-center justify-between", darkMode ? "text-[#858585]" : "")}>
@@ -153,7 +153,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
             className={cn(
               "rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[140px] p-5 cursor-pointer transition-colors",
               darkMode
-                ? "border-[#3c3c3c] text-[#858585] hover:text-[#c586c0] hover:border-[#c586c0]"
+                ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
                 : "art-card text-text-main/40 hover:text-primary hover:border-primary"
             )}
           >
@@ -187,7 +187,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                     onChange={(e) => setNewDatasetName(e.target.value)}
                     placeholder="输入知识库名称"
                     className={cn(
-                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#c586c0]",
+                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6]",
                       darkMode
                         ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                         : "bg-bg-base/50 border-border-subtle"
@@ -204,7 +204,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                     placeholder="输入知识库描述"
                     rows={3}
                     className={cn(
-                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#c586c0] resize-none",
+                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6] resize-none",
                       darkMode
                         ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                         : "bg-bg-base/50 border-border-subtle"

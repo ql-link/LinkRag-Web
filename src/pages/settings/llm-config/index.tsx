@@ -1,9 +1,8 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Check,
   ChevronDown,
-  ChevronUp,
   Key,
   Plus,
   RefreshCw,
@@ -106,7 +105,6 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
   const [configs, setConfigs] = useState<LLMConfigDTO[]>([]);
   const [providers, setProviders] = useState<ProviderModelDTO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCapability, setSelectedCapability] = useState<LLMCapability | 'ALL'>('ALL');
   const [drawerTarget, setDrawerTarget] = useState<DrawerTarget | null>(null);
 
   useEffect(() => {
@@ -130,11 +128,8 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
   };
 
   const visibleConfigs = useMemo(() => {
-    if (selectedCapability === 'ALL') {
-      return configs;
-    }
-    return configs.filter((config) => config.capability === selectedCapability);
-  }, [configs, selectedCapability]);
+    return configs;
+  }, [configs]);
 
   const defaultConfigs = useMemo(() => {
     const map = new Map<LLMCapability, LLMConfigDTO>();
@@ -147,15 +142,11 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
   }, [configs]);
 
   const currentDefaultConfigs = useMemo(() => {
-    if (selectedCapability === 'ALL') {
-      return CAPABILITIES.map((capability) => ({
-        ...capability,
-        config: defaultConfigs.get(capability.value),
-      }));
-    }
-    const capability = getCapabilityMeta(selectedCapability);
-    return [{ ...capability, config: defaultConfigs.get(selectedCapability) }];
-  }, [defaultConfigs, selectedCapability]);
+    return CAPABILITIES.map((capability) => ({
+      ...capability,
+      config: defaultConfigs.get(capability.value),
+    }));
+  }, [defaultConfigs]);
 
   const handleSaveConfig = async (data: ConfigFormData) => {
     try {
@@ -277,12 +268,17 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
             )}
           >
             <Plus size={14} />
-            添加模型
+            添加配置
           </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto">
+      <main className={cn(
+        "flex-1 overflow-y-auto",
+        darkMode
+          ? "bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_42%,#1f1f1f_100%)]"
+          : "bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]"
+      )}>
         <section className={cn("px-8 py-6 border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
           <div className="flex items-start justify-between gap-8">
             <div>
@@ -300,38 +296,21 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
             </div>
           </div>
 
-          <div className={cn(
-            "inline-flex flex-wrap gap-1 p-1 rounded-lg mt-6 border",
-            darkMode ? "bg-[#2d2d2d] border-[#3c3c3c]" : "bg-white/70 border-border-subtle"
-          )}>
-            <TabButton
-              darkMode={darkMode}
-              active={selectedCapability === 'ALL'}
-              label="全部"
-              onClick={() => setSelectedCapability('ALL')}
-            />
-            {CAPABILITIES.map((capability) => (
-              <TabButton
-                key={capability.value}
-                darkMode={darkMode}
-                active={selectedCapability === capability.value}
-                label={capability.label}
-                onClick={() => setSelectedCapability(capability.value)}
-              />
-            ))}
-          </div>
         </section>
 
         <section className="px-8 py-6 space-y-5">
-          <DefaultModelStrip darkMode={darkMode} items={currentDefaultConfigs} />
+          <DefaultModelStrip
+            darkMode={darkMode}
+            items={currentDefaultConfigs}
+          />
 
           <div className={cn(
             "rounded-lg border overflow-hidden",
-            darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/70 border-border-subtle"
+            darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
           )}>
             <div className={cn(
               "grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 text-[11px] font-bold",
-              darkMode ? "bg-[#2d2d2d] text-[#858585]" : "bg-bg-base/60 text-text-main/50"
+              darkMode ? "bg-[#2d2d2d] text-[#858585]" : "bg-bg-base/72 text-text-main/50"
             )}>
               <span>能力</span>
               <span>厂商</span>
@@ -350,7 +329,7 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
             ) : visibleConfigs.length === 0 ? (
               <EmptyState darkMode={darkMode} onAdd={() => setDrawerTarget({ mode: 'create' })} />
             ) : (
-              <div className="divide-y divide-border-subtle">
+              <div className={cn("divide-y", darkMode ? "divide-[#3c3c3c]" : "divide-border-subtle")}>
                 {visibleConfigs.map((config) => (
                   <ConfigRow
                     key={config.id}
@@ -376,7 +355,6 @@ export default function LLMPage({ darkMode }: LLMPageProps) {
           darkMode={darkMode}
           target={drawerTarget}
           providers={providers}
-          selectedCapability={selectedCapability === 'ALL' ? undefined : selectedCapability}
           onClose={() => setDrawerTarget(null)}
           onSave={handleSaveConfig}
         />
@@ -393,7 +371,7 @@ function SummaryTile({ darkMode, label, value }: {
   return (
     <div className={cn(
       "rounded-lg border px-4 py-3",
-      darkMode ? "bg-[#2d2d2d] border-[#3c3c3c]" : "bg-white/70 border-border-subtle"
+      darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
     )}>
       <div className={cn("text-xl font-semibold serif-heading", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
         {value}
@@ -405,28 +383,6 @@ function SummaryTile({ darkMode, label, value }: {
   );
 }
 
-function TabButton({ darkMode, active, label, onClick }: {
-  key?: string;
-  darkMode?: boolean;
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "h-8 px-4 rounded-md text-xs font-bold transition-colors",
-        active
-          ? darkMode ? "bg-[#094771] text-white" : "bg-text-main text-white"
-          : darkMode ? "text-[#858585] hover:bg-[#3c3c3c]" : "text-text-main/50 hover:bg-primary/10"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 function DefaultModelStrip({ darkMode, items }: {
   darkMode?: boolean;
   items: Array<{ value: LLMCapability; label: string; hint: string; config?: LLMConfigDTO }>;
@@ -434,7 +390,7 @@ function DefaultModelStrip({ darkMode, items }: {
   return (
     <div className={cn(
       "rounded-lg border px-5 py-4",
-      darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/70 border-border-subtle"
+      darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
     )}>
       <div className="flex items-center justify-between mb-3">
         <div>
@@ -452,7 +408,7 @@ function DefaultModelStrip({ darkMode, items }: {
             key={item.value}
             className={cn(
               "rounded-lg px-3 py-3 border min-h-[72px]",
-              darkMode ? "bg-[#1e1e1e] border-[#3c3c3c]" : "bg-bg-base/40 border-border-subtle"
+              darkMode ? "bg-[#1e1e1e]/88 border-[#3c3c3c]" : "bg-bg-base/70 border-border-subtle"
             )}
           >
             <div className="flex items-center justify-between gap-2">
@@ -507,12 +463,12 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
   return (
     <div className={cn(
       "grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 items-center min-h-[68px]",
-      darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "text-text-main hover:bg-bg-base/40"
+      darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "text-text-main hover:bg-bg-base/45"
     )}>
       <div>
         <span className={cn(
           "inline-flex px-2 py-1 rounded text-[11px] font-bold",
-          darkMode ? "bg-[#3c3c3c] text-[#e0e0e0]" : "bg-bg-base text-text-main"
+          darkMode ? "bg-[#3c3c3c] text-[#e0e0e0]" : "bg-primary/10 text-text-main"
         )}>
           {capability.label}
         </span>
@@ -533,36 +489,19 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
         </p>
       </div>
       <span className="text-xs font-bold">{config.priority}</span>
-      <button
+      <StateSwitch
+        darkMode={darkMode}
+        checked={config.isActive}
+        label={config.isActive ? '启用' : '禁用'}
         onClick={onToggleActive}
-        className={cn(
-          "w-fit px-2.5 py-1 rounded text-[11px] font-bold transition-colors",
-          config.isActive
-            ? darkMode ? "bg-green-900/30 text-green-300" : "bg-green-100 text-green-700"
-            : darkMode ? "bg-[#3c3c3c] text-[#858585]" : "bg-gray-100 text-gray-500"
-        )}
-      >
-        {config.isActive ? '启用' : '禁用'}
-      </button>
-      {config.isDefault ? (
-        <span className={cn(
-          "w-fit px-2.5 py-1 rounded text-[11px] font-bold",
-          darkMode ? "bg-[#094771] text-blue-300" : "bg-blue-100 text-blue-700"
-        )}>
-          默认
-        </span>
-      ) : (
-        <button
-          onClick={onSetDefault}
-          disabled={!config.isActive}
-          className={cn(
-            "w-fit px-2.5 py-1 rounded text-[11px] font-bold transition-colors disabled:opacity-40",
-            darkMode ? "text-[#cccccc] hover:bg-[#3c3c3c]" : "text-text-main/60 hover:bg-primary/10"
-          )}
-        >
-          设默认
-        </button>
-      )}
+      />
+      <StateSwitch
+        darkMode={darkMode}
+        checked={config.isDefault}
+        label={config.isDefault ? '默认' : '设默认'}
+        disabled={!config.isActive}
+        onClick={onSetDefault}
+      />
       <div className="flex items-center justify-end gap-1">
         <button
           onClick={onEdit}
@@ -586,6 +525,45 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
         </button>
       </div>
     </div>
+  );
+}
+
+function StateSwitch({ darkMode, checked, label, disabled, onClick }: {
+  darkMode?: boolean;
+  checked: boolean;
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "group inline-flex w-fit items-center gap-2 rounded-full text-[11px] font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
+      )}
+    >
+      <span className={cn(
+        "relative h-5 w-9 rounded-full border transition-colors",
+        checked
+          ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/18" : "border-primary/35 bg-primary/18"
+          : darkMode ? "border-[#3c3c3c] bg-[#2d2d2d]" : "border-border-subtle bg-bg-base"
+      )}>
+        <span className={cn(
+          "absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform",
+          checked ? "translate-x-4" : "translate-x-0",
+          checked ? darkMode ? "bg-[#3b82f6]" : "bg-primary" : darkMode ? "bg-[#858585]" : "bg-text-main/35"
+        )} />
+      </span>
+      <span className={cn(
+        checked
+          ? darkMode ? "text-[#3b82f6]" : "text-primary"
+          : darkMode ? "text-[#858585]" : "text-text-main/45"
+      )}>
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -613,7 +591,7 @@ function ProviderIcon({ iconUrl, name, darkMode, size }: {
       "rounded-lg flex items-center justify-center shrink-0",
       darkMode ? "bg-[#3c3c3c]" : "bg-primary/10"
     )}>
-      <Box size={16} className={darkMode ? "text-[#c586c0]" : "text-primary"} />
+      <Box size={16} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
     </div>
   );
 }
@@ -653,21 +631,20 @@ function EmptyState({ darkMode, onAdd }: { darkMode?: boolean; onAdd: () => void
         onClick={onAdd}
         className={cn(
           "mt-4 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2",
-          darkMode ? "bg-[#094771] text-white" : "bg-text-main text-white"
+          darkMode ? "bg-[#094771] text-white hover:bg-[#0a5280]" : "bg-text-main text-white hover:opacity-90"
         )}
       >
         <Plus size={14} />
-        添加模型
+        添加配置
       </button>
     </div>
   );
 }
 
-function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClose, onSave }: {
+function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
   darkMode?: boolean;
   target: DrawerTarget;
   providers: ProviderModelDTO[];
-  selectedCapability?: LLMCapability;
   onClose: () => void;
   onSave: (data: ConfigFormData) => void;
 }) {
@@ -676,21 +653,16 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
   const [providerType, setProviderType] = useState(initialProvider?.providerType || '');
   const selectedProvider = providers.find((provider) => provider.providerType === providerType) || initialProvider;
   const availableModels = selectedProvider?.models || [];
-  const filteredModels = selectedCapability
-    ? availableModels.filter((model) => model.capabilities.includes(selectedCapability))
-    : availableModels;
   const initialModelName =
     target.config?.modelName ||
     target.model?.modelName ||
-    filteredModels[0]?.modelName ||
     availableModels[0]?.modelName ||
     '';
   const [modelName, setModelName] = useState(initialModelName);
   const selectedModel = availableModels.find((model) => model.modelName === modelName) || target.model;
-  const displayModels = filteredModels.length > 0 ? filteredModels : availableModels;
+  const displayModels = availableModels;
   const [entryCapability, setEntryCapability] = useState<LLMCapability | ''>(
     target.config?.capability ||
-    selectedCapability ||
     selectedModel?.capabilities[0] ||
     ''
   );
@@ -705,33 +677,38 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
   const [maxRetries, setMaxRetries] = useState(target.config?.maxRetries || 3);
   const [streamEnabled, setStreamEnabled] = useState(target.config?.streamEnabled ?? true);
   const [extraConfig, setExtraConfig] = useState(target.config?.extraConfig || '');
+  const [applyAllCapabilities, setApplyAllCapabilities] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   const handleProviderChange = (nextProviderType: string) => {
     const nextProvider = providers.find((provider) => provider.providerType === nextProviderType);
     const nextModels = nextProvider?.models || [];
-    const nextModel = selectedCapability
-      ? nextModels.find((model) => model.capabilities.includes(selectedCapability))
-      : nextModels[0];
+    const nextModel = nextModels[0];
     setProviderType(nextProviderType);
     setModelName(nextModel?.modelName || '');
-    setEntryCapability(selectedCapability || nextModel?.capabilities[0] || '');
+    setEntryCapability(nextModel?.capabilities[0] || '');
+    setApplyAllCapabilities(false);
     setConfigName(`${nextProvider?.providerName || ''} ${nextModel?.modelName || ''}`.trim());
   };
 
   const handleModelChange = (nextModelName: string) => {
     const nextModel = availableModels.find((model) => model.modelName === nextModelName);
     setModelName(nextModelName);
-    setEntryCapability(selectedCapability || nextModel?.capabilities[0] || '');
+    setEntryCapability(nextModel?.capabilities[0] || '');
+    setApplyAllCapabilities(false);
     if (!isEditing) {
       setConfigName(`${selectedProvider?.providerName || ''} ${nextModelName}`.trim());
     }
   };
 
   const handleSubmit = () => {
+    setValidationError('');
     if (!providerType || !configName.trim() || !modelName.trim()) {
+      setValidationError('请先完成基础信息填写');
       return;
     }
     if (!isEditing && !apiKey.trim()) {
+      setValidationError('API Key 必须填写');
       return;
     }
 
@@ -740,7 +717,7 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
       configName: configName.trim(),
       apiKey: apiKey.trim() || undefined,
       modelName,
-      capability: entryCapability || undefined,
+      capability: applyAllCapabilities ? undefined : entryCapability || undefined,
       priority,
       isDefault,
       timeoutMs,
@@ -756,12 +733,12 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
       <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
         "relative w-full max-w-[760px] max-h-[88vh] rounded-lg shadow-2xl flex flex-col overflow-hidden",
-        darkMode ? "bg-[#252526] border border-[#3c3c3c]" : "bg-white border border-border-subtle"
+        darkMode ? "bg-[#252526] border border-[#3c3c3c]" : "bg-white/94 border border-white/90"
       )}>
         <div className={cn("h-20 px-6 flex items-center justify-between border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
           <div>
             <h3 className={cn("text-lg font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-              {isEditing ? '编辑配置' : '添加模型'}
+              {isEditing ? '编辑配置' : '添加配置'}
             </h3>
             <p className={cn("mono-label mt-1", darkMode ? "text-[#858585]" : "text-text-main/40")}>
               {isEditing ? target.config?.modelName : 'Provider & Model'}
@@ -779,7 +756,7 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
           <div className="grid grid-cols-[220px_1fr] h-full min-h-0">
             <aside className={cn(
               "border-r p-4 overflow-y-auto",
-              darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/30"
+              darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/55"
             )}>
               <p className={cn("text-xs font-bold mb-3", darkMode ? "text-[#cccccc]" : "text-text-main")}>
                 选择厂商
@@ -788,9 +765,7 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
                 {providers.map((provider) => {
                   const iconUrl = getProviderIcon(provider.providerType, provider.providerName);
                   const active = provider.providerType === providerType;
-                  const selectableCount = selectedCapability
-                    ? provider.models.filter((model) => model.capabilities.includes(selectedCapability)).length
-                    : provider.models.length;
+                  const selectableCount = provider.models.length;
 
                   return (
                     <button
@@ -801,8 +776,8 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
                       className={cn(
                         "w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-60",
                         active
-                          ? darkMode ? "border-[#0e639c] bg-[#094771]/40" : "border-text-main bg-text-main text-white"
-                          : darkMode ? "border-[#3c3c3c] bg-[#252526] hover:border-[#c586c0]" : "border-border-subtle bg-white/80 hover:border-primary"
+                          ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#f0f0f0]" : "border-primary/35 bg-primary/12 text-text-main"
+                          : darkMode ? "border-[#3c3c3c] bg-[#252526] hover:border-[#3b82f6]" : "border-border-subtle bg-white/76 hover:border-primary/35 hover:bg-white"
                       )}
                     >
                       <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
@@ -822,46 +797,75 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
               <FormSection darkMode={darkMode} title="模型选择" hint="创建时会按模型支持的能力展开配置">
                 <div className="grid grid-cols-2 gap-4">
                   <FieldLabel darkMode={darkMode} label="模型">
-                    <select
+                    <FancySelect
+                      darkMode={darkMode}
                       value={modelName}
-                      onChange={(event) => handleModelChange(event.target.value)}
+                      onChange={handleModelChange}
                       disabled={isEditing}
-                      className={inputClassName(darkMode)}
-                    >
-                      {displayModels.map((model) => (
-                        <option key={model.modelName} value={model.modelName}>
-                          {model.modelName}
-                        </option>
-                      ))}
-                      {isEditing && target.config && <option value={target.config.modelName}>{target.config.modelName}</option>}
-                    </select>
+                      placeholder="选择模型"
+                      options={[
+                        ...displayModels.map((model) => ({
+                          value: model.modelName,
+                          label: model.modelName,
+                          description: `${model.capabilities.length} 个能力`,
+                          trailing: <CapabilityDots capabilities={model.capabilities} darkMode={darkMode} />,
+                        })),
+                        ...(isEditing && target.config && !displayModels.some((model) => model.modelName === target.config?.modelName)
+                          ? [{
+                              value: target.config.modelName,
+                              label: target.config.modelName,
+                              description: '当前配置模型',
+                            }]
+                          : []),
+                      ]}
+                    />
                   </FieldLabel>
 
                   <FieldLabel darkMode={darkMode} label="入口能力">
-                    <select
+                    <FancySelect
+                      darkMode={darkMode}
                       value={entryCapability}
-                      onChange={(event) => setEntryCapability(event.target.value as LLMCapability)}
-                      disabled={isEditing}
-                      className={inputClassName(darkMode)}
-                    >
-                      {(selectedModel?.capabilities || [target.config?.capability]).filter(Boolean).map((capability) => {
+                      onChange={(value) => setEntryCapability(value as LLMCapability)}
+                      disabled={isEditing || applyAllCapabilities}
+                      placeholder="选择能力"
+                      options={(selectedModel?.capabilities || [target.config?.capability]).filter(Boolean).map((capability) => {
                         const value = capability as LLMCapability;
-                        return (
-                          <option key={value} value={value}>
-                            {getCapabilityMeta(value).label}
-                          </option>
-                        );
+                        const meta = getCapabilityMeta(value);
+                        return {
+                          value,
+                          label: meta.label,
+                          description: meta.hint,
+                          leading: <CapabilityBadge capability={value} darkMode={darkMode} />,
+                        };
                       })}
-                    </select>
+                    />
                   </FieldLabel>
                 </div>
 
                 {selectedModel && (
                   <div className={cn("rounded-lg px-3 py-3", darkMode ? "bg-[#1e1e1e]" : "bg-bg-base/50")}>
-                    <p className={cn("text-[11px]", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-                      该模型支持能力
-                    </p>
-                    <CapabilityChips capabilities={selectedModel.capabilities} darkMode={darkMode} />
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className={cn("text-[11px]", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+                          该模型支持能力
+                        </p>
+                        <CapabilityChips capabilities={selectedModel.capabilities} darkMode={darkMode} />
+                      </div>
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => setApplyAllCapabilities((value) => !value)}
+                          className={cn(
+                            "shrink-0 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors",
+                            applyAllCapabilities
+                              ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#3b82f6]" : "border-primary/35 bg-primary/12 text-primary"
+                              : darkMode ? "border-[#3c3c3c] text-[#858585] hover:border-[#3b82f6]" : "border-border-subtle text-text-main/55 hover:border-primary/35"
+                          )}
+                        >
+                          {applyAllCapabilities ? '已应用所有能力' : '应用到所有可用能力'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </FormSection>
@@ -878,7 +882,13 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
                   />
                 </FieldLabel>
 
-                <FieldLabel darkMode={darkMode} label={`API Key ${isEditing ? '' : '(必填)'}`}>
+                <FieldLabel darkMode={darkMode} label={(
+                  <span className="inline-flex items-center gap-1">
+                    API Key
+                    {!isEditing && <span className="text-red-500">*</span>}
+                    {!isEditing && <span className={cn("text-[11px]", darkMode ? "text-[#858585]" : "text-text-main/45")}>必填</span>}
+                  </span>
+                ) as unknown as string}>
                   <input
                     type="password"
                     value={apiKey}
@@ -887,6 +897,11 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
                     className={inputClassName(darkMode)}
                   />
                 </FieldLabel>
+                {!isEditing && (
+                  <p className={cn("text-[11px] mt-[-6px]", apiKey.trim() ? "text-transparent" : "text-red-500")}>
+                    {apiKey.trim() ? '占位' : '请填写 API Key'}
+                  </p>
+                )}
 
                 <FieldLabel darkMode={darkMode} label="自定义 API 地址">
                   <input
@@ -898,6 +913,14 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
                   />
                 </FieldLabel>
               </FormSection>
+              {validationError && (
+                <div className={cn(
+                  "rounded-lg border px-3 py-2 text-xs font-bold",
+                  darkMode ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-red-200 bg-red-50 text-red-600"
+                )}>
+                  {validationError}
+                </div>
+              )}
 
               <FormSection darkMode={darkMode} title="运行参数" hint="优先级越高，候选排序越靠前">
                 <div className="grid grid-cols-3 gap-4">
@@ -962,7 +985,7 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
           </div>
         </div>
 
-        <div className={cn("px-6 py-4 border-t flex items-center justify-end gap-3", darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/30")}>
+        <div className={cn("px-6 py-4 border-t flex items-center justify-end gap-3", darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/55")}>
           <button
             onClick={onClose}
             className={cn("h-9 px-4 rounded-lg text-xs font-bold", darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "hover:bg-gray-100")}
@@ -986,7 +1009,7 @@ function LLMConfigModal({ darkMode, target, providers, selectedCapability, onClo
 
 function FieldLabel({ darkMode, label, children }: {
   darkMode?: boolean;
-  label: string;
+  label: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -1008,7 +1031,7 @@ function FormSection({ darkMode, title, hint, children }: {
   return (
     <section className={cn(
       "rounded-lg border p-4 space-y-4",
-      darkMode ? "border-[#3c3c3c] bg-[#2d2d2d]" : "border-border-subtle bg-white/70"
+      darkMode ? "border-[#3c3c3c] bg-[#2d2d2d]" : "border-border-subtle bg-white/74"
     )}>
       <div>
         <h4 className={cn("text-sm font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
@@ -1046,6 +1069,149 @@ function CheckToggle({ darkMode, checked, label, onClick }: {
       </span>
       <span className={cn("text-xs font-bold", darkMode ? "text-[#cccccc]" : "text-text-main")}>{label}</span>
     </button>
+  );
+}
+
+interface FancySelectOption {
+  value: string;
+  label: string;
+  description?: string;
+  leading?: ReactNode;
+  trailing?: ReactNode;
+}
+
+function FancySelect({ darkMode, value, options, placeholder, disabled, onChange }: {
+  darkMode?: boolean;
+  value: string;
+  options: FancySelectOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => window.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "h-11 w-full rounded-lg border px-3 text-left transition-colors flex items-center gap-3",
+          disabled && "cursor-not-allowed opacity-60",
+          open
+            ? darkMode ? "border-[#3b82f6]/60 bg-[#1e1e1e]" : "border-primary/45 bg-white"
+            : darkMode ? "border-[#3c3c3c] bg-[#2d2d2d] hover:border-[#3b82f6]/45" : "border-border-subtle bg-bg-base/50 hover:border-primary/35"
+        )}
+      >
+        {selected?.leading}
+        <span className="min-w-0 flex-1">
+          <span className={cn("block truncate text-sm font-bold", selected ? darkMode ? "text-[#e0e0e0]" : "text-text-main" : darkMode ? "text-[#6b6b6b]" : "text-text-main/40")}>
+            {selected?.label || placeholder || '请选择'}
+          </span>
+          {selected?.description && (
+            <span className={cn("block truncate text-[10px] mt-0.5", darkMode ? "text-[#858585]" : "text-text-main/45")}>
+              {selected.description}
+            </span>
+          )}
+        </span>
+        {selected?.trailing}
+        <ChevronDown
+          size={16}
+          className={cn(
+            "shrink-0 transition-transform",
+            open && "rotate-180",
+            darkMode ? "text-[#858585]" : "text-text-main/45"
+          )}
+        />
+      </button>
+
+      {open && !disabled && (
+        <div className={cn(
+          "absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-64 overflow-y-auto rounded-lg border p-1.5 shadow-xl",
+          darkMode ? "border-[#3c3c3c] bg-[#252526]" : "border-border-subtle bg-white"
+        )}>
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "w-full rounded-md px-2.5 py-2 text-left flex items-center gap-3 transition-colors",
+                  active
+                    ? darkMode ? "bg-[#3b82f6]/14 text-[#f0f0f0]" : "bg-primary/10 text-text-main"
+                    : darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "text-text-main hover:bg-bg-base"
+                )}
+              >
+                {option.leading}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold">{option.label}</span>
+                  {option.description && (
+                    <span className={cn("block truncate text-[10px] mt-0.5", active ? "text-current/65" : darkMode ? "text-[#858585]" : "text-text-main/45")}>
+                      {option.description}
+                    </span>
+                  )}
+                </span>
+                {option.trailing}
+                {active && <Check size={14} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CapabilityBadge({ capability, darkMode }: { capability: LLMCapability; darkMode?: boolean }) {
+  const meta = getCapabilityMeta(capability);
+  return (
+    <span className={cn(
+      "h-7 min-w-7 rounded-md px-2 inline-flex items-center justify-center text-[10px] font-bold",
+      darkMode ? "bg-[#1e1e1e] text-[#3b82f6]" : "bg-primary/10 text-primary"
+    )}>
+      {meta.hint.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
+function CapabilityDots({ capabilities, darkMode }: { capabilities: LLMCapability[]; darkMode?: boolean }) {
+  return (
+    <span className="shrink-0 flex items-center -space-x-1">
+      {capabilities.slice(0, 4).map((capability) => {
+        const meta = getCapabilityMeta(capability);
+        return (
+          <span
+            key={capability}
+            title={meta.label}
+            className={cn(
+              "h-2.5 w-2.5 rounded-full border",
+              darkMode ? "border-[#252526] bg-[#3b82f6]" : "border-white bg-primary"
+            )}
+          />
+        );
+      })}
+    </span>
   );
 }
 

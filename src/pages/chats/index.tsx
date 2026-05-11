@@ -31,12 +31,17 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
   }, []);
 
   useEffect(() => {
+    const openCreate = location.state?.openCreate;
+    if (openCreate) {
+      setCreateDialogOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
     const datasetId = location.state?.datasetId;
     if (datasetId) {
       setNewChatKbIds([String(datasetId)]);
       setCreateDialogOpen(true);
     }
-  }, [location.state]);
+  }, [location.pathname, location.state, navigate]);
 
   const loadData = async () => {
     try {
@@ -113,7 +118,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#c586c0]",
+                "w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#3b82f6]",
                 darkMode
                   ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                   : "bg-bg-base/50 border-border-subtle"
@@ -148,20 +153,20 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               className={cn(
                 "rounded-2xl p-5 transition-colors cursor-pointer group",
                 darkMode
-                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#c586c0]"
+                  ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
                   : "art-card hover:border-primary"
               )}
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                  <MessageSquare size={18} className="text-purple-500" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                  <MessageSquare size={18} className="text-blue-500" />
                 </div>
                 <ArrowRight size={14} className={cn(
                   "group-hover:translate-x-1 transition-all",
                   darkMode ? "text-gray-500 group-hover:text-primary" : "text-text-main/20 group-hover:text-primary"
                 )} />
               </div>
-              <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-2 group-hover:text-[#c586c0] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
+              <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-2 group-hover:text-[#3b82f6] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
                 {chat.title}
               </h3>
               {chat.datasetId && (
@@ -187,7 +192,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
             className={cn(
               "rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[140px] p-5 cursor-pointer transition-colors",
               darkMode
-                ? "border-[#3c3c3c] text-[#858585] hover:text-[#c586c0] hover:border-[#c586c0]"
+                ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
                 : "art-card text-text-main/40 hover:text-primary hover:border-primary"
             )}
           >
@@ -221,7 +226,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
                     onChange={(e) => setNewChatName(e.target.value)}
                     placeholder="输入对话名称"
                     className={cn(
-                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#c586c0]",
+                      "w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6]",
                       darkMode
                         ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]"
                         : "bg-bg-base/50 border-border-subtle"

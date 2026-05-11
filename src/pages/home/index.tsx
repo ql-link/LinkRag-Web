@@ -1,8 +1,9 @@
-import { ArrowRight, DatabaseZap, FileUp, MessagesSquare, Sparkles } from 'lucide-react';
+import { ArrowRight, DatabaseZap, FileUp, MessageSquarePlus, MessagesSquare } from 'lucide-react';
 import { Link } from 'react-router';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { useAuth } from '@/contexts/AuthContext';
 
 const quickActions = [
   { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
@@ -26,11 +27,14 @@ interface HomePageProps {
 }
 
 export default function HomePage({ darkMode }: HomePageProps) {
+  const { user } = useAuth();
+  const displayName = user?.nickname || user?.username || '当前用户';
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className={cn(
-        "h-20 px-8 flex items-center shrink-0 backdrop-blur-md border-b",
+        "h-20 px-8 flex items-center shrink-0 backdrop-blur-md border rounded-3xl",
         darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/80 border-border-subtle"
       )}>
         <div className="flex flex-col gap-1">
@@ -46,17 +50,9 @@ export default function HomePage({ darkMode }: HomePageProps) {
       <div className="flex-1 overflow-y-auto p-8">
         {/* Greeting */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl border",
-              darkMode ? "border-[#3c3c3c] bg-[#2d2d2d] text-[#c586c0]" : "border-primary/25 bg-primary/10 text-primary"
-            )}>
-              <Sparkles size={18} />
-            </div>
-            <h1 className={cn("text-2xl font-semibold tracking-tight", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-              {getGreeting()}，Alex Chen
-            </h1>
-          </div>
+          <h1 className={cn("text-2xl font-semibold tracking-tight mb-2", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+            {getGreeting()}，<span className="font-serif italic tracking-tight">{displayName}</span>
+          </h1>
           <p className={cn("text-sm", darkMode ? "text-[#858585]" : "text-text-main/55")}>
             选择一个入口，继续处理文档、知识库或对话任务。
           </p>
@@ -64,7 +60,35 @@ export default function HomePage({ darkMode }: HomePageProps) {
 
         {/* Quick Actions */}
         <section className="mb-8">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <Link
+              to={Routes.Chats}
+              state={{ openCreate: true }}
+              className={cn(
+                "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
+                darkMode
+                  ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]"
+                  : "bg-white border-border-subtle hover:border-primary hover:shadow-lg"
+              )}
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div className={cn(
+                  "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
+                  darkMode ? "bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20" : "bg-primary/10 text-primary group-hover:bg-primary/20"
+                )}>
+                  <MessageSquarePlus size={21} strokeWidth={1.8} />
+                </div>
+                <ArrowRight
+                  size={16}
+                  className={cn(
+                    "mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100",
+                    darkMode ? "text-[#3b82f6]" : "text-primary",
+                  )}
+                />
+              </div>
+                  <h4 className={cn("font-semibold text-sm tracking-tight mb-1", darkMode ? "text-[#e0e0e0]" : "")}>快速会话</h4>
+              <p className={cn("text-xs leading-5", darkMode ? "text-[#858585]" : "text-text-main/55")}>直接新建一个对话，马上开始问答</p>
+            </Link>
             {quickActions.map(({ path, icon: Icon, title, desc }) => (
               <Link
                 key={path}
@@ -72,14 +96,14 @@ export default function HomePage({ darkMode }: HomePageProps) {
                 className={cn(
                   "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
                   darkMode
-                    ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#c586c0]"
+                    ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]"
                     : "bg-white border-border-subtle hover:border-primary hover:shadow-lg"
                 )}
               >
                 <div className="mb-4 flex items-start justify-between">
                   <div className={cn(
                     "w-11 h-11 rounded-xl flex items-center justify-center transition-colors",
-                    darkMode ? "bg-[#c586c0]/10 text-[#c586c0] group-hover:bg-[#c586c0]/20" : "bg-primary/10 text-primary group-hover:bg-primary/20"
+                    darkMode ? "bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20" : "bg-primary/10 text-primary group-hover:bg-primary/20"
                   )}>
                     <Icon size={21} strokeWidth={1.8} />
                   </div>
@@ -87,7 +111,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
                     size={16}
                     className={cn(
                       "mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100",
-                      darkMode ? "text-[#c586c0]" : "text-primary",
+                      darkMode ? "text-[#3b82f6]" : "text-primary",
                     )}
                   />
                 </div>
@@ -105,7 +129,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
             <div className="flex items-center justify-between mb-4">
               <h3 className={cn("text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#858585]" : "text-text-main/50")}>最近文档</h3>
               <Link to={Routes.Files} className={cn(
-                "text-[9px] font-bold uppercase tracking-widest hover:text-[#c586c0] transition-colors",
+                "text-[9px] font-bold uppercase tracking-widest hover:text-[#3b82f6] transition-colors",
                 darkMode ? "text-[#858585]" : "text-text-main/50"
               )}>
                 查看全部
@@ -132,7 +156,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
             <div className="flex items-center justify-between mb-4">
               <h3 className={cn("text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#858585]" : "text-text-main/50")}>最近对话</h3>
               <Link to={Routes.Chats} className={cn(
-                "text-[9px] font-bold uppercase tracking-widest hover:text-[#c586c0] transition-colors",
+                "text-[9px] font-bold uppercase tracking-widest hover:text-[#3b82f6] transition-colors",
                 darkMode ? "text-[#858585]" : "text-text-main/50"
               )}>
                 查看全部

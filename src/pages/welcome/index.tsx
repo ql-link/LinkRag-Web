@@ -118,8 +118,8 @@ const fadeUpItem = {
 };
 
 function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
-  const nodeFill = darkMode ? '#d6bfd7' : '#e4c690';
-  const stroke = darkMode ? '#b997bd' : '#c6a36a';
+  const nodeFill = darkMode ? '#dbeafe' : '#e4c690';
+  const stroke = darkMode ? '#5b9cff' : '#c6a36a';
 
   return (
     <svg
@@ -391,7 +391,7 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
                     transition={{ duration: 0.34, delay: index * 0.12 }}
                   >
                     <div className="mb-2 flex items-center gap-2">
-                      <span className={cn('h-1.5 w-1.5 rounded-full', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
+                      <span className={cn('h-1.5 w-1.5 rounded-full', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')} />
                       <p className={cn('font-mono text-[10px] uppercase tracking-[0.2em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
                         chunk {index + 1}
                       </p>
@@ -509,28 +509,28 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <path
               key={path}
               d={path}
-              className={cn('index-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/34')}
+              className={cn('index-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/34')}
             />
           ))}
           <path
             d="M0 20H27Q34 20 34 32V99H58"
-            className={cn('index-moving-path', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+            className={cn('index-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
           />
           <path
             d="M0 99H58"
-            className={cn('index-moving-path index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+            className={cn('index-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
           />
           <path
             d="M0 178H27Q34 178 34 166V99H58"
-            className={cn('index-moving-path index-moving-path-late', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+            className={cn('index-moving-path index-moving-path-late', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
           />
           <path
             d="M58 99V28Q58 16 65 16H100"
-            className={cn('index-moving-path index-moving-path-out', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+            className={cn('index-moving-path index-moving-path-out', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
           />
           <path
             d="M58 99V170Q58 182 65 182H100"
-            className={cn('index-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')}
+            className={cn('index-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
           />
         </svg>
 
@@ -543,22 +543,22 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             )}
           >
             <div className="mb-2.5 flex items-center gap-2.5">
-              <DatabaseZap size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+              <DatabaseZap size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
                 <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>向量索引</p>
                 <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>embedding vectors</p>
               </div>
             </div>
             <div className={cn('relative h-[74px] overflow-hidden rounded-2xl border', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72')}>
-              <div className={cn('absolute left-[46%] top-[38%] h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#c586c0]/28 bg-[#c586c0]/6' : 'border-primary/28 bg-primary/10')} />
-              <div className={cn('demo-pulse-ring absolute left-[46%] top-[38%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#c586c0]/25' : 'border-primary/24')} />
+              <div className={cn('absolute left-[46%] top-[38%] h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#3b82f6]/28 bg-[#3b82f6]/6' : 'border-primary/28 bg-primary/10')} />
+              <div className={cn('demo-pulse-ring absolute left-[46%] top-[38%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#3b82f6]/25' : 'border-primary/24')} />
               {vectorPoints.map((point, index) => (
                 <motion.span
                   key={`${point.x}-${point.y}`}
                   className={cn(
                     'absolute rounded-full',
                     point.near
-                      ? darkMode ? 'bg-[#c586c0] shadow-[0_0_16px_rgba(197,134,192,0.45)]' : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
+                      ? darkMode ? 'bg-[#3b82f6] shadow-[0_0_16px_rgba(197,134,192,0.45)]' : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
                       : darkMode ? 'bg-[#5a5a5a]' : 'bg-text-main/18',
                   )}
                   style={{
@@ -575,7 +575,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 />
               ))}
               <motion.span
-                className={cn('absolute left-[58%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white', darkMode ? 'border-[#c586c0]' : 'border-primary')}
+                className={cn('absolute left-[58%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white', darkMode ? 'border-[#3b82f6]' : 'border-primary')}
                 animate={{ scale: [1, 1.25, 1] }}
                 transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
               />
@@ -590,7 +590,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             )}
           >
             <div className="mb-2.5 flex items-center gap-2.5">
-              <Database size={20} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+              <Database size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
                 <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>ES 入库</p>
                 <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>text + metadata</p>
@@ -611,7 +611,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 >
                   {'key' in line ? (
                     <>
-                      <span className={cn('shrink-0', darkMode ? 'text-[#c586c0]' : 'text-primary')}>{line.key}</span>
+                      <span className={cn('shrink-0', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>{line.key}</span>
                       <span className={cn('shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>: </span>
                       <span className="min-w-0 flex-1 truncate">{line.value}</span>
                     </>
@@ -671,23 +671,23 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
               fill="none"
               aria-hidden="true"
             >
-            <path d="M204 237H232" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M388 237H458" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M708 237H782" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-            <path d="M782 237H890" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
+            <path d="M204 237H232" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M388 237H458" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M708 237H782" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+            <path d="M782 237H890" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
 
-            <path d="M204 237H232" className={cn('recall-moving-path', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M388 237H458" className={cn('recall-moving-path index-moving-path-late', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M708 237H782" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-moving-path index-moving-path-out index-moving-path-late', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-            <path d="M782 237H890" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
+            <path d="M204 237H232" className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M388 237H458" className={cn('recall-moving-path index-moving-path-late', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M708 237H782" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-moving-path index-moving-path-out index-moving-path-late', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+            <path d="M782 237H890" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
             </svg>
 
           <div className="absolute left-[14px] top-[184px] flex h-[106px] w-[190px] items-center">
@@ -697,8 +697,8 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
             </p>
           </div>
 
-          <div className={cn('multi-core absolute left-[238px] top-[162px] flex h-[150px] w-[150px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#c586c0]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}>
-            <div className={cn('demo-pulse-ring absolute h-[126px] w-[126px] rounded-full border', darkMode ? 'border-[#c586c0]/28' : 'border-primary/28')} />
+          <div className={cn('multi-core absolute left-[238px] top-[162px] flex h-[150px] w-[150px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}>
+            <div className={cn('demo-pulse-ring absolute h-[126px] w-[126px] rounded-full border', darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28')} />
             <div className="relative h-[110px] w-[110px]">
               {[
                 [18, 52],
@@ -715,7 +715,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
                 />
               ))}
               <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-                <path d="M23 57L45 29L70 43L60 75L41 64L23 57M41 64L45 29M41 64L70 43M70 43L82 67" className={cn('recall-core-line', darkMode ? 'stroke-[#c586c0]/58' : 'stroke-primary/62')} />
+                <path d="M23 57L45 29L70 43L60 75L41 64L23 57M41 64L45 29M41 64L70 43M70 43L82 67" className={cn('recall-core-line', darkMode ? 'stroke-[#3b82f6]/58' : 'stroke-primary/62')} />
               </svg>
             </div>
           </div>
@@ -729,7 +729,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
               className={cn('multi-channel-card absolute left-[458px] flex h-[88px] w-[280px] items-center gap-5 rounded-[20px] border px-7', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-white/62')}
               style={{ top: channel.y, animationDelay: `${0.7 + index * 0.3}s` }}
             >
-                <Icon size={48} strokeWidth={1.8} className={cn('shrink-0', darkMode ? 'text-[#c586c0]' : 'text-primary')} />
+                <Icon size={48} strokeWidth={1.8} className={cn('shrink-0', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
                 <span className={cn('text-[27px] font-medium tracking-tight', darkMode ? 'text-[#f0f0f0]' : 'text-text-main/76')}>{channel.label}</span>
               </div>
             );
@@ -750,7 +750,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
               <p className={cn('text-[12px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
               <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>融合候选结果</p>
             </div>
-            <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#c586c0]' : 'text-primary')}>K=3</span>
+            <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>K=3</span>
           </div>
           <div className={cn('divide-y', darkMode ? 'divide-[#3c3c3c]' : 'divide-border-subtle')}>
             {topKChunks.map((chunk, index) => (
@@ -761,8 +761,8 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
                 transition={{ duration: 2.4, delay: index * 0.24, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <div className="mb-1.5 flex items-center gap-2">
-                  <span className={cn('h-1.5 w-1.5 rounded-full', darkMode ? 'bg-[#c586c0]' : 'bg-primary')} />
-                  <span className={cn('font-mono text-[9px] font-bold', darkMode ? 'text-[#c586c0]' : 'text-primary')}>
+                  <span className={cn('h-1.5 w-1.5 rounded-full', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')} />
+                  <span className={cn('font-mono text-[9px] font-bold', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>
                     得分 {chunk.score}
                   </span>
                 </div>
@@ -819,7 +819,7 @@ function StreamingAnswer({ darkMode }: { darkMode?: boolean }) {
         <p key={index}>{line}</p>
       ))}
       <motion.span
-        className={cn('ml-0.5 inline-block h-4 w-1 rounded align-[-2px]', darkMode ? 'bg-[#c586c0]' : 'bg-primary')}
+        className={cn('ml-0.5 inline-block h-4 w-1 rounded align-[-2px]', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')}
         animate={{ opacity: [0, 1, 0] }}
         transition={{ duration: 0.8, repeat: Infinity }}
       />
@@ -843,10 +843,10 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
       <div className="relative z-10 mx-auto mt-6 h-[350px] w-[520px] overflow-visible">
         <div className="absolute left-0 top-0 h-[382px] w-[620px] origin-top-left scale-[0.835]">
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 620 382" fill="none" aria-hidden="true">
-          <path d="M188 191H238" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-          <path d="M358 191H392" className={cn('recall-dashed-path', darkMode ? 'stroke-[#c586c0]/30' : 'stroke-primary/38')} />
-          <path d="M188 191H238" className={cn('recall-moving-path', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
-          <path d="M358 191H392" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#c586c0]' : 'stroke-primary')} />
+          <path d="M188 191H238" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+          <path d="M358 191H392" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+          <path d="M188 191H238" className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+          <path d="M358 191H392" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
         </svg>
 
         <motion.div
@@ -858,7 +858,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
               <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
               <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>召回上下文</p>
             </div>
-            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#c586c0]' : 'bg-primary/12 text-primary')}>
+            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary')}>
               <FileText size={20} />
             </div>
           </div>
@@ -873,15 +873,15 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-mono text-[10px]', darkMode ? 'bg-[#c586c0]/12 text-[#c586c0]' : 'bg-primary/14 text-primary')}>{index + 1}</span>
+                    <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-mono text-[10px]', darkMode ? 'bg-[#3b82f6]/12 text-[#3b82f6]' : 'bg-primary/14 text-primary')}>{index + 1}</span>
                     <span className={cn('truncate text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>{chunk.title}</span>
                   </div>
-                  <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#c586c0]' : 'text-primary')}>{chunk.score.toFixed(2)}</span>
+                  <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>{chunk.score.toFixed(2)}</span>
                 </div>
                 <p className={cn('line-clamp-1 text-[10px] leading-4', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/55')}>{chunk.text}</p>
                 <div className={cn('mt-1.5 h-1 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/10')}>
                   <motion.div
-                    className={cn('h-1 rounded-full', darkMode ? 'bg-[#c586c0]' : 'bg-primary')}
+                    className={cn('h-1 rounded-full', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')}
                     animate={{ width: ['24%', `${Math.round(chunk.score * 100)}%`, '24%'] }}
                     transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
                   />
@@ -893,13 +893,13 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
 
         <motion.div
           variants={fadeUpItem}
-          className={cn('multi-core absolute left-[238px] top-[119px] flex h-[120px] w-[120px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#c586c0]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}
+          className={cn('multi-core absolute left-[238px] top-[119px] flex h-[120px] w-[120px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}
         >
-          <div className={cn('demo-pulse-ring absolute h-[94px] w-[94px] rounded-full border', darkMode ? 'border-[#c586c0]/28' : 'border-primary/28')} />
+          <div className={cn('demo-pulse-ring absolute h-[94px] w-[94px] rounded-full border', darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28')} />
           <div className={cn('absolute inset-0 overflow-hidden rounded-full opacity-35', darkMode ? 'bg-[#252526]' : 'bg-bg-base')}>
             <div className="h-full w-full bg-[linear-gradient(rgba(26,26,26,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(26,26,26,.12)_1px,transparent_1px)] bg-[size:18px_18px]" />
           </div>
-          <div className={cn('relative flex flex-col items-center gap-1', darkMode ? 'text-[#c586c0]' : 'text-primary')}>
+          <div className={cn('relative flex flex-col items-center gap-1', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>
             <BrainCircuit size={42} strokeWidth={1.8} />
             <span className={cn('text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>LLM 智能回答</span>
           </div>
@@ -914,7 +914,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
               <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>AI 回答</p>
               <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>生成并保留引用</p>
             </div>
-            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#c586c0]' : 'bg-primary/12 text-primary')}>
+            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary')}>
               <BotMessageSquare size={20} />
             </div>
           </div>
@@ -938,7 +938,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
             {['chunk_01', 'chunk_08', 'chunk_12'].map((item, index) => (
               <motion.span
                 key={item}
-                className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]', darkMode ? 'border-[#c586c0]/22 bg-[#c586c0]/8 text-[#d9d9d9]' : 'border-primary/20 bg-primary/10 text-text-main/62')}
+                className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]', darkMode ? 'border-[#3b82f6]/22 bg-[#3b82f6]/8 text-[#d9d9d9]' : 'border-primary/20 bg-primary/10 text-text-main/62')}
                 animate={{ opacity: [0.64, 1, 0.64] }}
                 transition={{ duration: 2.2, repeat: Infinity, delay: 0.9 + index * 0.2, ease: 'easeInOut' }}
               >
@@ -968,7 +968,7 @@ function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
       <div
         className={cn(
           'welcome-ribbon absolute -left-[12%] top-[7%] h-[220px] w-[72%] rotate-[-6deg] rounded-[999px]',
-          darkMode ? 'bg-[#c586c0]/12' : 'bg-[#f0d9bf]/70',
+          darkMode ? 'bg-[#3b82f6]/12' : 'bg-[#f0d9bf]/70',
         )}
       />
       <div
@@ -986,7 +986,7 @@ function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
       <div
         className={cn(
           'welcome-ribbon absolute right-[-10%] bottom-[22%] h-[220px] w-[65%] rotate-[-7deg] rounded-[999px]',
-          darkMode ? 'bg-[#c586c0]/10' : 'bg-[#f1decc]/85',
+          darkMode ? 'bg-[#3b82f6]/10' : 'bg-[#f1decc]/85',
         )}
       />
       <div className="welcome-grid absolute inset-0 opacity-50" />
@@ -1161,13 +1161,13 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </a>
                 ))}
                 <Link
-                  to={Routes.Blogs}
+                  to={Routes.Usage}
                   className={cn(
                     'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                     darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                   )}
                 >
-                  博客
+                  用量
                 </Link>
               </nav>
 
@@ -1320,7 +1320,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   'h-2.5 rounded-full transition-all',
                   activeFlowIndex === index ? 'w-8' : 'w-2.5',
                   darkMode
-                    ? activeFlowIndex === index ? 'bg-[#c586c0]' : 'bg-[#3c3c3c]'
+                    ? activeFlowIndex === index ? 'bg-[#3b82f6]' : 'bg-[#3c3c3c]'
                     : activeFlowIndex === index ? 'bg-primary' : 'bg-text-main/12',
                 )}
                 aria-label={`查看第 ${index + 1} 页`}
@@ -1357,7 +1357,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   <span
                     className={cn(
                       'rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.24em]',
-                      darkMode ? 'bg-[#2d2d2d] text-[#c586c0]' : 'bg-primary/10 text-primary',
+                      darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/10 text-primary',
                     )}
                   >
                     {mode === 'login' ? 'sign in' : 'sign up'}
@@ -1545,7 +1545,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 )}
               >
                 <div className="mb-2 flex items-center gap-2">
-                  <ShieldCheck size={15} className={darkMode ? 'text-[#c586c0]' : 'text-primary'} />
+                  <ShieldCheck size={15} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
                   <p className={cn('text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
                     访问说明
                   </p>
