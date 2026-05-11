@@ -265,7 +265,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-3 gap-4">
             {filteredDatasets.map((dataset) => {
               const deleting = deletingDatasetIds.includes(dataset.id);
 
@@ -274,7 +274,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
                   className={cn(
-                    "rounded-2xl p-5 transition-colors cursor-pointer group flex min-h-[160px] flex-col",
+                    "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
                     darkMode
                       ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
                       : "art-card hover:border-primary"
@@ -335,7 +335,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
             <div
               onClick={() => setCreateDialogOpen(true)}
               className={cn(
-                "rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[140px] p-5 cursor-pointer transition-colors",
+                "rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors",
                 darkMode
                   ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
                   : "art-card text-text-main/40 hover:text-primary hover:border-primary"

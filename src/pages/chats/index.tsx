@@ -151,7 +151,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               key={chat.id}
               onClick={() => navigate(`/chats/${chat.id}`)}
               className={cn(
-                "rounded-2xl p-5 transition-colors cursor-pointer group",
+                "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
                 darkMode
                   ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
                   : "art-card hover:border-primary"
@@ -179,7 +179,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
                   </span>
                 </div>
               )}
-              <div className={cn("flex items-center justify-between", darkMode ? "text-[#858585]" : "")}>
+              <div className={cn("mt-auto flex items-center justify-between", darkMode ? "text-[#858585]" : "")}>
                 <span className="mono-label">dataset #{chat.datasetId}</span>
                 <span className="mono-label">{chat.updatedAt}</span>
               </div>
@@ -190,7 +190,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
           <div
             onClick={() => setCreateDialogOpen(true)}
             className={cn(
-              "rounded-2xl border-dashed flex flex-col items-center justify-center min-h-[140px] p-5 cursor-pointer transition-colors",
+              "rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors",
               darkMode
                 ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
                 : "art-card text-text-main/40 hover:text-primary hover:border-primary"
