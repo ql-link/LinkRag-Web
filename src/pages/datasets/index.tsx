@@ -265,7 +265,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
             {filteredDatasets.map((dataset) => {
               const deleting = deletingDatasetIds.includes(dataset.id);
 
@@ -274,13 +274,13 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
                   className={cn(
-                    "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
+                    "rounded-2xl h-full p-5 transition-colors cursor-pointer group flex flex-col overflow-hidden",
                     darkMode
                       ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]"
                       : "art-card hover:border-primary"
                   )}
                 >
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <div className={cn(
                       "w-10 h-10 rounded-xl flex items-center justify-center",
                       darkMode ? "bg-[#094771]/30" : "bg-primary/20"
@@ -288,16 +288,16 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
                       <Database size={18} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
                     </div>
                   </div>
-                  <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-1 group-hover:text-[#3b82f6] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
+                  <h3 className={cn("font-bold text-sm uppercase tracking-wider mb-0.5 group-hover:text-[#3b82f6] transition-colors", darkMode ? "text-[#e0e0e0]" : "")}>
                     {dataset.name}
                   </h3>
                   {dataset.description && (
-                    <p className={cn("text-xs line-clamp-2 mb-3", darkMode ? "text-[#858585]" : "text-text-main/60")}>
+                    <p className={cn("text-[11px] leading-4 line-clamp-2 mb-2 min-h-0", darkMode ? "text-[#858585]" : "text-text-main/60")}>
                       {dataset.description}
                     </p>
                   )}
-                  <div className={cn("mt-auto flex items-end justify-between gap-3", darkMode ? "text-[#858585]" : "")}>
-                    <div className="flex min-w-0 flex-col gap-1">
+                  <div className={cn("mt-auto flex items-end justify-between gap-2", darkMode ? "text-[#858585]" : "")}>
+                    <div className="flex min-w-0 flex-col gap-0.5">
                       <span className={cn("mono-label", darkMode ? "text-[#858585]" : "text-text-main/50")}>
                         {getStatusLabel(dataset.status)}
                       </span>
@@ -335,10 +335,10 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
             <div
               onClick={() => setCreateDialogOpen(true)}
               className={cn(
-                "rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors",
+                "rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed",
                 darkMode
-                  ? "border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
-                  : "art-card text-text-main/40 hover:text-primary hover:border-primary"
+                  ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]"
+                  : "art-card border-dashed text-text-main/40 hover:text-primary hover:border-primary"
               )}
             >
               <Plus size={24} className="mb-2" />

@@ -26,8 +26,8 @@ export async function createConversation(
 export async function updateConversation(
   id: number,
   data: UpdateConversationRequest
-): Promise<void> {
-  await apiClient.patch(`/api/v1/chat/conversations/${id}`, data);
+): Promise<ConversationDTO> {
+  return apiClient.patch<ConversationDTO>(`/api/v1/chat/conversations/${id}`, data);
 }
 
 export async function deleteConversation(id: number): Promise<void> {

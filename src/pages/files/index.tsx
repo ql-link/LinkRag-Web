@@ -73,6 +73,44 @@ function canSubmitParse(file: KnowledgeFileDTO) {
     && file.frontendStatus !== 'parsing';
 }
 
+function ParseAfterUploadSwitch({
+  darkMode,
+  checked,
+  onToggle,
+}: {
+  darkMode?: boolean;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="inline-flex items-center gap-2 rounded-full text-sm"
+    >
+      <span
+        className={cn(
+          'relative h-5 w-9 rounded-full border transition-colors',
+          checked
+            ? darkMode ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18' : 'border-primary/35 bg-primary/18'
+            : darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+            checked ? darkMode ? 'bg-[#3b82f6]' : 'bg-primary' : darkMode ? 'bg-[#858585]' : 'bg-text-main/35'
+          )}
+        />
+      </span>
+      <span className={cn(checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : (darkMode ? 'text-gray-300' : 'text-text-main/70'))}>
+        上传后立即解析
+      </span>
+    </button>
+  );
+}
+
 export default function FilesPage({ darkMode }: FilesPageProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { addToast } = useToast();
@@ -258,44 +296,26 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
               重试
             </button>
           </div>
-        ) : visibleFiles.length === 0 ? (
-          <div className="grid grid-cols-3 gap-4">
-            <div
-              onClick={() => setUploadDialogOpen(true)}
-              className={cn(
-                'rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors',
-                darkMode
-                  ? 'border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]'
-                  : 'art-card text-text-main/40 hover:text-primary hover:border-primary'
-              )}
-            >
-              <Plus size={24} className="mb-2" />
-              <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
-            </div>
-            <div
-              className={cn(
-                'rounded-2xl p-10 text-center',
-                darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'
-              )}
-            >
-              <FileText size={28} className={cn('mx-auto mb-3', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
-              <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>暂无文件</p>
-              <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>点击左侧卡片上传</p>
-            </div>
-          </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-3">
             <div
               onClick={() => setUploadDialogOpen(true)}
               className={cn(
-                'rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors',
+                'rounded-2xl border border-dashed p-4 cursor-pointer transition-colors',
                 darkMode
-                  ? 'border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]'
-                  : 'art-card text-text-main/40 hover:text-primary hover:border-primary'
+                  ? 'bg-[#2d2d2d]/60 border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]'
+                  : 'bg-white border-border-subtle border-dashed text-text-main/50 hover:text-primary hover:border-primary'
               )}
             >
-              <Plus size={24} className="mb-2" />
-              <span className="text-xs font-bold uppercase tracking-wider">上传文件</span>
+              <div className="flex items-center gap-3">
+                <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', darkMode ? 'bg-[#094771]/30' : 'bg-primary/10')}>
+                  <Plus size={18} />
+                </div>
+                <div>
+                  <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>上传文件</p>
+                  <p className={cn('mono-label mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>先选择目标知识库，再添加文件，可选择上传后立即解析</p>
+                </div>
+              </div>
             </div>
             {visibleFiles.map((file) => {
               const fileType = file.originalFilename.split('.').pop()?.toUpperCase() || file.fileSuffix.toUpperCase();
@@ -308,50 +328,48 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                 <div
                   key={file.id}
                   className={cn(
-                    'rounded-2xl p-5 transition-colors flex flex-col aspect-[1.618]',
+                    'rounded-xl px-4 py-3 transition-colors',
                     darkMode
                       ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
                       : 'art-card hover:border-primary'
                   )}
                 >
-                  <div className="flex items-start gap-3 mb-3">
+                  <div className="flex items-center gap-3">
                     <div className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                      darkMode ? 'bg-[#094771]/30' : 'bg-primary/20'
+                      'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+                      darkMode ? 'bg-[#094771]/30' : 'bg-primary/10'
                     )}>
-                      <FileIcon size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                      <FileIcon size={16} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={cn('text-sm font-bold uppercase tracking-wider truncate', darkMode ? 'text-[#e0e0e0]' : '')}>
+                        <span className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
                           {file.originalFilename}
                         </span>
+                        <span className={cn('mono-label shrink-0', getFileStatusTone(file), !getFileStatusTone(file) && (darkMode ? 'text-[#858585]' : 'text-text-main/30'))}>
+                          {getFileStatus(file)}
+                        </span>
                       </div>
-                      <span className={cn('mono-label shrink-0', getFileStatusTone(file), !getFileStatusTone(file) && (darkMode ? 'text-[#858585]' : 'text-text-main/30'))}>
-                        {getFileStatus(file)}
-                      </span>
+                      <div className="mt-1 flex items-center gap-2 overflow-hidden">
+                        <DatasetBadgeList
+                          items={[{ kb_id: String(file.dataset.id), kb_name: file.dataset.name }]}
+                          darkMode={darkMode}
+                          maxShow={1}
+                        />
+                        <span className={cn('mono-label shrink-0', darkMode ? 'text-[#858585]' : '')}>{fileType}</span>
+                        <span className={cn('mono-label shrink-0', darkMode ? 'text-[#858585]' : '')}>{formatFileSize(file.fileSize)}</span>
+                        <span className={cn('mono-label hidden sm:block truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>{formatDate(file.createdAt)}</span>
+                      </div>
+                      {(file.failureReason || file.parseFailureReason) && (
+                        <p className="text-xs text-red-500 mt-1 truncate">{file.failureReason || file.parseFailureReason}</p>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <DatasetBadgeList
-                      items={[{ kb_id: String(file.dataset.id), kb_name: file.dataset.name }]}
-                      darkMode={darkMode}
-                      maxShow={1}
-                    />
-                    <span className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>{fileType}</span>
-                    <span className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>{formatFileSize(file.fileSize)}</span>
-                  </div>
-                  {(file.failureReason || file.parseFailureReason) && (
-                    <p className="text-xs text-red-500 mb-3">{file.failureReason || file.parseFailureReason}</p>
-                  )}
-                  <div className={cn('mt-auto flex items-center justify-between', darkMode ? 'text-[#858585]' : '')}>
-                    <span className="mono-label">{formatDate(file.createdAt)}</span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         onClick={() => void handleParse(file.id)}
                         disabled={parseDisabled}
                         className={cn(
-                          'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
+                          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
                           darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-primary text-white hover:bg-primary/90'
                         )}
                       >
@@ -362,7 +380,7 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                         onClick={() => void handleDelete(file.id)}
                         disabled={deleting}
                         className={cn(
-                          'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          'p-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                           darkMode ? 'text-[#858585] hover:bg-[#3c3c3c]' : 'text-text-main/35 hover:bg-gray-100'
                         )}
                       >
@@ -436,15 +454,11 @@ export default function FilesPage({ darkMode }: FilesPageProps) {
                 </div>
                 <p className={cn('mt-1.5 mono-label', darkMode ? 'text-gray-500' : 'text-text-main/40')}>{SUPPORTED_FILE_HINT}</p>
               </div>
-              <label className={cn('flex items-center gap-2 text-sm', darkMode ? 'text-gray-300' : 'text-text-main/70')}>
-                <input
-                  type="checkbox"
-                  checked={parseAfterUpload}
-                  onChange={(event) => setParseAfterUpload(event.target.checked)}
-                  className="accent-[#3b82f6]"
-                />
-                上传后立即解析
-              </label>
+              <ParseAfterUploadSwitch
+                darkMode={darkMode}
+                checked={parseAfterUpload}
+                onToggle={() => setParseAfterUpload((prev) => !prev)}
+              />
             </div>
             <div className={cn('flex items-center justify-end gap-3 px-6 py-4 border-t', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/30')}>
               <button

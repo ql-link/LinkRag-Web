@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { AlertCircle, FileText, Loader2, MessageSquare, RefreshCw, Trash2, Upload, Wand2 } from 'lucide-react';
+import { AlertCircle, FileText, Loader2, MessageSquare, Plus, RefreshCw, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
@@ -66,6 +66,44 @@ function canSubmitParse(file: KnowledgeFileDTO) {
     && file.uploadStatus === 'success'
     && !file.failureReason
     && file.frontendStatus !== 'parsing';
+}
+
+function ParseAfterUploadSwitch({
+  darkMode,
+  checked,
+  onToggle,
+}: {
+  darkMode?: boolean;
+  checked: boolean;
+  onToggle: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => onToggle(event)}
+      className="inline-flex items-center gap-2 rounded-full text-xs font-bold transition-opacity"
+    >
+      <span
+        className={cn(
+          'relative h-5 w-9 rounded-full border transition-colors',
+          checked
+            ? darkMode ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18' : 'border-primary/35 bg-primary/18'
+            : darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+            checked ? darkMode ? 'bg-[#3b82f6]' : 'bg-primary' : darkMode ? 'bg-[#858585]' : 'bg-text-main/35'
+          )}
+        />
+      </span>
+      <span className={cn(checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : (darkMode ? 'text-[#cccccc]' : 'text-text-main/70'))}>
+        上传后立即解析
+      </span>
+    </button>
+  );
 }
 
 export default function DatasetPage({ darkMode }: DatasetPageProps) {
@@ -260,30 +298,9 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                 : 'bg-white border border-border-subtle hover:border-primary'
             )}
           >
-            <MessageSquare size={14} />
-            新建对话
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors',
-              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-              uploading && 'opacity-70'
-            )}
-          >
-            <Upload size={14} />
-            {uploading ? '上传中' : '上传文件'}
-          </button>
-          <label className={cn('flex items-center gap-2 px-2 text-xs', darkMode ? 'text-[#cccccc]' : 'text-text-main/70')}>
-            <input
-              type="checkbox"
-              checked={parseAfterUpload}
-              onChange={(event) => setParseAfterUpload(event.target.checked)}
-              className="accent-[#3b82f6]"
-            />
-            上传后解析
-          </label>
+              <MessageSquare size={14} />
+              新建对话
+            </button>
           <button
             onClick={() => void loadDataset()}
             disabled={refreshing}
@@ -344,25 +361,51 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
         >
           关联对话 ({conversations.length})
         </button>
-        <span className={cn('ml-auto flex items-center text-[10px] uppercase tracking-wider', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-          {SUPPORTED_FILE_HINT}
-        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
         {activeTab === 'files' ? (
           <div className="space-y-3">
-            {files.length === 0 ? (
-              <div
-                className={cn(
-                  'text-center py-12 rounded-2xl',
-                  darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'
-                )}
-              >
-                <FileText size={32} className={cn('mx-auto mb-3', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
-                <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>暂无知识文件</p>
-                <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>点击右上角开始上传</p>
+            <div
+              onClick={() => {
+                if (!uploading) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={cn(
+                'rounded-2xl border border-dashed p-4 cursor-pointer transition-colors',
+                darkMode ? 'bg-[#2d2d2d]/60 border-[#3c3c3c]' : 'bg-white border-border-subtle border-dashed',
+                uploading && 'opacity-70'
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', darkMode ? 'bg-[#094771]/30' : 'bg-primary/10')}>
+                    <Plus size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>上传文件</p>
+                    <p className={cn('mono-label mt-1 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                      {SUPPORTED_FILE_HINT}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <ParseAfterUploadSwitch
+                    darkMode={darkMode}
+                    checked={parseAfterUpload}
+                    onToggle={(event) => {
+                      event.stopPropagation();
+                      setParseAfterUpload((prev) => !prev);
+                    }}
+                  />
+                </div>
               </div>
+            </div>
+            {files.length === 0 ? (
+              <p className={cn('mono-label px-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                暂无知识文件
+              </p>
             ) : (
               files.map((file) => {
                 const parsing = parsingFileIds.includes(file.id);
@@ -374,18 +417,18 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                 <div
                   key={file.id}
                   className={cn(
-                    'rounded-xl p-4 flex items-center justify-between gap-4',
-                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'
+                    'rounded-xl px-4 py-3 flex items-center justify-between gap-4 transition-colors',
+                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]' : 'art-card hover:border-primary'
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                        'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
                         darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10'
                       )}
                     >
-                      <FileText size={18} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
+                      <FileText size={16} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
                     </div>
                     <div className="min-w-0">
                       <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : '')}>
@@ -394,6 +437,9 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                       <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                         {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} ·{' '}
                         <span className={statusTone}>{getFileStatusLabel(file)}</span>
+                      </p>
+                      <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                        上传于 {formatTime(file.createdAt)}
                       </p>
                       {(file.failureReason || file.parseFailureReason) && (
                         <p className="text-xs text-red-500 mt-1">{file.failureReason || file.parseFailureReason}</p>
@@ -405,7 +451,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                       onClick={() => void handleParseFile(file.id)}
                       disabled={!canParse || parsing}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
+                        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
                         darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-primary text-white hover:bg-primary/90'
                       )}
                     >
@@ -416,7 +462,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
                       onClick={() => void handleDeleteFile(file.id)}
                       disabled={deleting}
                       className={cn(
-                        'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                        'p-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                         darkMode ? 'hover:bg-[#3c3c3c] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40'
                       )}
                     >
