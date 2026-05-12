@@ -49,7 +49,7 @@
 }
 
 @theme {
-  --font-sans: "Playfair Display", "Noto Serif SC", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", "Noto Serif SC", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
@@ -68,6 +68,7 @@
 
   body {
     @apply bg-bg-base text-text-main font-sans selection:bg-primary/30;
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
   .welcome-floating-header {

@@ -94,13 +94,14 @@ function RightPanel({ darkMode, collapsed, onToggle }: { darkMode: boolean; coll
 function ProtectedAppShell({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode: (value: boolean, origin?: { x: number; y: number }) => void }) {
   const location = useLocation();
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const isChatDetailPage = /^\/chats\/\d+$/.test(location.pathname);
 
   return (
     <div className={`flex h-screen font-sans overflow-hidden p-4 gap-4 ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
-      <Sidebar darkMode={darkMode} onDarkModeChange={setDarkMode} />
+      {!isChatDetailPage && <Sidebar darkMode={darkMode} onDarkModeChange={setDarkMode} />}
 
       <Group direction="horizontal" className="flex-1 min-w-0">
-        <Panel defaultSize={80} minSize={50}>
+        <Panel defaultSize={isChatDetailPage ? 100 : 80} minSize={50}>
           <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={`${location.pathname}${location.search}`}
@@ -128,11 +129,13 @@ function ProtectedAppShell({ darkMode, setDarkMode }: { darkMode: boolean; setDa
         </Panel>
 
       </Group>
-      <RightPanel
-        darkMode={darkMode}
-        collapsed={rightPanelCollapsed}
-        onToggle={() => setRightPanelCollapsed((value) => !value)}
-      />
+      {!isChatDetailPage && (
+        <RightPanel
+          darkMode={darkMode}
+          collapsed={rightPanelCollapsed}
+          onToggle={() => setRightPanelCollapsed((value) => !value)}
+        />
+      )}
     </div>
   );
 }
