@@ -117,7 +117,7 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'files' | 'conversations'>('files');
+  const [activeTab, setActiveTab] = useState<'files' | 'conversations'>('conversations');
   const [uploading, setUploading] = useState(false);
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingDataset, setDeletingDataset] = useState(false);
@@ -336,19 +336,6 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
         )}
       >
         <button
-          onClick={() => setActiveTab('files')}
-          className={cn(
-            'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
-            activeTab === 'files'
-              ? 'border-[#3b82f6] text-[#3b82f6]'
-              : darkMode
-                ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
-                : 'border-transparent text-text-main/50 hover:text-text-main'
-          )}
-        >
-          知识文件 ({files.length})
-        </button>
-        <button
           onClick={() => setActiveTab('conversations')}
           className={cn(
             'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
@@ -360,6 +347,19 @@ export default function DatasetPage({ darkMode }: DatasetPageProps) {
           )}
         >
           关联对话 ({conversations.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('files')}
+          className={cn(
+            'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
+            activeTab === 'files'
+              ? 'border-[#3b82f6] text-[#3b82f6]'
+              : darkMode
+                ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
+                : 'border-transparent text-text-main/50 hover:text-text-main'
+          )}
+        >
+          知识文件 ({files.length})
         </button>
       </div>
 

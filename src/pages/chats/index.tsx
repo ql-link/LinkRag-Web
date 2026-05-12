@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { MessageSquare, Plus, Search, ArrowRight, X } from 'lucide-react';
+import { MessageSquare, Plus, Search, ArrowRight, X, ArrowUpDown } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -27,6 +27,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
   const [chats, setChats] = useState<ConversationDTO[]>([]);
   const [datasets, setDatasets] = useState<DatasetType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt'>('updatedAt');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newChatName, setNewChatName] = useState('');
   const [newChatKbIds, setNewChatKbIds] = useState<string[]>([]);
@@ -90,10 +91,15 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
     }
   };
 
-  const filteredChats = chats.filter((c) =>
-    c.title.toLowerCase().includes(searchString.toLowerCase())
-  );
+  const filteredChats = chats
+    .filter((c) => c.title.toLowerCase().includes(searchString.toLowerCase()))
+    .sort((a, b) => {
+      const timeA = new Date(a[sortBy] || '').getTime();
+      const timeB = new Date(b[sortBy] || '').getTime();
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
   const datasetNameById = new Map(datasets.map((dataset) => [Number(dataset.id), dataset.name]));
+  const sortLabel = sortBy === 'createdAt' ? '按创建时间排序' : '按更新时间排序';
 
   return (
     <div className="h-full flex flex-col">
@@ -131,13 +137,25 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
               )}
             />
           </div>
-          <button
-            onClick={() => setCreateDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-text-main text-white rounded-xl hover:opacity-90 transition-opacity"
+          <div
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 rounded-xl border",
+              darkMode ? "bg-[#2d2d2d] border-[#3c3c3c]" : "bg-bg-base/50 border-border-subtle"
+            )}
           >
-            <Plus size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">新建对话</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
+              className={cn(
+                "flex items-center gap-2 text-xs bg-transparent focus:outline-none",
+                darkMode ? "text-[#e0e0e0]" : "text-text-main"
+              )}
+              title="点击切换排序方式"
+            >
+              <ArrowUpDown size={14} className={darkMode ? "text-[#858585]" : "text-text-main/40"} />
+              <span>{sortLabel}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -151,13 +169,13 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
         </div>
 
         {/* Chat Grid */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
           {filteredChats.map((chat) => (
             <div
               key={chat.id}
               onClick={() => navigate(`/chats/${chat.id}`)}
               className={cn(
-              "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col aspect-[1.618]",
+              "rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col h-full min-h-0",
               darkMode
                   ? "bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#4a4a4a]"
                   : "art-card hover:border-border-subtle"
@@ -201,7 +219,7 @@ export default function ChatsPage({ darkMode }: ChatsPageProps) {
           <div
             onClick={() => setCreateDialogOpen(true)}
             className={cn(
-              "rounded-2xl border-dashed flex flex-col items-center justify-center aspect-[1.618] p-5 cursor-pointer transition-colors",
+              "rounded-2xl border-dashed flex flex-col items-center justify-center p-5 cursor-pointer transition-colors h-full min-h-0",
               darkMode
                 ? "border-[#3c3c3c] text-[#858585] hover:text-[#d0d0d0] hover:border-[#4a4a4a]"
                 : "art-card text-text-main/40 hover:text-text-main/60 hover:border-border-subtle"

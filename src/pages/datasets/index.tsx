@@ -1,6 +1,6 @@
 import { useState, useEffect, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertCircle, Database, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Database, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X, ArrowUpDown } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -18,6 +18,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
   const [searchString, setSearchString] = useState('');
   const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt'>('updatedAt');
   const [errorMessage, setErrorMessage] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newDatasetName, setNewDatasetName] = useState('');
@@ -126,9 +127,13 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
     }
   };
 
-  const filteredDatasets = datasets.filter((d) =>
-    `${d.name} ${d.description ?? ''}`.toLowerCase().includes(searchString.toLowerCase())
-  );
+  const filteredDatasets = datasets
+    .filter((d) => `${d.name} ${d.description ?? ''}`.toLowerCase().includes(searchString.toLowerCase()))
+    .sort((a, b) => {
+      const timeA = new Date(a[sortBy] || '').getTime();
+      const timeB = new Date(b[sortBy] || '').getTime();
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
   const hasSearch = searchString.trim().length > 0;
 
   const formatDatasetTime = (value: string) => {
@@ -142,6 +147,7 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
     if (status === 'INACTIVE') return '已停用';
     return '已删除';
   };
+  const sortLabel = sortBy === 'createdAt' ? '按创建时间排序' : '按更新时间排序';
 
   return (
     <div className="h-full flex flex-col">
@@ -179,18 +185,25 @@ export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
               )}
             />
           </div>
-          <button
-            onClick={() => setCreateDialogOpen(true)}
+          <div
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl transition-colors",
-              darkMode
-                ? "bg-[#094771] text-white hover:bg-[#0a5280]"
-                : "bg-text-main text-white hover:opacity-90"
+              "flex items-center gap-2 px-3 py-2 rounded-xl border",
+              darkMode ? "bg-[#2d2d2d] border-[#3c3c3c]" : "bg-bg-base/50 border-border-subtle"
             )}
           >
-            <Plus size={14} />
-            <span className="text-xs font-bold uppercase tracking-wider">新建</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
+              className={cn(
+                "flex items-center gap-2 text-xs bg-transparent focus:outline-none",
+                darkMode ? "text-[#e0e0e0]" : "text-text-main"
+              )}
+              title="点击切换排序方式"
+            >
+              <ArrowUpDown size={14} className={darkMode ? "text-[#858585]" : "text-text-main/40"} />
+              <span>{sortLabel}</span>
+            </button>
+          </div>
           <button
             onClick={() => void loadDatasets()}
             disabled={loading}
