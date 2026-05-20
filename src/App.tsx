@@ -17,6 +17,7 @@ import ChatsPage from '@/pages/chats';
 import ChatPage from '@/pages/chats/chat';
 import FilesPage from '@/pages/files';
 import BlogsPage from '@/pages/blogs';
+import FeedbackPage from '@/pages/feedback';
 import UsagePage from '@/pages/usage';
 import LLMPage from '@/pages/settings/llm-config';
 import ProfilePage from '@/pages/settings/profile';
@@ -47,6 +48,7 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith('/chats')) return '对话';
   if (pathname.startsWith('/files')) return '文件';
   if (pathname.startsWith('/blogs')) return '博客';
+  if (pathname.startsWith('/feedback')) return '反馈';
   if (pathname.startsWith('/usage')) return '用量';
   if (pathname.startsWith('/settings/llm-config')) return 'LLM 配置';
   if (pathname.startsWith('/settings/profile')) return '个人信息';
@@ -63,6 +65,7 @@ function AppRoutesContent({ location, darkMode }: { location: ReturnType<typeof 
       <Route path={RoutePaths.ChatDetail} element={<ChatPage darkMode={darkMode} />} />
       <Route path={RoutePaths.Files} element={<FilesPage darkMode={darkMode} />} />
       <Route path={RoutePaths.Blogs} element={<BlogsPage darkMode={darkMode} />} />
+      <Route path={RoutePaths.Feedback} element={<FeedbackPage darkMode={darkMode} />} />
       <Route path={RoutePaths.Usage} element={<UsagePage darkMode={darkMode} />} />
       <Route path={RoutePaths.LLMPage} element={<LLMPage darkMode={darkMode} />} />
       <Route path={RoutePaths.ProfilePage} element={<ProfilePage darkMode={darkMode} />} />
@@ -361,6 +364,7 @@ function AppContent({ darkMode, setDarkMode }: { darkMode: boolean; setDarkMode:
     <Routes>
       <Route index element={<WelcomePage darkMode={darkMode} />} />
       <Route path={RoutePaths.Blogs} element={<BlogsPage darkMode={darkMode} />} />
+      <Route path={RoutePaths.Feedback} element={<FeedbackPage darkMode={darkMode} />} />
       <Route
         path="*"
         element={

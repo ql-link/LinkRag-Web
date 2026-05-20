@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent,
   type FormEvent,
   type ReactNode,
 } from 'react';
@@ -124,7 +123,7 @@ function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
     <img
       src="/linkrag-mark-v2.png"
       alt="LinkRag"
-      className="h-12 w-12 object-contain"
+      className="h-full w-full object-contain"
       style={darkMode ? { filter: 'saturate(0.96) brightness(0.96)' } : undefined}
     />
   );
@@ -198,9 +197,9 @@ const uploadFiles = [
 ] as const;
 
 function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
-  const [draggingFile, setDraggingFile] = useState<string | null>(null);
-  const [droppedFile, setDroppedFile] = useState<string | null>(null);
-  const [stage, setStage] = useState<'idle' | 'parsing' | 'done'>('idle');
+  const [stage, setStage] = useState<'idle' | 'uploading' | 'parsing' | 'done'>('idle');
+  const [activeFileIndex, setActiveFileIndex] = useState(-1);
+  const [replayKey, setReplayKey] = useState(0);
   const parseTimers = useRef<number[]>([]);
   const chunks = [
     '监督学习依赖带标签样本，通过损失函数衡量预测值与真实标签的差距。',
@@ -215,30 +214,35 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
     parseTimers.current = [];
   }
 
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    if (!draggingFile || stage !== 'idle') return;
-
-    clearParseTimers();
-    setDroppedFile(draggingFile);
-    setStage('parsing');
-    parseTimers.current.push(window.setTimeout(() => {
-      setDraggingFile(null);
-      setDroppedFile(null);
-    }, 120));
-    parseTimers.current.push(window.setTimeout(() => {
-      setStage('done');
-    }, 320));
-  }
-
   function handleReset() {
     clearParseTimers();
-    setDraggingFile(null);
-    setDroppedFile(null);
     setStage('idle');
+    setActiveFileIndex(-1);
+    setReplayKey((value) => value + 1);
   }
 
-  useEffect(() => () => clearParseTimers(), []);
+  useEffect(() => {
+    clearParseTimers();
+    setStage('uploading');
+    setActiveFileIndex(0);
+
+    uploadFiles.forEach((_, index) => {
+      parseTimers.current.push(window.setTimeout(() => {
+        setActiveFileIndex(index);
+      }, index * 760));
+    });
+
+    parseTimers.current.push(window.setTimeout(() => {
+      setStage('parsing');
+      setActiveFileIndex(-1);
+    }, uploadFiles.length * 760 + 180));
+
+    parseTimers.current.push(window.setTimeout(() => {
+      setStage('done');
+    }, uploadFiles.length * 760 + 780));
+
+    return () => clearParseTimers();
+  }, [replayKey]);
 
   return (
     <motion.div
@@ -259,11 +263,9 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
             <motion.div
               key="upload-box"
               variants={fadeUpItem}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleDrop}
               initial={{ opacity: 0, y: 14, scale: 0.98 }}
               animate={{
-                opacity: stage === 'parsing' ? 0.75 : 1,
+                opacity: stage === 'parsing' ? 0.78 : 1,
                 y: 0,
                 scale: stage === 'parsing' ? 0.98 : 1,
               }}
@@ -280,13 +282,13 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
                 <div>
                   <p className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>upload box</p>
                   <p className={cn('mt-1 text-sm font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
-                    {stage === 'parsing' ? '解析中...' : '拖拽文件到这里'}
+                    {stage === 'parsing' ? '自动解析中...' : '文件自动进入'}
                   </p>
                 </div>
                 <Upload size={20} className={darkMode ? 'text-[#d9d9d9]' : 'text-primary'} />
               </div>
 
-              <div className={cn('mt-4 flex-1 rounded-[28px] border border-dashed transition-colors', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72', draggingFile ? 'border-primary/50' : '')}>
+              <div className={cn('mt-4 flex-1 rounded-[28px] border border-dashed transition-colors', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72', stage === 'uploading' ? 'border-primary/50' : '')}>
                 <div className="flex h-full items-center justify-center">
                   <div className={cn('flex h-20 w-20 items-center justify-center rounded-[26px] border transition-transform', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-primary/12 bg-primary/10', stage === 'parsing' ? 'scale-90' : '')}>
                     <ScissorsLineDashed size={36} className={cn(darkMode ? 'text-[#d9d9d9]' : 'text-primary', stage === 'parsing' ? 'animate-pulse' : '')} />
@@ -299,28 +301,36 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
 
         {uploadFiles.map((file, index) => {
           const Icon = file.icon;
-          const isActive = draggingFile === file.type;
-          const isDropped = stage !== 'idle' && droppedFile === file.type;
+          const isActive = activeFileIndex === index;
+          const hasPassed = activeFileIndex > index || stage === 'parsing' || stage === 'done';
 
           return (
             <motion.div
               key={file.name}
-              draggable
-              onDragStart={() => setDraggingFile(file.type)}
-              onDragEnd={() => setDraggingFile(null)}
-              className="absolute cursor-grab active:cursor-grabbing"
+              className="absolute"
               style={{
                 top: `${22 + index * 18}%`,
                 left: index === 1 ? '1.5%' : '4%',
               }}
               animate={{
-                x: isActive ? 330 : 0,
-                y: isActive ? index === 0 ? 26 : index === 1 ? -4 : -34 : 0,
-                opacity: stage === 'done' || (stage === 'parsing' && isDropped) ? 0 : 1,
-                scale: isActive ? 1.08 : 1,
-                rotate: isActive ? -10 : index === 1 ? 4 : -3,
+                x: isActive ? [0, 70, 210, 330] : 0,
+                y: isActive
+                  ? [
+                    0,
+                    index === 0 ? -18 : index === 1 ? -28 : -38,
+                    index === 0 ? 4 : index === 1 ? -18 : -44,
+                    index === 0 ? 26 : index === 1 ? -4 : -34,
+                  ]
+                  : 0,
+                opacity: hasPassed ? 0 : isActive ? [1, 1, 0.95, 0] : 1,
+                scale: isActive ? [1, 1.06, 0.96, 0.82] : 1,
+                rotate: isActive ? [index === 1 ? 4 : -3, 5, -8, -14] : index === 1 ? 4 : -3,
               }}
-              transition={{ duration: 0.16 }}
+              transition={{
+                duration: isActive ? 0.86 : 0.24,
+                ease: [0.22, 1, 0.36, 1],
+                times: isActive ? [0, 0.28, 0.72, 1] : undefined,
+              }}
             >
               <div className="flex flex-col items-center gap-1.5">
                 <Icon size={30} className={darkMode ? 'text-[#e6e6e6]' : 'text-primary'} />
@@ -974,6 +984,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   const [activeFlowIndex, setActiveFlowIndex] = useState(0);
   const [hasUserSelectedFlow, setHasUserSelectedFlow] = useState(false);
   const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(null);
+  const [headerCompact, setHeaderCompact] = useState(false);
   const usernameInputRef = useRef<HTMLInputElement | null>(null);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -1006,6 +1017,16 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
 
     return () => window.clearInterval(timer);
   }, [hasUserSelectedFlow]);
+
+  useEffect(() => {
+    const updateHeaderCompact = () => {
+      setHeaderCompact(window.scrollY > 36);
+    };
+
+    updateHeaderCompact();
+    window.addEventListener('scroll', updateHeaderCompact, { passive: true });
+    return () => window.removeEventListener('scroll', updateHeaderCompact);
+  }, []);
 
   if (user) {
     return <Navigate to={Routes.Home} replace />;
@@ -1170,22 +1191,33 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
 
       {headerPortalTarget
         ? createPortal(
-          <header className="welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 py-3 lg:px-8">
+          <header className={cn(
+            'welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 transition-all duration-300 lg:px-8',
+            headerCompact ? 'py-2' : 'py-3',
+          )}>
             <div
               className={cn(
-                'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 py-3 backdrop-blur-xl shadow-lg transition-shadow',
+                'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 backdrop-blur-xl transition-all duration-300',
+                headerCompact ? 'py-2 shadow-md' : 'py-3 shadow-lg',
                 darkMode
-                  ? 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
-                  : 'bg-white/92 border border-white/90 shadow-text-main/10',
+                  ? headerCompact
+                    ? 'bg-[#252526]/98 border border-[#454545] shadow-black/30'
+                    : 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
+                  : headerCompact
+                    ? 'bg-white/96 border border-white shadow-text-main/12'
+                    : 'bg-white/92 border border-white/90 shadow-text-main/10',
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center">
+                <div className={cn(
+                  'flex items-center justify-center transition-all duration-300',
+                  headerCompact ? 'h-10 w-10' : 'h-12 w-12',
+                )}>
                   <LinkRagMark darkMode={darkMode} />
                 </div>
                 <div>
-                  <p className={cn('mono-label mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge workspace</p>
-                  <h1 className={cn('text-lg font-bold tracking-tight', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                  <p className={cn('mono-label transition-all duration-300', headerCompact ? 'mb-0 text-[8px]' : 'mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge workspace</p>
+                  <h1 className={cn('font-bold tracking-tight transition-all duration-300', headerCompact ? 'text-base' : 'text-lg', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
                     LinkRag
                   </h1>
                 </div>
@@ -1213,19 +1245,28 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 >
                   博客
                 </Link>
+                <Link
+                  to={Routes.Feedback}
+                  className={cn(
+                    'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                    darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
+                  )}
+                >
+                  反馈
+                </Link>
                 <a
                   href={githubProjectUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   aria-label="打开项目仓库"
                   className={cn(
-                    'group inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all',
+                    'group inline-flex h-9 w-9 items-center justify-center transition-colors',
                     darkMode
-                      ? 'border-[#3c3c3c] text-[#858585] hover:border-[#5a5a5a] hover:text-[#e0e0e0] hover:bg-[#2d2d2d]'
-                      : 'border-border-subtle text-text-main/45 hover:border-text-main/25 hover:text-text-main hover:bg-white/70',
+                      ? 'text-[#858585] hover:text-[#e0e0e0]'
+                      : 'text-text-main/45 hover:text-text-main',
                   )}
                 >
-                  <Github size={15} strokeWidth={1.9} />
+                  <Github size={18} strokeWidth={1.85} />
                 </a>
               </nav>
 
@@ -1255,10 +1296,10 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
         )
         : null}
 
-      <main className="relative z-10 mx-auto max-w-[1240px] px-6 pb-24 pt-32 lg:px-8">
+      <main className="relative z-10 mx-auto max-w-[1240px] px-5 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
         <RevealSection
           id="intro"
-          className="min-h-[88vh] flex flex-col justify-center border-b border-border-subtle/60 py-20"
+          className="min-h-[82vh] flex flex-col justify-center border-b border-border-subtle/60 py-12 sm:min-h-[88vh] sm:py-20"
         >
           <motion.div
             className="max-w-[820px]"
@@ -1266,21 +1307,21 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
             initial="hidden"
             animate="show"
           >
-            <motion.p variants={fadeUpItem} className={cn('mono-label mb-6', darkMode ? 'text-[#858585]' : '')}>
+            <motion.p variants={fadeUpItem} className={cn('mono-label mb-4 sm:mb-6', darkMode ? 'text-[#858585]' : '')}>
               document intelligence platform
             </motion.p>
-            <motion.h2 variants={fadeUpItem} className={cn('serif-heading text-5xl leading-[1.02] lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+            <motion.h2 variants={fadeUpItem} className={cn('serif-heading text-5xl leading-[1.02] sm:text-6xl lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
               欢迎来到
               <br />
               LinkRag
             </motion.h2>
-            <motion.p variants={fadeUpItem} className={cn('mt-8 max-w-[700px] text-lg leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
+            <motion.p variants={fadeUpItem} className={cn('mt-6 max-w-[700px] text-base leading-8 sm:mt-8 sm:text-lg sm:leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
               上传文档、构建知识库、围绕内容展开问答。LinkRag 让每份资料都能被检索、被理解、被使用。
             </motion.p>
           </motion.div>
 
           <motion.div
-            className="mt-14 flex flex-wrap gap-4"
+            className="mt-10 flex flex-wrap gap-3 sm:mt-14 sm:gap-4"
             variants={staggerContainer}
             initial="hidden"
             animate="show"
@@ -1295,7 +1336,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
               )}
             >
-              开始使用
+              登录并开始
               <ArrowRight size={16} />
             </motion.button>
             <motion.a
@@ -1307,7 +1348,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] border border-[#3c3c3c]' : 'bg-white/70 text-text-main border border-border-subtle',
               )}
             >
-              了解更多
+              先看看功能
               <ArrowDown size={16} />
             </motion.a>
           </motion.div>
@@ -1609,7 +1650,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                     submitting && 'opacity-70',
                   )}
                 >
-                  {submitting ? '处理中...' : mode === 'login' ? '登录并进入' : '注册并开始'}
+                  {submitting ? '处理中...' : mode === 'login' ? '登录' : '注册'}
                   {!submitting && <ArrowRight size={16} />}
                 </motion.button>
               </form>
