@@ -33,9 +33,12 @@ const navItems = [
 interface SidebarProps {
   darkMode: boolean;
   onDarkModeChange: (dark: boolean) => void;
+  onNavigate?: () => void;
+  allowCollapse?: boolean;
+  className?: string;
 }
 
-export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
+export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse = true, className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -76,7 +79,8 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
     <aside
       className={cn(
         "rounded-3xl border shadow-sm flex flex-col overflow-hidden shrink-0 transition-all duration-300",
-        collapsed ? "w-[72px]" : "w-[200px]",
+        allowCollapse ? (collapsed ? "w-[72px]" : "w-[200px]") : "w-[200px]",
+        className,
         darkMode
           ? "bg-[#252526] border-[#3c3c3c]"
           : "bg-white/80 border-border-subtle"
@@ -122,6 +126,10 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
             <Link
               key={path}
               to={path}
+              onClick={() => {
+                setShowUserMenu(false);
+                onNavigate?.();
+              }}
               className={cn(
                 "flex items-center transition-all duration-300 group relative rounded-2xl",
                 collapsed
@@ -232,6 +240,7 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
                 <button
                   onClick={() => {
                     setShowUserMenu(false);
+                    onNavigate?.();
                     navigate(Routes.ProfilePage);
                   }}
                   className={cn(
@@ -270,25 +279,27 @@ export function Sidebar({ darkMode, onDarkModeChange }: SidebarProps) {
         </div>
 
         {/* Collapse button */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            "flex items-center justify-center rounded-xl transition-colors mt-2",
-            collapsed ? "h-11 w-11 p-0" : "w-full py-2",
-            darkMode
-              ? "text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]"
-              : "text-text-main/40 hover:bg-primary/5 hover:text-primary"
-          )}
-        >
-          {collapsed ? (
-            <ChevronRight size={18} />
-          ) : (
-            <div className="flex items-center gap-2">
-              <ChevronLeft size={18} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">收起</span>
-            </div>
-          )}
-        </button>
+        {allowCollapse && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className={cn(
+              "flex items-center justify-center rounded-xl transition-colors mt-2",
+              collapsed ? "h-11 w-11 p-0" : "w-full py-2",
+              darkMode
+                ? "text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]"
+                : "text-text-main/40 hover:bg-primary/5 hover:text-primary"
+            )}
+          >
+            {collapsed ? (
+              <ChevronRight size={18} />
+            ) : (
+              <div className="flex items-center gap-2">
+                <ChevronLeft size={18} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">收起</span>
+              </div>
+            )}
+          </button>
+        )}
       </div>
     </aside>
   );

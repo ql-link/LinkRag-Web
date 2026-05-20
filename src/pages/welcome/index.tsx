@@ -26,6 +26,7 @@ import {
   Upload,
   FileType,
   RotateCcw,
+  Github,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -38,10 +39,11 @@ interface WelcomePageProps {
 }
 
 type AuthMode = 'login' | 'register';
+type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
+const githubProjectUrl = (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
 
 const scrollSections = [
   { id: 'knowledge', label: '功能' },
-  { id: 'login', label: '登录' },
 ];
 
 const workflowSlides = [
@@ -118,50 +120,13 @@ const fadeUpItem = {
 };
 
 function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
-  const nodeFill = darkMode ? '#dbeafe' : '#e4c690';
-  const stroke = darkMode ? '#5b9cff' : '#c6a36a';
-
   return (
-    <svg
-      viewBox="0 0 64 64"
-      aria-hidden="true"
-      className="h-12 w-12 overflow-visible"
-      fill="none"
-    >
-      <path
-        d="M32 12 16 24 18 43 32 52 48 43 50 24 32 12M16 24 32 32 50 24M18 43 32 32 48 43M32 12v20M32 32v20"
-        stroke={stroke}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M50 24c4.2 2.7 4.2 9.2 0 12"
-        stroke={stroke}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        opacity="0.55"
-      />
-      {[
-        [32, 12, 4.7],
-        [16, 24, 5],
-        [50, 24, 4.7],
-        [18, 43, 4.7],
-        [48, 43, 4.7],
-        [32, 52, 5],
-        [32, 32, 5.9],
-      ].map(([cx, cy, r]) => (
-        <circle
-          key={`${cx}-${cy}`}
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill={nodeFill}
-          stroke={stroke}
-          strokeWidth="1.4"
-        />
-      ))}
-    </svg>
+    <img
+      src="/linkrag-mark-v2.png"
+      alt="LinkRag"
+      className="h-12 w-12 object-contain"
+      style={darkMode ? { filter: 'saturate(0.96) brightness(0.96)' } : undefined}
+    />
   );
 }
 
@@ -1005,9 +970,14 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<AuthFieldKey, string>>>({});
   const [activeFlowIndex, setActiveFlowIndex] = useState(0);
   const [hasUserSelectedFlow, setHasUserSelectedFlow] = useState(false);
   const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(null);
+  const usernameInputRef = useRef<HTMLInputElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
+  const confirmPasswordInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -1044,7 +1014,74 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   function scrollToLogin(nextMode: AuthMode) {
     setMode(nextMode);
     setError('');
-    loginRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setFieldErrors({});
+    const target = loginRef.current;
+    if (!target) return;
+
+    const header = document.querySelector<HTMLElement>('.welcome-floating-header');
+    const headerHeight = header?.getBoundingClientRect().height ?? 0;
+    const extraGap = 18;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    const scrollTop = Math.max(0, targetTop - headerHeight - extraGap);
+
+    window.scrollTo({
+      top: scrollTop,
+      behavior: 'smooth',
+    });
+  }
+
+  function clearFieldError(field: AuthFieldKey) {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function buildRequiredFieldErrors(): Partial<Record<AuthFieldKey, string>> {
+    const nextFieldErrors: Partial<Record<AuthFieldKey, string>> = {};
+    const username = form.username.trim();
+    const email = form.email.trim();
+    const password = form.password;
+    const confirmPassword = form.confirmPassword;
+
+    if (!username) {
+      nextFieldErrors.username = '未填写用户名！';
+    }
+
+    if (!password) {
+      nextFieldErrors.password = '未填写密码！';
+    }
+
+    if (mode === 'register') {
+      if (!email) {
+        nextFieldErrors.email = '未填写邮箱！';
+      }
+      if (!confirmPassword) {
+        nextFieldErrors.confirmPassword = '请确认密码！';
+      }
+    }
+
+    return nextFieldErrors;
+  }
+
+  function focusFirstInvalidField(nextFieldErrors: Partial<Record<AuthFieldKey, string>>) {
+    if (nextFieldErrors.username) {
+      usernameInputRef.current?.focus();
+      return;
+    }
+    if (nextFieldErrors.email) {
+      emailInputRef.current?.focus();
+      return;
+    }
+    if (nextFieldErrors.password) {
+      passwordInputRef.current?.focus();
+      return;
+    }
+    if (nextFieldErrors.confirmPassword) {
+      confirmPasswordInputRef.current?.focus();
+    }
   }
 
   function validateAuthForm(): string | null {
@@ -1080,6 +1117,13 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
+    const requiredFieldErrors = buildRequiredFieldErrors();
+    if (Object.keys(requiredFieldErrors).length > 0) {
+      setFieldErrors(requiredFieldErrors);
+      focusFirstInvalidField(requiredFieldErrors);
+      return;
+    }
+    setFieldErrors({});
 
     const validationMessage = validateAuthForm();
     if (validationMessage) {
@@ -1161,14 +1205,28 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   </a>
                 ))}
                 <Link
-                  to={Routes.Usage}
+                  to={Routes.Blogs}
                   className={cn(
                     'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                     darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                   )}
                 >
-                  用量
+                  博客
                 </Link>
+                <a
+                  href={githubProjectUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label="打开项目仓库"
+                  className={cn(
+                    'group inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all',
+                    darkMode
+                      ? 'border-[#3c3c3c] text-[#858585] hover:border-[#5a5a5a] hover:text-[#e0e0e0] hover:bg-[#2d2d2d]'
+                      : 'border-border-subtle text-text-main/45 hover:border-text-main/25 hover:text-text-main hover:bg-white/70',
+                  )}
+                >
+                  <Github size={15} strokeWidth={1.9} />
+                </a>
               </nav>
 
               <div className="flex items-center gap-2">
@@ -1329,7 +1387,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
           </div>
         </RevealSection>
 
-        <RevealSection id="login" className="min-h-[92vh] flex items-center py-24">
+        <RevealSection id="login" className="min-h-[92vh] flex items-center py-24 scroll-mt-28">
           <div ref={loginRef} className="grid w-full items-start gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="pt-4">
               <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>04</p>
@@ -1393,6 +1451,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   onClick={() => {
                     setMode('login');
                     setError('');
+                    setFieldErrors({});
                   }}
                   className={cn(
                     'rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
@@ -1413,6 +1472,7 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                   onClick={() => {
                     setMode('register');
                     setError('');
+                    setFieldErrors({});
                   }}
                   className={cn(
                     'rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
@@ -1429,22 +1489,26 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 </motion.button>
               </div>
 
-              <form className="space-y-4" onSubmit={handleSubmit}>
+              <form className="space-y-4" onSubmit={handleSubmit} noValidate>
                 <label className="block">
                   <span className={cn('mb-2 block text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
                     用户名
                   </span>
                   <input
+                    ref={usernameInputRef}
                     value={form.username}
-                    onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                    required
+                    onChange={(event) => {
+                      clearFieldError('username');
+                      setForm((prev) => ({ ...prev, username: event.target.value }));
+                    }}
                     className={cn(
                       'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
                       darkMode
                         ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                         : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
+                      fieldErrors.username && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
                     )}
-                    placeholder="输入用户名"
+                    placeholder={fieldErrors.username ?? '输入用户名'}
                   />
                 </label>
 
@@ -1455,17 +1519,21 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                         邮箱
                       </span>
                       <input
+                        ref={emailInputRef}
                         type="email"
                         value={form.email}
-                        onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                        required
+                        onChange={(event) => {
+                          clearFieldError('email');
+                          setForm((prev) => ({ ...prev, email: event.target.value }));
+                        }}
                         className={cn(
                           'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
                           darkMode
                             ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                             : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
+                          fieldErrors.email && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
                         )}
-                        placeholder="用于登录与找回"
+                        placeholder={fieldErrors.email ?? '用于登录与找回'}
                       />
                     </label>
                   </div>
@@ -1476,17 +1544,21 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                     密码
                   </span>
                   <input
+                    ref={passwordInputRef}
                     type="password"
                     value={form.password}
-                    onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                    required
+                    onChange={(event) => {
+                      clearFieldError('password');
+                      setForm((prev) => ({ ...prev, password: event.target.value }));
+                    }}
                     className={cn(
                       'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
                       darkMode
                         ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                         : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
+                      fieldErrors.password && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
                     )}
-                    placeholder={mode === 'login' ? '输入密码' : '创建密码'}
+                    placeholder={fieldErrors.password ?? (mode === 'login' ? '输入密码' : '创建密码')}
                   />
                 </label>
 
@@ -1496,17 +1568,21 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                       确认密码
                     </span>
                     <input
+                      ref={confirmPasswordInputRef}
                       type="password"
                       value={form.confirmPassword}
-                      onChange={(event) => setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
-                      required
+                      onChange={(event) => {
+                        clearFieldError('confirmPassword');
+                        setForm((prev) => ({ ...prev, confirmPassword: event.target.value }));
+                      }}
                       className={cn(
                         'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
                         darkMode
                           ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                           : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
+                        fieldErrors.confirmPassword && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
                       )}
-                      placeholder="再输入一次密码"
+                      placeholder={fieldErrors.confirmPassword ?? '再输入一次密码'}
                     />
                   </label>
                 )}
@@ -1538,22 +1614,6 @@ export default function WelcomePage({ darkMode }: WelcomePageProps) {
                 </motion.button>
               </form>
 
-              <div
-                className={cn(
-                  'mt-6 rounded-3xl p-4',
-                  darkMode ? 'bg-[#1e1e1e] border border-[#3c3c3c]' : 'bg-bg-base/60 border border-border-subtle',
-                )}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <ShieldCheck size={15} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
-                  <p className={cn('text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
-                    访问说明
-                  </p>
-                </div>
-                <p className={cn('text-sm leading-7', darkMode ? 'text-[#9b9b9b]' : 'text-text-main/55')}>
-                  未登录时停留在此页面；登录后进入系统；退出后回到欢迎页。
-                </p>
-              </div>
             </motion.div>
           </div>
         </RevealSection>

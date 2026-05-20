@@ -234,12 +234,12 @@ export default function BlogsPage({ darkMode }: BlogsPageProps) {
     <div className={cn('min-h-screen', darkMode ? 'bg-[#151515] text-[#cccccc]' : 'bg-bg-base text-text-main')}>
       <header
         className={cn(
-          'sticky top-0 z-20 border-b px-6 py-5 backdrop-blur-md lg:px-10',
+          'sticky top-0 z-20 border-b px-6 py-3.5 backdrop-blur-md lg:px-10',
           darkMode ? 'border-[#282828] bg-[#151515]/92' : 'border-border-subtle bg-bg-base/86',
         )}
       >
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-5">
-          <div className="flex flex-col gap-2">
+        <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4">
+          <div className="flex flex-col gap-1.5">
             <Breadcrumb
               items={[
                 { label: '首页', path: Routes.Home },
@@ -247,18 +247,18 @@ export default function BlogsPage({ darkMode }: BlogsPageProps) {
               ]}
               darkMode={darkMode}
             />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <div
                 className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-xl border',
+                  'flex h-9 w-9 items-center justify-center rounded-xl border',
                   darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-white/70',
                 )}
               >
-                <BookOpenText size={18} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
+                <BookOpenText size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
               </div>
               <div>
-                <p className={cn('mono-label mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge journal</p>
-                <h1 className={cn('text-2xl font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                <p className={cn('mono-label mb-0.5', darkMode ? 'text-[#858585]' : '')}>knowledge journal</p>
+                <h1 className={cn('text-[34px] leading-none font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
                   博客
                 </h1>
               </div>
@@ -267,10 +267,13 @@ export default function BlogsPage({ darkMode }: BlogsPageProps) {
           <Link
             to={Routes.Welcome}
             className={cn(
-              'hidden rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-colors sm:inline-flex',
-              darkMode ? 'bg-[#202020] text-[#d7d7d7] hover:bg-[#2a2a2a]' : 'bg-white/70 text-text-main hover:bg-white',
+              'group hidden items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all sm:inline-flex',
+              darkMode
+                ? 'border-[#3a3a3a] bg-[linear-gradient(135deg,#202020,#262626)] text-[#d7d7d7] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#4a4a4a] hover:text-[#f1f1f1] hover:shadow-[0_6px_18px_rgba(0,0,0,0.26)]'
+                : 'border-border-subtle bg-[linear-gradient(135deg,#ffffff,#f5f2ee)] text-text-main shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-text-main/20 hover:shadow-[0_6px_18px_rgba(42,33,24,0.08)]',
             )}
           >
+            <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             返回入口
           </Link>
         </div>

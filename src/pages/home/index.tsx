@@ -34,7 +34,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
     <div className="h-full flex flex-col">
       {/* Header */}
       <header className={cn(
-        "h-20 px-8 flex items-center shrink-0 backdrop-blur-md border rounded-3xl",
+        "h-16 px-4 sm:h-20 sm:px-8 flex items-center shrink-0 backdrop-blur-md border rounded-2xl sm:rounded-3xl",
         darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/80 border-border-subtle"
       )}>
         <div className="flex flex-col gap-1">
@@ -47,10 +47,10 @@ export default function HomePage({ darkMode }: HomePageProps) {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto px-4 pb-24 pt-5 sm:px-8 sm:pb-8 sm:pt-8">
         {/* Greeting */}
-        <div className="mb-8">
-          <h1 className={cn("text-2xl font-semibold tracking-tight mb-2", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+        <div className="mb-6 sm:mb-8">
+          <h1 className={cn("text-xl font-semibold tracking-tight mb-2 sm:text-2xl", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
             {getGreeting()}，<span className="font-serif italic tracking-tight">{displayName}</span>
           </h1>
           <p className={cn("text-sm", darkMode ? "text-[#858585]" : "text-text-main/55")}>
@@ -59,13 +59,13 @@ export default function HomePage({ darkMode }: HomePageProps) {
         </div>
 
         {/* Quick Actions */}
-        <section className="mb-8">
-          <div className="grid grid-cols-4 gap-4">
+        <section className="mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Link
               to={Routes.Chats}
               state={{ openCreate: true }}
               className={cn(
-                "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
+                "group cursor-pointer rounded-2xl border p-4 sm:p-5 transition-all duration-300",
                 darkMode
                   ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]"
                   : "bg-white border-border-subtle hover:border-primary hover:shadow-lg"
@@ -86,7 +86,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
                   )}
                 />
               </div>
-                  <h4 className={cn("font-semibold text-sm tracking-tight mb-1", darkMode ? "text-[#e0e0e0]" : "")}>快速会话</h4>
+              <h4 className={cn("font-semibold text-sm tracking-tight mb-1", darkMode ? "text-[#e0e0e0]" : "")}>快速会话</h4>
               <p className={cn("text-xs leading-5", darkMode ? "text-[#858585]" : "text-text-main/55")}>直接新建一个对话，马上开始问答</p>
             </Link>
             {quickActions.map(({ path, icon: Icon, title, desc }) => (
@@ -94,7 +94,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
                 key={path}
                 to={path}
                 className={cn(
-                  "group cursor-pointer rounded-2xl border p-5 transition-all duration-300",
+                  "group cursor-pointer rounded-2xl border p-4 sm:p-5 transition-all duration-300",
                   darkMode
                     ? "bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]"
                     : "bg-white border-border-subtle hover:border-primary hover:shadow-lg"
@@ -123,9 +123,9 @@ export default function HomePage({ darkMode }: HomePageProps) {
         </section>
 
         {/* Recent Section */}
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
           {/* Recent Files */}
-          <section className={cn("rounded-2xl p-5", darkMode ? "bg-[#2d2d2d] border border-[#3c3c3c]" : "bg-white border-border-subtle")}>
+          <section className={cn("rounded-2xl p-4 sm:p-5", darkMode ? "bg-[#2d2d2d] border border-[#3c3c3c]" : "bg-white border-border-subtle")}>
             <div className="flex items-center justify-between mb-4">
               <h3 className={cn("text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#858585]" : "text-text-main/50")}>最近文档</h3>
               <Link to={Routes.Files} className={cn(
@@ -152,7 +152,7 @@ export default function HomePage({ darkMode }: HomePageProps) {
           </section>
 
           {/* Recent Chats */}
-          <section className={cn("rounded-2xl p-5", darkMode ? "bg-[#2d2d2d] border border-[#3c3c3c]" : "bg-white border-border-subtle")}>
+          <section className={cn("rounded-2xl p-4 sm:p-5", darkMode ? "bg-[#2d2d2d] border border-[#3c3c3c]" : "bg-white border-border-subtle")}>
             <div className="flex items-center justify-between mb-4">
               <h3 className={cn("text-xs font-bold uppercase tracking-wider", darkMode ? "text-[#858585]" : "text-text-main/50")}>最近对话</h3>
               <Link to={Routes.Chats} className={cn(

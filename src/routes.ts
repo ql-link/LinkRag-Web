@@ -2,6 +2,7 @@ export const Routes = {
   Root: '/',
   Welcome: '/',
   Home: '/home',
+  Blogs: '/blogs',
   Usage: '/usage',
   Datasets: '/datasets',
   DatasetDetail: '/datasets/:id',
