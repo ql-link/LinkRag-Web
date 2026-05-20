@@ -4,6 +4,7 @@ import { Group, Panel } from 'react-resizable-panels';
 import { AnimatePresence, motion } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Routes as RoutePaths } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -157,35 +158,39 @@ export function ProtectedLayout() {
       {/* Main Content */}
       {isMobile ? (
         <main className="flex-1 min-h-0 overflow-hidden rounded-2xl">
-          <AnimatePresence mode="sync" initial={false}>
-            <motion.div
-              key={`${location.pathname}${location.search}`}
-              className="h-full min-w-0"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-            >
-              <AppRoutesContent location={location} />
-            </motion.div>
-          </AnimatePresence>
+          <ErrorBoundary>
+            <AnimatePresence mode="sync" initial={false}>
+              <motion.div
+                key={`${location.pathname}${location.search}`}
+                className="h-full min-w-0"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+              >
+                <AppRoutesContent location={location} />
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
         </main>
       ) : (
         <>
           <Group direction="horizontal" className="flex-1 min-w-0">
             <Panel defaultSize={isChatDetailPage ? 100 : 80} minSize={50}>
-              <AnimatePresence mode="sync" initial={false}>
-                <motion.div
-                  key={`${location.pathname}${location.search}`}
-                  className="h-full min-w-0"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                >
-                  <AppRoutesContent location={location} />
-                </motion.div>
-              </AnimatePresence>
+              <ErrorBoundary>
+                <AnimatePresence mode="sync" initial={false}>
+                  <motion.div
+                    key={`${location.pathname}${location.search}`}
+                    className="h-full min-w-0"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
+                  >
+                    <AppRoutesContent location={location} />
+                  </motion.div>
+                </AnimatePresence>
+              </ErrorBoundary>
             </Panel>
           </Group>
           {!isChatDetailPage && (
