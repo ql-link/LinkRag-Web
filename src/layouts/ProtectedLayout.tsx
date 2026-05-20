@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { Group, Panel } from 'react-resizable-panels';
 import { AnimatePresence, motion } from 'motion/react';
@@ -10,17 +10,31 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { RightPanel } from './RightPanel';
 import { MobileNav } from './MobileNav';
-import HomePage from '@/pages/home';
-import DatasetsPage from '@/pages/datasets';
-import DatasetPage from '@/pages/datasets/dataset';
-import ChatsPage from '@/pages/chats';
-import ChatPage from '@/pages/chats/chat';
-import FilesPage from '@/pages/files';
-import BlogsPage from '@/pages/blogs';
-import FeedbackPage from '@/pages/feedback';
-import UsagePage from '@/pages/usage';
-import LLMPage from '@/pages/settings/llm-config';
-import ProfilePage from '@/pages/settings/profile';
+
+// Lazy-loaded page components for code splitting
+const HomePage = lazy(() => import('@/pages/home'));
+const DatasetsPage = lazy(() => import('@/pages/datasets'));
+const DatasetPage = lazy(() => import('@/pages/datasets/dataset'));
+const ChatsPage = lazy(() => import('@/pages/chats'));
+const ChatPage = lazy(() => import('@/pages/chats/chat'));
+const FilesPage = lazy(() => import('@/pages/files'));
+const BlogsPage = lazy(() => import('@/pages/blogs'));
+const FeedbackPage = lazy(() => import('@/pages/feedback'));
+const UsagePage = lazy(() => import('@/pages/usage'));
+const LLMPage = lazy(() => import('@/pages/settings/llm-config'));
+const ProfilePage = lazy(() => import('@/pages/settings/profile'));
+
+function PageLoader() {
+  const { darkMode } = useTheme();
+  return (
+    <div className={cn(
+      'flex h-full items-center justify-center',
+      darkMode ? 'text-[#858585]' : 'text-text-main/40',
+    )}>
+      <span className="text-xs uppercase tracking-[0.2em]">加载中...</span>
+    </div>
+  );
+}
 
 function getPageTitle(pathname: string) {
   if (pathname === RoutePaths.Home) return '首页';
@@ -37,21 +51,23 @@ function getPageTitle(pathname: string) {
 
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
-    <Routes location={location}>
-      <Route path={RoutePaths.Home} element={<HomePage />} />
-      <Route path={RoutePaths.Datasets} element={<DatasetsPage />} />
-      <Route path={RoutePaths.DatasetDetail} element={<DatasetPage />} />
-      <Route path={RoutePaths.Chats} element={<ChatsPage />} />
-      <Route path={RoutePaths.ChatDetail} element={<ChatPage />} />
-      <Route path={RoutePaths.Files} element={<FilesPage />} />
-      <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
-      <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
-      <Route path={RoutePaths.Usage} element={<UsagePage />} />
-      <Route path={RoutePaths.LLMPage} element={<LLMPage />} />
-      <Route path={RoutePaths.ProfilePage} element={<ProfilePage />} />
-      <Route path={RoutePaths.Welcome} element={<Navigate to={RoutePaths.Home} replace />} />
-      <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes location={location}>
+        <Route path={RoutePaths.Home} element={<HomePage />} />
+        <Route path={RoutePaths.Datasets} element={<DatasetsPage />} />
+        <Route path={RoutePaths.DatasetDetail} element={<DatasetPage />} />
+        <Route path={RoutePaths.Chats} element={<ChatsPage />} />
+        <Route path={RoutePaths.ChatDetail} element={<ChatPage />} />
+        <Route path={RoutePaths.Files} element={<FilesPage />} />
+        <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
+        <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
+        <Route path={RoutePaths.Usage} element={<UsagePage />} />
+        <Route path={RoutePaths.LLMPage} element={<LLMPage />} />
+        <Route path={RoutePaths.ProfilePage} element={<ProfilePage />} />
+        <Route path={RoutePaths.Welcome} element={<Navigate to={RoutePaths.Home} replace />} />
+        <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 

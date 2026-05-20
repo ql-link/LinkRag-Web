@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { Routes as RoutePaths } from './routes';
 import { ToastContainer, ToastProvider, useToast } from '@/contexts/ToastContext';
@@ -6,9 +6,11 @@ import { setToastHandler } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ProtectedLayout } from '@/layouts/ProtectedLayout';
-import WelcomePage from '@/pages/welcome';
-import BlogsPage from '@/pages/blogs';
-import FeedbackPage from '@/pages/feedback';
+
+// Lazy-load public pages (welcome page is ~1600 lines with heavy animations)
+const WelcomePage = lazy(() => import('@/pages/welcome'));
+const BlogsPage = lazy(() => import('@/pages/blogs'));
+const FeedbackPage = lazy(() => import('@/pages/feedback'));
 
 function AppContent() {
   const { addToast } = useToast();
@@ -26,21 +28,23 @@ function AppContent() {
   );
 
   return (
-    <Routes>
-      <Route index element={<WelcomePage />} />
-      <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
-      <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
-      <Route
-        path="*"
-        element={
-          loading
-            ? loadingView
-            : user
-              ? <ProtectedLayout />
-              : <Navigate to={RoutePaths.Welcome} replace />
-        }
-      />
-    </Routes>
+    <Suspense fallback={loadingView}>
+      <Routes>
+        <Route index element={<WelcomePage />} />
+        <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
+        <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
+        <Route
+          path="*"
+          element={
+            loading
+              ? loadingView
+              : user
+                ? <ProtectedLayout />
+                : <Navigate to={RoutePaths.Welcome} replace />
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 }
 
