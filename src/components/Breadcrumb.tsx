@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface BreadcrumbItem {
   label: string;
@@ -9,10 +10,14 @@ export interface BreadcrumbItem {
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
+  /** @deprecated Use ThemeContext instead. Will be removed in a future version. */
   darkMode?: boolean;
 }
 
-export function Breadcrumb({ items, darkMode }: BreadcrumbProps) {
+export function Breadcrumb({ items, darkMode: darkModeProp }: BreadcrumbProps) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
+
   return (
     <nav className="flex items-center gap-2">
       {items.map((item, index) => (

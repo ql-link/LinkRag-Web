@@ -12,10 +12,7 @@ import {
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
-
-interface BlogsPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 type BlogArticle = {
   id: number;
@@ -218,7 +215,8 @@ function BlogThumbnail({ article, darkMode }: { article: BlogArticle; darkMode?:
   );
 }
 
-export default function BlogsPage({ darkMode }: BlogsPageProps) {
+export default function BlogsPage() {
+  const { darkMode } = useTheme();
   const [activeCategory, setActiveCategory] = useState('全部');
   const [query, setQuery] = useState('');
 

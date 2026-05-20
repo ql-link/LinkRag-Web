@@ -4,6 +4,7 @@ import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const quickActions = [
   { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
@@ -22,11 +23,9 @@ function getGreeting() {
   return '夜深了';
 }
 
-interface HomePageProps {
-  darkMode?: boolean;
-}
 
-export default function HomePage({ darkMode }: HomePageProps) {
+export default function HomePage() {
+  const { darkMode } = useTheme();
   const { user } = useAuth();
   const displayName = user?.nickname || user?.username || '当前用户';
 

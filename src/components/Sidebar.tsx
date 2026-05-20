@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Home,
   Database,
@@ -6,7 +6,6 @@ import {
   FolderOpen,
   ChevronLeft,
   ChevronRight,
-  Share2,
   Sun,
   Moon,
   Settings,
@@ -19,6 +18,7 @@ import { Routes } from '@/routes';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { LinkRagMark } from '@/components/LinkRagMark';
 
 const navItems = [
@@ -31,14 +31,13 @@ const navItems = [
 ];
 
 interface SidebarProps {
-  darkMode: boolean;
-  onDarkModeChange: (dark: boolean) => void;
   onNavigate?: () => void;
   allowCollapse?: boolean;
   className?: string;
 }
 
-export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse = true, className }: SidebarProps) {
+export function Sidebar({ onNavigate, allowCollapse = true, className }: SidebarProps) {
+  const { darkMode, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -55,11 +54,6 @@ export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    onDarkModeChange(newMode);
-  };
 
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
@@ -183,7 +177,7 @@ export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse 
       )}>
         {/* Theme Toggle */}
         <button
-          onClick={toggleDarkMode}
+          onClick={toggleTheme}
           className={cn(
             "flex items-center rounded-xl transition-colors mb-2",
             collapsed ? "h-11 w-11 justify-center p-0" : "w-full gap-3 px-2 py-2",
@@ -219,7 +213,7 @@ export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse 
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">
                 <p className={cn("text-[10px] font-bold uppercase truncate", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>{displayName}</p>
-                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>{displayEmail}</p>
+                <p className={cn("mono-label !text-[8px]", darkMode && "text-[#858585]")}>{displayEmail}</p>
               </div>
             )}
           </button>
@@ -234,7 +228,7 @@ export function Sidebar({ darkMode, onDarkModeChange, onNavigate, allowCollapse 
             >
               <div className={cn("px-3 py-2", darkMode ? "border-[#3c3c3c] border-b" : "border-border-subtle border-b")}>
                 <p className={cn("text-xs font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>{displayName}</p>
-                <p className={cn("mono-label !text-[8px]", darkMode ? "text-[#858585]" : "")}>{displayEmail}</p>
+                <p className={cn("mono-label !text-[8px]", darkMode && "text-[#858585]")}>{displayEmail}</p>
               </div>
               <div className="py-1">
                 <button

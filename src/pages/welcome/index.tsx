@@ -32,10 +32,7 @@ import { Routes } from '@/routes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { login, register } from '@/services/auth';
-
-interface WelcomePageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 type AuthMode = 'login' | 'register';
 type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
@@ -972,7 +969,8 @@ function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
   );
 }
 
-export default function WelcomePage({ darkMode }: WelcomePageProps) {
+export default function WelcomePage() {
+  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const loginRef = useRef<HTMLDivElement | null>(null);
   const { user, setUser, refreshProfile } = useAuth();

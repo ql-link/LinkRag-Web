@@ -14,6 +14,7 @@ import {
   uploadKnowledgeFile,
 } from '@/services/dataset';
 import type { DatasetDTO, KnowledgeFileDTO } from '@/types/api';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const FILE_TYPES: Record<string, typeof FileText> = {
   PDF: FileText,
@@ -27,10 +28,6 @@ const SUPPORTED_FILE_HINT = `支持 ${SUPPORTED_FILE_SUFFIXES.join(' / ')}`;
 
 interface FileWithDataset extends KnowledgeFileDTO {
   dataset: DatasetDTO;
-}
-
-interface FilesPageProps {
-  darkMode?: boolean;
 }
 
 function formatFileSize(bytes: number) {
@@ -111,7 +108,8 @@ function ParseAfterUploadSwitch({
   );
 }
 
-export default function FilesPage({ darkMode }: FilesPageProps) {
+export default function FilesPage() {
+  const { darkMode } = useTheme();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { addToast } = useToast();
   const [searchString, setSearchString] = useState('');

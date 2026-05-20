@@ -32,10 +32,7 @@ import QwenIcon from '@/../icons/providers/qwen-color.svg';
 import MetaIcon from '@/../icons/providers/meta-color.svg';
 import MistralIcon from '@/../icons/providers/mistral-color.svg';
 import ZhipuIcon from '@/../icons/providers/zhipu-color.svg';
-
-interface LLMPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DrawerTarget {
   mode: 'create' | 'edit';
@@ -101,7 +98,8 @@ function getProviderIcon(providerType: string, providerName?: string) {
   return matchedKey ? PROVIDER_ICON_URLS[matchedKey] : '';
 }
 
-export default function LLMPage({ darkMode }: LLMPageProps) {
+export default function LLMPage() {
+  const { darkMode } = useTheme();
   const [configs, setConfigs] = useState<LLMConfigDTO[]>([]);
   const [providers, setProviders] = useState<ProviderModelDTO[]>([]);
   const [loading, setLoading] = useState(true);

@@ -9,10 +9,7 @@ import { getConversations, createConversation } from '@/services/chat';
 import { getDatasets } from '@/services/dataset';
 import type { ConversationDTO } from '@/types/api';
 import type { Dataset as DatasetType } from '@/types';
-
-interface ChatsPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 function formatTime(value: string) {
   if (!value) return '-';
@@ -20,7 +17,8 @@ function formatTime(value: string) {
   return Number.isNaN(time.getTime()) ? value : time.toLocaleString('zh-CN');
 }
 
-export default function ChatsPage({ darkMode }: ChatsPageProps) {
+export default function ChatsPage() {
+  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchString, setSearchString] = useState('');

@@ -1,4 +1,9 @@
-export function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
+import { useTheme } from '@/contexts/ThemeContext';
+
+export function LinkRagMark({ darkMode: darkModeProp }: { darkMode?: boolean }) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
+
   return (
     <img
       src="/linkrag-mark-v2.png"

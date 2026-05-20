@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, Database, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dataset } from '@/types';
+import { useTheme } from '@/contexts/ThemeContext';
 import { DatasetBadgeList } from './DatasetBadge';
 
 interface DatasetSelectorProps {
@@ -17,10 +18,12 @@ export function DatasetSelector({
   datasets,
   selectedKbIds,
   onChange,
-  darkMode,
+  darkMode: darkModeProp,
   single = false,
   placeholder = '选择关联的数据集',
 }: DatasetSelectorProps) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 

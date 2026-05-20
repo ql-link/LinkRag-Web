@@ -6,10 +6,7 @@ import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDailyUsage, getUsageLogs, getUsageSummary } from '@/services/llm';
 import type { DailyUsageDTO, UsageLogDTO, UsageSummaryDTO } from '@/types/api';
-
-interface UsagePageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 const RANGE_DAYS = 14;
 
@@ -39,7 +36,8 @@ function getRangeDates(days: number) {
   return { startDate: toIso(start), endDate: toIso(end) };
 }
 
-export default function UsagePage({ darkMode }: UsagePageProps) {
+export default function UsagePage() {
+  const { darkMode } = useTheme();
   const [summary, setSummary] = useState<UsageSummaryDTO | null>(null);
   const [dailyUsage, setDailyUsage] = useState<DailyUsageDTO[]>([]);
   const [logs, setLogs] = useState<UsageLogDTO[]>([]);

@@ -12,10 +12,7 @@ import {
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
-
-interface FeedbackPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 const feedbackTypes = ['功能建议', '问题反馈', '体验优化', '内容纠错'];
 const priorityOptions = ['普通', '希望尽快处理', '影响使用'];
@@ -26,7 +23,8 @@ function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function FeedbackPage({ darkMode }: FeedbackPageProps) {
+export default function FeedbackPage() {
+  const { darkMode } = useTheme();
   const [submitted, setSubmitted] = useState(false);
   const [type, setType] = useState(feedbackTypes[0]);
   const [priority, setPriority] = useState(priorityOptions[0]);
