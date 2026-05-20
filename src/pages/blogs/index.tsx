@@ -1,14 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import {
-  ArrowRight,
-  BookOpenText,
-  CalendarDays,
-  ChevronDown,
-  Hash,
-  Search,
-  Sparkles,
-} from 'lucide-react';
+import { ArrowRight, BookOpenText, CalendarDays, ChevronDown, Hash, Search, Sparkles } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -232,31 +224,32 @@ export default function BlogsPage() {
     <div className={cn('min-h-screen', darkMode ? 'bg-[#151515] text-[#cccccc]' : 'bg-bg-base text-text-main')}>
       <header
         className={cn(
-          'sticky top-0 z-20 border-b px-6 py-3.5 backdrop-blur-md lg:px-10',
+          'sticky top-0 z-20 border-b px-6 py-2.5 backdrop-blur-md lg:px-10',
           darkMode ? 'border-[#282828] bg-[#151515]/92' : 'border-border-subtle bg-bg-base/86',
         )}
       >
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Breadcrumb
-              items={[
-                { label: '首页', path: Routes.Home },
-                { label: '博客' },
-              ]}
-              darkMode={darkMode}
-            />
+          <div className="flex flex-col gap-1">
+            <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '博客' }]} darkMode={darkMode} />
             <div className="flex items-center gap-2.5">
               <div
                 className={cn(
-                  'flex h-9 w-9 items-center justify-center rounded-xl border',
+                  'flex h-8 w-8 items-center justify-center rounded-xl border',
                   darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-white/70',
                 )}
               >
                 <BookOpenText size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
               </div>
               <div>
-                <p className={cn('mono-label mb-0.5', darkMode ? 'text-[#858585]' : '')}>knowledge journal</p>
-                <h1 className={cn('text-[34px] leading-none font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                <p className={cn('mono-label mb-0.5 text-[10px] leading-none', darkMode ? 'text-[#858585]' : '')}>
+                  knowledge journal
+                </p>
+                <h1
+                  className={cn(
+                    'text-[30px] leading-none font-bold tracking-tight',
+                    darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
+                  )}
+                >
                   博客
                 </h1>
               </div>
@@ -374,7 +367,9 @@ export default function BlogsPage() {
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span className={cn('mono-label !text-[9px]', darkMode ? 'text-[#777]' : '')}>{article.date}</span>
                     <span className={cn('h-1 w-1 rounded-full', darkMode ? 'bg-[#555]' : 'bg-text-main/25')} />
-                    <span className={cn('mono-label !text-[9px]', darkMode ? 'text-[#777]' : '')}>{article.readTime}</span>
+                    <span className={cn('mono-label !text-[9px]', darkMode ? 'text-[#777]' : '')}>
+                      {article.readTime}
+                    </span>
                     <span
                       className={cn(
                         'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em]',
