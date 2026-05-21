@@ -425,14 +425,14 @@ export default function FeedbackPage() {
                         </p>
                         <label
                           className={cn(
-                            'pointer-events-auto flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors',
+                            'pointer-events-auto flex h-24 w-full max-w-[420px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm transition-colors',
                             darkMode
                               ? draggingAttachment
-                                ? 'bg-cyan-400/8'
-                                : 'hover:bg-[#252525]'
+                                ? 'border-cyan-300/70 bg-cyan-400/8'
+                                : 'border-[#4a4a4a] hover:border-cyan-300/55 hover:bg-[#252525]'
                               : draggingAttachment
-                                ? 'bg-primary/8'
-                                : 'hover:bg-bg-base/70',
+                                ? 'border-primary/70 bg-primary/8'
+                                : 'border-text-main/20 hover:border-primary/55 hover:bg-bg-base/70',
                           )}
                         >
                           <input
@@ -444,19 +444,16 @@ export default function FeedbackPage() {
                               event.target.value = '';
                             }}
                           />
-                          <span className="flex min-w-0 items-center gap-2">
-                            <FileUp size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
-                            <span className={cn('truncate', darkMode ? 'text-[#d8d8d8]' : 'text-text-main/68')}>
-                              可点击或拖入图片、日志、截图等文件
-                            </span>
-                          </span>
                           <span
                             className={cn(
-                              'hidden shrink-0 text-xs sm:inline',
-                              darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                              'flex h-9 w-9 items-center justify-center rounded-xl',
+                              darkMode ? 'bg-cyan-400/10 text-cyan-300' : 'bg-primary/10 text-primary',
                             )}
                           >
-                            可多选
+                            <FileUp size={18} />
+                          </span>
+                          <span className={cn('font-medium', darkMode ? 'text-[#d8d8d8]' : 'text-text-main/68')}>
+                            点击上传文件
                           </span>
                         </label>
                       </div>
@@ -465,14 +462,14 @@ export default function FeedbackPage() {
                     <div className="px-4 py-4">
                       <label
                         className={cn(
-                          'flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors',
+                          'flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm transition-colors',
                           darkMode
                             ? draggingAttachment
-                              ? 'bg-cyan-400/8'
-                              : 'hover:bg-[#252525]'
+                              ? 'border-cyan-300/70 bg-cyan-400/8'
+                              : 'border-[#4a4a4a] hover:border-cyan-300/55 hover:bg-[#252525]'
                             : draggingAttachment
-                              ? 'bg-primary/8'
-                              : 'hover:bg-bg-base/70',
+                              ? 'border-primary/70 bg-primary/8'
+                              : 'border-text-main/20 hover:border-primary/55 hover:bg-bg-base/70',
                         )}
                       >
                         <input
@@ -484,19 +481,16 @@ export default function FeedbackPage() {
                             event.target.value = '';
                           }}
                         />
-                        <span className="flex min-w-0 items-center gap-2">
-                          <FileUp size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
-                          <span className={cn('truncate', darkMode ? 'text-[#d8d8d8]' : 'text-text-main/68')}>
-                            可点击或拖入图片、日志、截图等文件
-                          </span>
-                        </span>
                         <span
                           className={cn(
-                            'hidden shrink-0 text-xs sm:inline',
-                            darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                            'flex h-9 w-9 items-center justify-center rounded-xl',
+                            darkMode ? 'bg-cyan-400/10 text-cyan-300' : 'bg-primary/10 text-primary',
                           )}
                         >
-                          可多选
+                          <FileUp size={18} />
+                        </span>
+                        <span className={cn('font-medium', darkMode ? 'text-[#d8d8d8]' : 'text-text-main/68')}>
+                          点击上传文件
                         </span>
                       </label>
 

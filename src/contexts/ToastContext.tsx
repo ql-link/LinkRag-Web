@@ -6,11 +6,12 @@ export interface ToastMessage {
   id: string;
   type: 'error' | 'success' | 'info';
   message: string;
+  durationMs?: number;
 }
 
 interface ToastContextValue {
   toasts: ToastMessage[];
-  addToast: (type: ToastMessage['type'], message: string) => void;
+  addToast: (type: ToastMessage['type'], message: string, durationMs?: number) => void;
   removeToast: (id: string) => void;
 }
 
@@ -19,9 +20,9 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const addToast = useCallback((type: ToastMessage['type'], message: string) => {
+  const addToast = useCallback((type: ToastMessage['type'], message: string, durationMs?: number) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message, durationMs }]);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -47,10 +48,10 @@ function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: stri
   useEffect(() => {
     const timer = window.setTimeout(() => {
       onClose(toast.id);
-    }, 4000);
+    }, toast.durationMs ?? 5000);
 
     return () => window.clearTimeout(timer);
-  }, [toast.id, onClose]);
+  }, [toast.durationMs, toast.id, onClose]);
 
   return (
     <div className={cn(
@@ -76,7 +77,7 @@ export function ToastContainer() {
   const { toasts, removeToast } = context;
 
   return (
-    <div className="fixed left-1/2 top-6 z-[100] flex -translate-x-1/2 flex-col items-center gap-2">
+    <div className="fixed left-1/2 top-28 z-[110] flex -translate-x-1/2 flex-col items-center gap-2">
       {toasts.map((toast) => (
         <div key={toast.id}>
           <ToastItem toast={toast} onClose={removeToast} />
