@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #F4F1ED; padding: 20px 24px; font-family: var(--font-sans); display: flex; gap: 14px; }
+  .card { flex: 1; background: rgba(255,255,255,0.50); backdrop-filter: blur(8px); border: 1px solid rgba(26,26,26,0.10); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+  .card-hover { border-color: #D4A373; box-shadow: 0 4px 16px rgba(26,26,26,0.10); }
+  .card-icon { width: 36px; height: 36px; border-radius: 12px; background: rgba(212,163,115,0.10); display: flex; align-items: center; justify-content: center; color: #D4A373; font-size: 16px; }
+  .card-title { font-size: 13px; font-weight: 700; color: #1A1A1A; }
+  .card-desc { font-size: 11px; color: rgba(26,26,26,0.55); line-height: 1.5; }
+  .card-meta { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,26,26,0.40); margin-top: auto; }
+  .card-dashed { background: transparent; border-style: dashed; display: flex; flex-direction: column; align-items: center; justify-content: center; color: rgba(26,26,26,0.35); }
+  .card-dashed .plus { font-size: 22px; margin-bottom: 4px; }
+  .card-dashed .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div class="card-icon">⬡</div>
+      <span style="color: rgba(26,26,26,0.18); font-size: 13px;">→</span>
+    </div>
+    <div class="card-title">上传文档</div>
+    <div class="card-desc">导入 PDF、Word、Markdown</div>
+    <div class="card-meta">Default State</div>
+  </div>
+  <div class="card card-hover">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div class="card-icon" style="background: rgba(212,163,115,0.20);">⬡</div>
+      <span style="color: #D4A373; font-size: 13px;">→</span>
+    </div>
+    <div class="card-title">知识问答</div>
+    <div class="card-desc">基于引用片段生成回答</div>
+    <div class="card-meta">Hover State</div>
+  </div>
+  <div class="card card-dashed">
+    <div class="plus">+</div>
+    <div class="label">添加知识库</div>
+  </div>
+</body>
+</html>
