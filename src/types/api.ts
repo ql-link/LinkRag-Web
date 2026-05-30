@@ -120,9 +120,9 @@ export interface KnowledgeFileDTO {
 }
 
 export type KnowledgeUploadStatus =
-  | "uploading"
-  | "success"
-  | "failed";
+  | "UPLOADING"
+  | "UPLOAD_SUCCESS"
+  | "UPLOAD_FAILED";
 
 export type KnowledgeParseNoticeStatus =
   | "PARSE_NOTICE_PENDING"
