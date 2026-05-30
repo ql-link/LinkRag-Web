@@ -51,7 +51,9 @@ function getFileStatus(file: KnowledgeFileDTO) {
   if (file.parseStatus) {
     return file.parseStatus;
   }
-  return file.uploadStatus;
+  if (file.uploadStatus === 'UPLOAD_SUCCESS') return '上传成功';
+  if (file.uploadStatus === 'UPLOAD_FAILED') return '上传失败';
+  return '上传中';
 }
 
 function getFileStatusTone(file: KnowledgeFileDTO) {
@@ -65,7 +67,7 @@ function getFileStatusTone(file: KnowledgeFileDTO) {
 
 function canSubmitParse(file: KnowledgeFileDTO) {
   return file.isUploadSuccess
-    && file.uploadStatus === 'success'
+    && file.uploadStatus === 'UPLOAD_SUCCESS'
     && !file.failureReason
     && file.frontendStatus !== 'parsing';
 }
