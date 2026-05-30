@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { Database } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DatasetBadgeProps {
   kb_id: string;
@@ -8,7 +9,10 @@ interface DatasetBadgeProps {
   onRemove?: () => void;
 }
 
-export function DatasetBadge({ kb_id, kb_name, darkMode, onRemove }: DatasetBadgeProps) {
+export function DatasetBadge({ kb_id, kb_name, darkMode: darkModeProp, onRemove }: DatasetBadgeProps) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
+
   return (
     <div
       className={cn(
@@ -45,7 +49,10 @@ interface DatasetBadgeListProps {
   onRemove?: (kb_id: string) => void;
 }
 
-export function DatasetBadgeList({ items, darkMode, maxShow = 2, onRemove }: DatasetBadgeListProps) {
+export function DatasetBadgeList({ items, darkMode: darkModeProp, maxShow = 2, onRemove }: DatasetBadgeListProps) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
+
   if (!items || items.length === 0) return null;
 
   const showItems = items.slice(0, maxShow);

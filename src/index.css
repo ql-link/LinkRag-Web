@@ -1,52 +1,8 @@
 @import "tailwindcss";
+@import "./styles/fonts.css";
+@import "./styles/animations.css";
 
-/* Elegant English Serif - Playfair Display */
-@font-face {
-  font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Elegant Chinese Serif - Noto Serif SC */
-@font-face {
-  font-family: 'Noto Serif SC';
-  src: url('/fonts/NotoSerifSC-Chinese.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF;
-}
-@font-face {
-  font-family: 'Noto Serif SC';
-  src: url('/fonts/NotoSerifSC-Latin.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* ===== Theme Tokens ===== */
 
 @theme {
   --font-sans: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
@@ -60,6 +16,8 @@
 
   --color-state-error: #D97373;
 }
+
+/* ===== Base Styles ===== */
 
 @layer base {
   html {
@@ -93,31 +51,26 @@
     color: #cccccc;
   }
 
-  /* Sidebar */
   .dark aside[class*="rounded-3xl"] {
     background: #252526;
     border-color: #3c3c3c;
   }
 
-  /* Main content area */
   .dark main,
   .dark > div {
     background: #1e1e1e;
   }
 
-  /* Headers */
   .dark header {
     background: #252526;
     border-color: #3c3c3c;
   }
 
-  /* Cards */
   .dark .art-card {
     background: #2d2d2d;
     border-color: #3c3c3c;
   }
 
-  /* Buttons background */
   .dark .bg-white\/80 { background: #252526; }
   .dark .bg-white\/40 { background: #2d2d2d; }
   .dark .bg-white\/50 { background: #2d2d2d; }
@@ -126,23 +79,16 @@
   .dark .bg-bg-base\/30 { background: #2d2d2d; }
   .dark .bg-bg-base\/50 { background: #2d2d2d; }
 
-  /* Text colors */
   .dark .text-text-main { color: #cccccc; }
   .dark .text-text-main\/50 { color: #858585; }
   .dark .text-text-main\/40 { color: #6b6b6b; }
   .dark .text-text-main\/30 { color: #5b5b5b; }
   .dark .text-text-main\/70 { color: #e0e0e0; }
 
-  /* Border colors */
   .dark .border-border-subtle { border-color: #3c3c3c; }
-
-  /* Buttons */
   .dark .bg-text-main { background: #0e0e0e; }
-
-  /* Mono labels */
   .dark .mono-label { color: #858585; }
 
-  /* Inputs */
   .dark input {
     background: #2d2d2d;
     border-color: #3c3c3c;
@@ -151,9 +97,10 @@
   .dark input::placeholder { color: #6b6b6b; }
   .dark input:focus { border-color: #4a4a4a; }
 
-  /* Scrollbars */
   .dark ::-webkit-scrollbar-thumb { background: #424242; }
 }
+
+/* ===== Utility Classes ===== */
 
 @utility art-border {
   @apply border border-border-subtle;
@@ -171,7 +118,8 @@
   @apply font-serif italic tracking-tighter;
 }
 
-/* Scrollbar styling */
+/* ===== Scrollbar ===== */
+
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -184,338 +132,4 @@
 
 .dark ::-webkit-scrollbar-thumb {
   @apply bg-gray-600 rounded-full;
-}
-
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-14px);
-  }
-}
-
-@keyframes float-delay {
-  0%,
-  100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  50% {
-    transform: translateY(-10px) translateX(8px);
-  }
-}
-
-@keyframes ribbonDrift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -12px, 0);
-  }
-}
-
-@keyframes datasetDropdownIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scaleY(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scaleY(1);
-  }
-}
-
-@keyframes demoFlow {
-  0% {
-    transform: translateX(-18px) scaleX(0.08);
-    opacity: 0;
-  }
-  25% {
-    opacity: 0.85;
-  }
-  100% {
-    transform: translateX(220px) scaleX(0.16);
-    opacity: 0;
-  }
-}
-
-@keyframes demoPulse {
-  0%,
-  100% {
-    transform: scale(0.92);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.16);
-    opacity: 0.18;
-  }
-}
-
-@keyframes demoSpark {
-  0%,
-  100% {
-    transform: scale(0.75) rotate(45deg);
-    opacity: 0.28;
-  }
-  50% {
-    transform: scale(1.28) rotate(45deg);
-    opacity: 0.88;
-  }
-}
-
-@keyframes indexDashFlow {
-  0% {
-    stroke-dashoffset: 36;
-  }
-  100% {
-    stroke-dashoffset: -36;
-  }
-}
-
-@keyframes indexEsWrite {
-  0%,
-  100% {
-    transform: translateX(0);
-    opacity: 0.72;
-  }
-  50% {
-    transform: translateX(4px);
-    opacity: 1;
-  }
-}
-
-@keyframes uploadReveal {
-  0%,
-  24% {
-    transform: translateX(14px) scale(0.96);
-    opacity: 0;
-  }
-  36% {
-    transform: translateX(6px) scale(0.98);
-    opacity: 0.85;
-  }
-  58% {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-  }
-  82% {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(14px) scale(0.96);
-    opacity: 0;
-  }
-}
-
-@keyframes multiNodePulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.92;
-  }
-  50% {
-    transform: scale(1.06);
-    opacity: 1;
-  }
-}
-
-@keyframes multiCoreBreathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.04);
-  }
-}
-
-@keyframes multiCoreDot {
-  0%,
-  100% {
-    transform: scale(0.86);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.22);
-    opacity: 1;
-  }
-}
-
-@keyframes multiChannelActivate {
-  0%,
-  100% {
-    transform: translateX(0) scale(1);
-  }
-  50% {
-    transform: translateX(4px) scale(1.025);
-  }
-}
-
-.animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
-}
-
-.animate-float-delay {
-  animation: float-delay 10s ease-in-out infinite;
-}
-
-.welcome-ribbon {
-  animation: ribbonDrift 16s ease-in-out infinite;
-}
-
-.welcome-grid {
-  background-image:
-    linear-gradient(to right, rgba(26, 26, 26, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(26, 26, 26, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
-}
-
-.welcome-demo-grid {
-  background-image:
-    linear-gradient(to right, rgba(26, 26, 26, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(26, 26, 26, 0.035) 1px, transparent 1px);
-  background-size: 34px 34px;
-}
-
-.dark .welcome-demo-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-}
-
-.demo-flow-line::after {
-  content: '';
-  position: absolute;
-  inset: -1px auto auto 0;
-  height: 3px;
-  width: 72px;
-  border-radius: 999px;
-  background: currentColor;
-  box-shadow: 0 0 18px currentColor;
-  animation: demoFlow 3s ease-in-out infinite;
-}
-
-.demo-flow-delay::after {
-  animation-delay: 1s;
-}
-
-.index-dashed-path {
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 9 11;
-}
-
-.index-moving-path {
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 22 26;
-  animation: indexDashFlow 1.6s linear infinite;
-}
-
-.index-moving-path-delay {
-  animation-delay: 0.45s;
-}
-
-.index-moving-path-late {
-  animation-delay: 0.9s;
-}
-
-.index-moving-path-out {
-  animation-duration: 1.35s;
-}
-
-.recall-dashed-path {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.2;
-  stroke-dasharray: 10 11;
-}
-
-.recall-moving-path {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
-  stroke-dasharray: 24 24;
-  animation: indexDashFlow 1.6s linear infinite;
-}
-
-.index-es-row {
-  animation: indexEsWrite 2.2s ease-in-out infinite;
-}
-
-.recall-core-line {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.recall-core-line {
-  stroke-width: 2.6;
-}
-
-.multi-node-pulse {
-  animation: multiNodePulse 4.8s ease-in-out infinite;
-}
-
-.multi-core {
-  animation: multiCoreBreathe 4.8s ease-in-out infinite;
-}
-
-.multi-core-dot {
-  animation: multiCoreDot 2.2s ease-in-out infinite;
-}
-
-.multi-channel-card {
-  animation: multiChannelActivate 4.8s ease-in-out infinite;
-}
-
-.demo-pulse-ring {
-  animation: demoPulse 2.8s ease-in-out infinite;
-}
-
-.demo-spark {
-  height: 14px;
-  width: 14px;
-  opacity: 0.6;
-  transform: rotate(45deg);
-  animation: demoSpark 2.6s ease-in-out infinite;
-}
-
-.demo-spark::before,
-.demo-spark::after {
-  content: '';
-  position: absolute;
-  inset: 50% auto auto 50%;
-  height: 2px;
-  width: 28px;
-  border-radius: 999px;
-  background: currentColor;
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-.demo-spark::after {
-  width: 2px;
-  height: 28px;
-}
-
-.demo-spark-delay {
-  animation-delay: 1.2s;
-}
-
-.dark .welcome-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 }

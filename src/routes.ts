@@ -2,6 +2,8 @@ export const Routes = {
   Root: '/',
   Welcome: '/',
   Home: '/home',
+  Blogs: '/blogs',
+  Feedback: '/feedback',
   Usage: '/usage',
   Datasets: '/datasets',
   DatasetDetail: '/datasets/:id',

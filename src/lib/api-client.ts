@@ -1,6 +1,9 @@
-import { Result, PageResult } from '@/types/api';
+import { Result } from '@/types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '' : 'http://localhost:8080');
+
+/** Default request timeout in milliseconds */
+const DEFAULT_TIMEOUT = 15_000;
 
 export class ApiError extends Error {
   constructor(
@@ -44,16 +47,22 @@ function clearToken() {
   localStorage.removeItem('accessToken');
 }
 
+interface RequestOptions {
+  body?: unknown;
+  headers?: Record<string, string>;
+  params?: Record<string, string | number | boolean>;
+  /** Request timeout in milliseconds. Defaults to 15s. Set to 0 to disable. */
+  timeout?: number;
+  /** AbortSignal for external cancellation (e.g. component unmount) */
+  signal?: AbortSignal;
+}
+
 async function request<T>(
   method: string,
   path: string,
-  options: {
-    body?: unknown;
-    headers?: Record<string, string>;
-    params?: Record<string, string | number | boolean>;
-  } = {}
+  options: RequestOptions = {}
 ): Promise<T> {
-  const { body, headers = {}, params } = options;
+  const { body, headers = {}, params, timeout = DEFAULT_TIMEOUT, signal } = options;
   const isFormData = body instanceof FormData;
 
   let url = `${API_BASE_URL}${path}`;
@@ -91,21 +100,45 @@ async function request<T>(
     config.body = isFormData ? body as FormData : JSON.stringify(body);
   }
 
+  // Support both internal timeout and external abort signal
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  let timeoutId: number | undefined;
+
+  if (timeout > 0) {
+    timeoutId = window.setTimeout(() => controller.abort(), timeout);
+  }
+
+  // If an external signal is provided, forward its abort to our controller
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
   config.signal = controller.signal;
 
   let response: Response;
   try {
     response = await fetch(url, config);
   } catch (error) {
-    const message = error instanceof DOMException && error.name === 'AbortError'
-      ? '请求超时，请稍后重试'
-      : '网络连接异常，请稍后重试';
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      // If externally aborted, don't show toast
+      if (signal?.aborted) {
+        throw new ApiError(0, '请求已取消');
+      }
+      const message = '请求超时，请稍后重试';
+      toastHandler?.('error', message);
+      throw new ApiError(0, message);
+    }
+    const message = '网络连接异常，请稍后重试';
     toastHandler?.('error', message);
     throw new ApiError(0, message);
   } finally {
-    window.clearTimeout(timeout);
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
   }
 
   let result: Result<T>;
@@ -131,26 +164,29 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
-    return request<T>('GET', path, { params });
+  get<T>(path: string, params?: Record<string, string | number | boolean>, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+    return request<T>('GET', path, { params, ...options });
   },
 
-  post<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>('POST', path, { body });
+  post<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+    return request<T>('POST', path, { body, ...options });
   },
 
-  patch<T>(path: string, body?: unknown): Promise<T> {
-    return request<T>('PATCH', path, { body });
+  patch<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+    return request<T>('PATCH', path, { body, ...options });
   },
 
-  delete<T>(path: string): Promise<T> {
-    return request<T>('DELETE', path);
+  delete<T>(path: string, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+    return request<T>('DELETE', path, options);
   },
 
-  postForm<T>(path: string, formData: FormData): Promise<T> {
+  postForm<T>(path: string, formData: FormData, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
     return request<T>('POST', path, {
       headers: {},
       body: formData,
+      // File uploads typically need longer timeout
+      timeout: options?.timeout ?? 60_000,
+      signal: options?.signal,
     });
   },
 };

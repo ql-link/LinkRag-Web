@@ -10,10 +10,7 @@ import { getMessages, getConversations, sendMessage } from '@/services/chat';
 import { getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getLLMConfigs } from '@/services/llm';
 import type { MessageDTO, ConversationDTO, KnowledgeFileDTO, LLMConfigDTO } from '@/types/api';
-
-interface ChatPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 function ParseAfterUploadSwitch({
   darkMode,
@@ -53,7 +50,8 @@ function ParseAfterUploadSwitch({
   );
 }
 
-export default function ChatPage({ darkMode }: ChatPageProps) {
+export default function ChatPage() {
+  const { darkMode } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();

@@ -7,12 +7,10 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
 import { useToast } from '@/contexts/ToastContext';
 import type { DatasetDTO } from '@/types/api';
+import { useTheme } from '@/contexts/ThemeContext';
 
-interface DatasetsPageProps {
-  darkMode?: boolean;
-}
-
-export default function DatasetsPage({ darkMode }: DatasetsPageProps) {
+export default function DatasetsPage() {
+  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [searchString, setSearchString] = useState('');

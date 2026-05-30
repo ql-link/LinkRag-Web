@@ -6,10 +6,7 @@ import { Routes } from '@/routes';
 import { getProfile, updateProfile } from '@/services/user';
 import { uploadAvatar } from '@/services/oss';
 import type { UpdateProfileRequest, UserProfileDTO } from '@/types/api';
-
-interface ProfilePageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 type EditField = 'nickname' | 'email' | 'phone' | null;
 
@@ -19,7 +16,8 @@ const fieldMeta: Record<Exclude<EditField, null>, { label: string; placeholder: 
   phone: { label: '手机号', placeholder: '请输入手机号' },
 };
 
-export default function ProfilePage({ darkMode }: ProfilePageProps) {
+export default function ProfilePage() {
+  const { darkMode } = useTheme();
   const [profile, setProfile] = useState<UserProfileDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitLoading, setSubmitLoading] = useState(false);

@@ -16,10 +16,7 @@ import {
 } from '@/services/dataset';
 import { getConversations } from '@/services/chat';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
-
-interface DatasetPageProps {
-  darkMode?: boolean;
-}
+import { useTheme } from '@/contexts/ThemeContext';
 
 const SUPPORTED_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'txt'];
 const FILE_ACCEPT = SUPPORTED_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
@@ -108,7 +105,8 @@ function ParseAfterUploadSwitch({
   );
 }
 
-export default function DatasetPage({ darkMode }: DatasetPageProps) {
+export default function DatasetPage() {
+  const { darkMode } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();

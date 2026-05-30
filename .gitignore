@@ -7,3 +7,11 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local IDE and AI tool configs
+.agent/
+.ai/
+.claude/
+.idea/
+.kiro/
+.vscode/
