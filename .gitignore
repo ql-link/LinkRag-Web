@@ -1,0 +1,17 @@
+node_modules/
+.vite/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local IDE and AI tool configs
+.agent/
+.ai/
+.claude/
+.idea/
+.kiro/
+.vscode/
