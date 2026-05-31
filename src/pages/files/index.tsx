@@ -167,16 +167,31 @@ export default function FilesPage() {
     if (!selectedFile || !uploadDatasetId) return;
     setUploading(true);
     try {
-      await uploadKnowledgeFile(uploadDatasetId, selectedFile, parseAfterUpload);
+      const uploaded = await uploadKnowledgeFile(uploadDatasetId, selectedFile, parseAfterUpload);
       addToast('success', parseAfterUpload ? '文件已上传，解析任务已提交' : '文件已上传');
       setSelectedFile(null);
       setUploadDialogOpen(false);
-      await loadData();
+      await pollUntilUploadSettled(uploaded.id, uploadDatasetId);
     } catch (error) {
       console.error('Failed to upload file:', error);
     } finally {
       setUploading(false);
     }
+  }
+
+  async function pollUntilUploadSettled(fileId: number, datasetId: number) {
+    const maxAttempts = 20;
+    const intervalMs = 1000;
+    for (let i = 0; i < maxAttempts; i++) {
+      const filesResult = await getKnowledgeFiles(datasetId, 1, 100);
+      const target = filesResult.items.find((f) => f.id === fileId);
+      if (target && target.uploadStatus !== 'UPLOADING') {
+        await loadData();
+        return;
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    await loadData();
   }
 
   async function handleDelete(fileId: number) {
