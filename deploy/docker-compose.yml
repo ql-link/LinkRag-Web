@@ -1,15 +1,9 @@
-# 部署用 compose：只拉取 Jenkins 推送好的镜像并启动
-# 用法：REGISTRY=xxx TAG=xxx docker compose -f deploy/docker-compose.yml up -d
+# 部署用 compose：引用本机 docker build 出来的镜像并启动
+# 用法：TAG=xxx docker compose -f deploy/docker-compose.yml up -d
 services:
   linkrag-web:
-    image: ${REGISTRY:-local}/linkrag-web:${TAG:-latest}
+    image: linkrag-web:${TAG:-latest}
     container_name: linkrag-web
     restart: always
     ports:
       - "80:80"
-    # 如需与后端容器同网互通，可挂到外部网络（见部署文档）
-    # networks: [tolink-net]
-
-# networks:
-#   tolink-net:
-#     external: true
