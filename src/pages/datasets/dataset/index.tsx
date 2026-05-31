@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { AlertCircle, FileText, Loader2, MessageSquare, Plus, RefreshCw, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -109,6 +109,7 @@ export default function DatasetPage() {
   const { darkMode } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
@@ -117,7 +118,14 @@ export default function DatasetPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'files' | 'conversations'>('conversations');
+  const activeTab: 'files' | 'conversations' = searchParams.get('tab') === 'files' ? 'files' : 'conversations';
+  const setActiveTab = (tab: 'files' | 'conversations') => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  };
   const [uploading, setUploading] = useState(false);
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingDataset, setDeletingDataset] = useState(false);
@@ -352,19 +360,6 @@ export default function DatasetPage() {
         )}
       >
         <button
-          onClick={() => setActiveTab('conversations')}
-          className={cn(
-            'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
-            activeTab === 'conversations'
-              ? 'border-[#3b82f6] text-[#3b82f6]'
-              : darkMode
-                ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
-                : 'border-transparent text-text-main/50 hover:text-text-main'
-          )}
-        >
-          关联对话 ({conversations.length})
-        </button>
-        <button
           onClick={() => setActiveTab('files')}
           className={cn(
             'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
@@ -376,6 +371,19 @@ export default function DatasetPage() {
           )}
         >
           知识文件 ({files.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('conversations')}
+          className={cn(
+            'py-3 px-1 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors',
+            activeTab === 'conversations'
+              ? 'border-[#3b82f6] text-[#3b82f6]'
+              : darkMode
+                ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
+                : 'border-transparent text-text-main/50 hover:text-text-main'
+          )}
+        >
+          关联对话 ({conversations.length})
         </button>
       </div>
 
