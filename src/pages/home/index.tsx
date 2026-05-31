@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react';
 import { ArrowRight, DatabaseZap, FileUp, MessageSquarePlus, MessagesSquare } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getConversations } from '@/services/chat';
+import type { ConversationDTO } from '@/types/api';
 
 const quickActions = [
   { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
@@ -23,11 +26,39 @@ function getGreeting() {
   return '夜深了';
 }
 
+function formatRelativeTime(value: string) {
+  if (!value) return '';
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return '';
+  const diff = Date.now() - time;
+  if (diff < 60 * 1000) return '刚刚';
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))}分钟前`;
+  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))}小时前`;
+  if (diff < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diff / (24 * 60 * 60 * 1000))}天前`;
+  return new Date(time).toLocaleDateString('zh-CN');
+}
+
 
 export default function HomePage() {
   const { darkMode } = useTheme();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const displayName = user?.nickname || user?.username || '当前用户';
+  const [recentChats, setRecentChats] = useState<ConversationDTO[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getConversations(1, 5)
+      .then((result) => {
+        if (active) setRecentChats(result.items);
+      })
+      .catch((error) => {
+        console.error('Failed to load recent conversations:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
@@ -162,18 +193,23 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="space-y-2">
-              {[
-                { name: 'AI 技术问答助手', time: '5分钟前' },
-                { name: '文档总结助手', time: '1小时前' },
-              ].map((chat, i) => (
-                <div key={i} className={cn(
-                  "flex items-center justify-between py-2 cursor-pointer transition-colors",
-                  darkMode ? "border-[#3c3c3c] border-b last:border-0" : "border-b border-border-subtle last:border-0"
-                )}>
-                  <span className={cn("text-xs font-medium", darkMode ? "text-[#e0e0e0]" : "")}>{chat.name}</span>
-                  <span className={cn("mono-label text-[10px]", darkMode ? "text-[#858585]" : "")}>{chat.time}</span>
-                </div>
-              ))}
+              {recentChats.length === 0 ? (
+                <p className={cn("text-xs py-2", darkMode ? "text-[#858585]" : "text-text-main/50")}>暂无对话</p>
+              ) : (
+                recentChats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => navigate(`/chats/${chat.id}`)}
+                    className={cn(
+                      "flex items-center justify-between py-2 cursor-pointer transition-colors",
+                      darkMode ? "border-[#3c3c3c] border-b last:border-0 hover:text-[#3b82f6]" : "border-b border-border-subtle last:border-0 hover:text-primary"
+                    )}
+                  >
+                    <span className={cn("text-xs font-medium truncate pr-2", darkMode ? "text-[#e0e0e0]" : "")}>{chat.title}</span>
+                    <span className={cn("mono-label text-[10px] shrink-0", darkMode ? "text-[#858585]" : "")}>{formatRelativeTime(chat.updatedAt)}</span>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         </div>
