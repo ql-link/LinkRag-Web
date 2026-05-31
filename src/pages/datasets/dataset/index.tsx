@@ -118,7 +118,7 @@ export default function DatasetPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const activeTab: 'files' | 'conversations' = searchParams.get('tab') === 'files' ? 'files' : 'conversations';
+  const activeTab: 'files' | 'conversations' = searchParams.get('tab') === 'conversations' ? 'conversations' : 'files';
   const setActiveTab = (tab: 'files' | 'conversations') => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
