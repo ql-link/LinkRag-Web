@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #F4F1ED; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+  .logo-row { display: flex; gap: 28px; align-items: center; }
+  .logo-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .logo-item img { height: 56px; object-fit: contain; }
+  .logo-item .label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,26,26,0.40); }
+  .provider-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .provider-icon { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(26,26,26,0.08); background: #fff; display: flex; align-items: center; justify-content: center; padding: 4px; }
+  .provider-icon img { width: 100%; height: 100%; object-fit: contain; }
+  .section-label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(26,26,26,0.40); align-self: flex-start; }
+</style>
+</head>
+<body>
+  <div class="logo-row">
+    <div class="logo-item">
+      <img src="../assets/linkrag-logo-full.png" alt="Full Logo" style="height: 64px;">
+      <span class="label">Full Logo</span>
+    </div>
+    <div class="logo-item">
+      <img src="../assets/linkrag-mark-v2.png" alt="Mark v2" style="height: 48px;">
+      <span class="label">Mark v2</span>
+    </div>
+    <div class="logo-item">
+      <img src="../assets/linkrag-icon-square.png" alt="Icon Square" style="height: 44px;">
+      <span class="label">Icon Square</span>
+    </div>
+    <div class="logo-item">
+      <img src="../assets/favicon-v2.png" alt="Favicon" style="height: 32px;">
+      <span class="label">Favicon</span>
+    </div>
+  </div>
+  <div class="section-label">LLM Provider Logos</div>
+  <div class="provider-row">
+    <div class="provider-icon"><img src="../assets/providers/openai.svg" alt="OpenAI"></div>
+    <div class="provider-icon"><img src="../assets/providers/claude-color.svg" alt="Claude"></div>
+    <div class="provider-icon"><img src="../assets/providers/gemini-color.svg" alt="Gemini"></div>
+    <div class="provider-icon"><img src="../assets/providers/deepseek-color.svg" alt="Deepseek"></div>
+    <div class="provider-icon"><img src="../assets/providers/qwen-color.svg" alt="Qwen"></div>
+    <div class="provider-icon"><img src="../assets/providers/meta-color.svg" alt="Meta"></div>
+    <div class="provider-icon"><img src="../assets/providers/mistral-color.svg" alt="Mistral"></div>
+    <div class="provider-icon"><img src="../assets/providers/zhipu-color.svg" alt="Zhipu"></div>
+    <div class="provider-icon"><img src="../assets/providers/ollama.svg" alt="Ollama"></div>
+    <div class="provider-icon"><img src="../assets/providers/grok.svg" alt="Grok"></div>
+  </div>
+</body>
+</html>

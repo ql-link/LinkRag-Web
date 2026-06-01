@@ -10,10 +10,10 @@ import {
 import { FileItem } from '../types';
 
 const RECENT_FILES: FileItem[] = [
-  { id: '1', name: '人工智能发展报告.pdf', type: 'PDF', size: '2.4 MB', date: '2024-05-20 14:30' },
-  { id: '2', name: '大模型技术综述.docx', type: 'DOCX', size: '1.8 MB', date: '2024-05-18 09:15' },
-  { id: '3', name: '自然语言处理导论.pptx', type: 'PPTX', size: '3.2 MB', date: '2024-05-15 16:45' },
-  { id: '4', name: '行业研究数据.xlsx', type: 'XLSX', size: '1.2 MB', date: '2024-05-12 11:20' },
+  { id: '1', name: '人工智能发展报告.pdf', type: 'PDF', size: '2.4 MB', date: '2024-05-20 14:30', kb_ids: [] },
+  { id: '2', name: '大模型技术综述.docx', type: 'DOCX', size: '1.8 MB', date: '2024-05-18 09:15', kb_ids: [] },
+  { id: '3', name: '自然语言处理导论.pptx', type: 'PPTX', size: '3.2 MB', date: '2024-05-15 16:45', kb_ids: [] },
+  { id: '4', name: '行业研究数据.xlsx', type: 'XLSX', size: '1.2 MB', date: '2024-05-12 11:20', kb_ids: [] },
 ];
 
 const FILE_TYPES = {

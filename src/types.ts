@@ -4,6 +4,28 @@ export interface FileItem {
   type: 'PDF' | 'DOCX' | 'PPTX' | 'XLSX';
   size: string;
   date: string;
+  kb_ids: string[];  // 关联的数据集 ID 列表
+}
+
+export interface Dataset {
+  id: string;
+  name: string;
+  count: number;
+  updated: string;
+  file_ids: string[];  // 关联的文件 ID 列表
+}
+
+export interface Chat {
+  id: string;
+  name: string;
+  messages: number;
+  updated: string;
+  kb_ids: string[];  // 关联的数据集 ID 列表
+}
+
+export interface KbInfo {
+  kb_id: string;
+  kb_name: string;
 }
 
 export interface Message {

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #F4F1ED; padding: 24px 28px; font-family: var(--font-mono); }
+  .section-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(26,26,26,0.40); margin-bottom: 10px; }
+  .radii-row { display: flex; gap: 14px; margin-bottom: 16px; }
+  .radii-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .radii-box { width: 52px; height: 52px; border: 2px solid #D4A373; background: rgba(212,163,115,0.08); }
+  .radii-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,26,0.50); text-align: center; line-height: 1.3; }
+  .spacing-row { display: flex; gap: 6px; align-items: flex-end; margin-top: 4px; }
+  .spacing-bar { background: #D4A373; border-radius: 3px; min-width: 8px; }
+  .spacing-label { font-size: 7px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(26,26,26,0.45); text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="section-label">Corner Radii</div>
+  <div class="radii-row">
+    <div class="radii-item">
+      <div class="radii-box" style="border-radius: 8px;"></div>
+      <div class="radii-label">SM<br>8px</div>
+    </div>
+    <div class="radii-item">
+      <div class="radii-box" style="border-radius: 12px;"></div>
+      <div class="radii-label">MD<br>12px</div>
+    </div>
+    <div class="radii-item">
+      <div class="radii-box" style="border-radius: 16px;"></div>
+      <div class="radii-label">LG<br>16px</div>
+    </div>
+    <div class="radii-item">
+      <div class="radii-box" style="border-radius: 24px;"></div>
+      <div class="radii-label">XL<br>24px</div>
+    </div>
+    <div class="radii-item">
+      <div class="radii-box" style="border-radius: 9999px;"></div>
+      <div class="radii-label">Pill<br>∞</div>
+    </div>
+  </div>
+  <div class="section-label">Spacing Scale</div>
+  <div class="spacing-row">
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:4px;"></div><div class="spacing-label">1 · 4</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:8px;"></div><div class="spacing-label">2 · 8</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:12px;"></div><div class="spacing-label">3 · 12</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:16px;"></div><div class="spacing-label">4 · 16</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:20px;"></div><div class="spacing-label">5 · 20</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:24px;"></div><div class="spacing-label">6 · 24</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:32px;"></div><div class="spacing-label">8 · 32</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:40px;"></div><div class="spacing-label">10 · 40</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:48px;"></div><div class="spacing-label">12 · 48</div></div>
+    <div style="text-align:center;"><div class="spacing-bar" style="width:8px; height:56px;"></div><div class="spacing-label">16 · 64</div></div>
+  </div>
+</body>
+</html>

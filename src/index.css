@@ -1,22 +1,106 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
+@import "./styles/fonts.css";
+@import "./styles/animations.css";
+
+/* ===== Theme Tokens ===== */
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Playfair Display", serif;
+  --font-sans: "Noto Serif SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", "Noto Serif SC", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --color-primary: #D4A373;
   --color-bg-base: #F4F1ED;
   --color-text-main: #1A1A1A;
   --color-border-subtle: rgba(26, 26, 26, 0.1);
+
+  --color-state-error: #D97373;
 }
 
+/* ===== Base Styles ===== */
+
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-bg-base text-text-main font-sans selection:bg-primary/30;
+    font-variant-numeric: lining-nums tabular-nums;
   }
+
+  .welcome-floating-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    transform: translateZ(0);
+  }
+
+  /* Dark mode - VSCode-like comfortable dark theme */
+  .dark {
+    --color-bg-base: #1e1e1e;
+    --color-text-main: #cccccc;
+    --color-border-subtle: #3c3c3c;
+    --color-primary: #3b82f6;
+  }
+
+  .dark body {
+    background: #1e1e1e;
+    color: #cccccc;
+  }
+
+  .dark aside[class*="rounded-3xl"] {
+    background: #252526;
+    border-color: #3c3c3c;
+  }
+
+  .dark main,
+  .dark > div {
+    background: #1e1e1e;
+  }
+
+  .dark header {
+    background: #252526;
+    border-color: #3c3c3c;
+  }
+
+  .dark .art-card {
+    background: #2d2d2d;
+    border-color: #3c3c3c;
+  }
+
+  .dark .bg-white\/80 { background: #252526; }
+  .dark .bg-white\/40 { background: #2d2d2d; }
+  .dark .bg-white\/50 { background: #2d2d2d; }
+  .dark .bg-white\/20 { background: #2d2d2d; }
+  .dark .bg-white\/10 { background: #2d2d2d; }
+  .dark .bg-bg-base\/30 { background: #2d2d2d; }
+  .dark .bg-bg-base\/50 { background: #2d2d2d; }
+
+  .dark .text-text-main { color: #cccccc; }
+  .dark .text-text-main\/50 { color: #858585; }
+  .dark .text-text-main\/40 { color: #6b6b6b; }
+  .dark .text-text-main\/30 { color: #5b5b5b; }
+  .dark .text-text-main\/70 { color: #e0e0e0; }
+
+  .dark .border-border-subtle { border-color: #3c3c3c; }
+  .dark .bg-text-main { background: #0e0e0e; }
+  .dark .mono-label { color: #858585; }
+
+  .dark input {
+    background: #2d2d2d;
+    border-color: #3c3c3c;
+    color: #cccccc;
+  }
+  .dark input::placeholder { color: #6b6b6b; }
+  .dark input:focus { border-color: #4a4a4a; }
+
+  .dark ::-webkit-scrollbar-thumb { background: #424242; }
 }
+
+/* ===== Utility Classes ===== */
 
 @utility art-border {
   @apply border border-border-subtle;
@@ -34,7 +118,8 @@
   @apply font-serif italic tracking-tighter;
 }
 
-/* Scrollbar styling */
+/* ===== Scrollbar ===== */
+
 ::-webkit-scrollbar {
   width: 4px;
 }
@@ -43,4 +128,8 @@
 }
 ::-webkit-scrollbar-thumb {
   @apply bg-text-main/10 rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
 }

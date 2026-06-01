@@ -1,0 +1,15 @@
+# 部署用 compose：引用本机 docker build 出来的镜像并启动
+# 用法：TAG=xxx docker compose -f deploy/docker-compose.yml up -d
+services:
+  linkrag-web:
+    image: linkrag-web:${TAG:-latest}
+    container_name: linkrag-web
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - tolink-app-net
+
+networks:
+  tolink-app-net:
+    external: true
