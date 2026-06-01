@@ -1,6 +1,7 @@
 import { Result } from '@/types/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '' : 'http://localhost:8080');
+// 默认用相对路径：生产由 nginx 把 /api 转发到后端；如需指定绝对地址可设 VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 /** Default request timeout in milliseconds */
 const DEFAULT_TIMEOUT = 15_000;
