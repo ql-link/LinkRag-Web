@@ -23,7 +23,7 @@ pipeline {
                 docker { image 'node:20-alpine'; reuseNode true }
             }
             steps {
-                sh 'npm ci'
+                sh 'npm install --registry=https://registry.npmmirror.com'
                 sh 'npm run typecheck'
                 sh 'npm run lint'
                 sh 'npm run test'
