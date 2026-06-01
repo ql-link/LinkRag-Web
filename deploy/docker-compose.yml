@@ -7,3 +7,9 @@ services:
     restart: always
     ports:
       - "80:80"
+    networks:
+      - tolink-app-net
+
+networks:
+  tolink-app-net:
+    external: true
