@@ -20,7 +20,8 @@ pipeline {
 
         stage('Install & Lint & Test') {
             agent {
-                docker { image 'node:20-alpine'; reuseNode true }
+                // 挂载 npm 缓存到 jenkins_home，跨构建复用已下载的包
+                docker { image 'node:20-alpine'; args '-v $HOME/.npm:/root/.npm'; reuseNode true }
             }
             steps {
                 sh 'npm install --registry=https://registry.npmmirror.com'

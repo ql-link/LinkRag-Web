@@ -8,7 +8,8 @@ WORKDIR /app
 # 用 npm install（而非 npm ci）：锁文件在 macOS 生成、含平台专属原生包，
 # 在 Linux 上 npm ci 会因 EBADPLATFORM 失败；npm install 按当前平台解析。
 COPY package.json package-lock.json ./
-RUN npm install --registry=https://registry.npmmirror.com
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --registry=https://registry.npmmirror.com
 
 # 构建期可注入的 VITE_ 前缀变量（会被打进静态文件）
 ARG VITE_GITHUB_URL
