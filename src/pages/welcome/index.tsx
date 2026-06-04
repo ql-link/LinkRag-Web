@@ -36,6 +36,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 type AuthMode = 'login' | 'register';
 type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
 const githubProjectUrl = (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
+const darkModeLogoStyle = {
+  filter: 'saturate(1.05) brightness(1.55) contrast(0.95) drop-shadow(0 0 1px rgba(255,255,255,0.45))',
+};
 
 const scrollSections = [
   { id: 'knowledge', label: '功能' },
@@ -120,7 +123,7 @@ function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
       src="/linkrag-mark-v2.png"
       alt="LinkRag"
       className="h-full w-full object-contain"
-      style={darkMode ? { filter: 'saturate(0.96) brightness(0.96)' } : undefined}
+      style={darkMode ? darkModeLogoStyle : undefined}
     />
   );
 }
