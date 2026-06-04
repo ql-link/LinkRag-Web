@@ -1007,8 +1007,10 @@ export default function WelcomePage() {
     const header = document.querySelector<HTMLElement>('.welcome-floating-header');
     const headerHeight = header?.getBoundingClientRect().height ?? 0;
     const extraGap = 18;
-    const targetTop = target.getBoundingClientRect().top + window.scrollY;
-    const scrollTop = Math.max(0, targetTop - headerHeight - extraGap);
+    const targetRect = target.getBoundingClientRect();
+    const targetTop = targetRect.top + window.scrollY;
+    const centeredOffset = Math.max(headerHeight + extraGap, (window.innerHeight - targetRect.height) / 2);
+    const scrollTop = Math.max(0, targetTop - centeredOffset);
 
     window.scrollTo({
       top: scrollTop,
@@ -1395,9 +1397,9 @@ export default function WelcomePage() {
           </div>
         </RevealSection>
 
-        <RevealSection id="login" className="min-h-[92vh] flex items-start py-24 scroll-mt-28">
-          <div ref={loginRef} className="grid w-full items-start gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="pt-4">
+        <RevealSection id="login" className="min-h-[92vh] flex items-center py-16 lg:py-20 scroll-mt-28">
+          <div ref={loginRef} className="grid w-full items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
               <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
                 进入工作台
                 <br />
