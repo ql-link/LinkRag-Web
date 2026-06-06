@@ -12,6 +12,8 @@ import { getLLMConfigs } from '@/services/llm';
 import type { MessageDTO, ConversationDTO, KnowledgeFileDTO, LLMConfigDTO } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 
+type ConversationLoadStatus = 'loading' | 'success' | 'not-found' | 'error';
+
 function ParseAfterUploadSwitch({
   darkMode,
   checked,
@@ -61,7 +63,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [conversationLoadStatus, setConversationLoadStatus] = useState<ConversationLoadStatus>('loading');
+  const [loadedConversationId, setLoadedConversationId] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -72,12 +75,75 @@ export default function ChatPage() {
   const [loadingChatModels, setLoadingChatModels] = useState(false);
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
   const [datasetName, setDatasetName] = useState('');
+  const conversationId = Number(id);
+  const hasValidConversationId = Number.isFinite(conversationId);
 
   useEffect(() => {
-    if (id) {
-      void loadConversation();
+    if (!hasValidConversationId) {
+      setConversation(null);
+      setMessages([]);
+      setFiles([]);
+      setDatasetName('');
+      setLoadedConversationId(null);
+      setConversationLoadStatus('not-found');
+      return;
     }
-  }, [id]);
+
+    let cancelled = false;
+
+    const loadConversation = async () => {
+      setConversationLoadStatus('loading');
+      setLoadedConversationId(null);
+      setConversation(null);
+      setMessages([]);
+      setFiles([]);
+      setDatasetName('');
+
+      try {
+        const convList = await getConversations(1, 100);
+        if (cancelled) return;
+
+        const conv = convList.items.find((c) => c.id === conversationId);
+        if (!conv) {
+          setLoadedConversationId(conversationId);
+          setConversationLoadStatus('not-found');
+          return;
+        }
+
+        const [msgResult, fileResult, dataset] = await Promise.all([
+          getMessages(conv.id, 1, 100),
+          getKnowledgeFiles(conv.datasetId, 1, 100),
+          getDataset(conv.datasetId).catch((error) => {
+            console.error('Failed to load dataset name:', error);
+            return null;
+          }),
+        ]);
+        if (cancelled) return;
+
+        setConversation(conv);
+        setMessages(msgResult.items);
+        setFiles(fileResult.items.sort((a, b) => b.id - a.id));
+        setDatasetName(dataset?.name ?? `知识库 #${conv.datasetId}`);
+        setLoadedConversationId(conversationId);
+        setConversationLoadStatus('success');
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to load conversation:', error);
+        setConversation(null);
+        setMessages([]);
+        setFiles([]);
+        setDatasetName('');
+        setLoadedConversationId(conversationId);
+        setConversationLoadStatus('error');
+      }
+    };
+
+    void loadConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, hasValidConversationId]);
 
   useEffect(() => {
     void loadChatModels();
@@ -96,13 +162,6 @@ export default function ChatPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function getDayGreeting() {
-    const hour = new Date().getHours();
-    if (hour >= 6 && hour < 11) return '早上好';
-    if (hour >= 11 && hour < 18) return '中午好';
-    return '晚上好';
-  }
-
   const loadFiles = async (datasetId: number) => {
     setLoadingFiles(true);
     try {
@@ -113,39 +172,6 @@ export default function ChatPage() {
       setFiles([]);
     } finally {
       setLoadingFiles(false);
-    }
-  };
-
-  const loadConversation = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const convList = await getConversations(1, 100);
-      const conv = convList.items.find((c) => c.id === Number(id));
-      setConversation(conv || null);
-
-      if (conv) {
-        const [msgResult] = await Promise.all([
-          getMessages(conv.id, 1, 100),
-          loadFiles(conv.datasetId),
-        ]);
-        setMessages(msgResult.items);
-        try {
-          const dataset = await getDataset(conv.datasetId);
-          setDatasetName(dataset.name);
-        } catch (error) {
-          console.error('Failed to load dataset name:', error);
-          setDatasetName(`知识库 #${conv.datasetId}`);
-        }
-      } else {
-        setMessages([]);
-        setFiles([]);
-        setDatasetName('');
-      }
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -249,7 +275,6 @@ export default function ChatPage() {
   };
 
   const displayName = user?.nickname || user?.username || '用户';
-  const dayGreeting = getDayGreeting();
   const fileSortLabel = fileSortBy === 'createdAt' ? '按创建时间排序' : '按更新时间排序';
   const sortedFiles = useMemo(() => {
     return [...files].sort((a, b) => {
@@ -259,18 +284,27 @@ export default function ChatPage() {
     });
   }, [files, fileSortBy]);
 
-  if (loading) {
+  const isConversationLoading =
+    hasValidConversationId &&
+    (conversationLoadStatus === 'loading' || loadedConversationId !== conversationId);
+
+  if (isConversationLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className={cn("mono-label", darkMode ? "text-[#858585]" : "")}>加载中...</div>
+        <div className="flex items-center gap-2">
+          <Loader2 size={16} className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')} />
+          <div className={cn("mono-label", darkMode ? "text-[#858585]" : "")}>加载中...</div>
+        </div>
       </div>
     );
   }
 
-  if (!conversation) {
+  if (conversationLoadStatus === 'error' || !conversation) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
-        <p className={cn("text-lg mb-4", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>对话不存在</p>
+        <p className={cn("text-lg mb-4", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+          {conversationLoadStatus === 'error' ? '对话加载失败' : '对话不存在'}
+        </p>
         <button
           onClick={() => navigate(Routes.Chats)}
           className={cn(
