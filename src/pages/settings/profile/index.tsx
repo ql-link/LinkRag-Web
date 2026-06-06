@@ -97,11 +97,7 @@ export default function ProfilePage() {
     }
   }
 
-  function renderEditableRow(
-    label: string,
-    value: string | null | undefined,
-    field: Exclude<EditField, null>
-  ) {
+  function renderEditableRow(label: string, value: string | null | undefined, field: Exclude<EditField, null>) {
     return (
       <div className="flex items-start gap-4">
         <label className="w-[190px] text-sm font-medium pt-1.5">{label}</label>
@@ -109,9 +105,7 @@ export default function ProfilePage() {
           <div
             className={cn(
               'flex-1 rounded-md py-1.5 px-3 text-sm border',
-              darkMode
-                ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#cccccc]'
-                : 'bg-bg-base/50 border-border-subtle'
+              darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#cccccc]' : 'bg-bg-base/50 border-border-subtle',
             )}
           >
             {value || '未设置'}
@@ -122,7 +116,7 @@ export default function ProfilePage() {
               'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
               darkMode
                 ? 'border-[#3c3c3c] text-[#cccccc] hover:bg-[#3c3c3c]'
-                : 'border-border-subtle hover:bg-gray-100'
+                : 'border-border-subtle hover:bg-gray-100',
             )}
           >
             <PenLine size={12} />
@@ -139,21 +133,15 @@ export default function ProfilePage() {
         <header
           className={cn(
             'h-20 px-8 flex items-center shrink-0 backdrop-blur-md border-b',
-            darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle'
+            darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
           )}
         >
           <div className="flex flex-col gap-1">
             <Breadcrumb
-              items={[
-                { label: '首页', path: Routes.Home },
-                { label: '设置' },
-                { label: '个人信息' },
-              ]}
+              items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]}
               darkMode={darkMode}
             />
-            <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              个人信息
-            </h2>
+            <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>个人信息</h2>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -168,21 +156,15 @@ export default function ProfilePage() {
       <header
         className={cn(
           'h-20 px-8 flex items-center shrink-0 backdrop-blur-md border-b',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle'
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
         )}
       >
         <div className="flex flex-col gap-1">
           <Breadcrumb
-            items={[
-              { label: '首页', path: Routes.Home },
-              { label: '设置' },
-              { label: '个人信息' },
-            ]}
+            items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]}
             darkMode={darkMode}
           />
-          <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            个人信息
-          </h2>
+          <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>个人信息</h2>
           <p className={cn('text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
             当前页已对齐后端真实支持字段
           </p>
@@ -207,16 +189,12 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 {profile?.avatarUrl ? (
-                  <img
-                    src={profile.avatarUrl}
-                    alt="Avatar"
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
+                  <img src={profile.avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
                 ) : (
                   <div
                     className={cn(
                       'w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold',
-                      darkMode ? 'bg-[#3c3c3c] text-[#cccccc]' : 'bg-primary/20 text-primary'
+                      darkMode ? 'bg-[#3c3c3c] text-[#cccccc]' : 'bg-primary/20 text-primary',
                     )}
                   >
                     {profile?.nickname?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || 'U'}
@@ -225,8 +203,10 @@ export default function ProfilePage() {
                 <label
                   className={cn(
                     'absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors',
-                    darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-                    avatarLoading && 'pointer-events-none opacity-70'
+                    darkMode
+                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                      : 'bg-text-main text-white hover:opacity-90',
+                    avatarLoading && 'pointer-events-none opacity-70',
                   )}
                 >
                   {avatarLoading ? <Loader2 size={12} className="animate-spin" /> : <PenLine size={12} />}
@@ -238,7 +218,6 @@ export default function ProfilePage() {
               </span>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -248,13 +227,13 @@ export default function ProfilePage() {
           <div
             className={cn(
               'relative w-[480px] rounded-xl shadow-2xl overflow-hidden',
-              darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white border-border-subtle'
+              darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white border-border-subtle',
             )}
           >
             <div
               className={cn(
                 'flex items-center justify-between px-6 py-4 border-b',
-                darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle'
+                darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
               )}
             >
               <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
@@ -262,7 +241,10 @@ export default function ProfilePage() {
               </h3>
               <button
                 onClick={closeEdit}
-                className={cn('p-1.5 rounded-lg transition-colors', darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100')}
+                className={cn(
+                  'p-1.5 rounded-lg transition-colors',
+                  darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100',
+                )}
               >
                 ✕
               </button>
@@ -281,7 +263,7 @@ export default function ProfilePage() {
                     'w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50',
                     darkMode
                       ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0]'
-                      : 'bg-bg-base/50 border-border-subtle'
+                      : 'bg-bg-base/50 border-border-subtle',
                   )}
                   placeholder={fieldMeta[editField].placeholder}
                 />
@@ -293,12 +275,15 @@ export default function ProfilePage() {
             <div
               className={cn(
                 'flex items-center justify-end gap-3 px-6 py-4 border-t',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/30'
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/30',
               )}
             >
               <button
                 onClick={closeEdit}
-                className={cn('px-5 py-2 rounded-lg text-sm transition-colors', darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100')}
+                className={cn(
+                  'px-5 py-2 rounded-lg text-sm transition-colors',
+                  darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
+                )}
               >
                 取消
               </button>
@@ -308,7 +293,7 @@ export default function ProfilePage() {
                 className={cn(
                   'flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity',
                   darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-                  submitLoading && 'opacity-70'
+                  submitLoading && 'opacity-70',
                 )}
               >
                 {submitLoading && <Loader2 className="animate-spin" size={14} />}
