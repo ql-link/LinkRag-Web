@@ -91,9 +91,8 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
       >
         <div className={cn("flex items-center min-w-max", collapsed ? "justify-center" : "gap-3")}>
           <div className={cn(
-            "rounded-lg flex items-center justify-center",
+            "rounded-lg flex items-center justify-center overflow-hidden",
             collapsed ? "h-11 w-11 p-1.5" : "h-8 w-8 p-1",
-            darkMode ? "bg-[#1e1e1e]" : "bg-white/90"
           )}>
             <LinkRagMark darkMode={darkMode} />
           </div>
