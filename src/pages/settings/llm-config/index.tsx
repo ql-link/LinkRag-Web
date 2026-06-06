@@ -1,15 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Box,
-  Check,
-  ChevronDown,
-  Key,
-  Plus,
-  RefreshCw,
-  SlidersHorizontal,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { Box, Check, ChevronDown, Key, Plus, RefreshCw, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
@@ -56,13 +46,20 @@ interface ConfigFormData {
   extraConfig?: string;
 }
 
-const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
-  { value: 'CHAT', label: '对话', hint: 'Chat' },
-  { value: 'EMBEDDING', label: '向量', hint: 'Embedding' },
-  { value: 'OCR', label: '识别', hint: 'OCR' },
-  { value: 'VISION', label: '视觉', hint: 'Vision' },
-  { value: 'REASONING', label: '推理', hint: 'Reasoning' },
-  { value: 'CODE', label: '代码', hint: 'Code' },
+interface CapabilityMeta {
+  value: LLMCapability;
+  label: string;
+  hint: string;
+  required: boolean;
+}
+
+const CAPABILITIES: CapabilityMeta[] = [
+  { value: 'CHAT', label: '对话', hint: 'Chat', required: true },
+  { value: 'EMBEDDING', label: 'Embedding', hint: 'Embedding', required: true },
+  { value: 'OCR', label: 'OCR', hint: 'OCR', required: false },
+  { value: 'VISION', label: '视觉', hint: 'Vision', required: false },
+  { value: 'REASONING', label: '推理', hint: 'Reasoning', required: false },
+  { value: 'CODE', label: '代码', hint: 'Code', required: false },
 ];
 
 const PROVIDER_ICON_URLS: Record<string, string> = {
@@ -83,18 +80,18 @@ const PROVIDER_ICON_URLS: Record<string, string> = {
 };
 
 function getCapabilityMeta(capability: LLMCapability) {
-  return CAPABILITIES.find((item) => item.value === capability) || {
-    value: capability,
-    label: capability,
-    hint: capability,
-  };
+  return (
+    CAPABILITIES.find((item) => item.value === capability) || {
+      value: capability,
+      label: capability,
+      hint: capability,
+    }
+  );
 }
 
 function getProviderIcon(providerType: string, providerName?: string) {
   const keys = [providerType, providerName || ''].map((value) => value.toLowerCase());
-  const matchedKey = Object.keys(PROVIDER_ICON_URLS).find((key) =>
-    keys.some((value) => value.includes(key))
-  );
+  const matchedKey = Object.keys(PROVIDER_ICON_URLS).find((key) => keys.some((value) => value.includes(key)));
   return matchedKey ? PROVIDER_ICON_URLS[matchedKey] : '';
 }
 
@@ -112,10 +109,7 @@ export default function LLMPage() {
   const loadPageData = async () => {
     setLoading(true);
     try {
-      const [configResult, providerResult] = await Promise.all([
-        getLLMConfigs(),
-        getLLMProviders(),
-      ]);
+      const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
       setConfigs(configResult);
       setProviders(providerResult);
     } catch (error) {
@@ -145,6 +139,11 @@ export default function LLMPage() {
       config: defaultConfigs.get(capability.value),
     }));
   }, [defaultConfigs]);
+
+  const requiredCapabilityCount = CAPABILITIES.filter((capability) => capability.required).length;
+  const requiredDefaultCount = currentDefaultConfigs.filter(
+    (capability) => capability.required && Boolean(capability.config),
+  ).length;
 
   const handleSaveConfig = async (data: ConfigFormData) => {
     try {
@@ -190,10 +189,8 @@ export default function LLMPage() {
       await setDefaultLLMConfig(config.id, config.capability);
       setConfigs((prev) =>
         prev.map((item) =>
-          item.capability === config.capability
-            ? { ...item, isDefault: item.id === config.id }
-            : item
-        )
+          item.capability === config.capability ? { ...item, isDefault: item.id === config.id } : item,
+        ),
       );
     } catch (error) {
       console.error('Failed to set default config:', error);
@@ -204,9 +201,7 @@ export default function LLMPage() {
     try {
       await updateLLMConfig(config.id, { isActive: !config.isActive });
       setConfigs((prev) =>
-        prev.map((item) =>
-          item.id === config.id ? { ...item, isActive: !config.isActive } : item
-        )
+        prev.map((item) => (item.id === config.id ? { ...item, isActive: !config.isActive } : item)),
       );
     } catch (error) {
       console.error('Failed to toggle config:', error);
@@ -226,33 +221,28 @@ export default function LLMPage() {
   };
 
   const activeCount = configs.filter((config) => config.isActive).length;
-  const defaultCount = configs.filter((config) => config.isDefault && config.isActive).length;
 
   return (
     <div className="h-full flex flex-col">
-      <header className={cn(
-        "h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md",
-        darkMode ? "bg-[#252526] border-[#3c3c3c]" : "bg-white/80 border-border-subtle border-b"
-      )}>
+      <header
+        className={cn(
+          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
+        )}
+      >
         <div className="flex flex-col gap-1">
           <Breadcrumb
-            items={[
-              { label: '首页', path: Routes.Home },
-              { label: '设置' },
-              { label: '模型配置' },
-            ]}
+            items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '模型配置' }]}
             darkMode={darkMode}
           />
-          <h2 className={cn("text-xl serif-heading", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-            模型配置
-          </h2>
+          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>模型配置</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadPageData}
             className={cn(
-              "p-2 rounded-lg transition-colors",
-              darkMode ? "text-[#858585] hover:bg-[#2d2d2d]" : "text-text-main/50 hover:bg-primary/5"
+              'p-2 rounded-lg transition-colors',
+              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-primary/5',
             )}
             title="刷新"
           >
@@ -261,8 +251,8 @@ export default function LLMPage() {
           <button
             onClick={() => setDrawerTarget({ mode: 'create' })}
             className={cn(
-              "h-9 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-opacity",
-              darkMode ? "bg-[#094771] text-white hover:bg-[#0a5280]" : "bg-text-main text-white hover:opacity-90"
+              'h-9 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-opacity',
+              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
             )}
           >
             <Plus size={14} />
@@ -271,45 +261,49 @@ export default function LLMPage() {
         </div>
       </header>
 
-      <main className={cn(
-        "flex-1 overflow-y-auto",
-        darkMode
-          ? "bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_42%,#1f1f1f_100%)]"
-          : "bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]"
-      )}>
-        <section className={cn("px-8 py-6 border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
+      <main
+        className={cn(
+          'flex-1 overflow-y-auto',
+          darkMode
+            ? 'bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_42%,#1f1f1f_100%)]'
+            : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]',
+        )}
+      >
+        <section className={cn('px-8 py-6 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
           <div className="flex items-start justify-between gap-8">
             <div>
-              <h3 className={cn("text-lg font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-                LLM 配置中心
-              </h3>
-              <p className={cn("text-xs mt-1", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+              <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>LLM 配置中心</h3>
+              <p className={cn('text-xs mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                 后端按模型能力拆分配置，默认模型也按能力独立生效
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 min-w-[420px]">
               <SummaryTile darkMode={darkMode} label="配置数" value={configs.length} />
               <SummaryTile darkMode={darkMode} label="启用中" value={activeCount} />
-              <SummaryTile darkMode={darkMode} label="默认能力" value={`${defaultCount}/${CAPABILITIES.length}`} />
+              <SummaryTile
+                darkMode={darkMode}
+                label="必填默认"
+                value={`${requiredDefaultCount}/${requiredCapabilityCount}`}
+              />
             </div>
           </div>
-
         </section>
 
         <section className="px-8 py-6 space-y-5">
-          <DefaultModelStrip
-            darkMode={darkMode}
-            items={currentDefaultConfigs}
-          />
+          <DefaultModelStrip darkMode={darkMode} items={currentDefaultConfigs} loading={loading} />
 
-          <div className={cn(
-            "rounded-lg border overflow-hidden",
-            darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
-          )}>
-            <div className={cn(
-              "grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 text-[11px] font-bold",
-              darkMode ? "bg-[#2d2d2d] text-[#858585]" : "bg-bg-base/72 text-text-main/50"
-            )}>
+          <div
+            className={cn(
+              'rounded-lg border overflow-hidden',
+              darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
+            )}
+          >
+            <div
+              className={cn(
+                'grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 text-[11px] font-bold',
+                darkMode ? 'bg-[#2d2d2d] text-[#858585]' : 'bg-bg-base/72 text-text-main/50',
+              )}
+            >
               <span>能力</span>
               <span>厂商</span>
               <span>模型</span>
@@ -320,14 +314,19 @@ export default function LLMPage() {
             </div>
 
             {loading ? (
-              <div className={cn("flex items-center justify-center py-16", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+              <div
+                className={cn(
+                  'flex items-center justify-center py-16',
+                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                )}
+              >
                 <RefreshCw size={18} className="animate-spin mr-2" />
                 <span className="text-sm">加载模型配置...</span>
               </div>
             ) : visibleConfigs.length === 0 ? (
               <EmptyState darkMode={darkMode} onAdd={() => setDrawerTarget({ mode: 'create' })} />
             ) : (
-              <div className={cn("divide-y", darkMode ? "divide-[#3c3c3c]" : "divide-border-subtle")}>
+              <div className={cn('divide-y', darkMode ? 'divide-[#3c3c3c]' : 'divide-border-subtle')}>
                 {visibleConfigs.map((config) => (
                   <ConfigRow
                     key={config.id}
@@ -361,92 +360,137 @@ export default function LLMPage() {
   );
 }
 
-function SummaryTile({ darkMode, label, value }: {
-  darkMode?: boolean;
-  label: string;
-  value: number | string;
-}) {
+function SummaryTile({ darkMode, label, value }: { darkMode?: boolean; label: string; value: number | string }) {
   return (
-    <div className={cn(
-      "rounded-lg border px-4 py-3",
-      darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
-    )}>
-      <div className={cn("text-xl font-semibold serif-heading", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+    <div
+      className={cn(
+        'rounded-lg border px-4 py-3',
+        darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
+      )}
+    >
+      <div className={cn('text-xl font-semibold serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
         {value}
       </div>
-      <div className={cn("text-[11px] font-bold mt-1", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-        {label}
-      </div>
+      <div className={cn('text-[11px] font-bold mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>{label}</div>
     </div>
   );
 }
 
-function DefaultModelStrip({ darkMode, items }: {
+function DefaultModelStrip({
+  darkMode,
+  items,
+  loading,
+}: {
   darkMode?: boolean;
-  items: Array<{ value: LLMCapability; label: string; hint: string; config?: LLMConfigDTO }>;
+  items: Array<CapabilityMeta & { config?: LLMConfigDTO }>;
+  loading?: boolean;
 }) {
   return (
-    <div className={cn(
-      "rounded-lg border px-5 py-4",
-      darkMode ? "bg-[#252526]/88 border-[#3c3c3c]" : "bg-white/84 border-white/85 shadow-sm"
-    )}>
+    <div
+      className={cn(
+        'rounded-lg border px-5 py-4',
+        darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
+      )}
+    >
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h4 className={cn("text-sm font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-            当前默认模型
-          </h4>
-          <p className={cn("text-[11px] mt-1", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-            每个能力只会有一个启用中的默认配置
+          <h4 className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>当前默认模型</h4>
+          <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+            对话和 Embedding 为必填能力，其余能力可选配置
           </p>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        {items.map((item) => (
-          <div
-            key={item.value}
-            className={cn(
-              "rounded-lg px-3 py-3 border min-h-[72px]",
-              darkMode ? "bg-[#1e1e1e]/88 border-[#3c3c3c]" : "bg-bg-base/70 border-border-subtle"
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className={cn("text-xs font-bold", darkMode ? "text-[#cccccc]" : "text-text-main")}>
-                {item.label}
-              </span>
-              <span className={cn("mono-label", darkMode ? "text-[#858585]" : "text-text-main/40")}>
-                {item.hint}
-              </span>
-            </div>
-            {item.config ? (
-              <div className="mt-2 flex items-center gap-2 min-w-0">
-                <ProviderIcon
-                  iconUrl={getProviderIcon(item.config.providerType, item.config.providerName)}
-                  name={item.config.providerName}
-                  darkMode={darkMode}
-                  size="sm"
-                />
-                <div className="min-w-0">
-                  <p className={cn("text-xs font-bold truncate", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-                    {item.config.modelName}
-                  </p>
-                  <p className={cn("text-[10px] truncate", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-                    {item.config.providerName} · {item.config.configName}
-                  </p>
+        {items.map((item) => {
+          const missingRequired = item.required && !item.config && !loading;
+
+          return (
+            <div
+              key={item.value}
+              className={cn(
+                'rounded-lg px-3 py-3 border min-h-[82px]',
+                missingRequired
+                  ? darkMode
+                    ? 'bg-red-500/8 border-red-500/35'
+                    : 'bg-red-50/70 border-red-200'
+                  : darkMode
+                    ? 'bg-[#1e1e1e]/88 border-[#3c3c3c]'
+                    : 'bg-bg-base/70 border-border-subtle',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className={cn('text-xs font-bold truncate', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+                    {item.label}
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold',
+                      item.required
+                        ? darkMode
+                          ? 'bg-red-500/16 text-red-300'
+                          : 'bg-red-100 text-red-600'
+                        : darkMode
+                          ? 'bg-[#3c3c3c] text-[#858585]'
+                          : 'bg-white/70 text-text-main/45',
+                    )}
+                  >
+                    {item.required ? '必填' : '选填'}
+                  </span>
                 </div>
+                <span className={cn('mono-label shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                  {item.hint}
+                </span>
               </div>
-            ) : (
-              <p className={cn("text-xs mt-3", darkMode ? "text-[#858585]" : "text-text-main/45")}>
-                未设置默认
-              </p>
-            )}
-          </div>
-        ))}
+              {item.config ? (
+                <div className="mt-2 flex items-center gap-2 min-w-0">
+                  <ProviderIcon
+                    iconUrl={getProviderIcon(item.config.providerType, item.config.providerName)}
+                    name={item.config.providerName}
+                    darkMode={darkMode}
+                    size="sm"
+                  />
+                  <div className="min-w-0">
+                    <p className={cn('text-xs font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                      {item.config.modelName}
+                    </p>
+                    <p className={cn('text-[10px] truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                      {item.config.providerName} · {item.config.configName}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  className={cn(
+                    'text-xs mt-3 font-bold',
+                    missingRequired
+                      ? darkMode
+                        ? 'text-red-300'
+                        : 'text-red-600'
+                      : darkMode
+                        ? 'text-[#858585]'
+                        : 'text-text-main/45',
+                  )}
+                >
+                  {loading ? '加载中...' : missingRequired ? '必填项未配置' : '未设置默认'}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleActive }: {
+function ConfigRow({
+  config,
+  darkMode,
+  onEdit,
+  onDelete,
+  onSetDefault,
+  onToggleActive,
+}: {
   key?: number;
   config: LLMConfigDTO;
   darkMode?: boolean;
@@ -459,15 +503,19 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
   const iconUrl = getProviderIcon(config.providerType, config.providerName);
 
   return (
-    <div className={cn(
-      "grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 items-center min-h-[68px]",
-      darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "text-text-main hover:bg-bg-base/45"
-    )}>
+    <div
+      className={cn(
+        'grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 items-center min-h-[68px]',
+        darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main hover:bg-bg-base/45',
+      )}
+    >
       <div>
-        <span className={cn(
-          "inline-flex px-2 py-1 rounded text-[11px] font-bold",
-          darkMode ? "bg-[#3c3c3c] text-[#e0e0e0]" : "bg-primary/10 text-text-main"
-        )}>
+        <span
+          className={cn(
+            'inline-flex px-2 py-1 rounded text-[11px] font-bold',
+            darkMode ? 'bg-[#3c3c3c] text-[#e0e0e0]' : 'bg-primary/10 text-text-main',
+          )}
+        >
           {capability.label}
         </span>
       </div>
@@ -475,14 +523,14 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
         <ProviderIcon iconUrl={iconUrl} name={config.providerName} darkMode={darkMode} size="sm" />
         <div className="min-w-0">
           <p className="text-sm font-bold truncate">{config.providerName}</p>
-          <p className={cn("mono-label truncate", darkMode ? "text-[#858585]" : "text-text-main/40")}>
+          <p className={cn('mono-label truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
             {config.providerType}
           </p>
         </div>
       </div>
       <div className="min-w-0">
         <p className="text-sm font-bold truncate">{config.modelName}</p>
-        <p className={cn("text-[11px] truncate", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+        <p className={cn('text-[11px] truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
           {config.configName}
         </p>
       </div>
@@ -504,8 +552,8 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
         <button
           onClick={onEdit}
           className={cn(
-            "p-2 rounded-lg transition-colors",
-            darkMode ? "text-[#cccccc] hover:bg-[#3c3c3c]" : "text-text-main/70 hover:bg-primary/10"
+            'p-2 rounded-lg transition-colors',
+            darkMode ? 'text-[#cccccc] hover:bg-[#3c3c3c]' : 'text-text-main/70 hover:bg-primary/10',
           )}
           title="编辑"
         >
@@ -514,8 +562,8 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
         <button
           onClick={onDelete}
           className={cn(
-            "p-2 rounded-lg transition-colors",
-            darkMode ? "text-red-300 hover:bg-red-900/30" : "text-red-500 hover:bg-red-50"
+            'p-2 rounded-lg transition-colors',
+            darkMode ? 'text-red-300 hover:bg-red-900/30' : 'text-red-500 hover:bg-red-50',
           )}
           title="删除"
         >
@@ -526,7 +574,13 @@ function ConfigRow({ config, darkMode, onEdit, onDelete, onSetDefault, onToggleA
   );
 }
 
-function StateSwitch({ darkMode, checked, label, disabled, onClick }: {
+function StateSwitch({
+  darkMode,
+  checked,
+  label,
+  disabled,
+  onClick,
+}: {
   darkMode?: boolean;
   checked: boolean;
   label: string;
@@ -539,33 +593,46 @@ function StateSwitch({ darkMode, checked, label, disabled, onClick }: {
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "group inline-flex w-fit items-center gap-2 rounded-full text-[11px] font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
+        'group inline-flex w-fit items-center gap-2 rounded-full text-[11px] font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-55',
       )}
     >
-      <span className={cn(
-        "relative h-5 w-9 rounded-full border transition-colors",
-        checked
-          ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/18" : "border-primary/35 bg-primary/18"
-          : darkMode ? "border-[#3c3c3c] bg-[#2d2d2d]" : "border-border-subtle bg-bg-base"
-      )}>
-        <span className={cn(
-          "absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform",
-          checked ? "translate-x-4" : "translate-x-0",
-          checked ? darkMode ? "bg-[#3b82f6]" : "bg-primary" : darkMode ? "bg-[#858585]" : "bg-text-main/35"
-        )} />
+      <span
+        className={cn(
+          'relative h-5 w-9 rounded-full border transition-colors',
+          checked
+            ? darkMode
+              ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18'
+              : 'border-primary/35 bg-primary/18'
+            : darkMode
+              ? 'border-[#3c3c3c] bg-[#2d2d2d]'
+              : 'border-border-subtle bg-bg-base',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+            checked ? (darkMode ? 'bg-[#3b82f6]' : 'bg-primary') : darkMode ? 'bg-[#858585]' : 'bg-text-main/35',
+          )}
+        />
       </span>
-      <span className={cn(
-        checked
-          ? darkMode ? "text-[#3b82f6]" : "text-primary"
-          : darkMode ? "text-[#858585]" : "text-text-main/45"
-      )}>
+      <span
+        className={cn(
+          checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : darkMode ? 'text-[#858585]' : 'text-text-main/45',
+        )}
+      >
         {label}
       </span>
     </button>
   );
 }
 
-function ProviderIcon({ iconUrl, name, darkMode, size }: {
+function ProviderIcon({
+  iconUrl,
+  name,
+  darkMode,
+  size,
+}: {
   iconUrl: string;
   name: string;
   darkMode?: boolean;
@@ -578,26 +645,25 @@ function ProviderIcon({ iconUrl, name, darkMode, size }: {
       <img
         src={iconUrl}
         alt={name}
-        className={cn(className, "rounded-lg object-contain shrink-0", darkMode ? "bg-[#3c3c3c]" : "bg-white")}
+        className={cn(className, 'rounded-lg object-contain shrink-0', darkMode ? 'bg-[#3c3c3c]' : 'bg-white')}
       />
     );
   }
 
   return (
-    <div className={cn(
-      className,
-      "rounded-lg flex items-center justify-center shrink-0",
-      darkMode ? "bg-[#3c3c3c]" : "bg-primary/10"
-    )}>
-      <Box size={16} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
+    <div
+      className={cn(
+        className,
+        'rounded-lg flex items-center justify-center shrink-0',
+        darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10',
+      )}
+    >
+      <Box size={16} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
     </div>
   );
 }
 
-function CapabilityChips({ capabilities, darkMode }: {
-  capabilities: LLMCapability[];
-  darkMode?: boolean;
-}) {
+function CapabilityChips({ capabilities, darkMode }: { capabilities: LLMCapability[]; darkMode?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {capabilities.map((capability) => {
@@ -606,8 +672,8 @@ function CapabilityChips({ capabilities, darkMode }: {
           <span
             key={capability}
             className={cn(
-              "px-1.5 py-0.5 rounded text-[9px] font-bold",
-              darkMode ? "bg-[#3c3c3c] text-[#cccccc]" : "bg-bg-base text-text-main/70"
+              'px-1.5 py-0.5 rounded text-[9px] font-bold',
+              darkMode ? 'bg-[#3c3c3c] text-[#cccccc]' : 'bg-bg-base text-text-main/70',
             )}
           >
             {meta.label}
@@ -620,16 +686,14 @@ function CapabilityChips({ capabilities, darkMode }: {
 
 function EmptyState({ darkMode, onAdd }: { darkMode?: boolean; onAdd: () => void }) {
   return (
-    <div className={cn("text-center py-16", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-      <Key size={38} className={cn("mx-auto mb-4", darkMode ? "text-[#6b6b6b]" : "text-text-main/20")} />
-      <p className={cn("text-sm font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-        暂无模型配置
-      </p>
+    <div className={cn('text-center py-16', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+      <Key size={38} className={cn('mx-auto mb-4', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
+      <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>暂无模型配置</p>
       <button
         onClick={onAdd}
         className={cn(
-          "mt-4 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2",
-          darkMode ? "bg-[#094771] text-white hover:bg-[#0a5280]" : "bg-text-main text-white hover:opacity-90"
+          'mt-4 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2',
+          darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
         )}
       >
         <Plus size={14} />
@@ -639,7 +703,13 @@ function EmptyState({ darkMode, onAdd }: { darkMode?: boolean; onAdd: () => void
   );
 }
 
-function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
+function LLMConfigModal({
+  darkMode,
+  target,
+  providers,
+  onClose,
+  onSave,
+}: {
   darkMode?: boolean;
   target: DrawerTarget;
   providers: ProviderModelDTO[];
@@ -651,21 +721,15 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
   const [providerType, setProviderType] = useState(initialProvider?.providerType || '');
   const selectedProvider = providers.find((provider) => provider.providerType === providerType) || initialProvider;
   const availableModels = selectedProvider?.models || [];
-  const initialModelName =
-    target.config?.modelName ||
-    target.model?.modelName ||
-    availableModels[0]?.modelName ||
-    '';
+  const initialModelName = target.config?.modelName || target.model?.modelName || availableModels[0]?.modelName || '';
   const [modelName, setModelName] = useState(initialModelName);
   const selectedModel = availableModels.find((model) => model.modelName === modelName) || target.model;
   const displayModels = availableModels;
   const [entryCapability, setEntryCapability] = useState<LLMCapability | ''>(
-    target.config?.capability ||
-    selectedModel?.capabilities[0] ||
-    ''
+    target.config?.capability || selectedModel?.capabilities[0] || '',
   );
   const [configName, setConfigName] = useState(
-    target.config?.configName || `${selectedProvider?.providerName || ''} ${initialModelName}`.trim()
+    target.config?.configName || `${selectedProvider?.providerName || ''} ${initialModelName}`.trim(),
   );
   const [apiKey, setApiKey] = useState('');
   const [customApiBaseUrl, setCustomApiBaseUrl] = useState(target.config?.customApiBaseUrl || '');
@@ -729,22 +793,32 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn(
-        "relative w-full max-w-[760px] max-h-[88vh] rounded-lg shadow-2xl flex flex-col overflow-hidden",
-        darkMode ? "bg-[#252526] border border-[#3c3c3c]" : "bg-white/94 border border-white/90"
-      )}>
-        <div className={cn("h-20 px-6 flex items-center justify-between border-b", darkMode ? "border-[#3c3c3c]" : "border-border-subtle")}>
+      <div
+        className={cn(
+          'relative w-full max-w-[760px] max-h-[88vh] rounded-lg shadow-2xl flex flex-col overflow-hidden',
+          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/94 border border-white/90',
+        )}
+      >
+        <div
+          className={cn(
+            'h-20 px-6 flex items-center justify-between border-b',
+            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+          )}
+        >
           <div>
-            <h3 className={cn("text-lg font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
+            <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
               {isEditing ? '编辑配置' : '添加配置'}
             </h3>
-            <p className={cn("mono-label mt-1", darkMode ? "text-[#858585]" : "text-text-main/40")}>
+            <p className={cn('mono-label mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
               {isEditing ? target.config?.modelName : 'Provider & Model'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className={cn("p-2 rounded-lg transition-colors", darkMode ? "text-[#858585] hover:bg-[#2d2d2d]" : "text-text-main/50 hover:bg-gray-100")}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-gray-100',
+            )}
           >
             <X size={18} />
           </button>
@@ -752,13 +826,13 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
 
         <div className="flex-1 overflow-hidden">
           <div className="grid grid-cols-[220px_1fr] h-full min-h-0">
-            <aside className={cn(
-              "border-r p-4 overflow-y-auto",
-              darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/55"
-            )}>
-              <p className={cn("text-xs font-bold mb-3", darkMode ? "text-[#cccccc]" : "text-text-main")}>
-                选择厂商
-              </p>
+            <aside
+              className={cn(
+                'border-r p-4 overflow-y-auto',
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
+              )}
+            >
+              <p className={cn('text-xs font-bold mb-3', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>选择厂商</p>
               <div className="space-y-2">
                 {providers.map((provider) => {
                   const iconUrl = getProviderIcon(provider.providerType, provider.providerName);
@@ -772,16 +846,25 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                       onClick={() => handleProviderChange(provider.providerType)}
                       disabled={isEditing}
                       className={cn(
-                        "w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-60",
+                        'w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-60',
                         active
-                          ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#f0f0f0]" : "border-primary/35 bg-primary/12 text-text-main"
-                          : darkMode ? "border-[#3c3c3c] bg-[#252526] hover:border-[#3b82f6]" : "border-border-subtle bg-white/76 hover:border-primary/35 hover:bg-white"
+                          ? darkMode
+                            ? 'border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#f0f0f0]'
+                            : 'border-primary/35 bg-primary/12 text-text-main'
+                          : darkMode
+                            ? 'border-[#3c3c3c] bg-[#252526] hover:border-[#3b82f6]'
+                            : 'border-border-subtle bg-white/76 hover:border-primary/35 hover:bg-white',
                       )}
                     >
                       <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold truncate">{provider.providerName}</p>
-                        <p className={cn("text-[10px] mt-0.5", active ? "text-current/65" : darkMode ? "text-[#858585]" : "text-text-main/45")}>
+                        <p
+                          className={cn(
+                            'text-[10px] mt-0.5',
+                            active ? 'text-current/65' : darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                          )}
+                        >
                           {selectableCount} models
                         </p>
                       </div>
@@ -808,12 +891,16 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                           description: `${model.capabilities.length} 个能力`,
                           trailing: <CapabilityDots capabilities={model.capabilities} darkMode={darkMode} />,
                         })),
-                        ...(isEditing && target.config && !displayModels.some((model) => model.modelName === target.config?.modelName)
-                          ? [{
-                              value: target.config.modelName,
-                              label: target.config.modelName,
-                              description: '当前配置模型',
-                            }]
+                        ...(isEditing &&
+                        target.config &&
+                        !displayModels.some((model) => model.modelName === target.config?.modelName)
+                          ? [
+                              {
+                                value: target.config.modelName,
+                                label: target.config.modelName,
+                                description: '当前配置模型',
+                              },
+                            ]
                           : []),
                       ]}
                     />
@@ -826,25 +913,27 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                       onChange={(value) => setEntryCapability(value as LLMCapability)}
                       disabled={isEditing || applyAllCapabilities}
                       placeholder="选择能力"
-                      options={(selectedModel?.capabilities || [target.config?.capability]).filter(Boolean).map((capability) => {
-                        const value = capability as LLMCapability;
-                        const meta = getCapabilityMeta(value);
-                        return {
-                          value,
-                          label: meta.label,
-                          description: meta.hint,
-                          leading: <CapabilityBadge capability={value} darkMode={darkMode} />,
-                        };
-                      })}
+                      options={(selectedModel?.capabilities || [target.config?.capability])
+                        .filter(Boolean)
+                        .map((capability) => {
+                          const value = capability as LLMCapability;
+                          const meta = getCapabilityMeta(value);
+                          return {
+                            value,
+                            label: meta.label,
+                            description: meta.hint,
+                            leading: <CapabilityBadge capability={value} darkMode={darkMode} />,
+                          };
+                        })}
                     />
                   </FieldLabel>
                 </div>
 
                 {selectedModel && (
-                  <div className={cn("rounded-lg px-3 py-3", darkMode ? "bg-[#1e1e1e]" : "bg-bg-base/50")}>
+                  <div className={cn('rounded-lg px-3 py-3', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base/50')}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className={cn("text-[11px]", darkMode ? "text-[#858585]" : "text-text-main/50")}>
+                        <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                           该模型支持能力
                         </p>
                         <CapabilityChips capabilities={selectedModel.capabilities} darkMode={darkMode} />
@@ -854,10 +943,14 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                           type="button"
                           onClick={() => setApplyAllCapabilities((value) => !value)}
                           className={cn(
-                            "shrink-0 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors",
+                            'shrink-0 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors',
                             applyAllCapabilities
-                              ? darkMode ? "border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#3b82f6]" : "border-primary/35 bg-primary/12 text-primary"
-                              : darkMode ? "border-[#3c3c3c] text-[#858585] hover:border-[#3b82f6]" : "border-border-subtle text-text-main/55 hover:border-primary/35"
+                              ? darkMode
+                                ? 'border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#3b82f6]'
+                                : 'border-primary/35 bg-primary/12 text-primary'
+                              : darkMode
+                                ? 'border-[#3c3c3c] text-[#858585] hover:border-[#3b82f6]'
+                                : 'border-border-subtle text-text-main/55 hover:border-primary/35',
                           )}
                         >
                           {applyAllCapabilities ? '已应用所有能力' : '应用到所有可用能力'}
@@ -880,13 +973,22 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                   />
                 </FieldLabel>
 
-                <FieldLabel darkMode={darkMode} label={(
-                  <span className="inline-flex items-center gap-1">
-                    API Key
-                    {!isEditing && <span className="text-red-500">*</span>}
-                    {!isEditing && <span className={cn("text-[11px]", darkMode ? "text-[#858585]" : "text-text-main/45")}>必填</span>}
-                  </span>
-                ) as unknown as string}>
+                <FieldLabel
+                  darkMode={darkMode}
+                  label={
+                    (
+                      <span className="inline-flex items-center gap-1">
+                        API Key
+                        {!isEditing && <span className="text-red-500">*</span>}
+                        {!isEditing && (
+                          <span className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                            必填
+                          </span>
+                        )}
+                      </span>
+                    ) as unknown as string
+                  }
+                >
                   <input
                     type="password"
                     value={apiKey}
@@ -896,7 +998,7 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                   />
                 </FieldLabel>
                 {!isEditing && (
-                  <p className={cn("text-[11px] mt-[-6px]", apiKey.trim() ? "text-transparent" : "text-red-500")}>
+                  <p className={cn('text-[11px] mt-[-6px]', apiKey.trim() ? 'text-transparent' : 'text-red-500')}>
                     {apiKey.trim() ? '占位' : '请填写 API Key'}
                   </p>
                 )}
@@ -912,10 +1014,12 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                 </FieldLabel>
               </FormSection>
               {validationError && (
-                <div className={cn(
-                  "rounded-lg border px-3 py-2 text-xs font-bold",
-                  darkMode ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-red-200 bg-red-50 text-red-600"
-                )}>
+                <div
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-xs font-bold',
+                    darkMode ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-600',
+                  )}
+                >
                   {validationError}
                 </div>
               )}
@@ -976,25 +1080,33 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
                   onChange={(event) => setExtraConfig(event.target.value)}
                   placeholder='{"temperature":0.7}'
                   rows={3}
-                  className={cn(inputClassName(darkMode), "resize-none")}
+                  className={cn(inputClassName(darkMode), 'resize-none')}
                 />
               </FormSection>
             </div>
           </div>
         </div>
 
-        <div className={cn("px-6 py-4 border-t flex items-center justify-end gap-3", darkMode ? "border-[#3c3c3c] bg-[#1e1e1e]" : "border-border-subtle bg-bg-base/55")}>
+        <div
+          className={cn(
+            'px-6 py-4 border-t flex items-center justify-end gap-3',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
+          )}
+        >
           <button
             onClick={onClose}
-            className={cn("h-9 px-4 rounded-lg text-xs font-bold", darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "hover:bg-gray-100")}
+            className={cn(
+              'h-9 px-4 rounded-lg text-xs font-bold',
+              darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
+            )}
           >
             取消
           </button>
           <button
             onClick={handleSubmit}
             className={cn(
-              "h-9 px-4 rounded-lg text-xs font-bold transition-opacity",
-              darkMode ? "bg-[#094771] text-white hover:bg-[#0a5280]" : "bg-text-main text-white hover:opacity-90"
+              'h-9 px-4 rounded-lg text-xs font-bold transition-opacity',
+              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
             )}
           >
             {isEditing ? '保存' : '添加'}
@@ -1005,14 +1117,10 @@ function LLMConfigModal({ darkMode, target, providers, onClose, onSave }: {
   );
 }
 
-function FieldLabel({ darkMode, label, children }: {
-  darkMode?: boolean;
-  label: ReactNode;
-  children: ReactNode;
-}) {
+function FieldLabel({ darkMode, label, children }: { darkMode?: boolean; label: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
-      <span className={cn("block mb-2 text-xs font-bold", darkMode ? "text-[#cccccc]" : "text-text-main")}>
+      <span className={cn('block mb-2 text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
         {label}
       </span>
       {children}
@@ -1020,31 +1128,39 @@ function FieldLabel({ darkMode, label, children }: {
   );
 }
 
-function FormSection({ darkMode, title, hint, children }: {
+function FormSection({
+  darkMode,
+  title,
+  hint,
+  children,
+}: {
   darkMode?: boolean;
   title: string;
   hint: string;
   children: ReactNode;
 }) {
   return (
-    <section className={cn(
-      "rounded-lg border p-4 space-y-4",
-      darkMode ? "border-[#3c3c3c] bg-[#2d2d2d]" : "border-border-subtle bg-white/74"
-    )}>
+    <section
+      className={cn(
+        'rounded-lg border p-4 space-y-4',
+        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white/74',
+      )}
+    >
       <div>
-        <h4 className={cn("text-sm font-bold", darkMode ? "text-[#e0e0e0]" : "text-text-main")}>
-          {title}
-        </h4>
-        <p className={cn("text-[11px] mt-1", darkMode ? "text-[#858585]" : "text-text-main/50")}>
-          {hint}
-        </p>
+        <h4 className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</h4>
+        <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>{hint}</p>
       </div>
       {children}
     </section>
   );
 }
 
-function CheckToggle({ darkMode, checked, label, onClick }: {
+function CheckToggle({
+  darkMode,
+  checked,
+  label,
+  onClick,
+}: {
   darkMode?: boolean;
   checked: boolean;
   label: string;
@@ -1055,17 +1171,19 @@ function CheckToggle({ darkMode, checked, label, onClick }: {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
-        darkMode ? "border-[#3c3c3c] hover:bg-[#2d2d2d]" : "border-border-subtle hover:bg-primary/5"
+        'flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
+        darkMode ? 'border-[#3c3c3c] hover:bg-[#2d2d2d]' : 'border-border-subtle hover:bg-primary/5',
       )}
     >
-      <span className={cn(
-        "w-5 h-5 rounded flex items-center justify-center transition-colors",
-        checked ? "bg-primary text-white" : darkMode ? "border border-[#3c3c3c]" : "border border-border-subtle"
-      )}>
+      <span
+        className={cn(
+          'w-5 h-5 rounded flex items-center justify-center transition-colors',
+          checked ? 'bg-primary text-white' : darkMode ? 'border border-[#3c3c3c]' : 'border border-border-subtle',
+        )}
+      >
         {checked && <Check size={12} />}
       </span>
-      <span className={cn("text-xs font-bold", darkMode ? "text-[#cccccc]" : "text-text-main")}>{label}</span>
+      <span className={cn('text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>{label}</span>
     </button>
   );
 }
@@ -1078,7 +1196,14 @@ interface FancySelectOption {
   trailing?: ReactNode;
 }
 
-function FancySelect({ darkMode, value, options, placeholder, disabled, onChange }: {
+function FancySelect({
+  darkMode,
+  value,
+  options,
+  placeholder,
+  disabled,
+  onChange,
+}: {
   darkMode?: boolean;
   value: string;
   options: FancySelectOption[];
@@ -1110,20 +1235,37 @@ function FancySelect({ darkMode, value, options, placeholder, disabled, onChange
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "h-11 w-full rounded-lg border px-3 text-left transition-colors flex items-center gap-3",
-          disabled && "cursor-not-allowed opacity-60",
+          'h-11 w-full rounded-lg border px-3 text-left transition-colors flex items-center gap-3',
+          disabled && 'cursor-not-allowed opacity-60',
           open
-            ? darkMode ? "border-[#3b82f6]/60 bg-[#1e1e1e]" : "border-primary/45 bg-white"
-            : darkMode ? "border-[#3c3c3c] bg-[#2d2d2d] hover:border-[#3b82f6]/45" : "border-border-subtle bg-bg-base/50 hover:border-primary/35"
+            ? darkMode
+              ? 'border-[#3b82f6]/60 bg-[#1e1e1e]'
+              : 'border-primary/45 bg-white'
+            : darkMode
+              ? 'border-[#3c3c3c] bg-[#2d2d2d] hover:border-[#3b82f6]/45'
+              : 'border-border-subtle bg-bg-base/50 hover:border-primary/35',
         )}
       >
         {selected?.leading}
         <span className="min-w-0 flex-1">
-          <span className={cn("block truncate text-sm font-bold", selected ? darkMode ? "text-[#e0e0e0]" : "text-text-main" : darkMode ? "text-[#6b6b6b]" : "text-text-main/40")}>
+          <span
+            className={cn(
+              'block truncate text-sm font-bold',
+              selected
+                ? darkMode
+                  ? 'text-[#e0e0e0]'
+                  : 'text-text-main'
+                : darkMode
+                  ? 'text-[#6b6b6b]'
+                  : 'text-text-main/40',
+            )}
+          >
             {selected?.label || placeholder || '请选择'}
           </span>
           {selected?.description && (
-            <span className={cn("block truncate text-[10px] mt-0.5", darkMode ? "text-[#858585]" : "text-text-main/45")}>
+            <span
+              className={cn('block truncate text-[10px] mt-0.5', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
+            >
               {selected.description}
             </span>
           )}
@@ -1132,18 +1274,20 @@ function FancySelect({ darkMode, value, options, placeholder, disabled, onChange
         <ChevronDown
           size={16}
           className={cn(
-            "shrink-0 transition-transform",
-            open && "rotate-180",
-            darkMode ? "text-[#858585]" : "text-text-main/45"
+            'shrink-0 transition-transform',
+            open && 'rotate-180',
+            darkMode ? 'text-[#858585]' : 'text-text-main/45',
           )}
         />
       </button>
 
       {open && !disabled && (
-        <div className={cn(
-          "absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-64 overflow-y-auto rounded-lg border p-1.5 shadow-xl",
-          darkMode ? "border-[#3c3c3c] bg-[#252526]" : "border-border-subtle bg-white"
-        )}>
+        <div
+          className={cn(
+            'absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-64 overflow-y-auto rounded-lg border p-1.5 shadow-xl',
+            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+          )}
+        >
           {options.map((option) => {
             const active = option.value === value;
             return (
@@ -1155,23 +1299,32 @@ function FancySelect({ darkMode, value, options, placeholder, disabled, onChange
                   setOpen(false);
                 }}
                 className={cn(
-                  "w-full rounded-md px-2.5 py-2 text-left flex items-center gap-3 transition-colors",
+                  'w-full rounded-md px-2.5 py-2 text-left flex items-center gap-3 transition-colors',
                   active
-                    ? darkMode ? "bg-[#3b82f6]/14 text-[#f0f0f0]" : "bg-primary/10 text-text-main"
-                    : darkMode ? "text-[#cccccc] hover:bg-[#2d2d2d]" : "text-text-main hover:bg-bg-base"
+                    ? darkMode
+                      ? 'bg-[#3b82f6]/14 text-[#f0f0f0]'
+                      : 'bg-primary/10 text-text-main'
+                    : darkMode
+                      ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                      : 'text-text-main hover:bg-bg-base',
                 )}
               >
                 {option.leading}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs font-bold">{option.label}</span>
                   {option.description && (
-                    <span className={cn("block truncate text-[10px] mt-0.5", active ? "text-current/65" : darkMode ? "text-[#858585]" : "text-text-main/45")}>
+                    <span
+                      className={cn(
+                        'block truncate text-[10px] mt-0.5',
+                        active ? 'text-current/65' : darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                      )}
+                    >
                       {option.description}
                     </span>
                   )}
                 </span>
                 {option.trailing}
-                {active && <Check size={14} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />}
+                {active && <Check size={14} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />}
               </button>
             );
           })}
@@ -1184,10 +1337,12 @@ function FancySelect({ darkMode, value, options, placeholder, disabled, onChange
 function CapabilityBadge({ capability, darkMode }: { capability: LLMCapability; darkMode?: boolean }) {
   const meta = getCapabilityMeta(capability);
   return (
-    <span className={cn(
-      "h-7 min-w-7 rounded-md px-2 inline-flex items-center justify-center text-[10px] font-bold",
-      darkMode ? "bg-[#1e1e1e] text-[#3b82f6]" : "bg-primary/10 text-primary"
-    )}>
+    <span
+      className={cn(
+        'h-7 min-w-7 rounded-md px-2 inline-flex items-center justify-center text-[10px] font-bold',
+        darkMode ? 'bg-[#1e1e1e] text-[#3b82f6]' : 'bg-primary/10 text-primary',
+      )}
+    >
       {meta.hint.slice(0, 2).toUpperCase()}
     </span>
   );
@@ -1203,8 +1358,8 @@ function CapabilityDots({ capabilities, darkMode }: { capabilities: LLMCapabilit
             key={capability}
             title={meta.label}
             className={cn(
-              "h-2.5 w-2.5 rounded-full border",
-              darkMode ? "border-[#252526] bg-[#3b82f6]" : "border-white bg-primary"
+              'h-2.5 w-2.5 rounded-full border',
+              darkMode ? 'border-[#252526] bg-[#3b82f6]' : 'border-white bg-primary',
             )}
           />
         );
@@ -1215,9 +1370,9 @@ function CapabilityDots({ capabilities, darkMode }: { capabilities: LLMCapabilit
 
 function inputClassName(darkMode?: boolean) {
   return cn(
-    "w-full px-3 py-2.5 rounded-lg text-sm border focus:outline-none focus:border-primary",
+    'w-full px-3 py-2.5 rounded-lg text-sm border focus:outline-none focus:border-primary',
     darkMode
-      ? "bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b] disabled:text-[#858585]"
-      : "bg-bg-base/50 border-border-subtle text-text-main disabled:text-text-main/50"
+      ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b] disabled:text-[#858585]'
+      : 'bg-bg-base/50 border-border-subtle text-text-main disabled:text-text-main/50',
   );
 }

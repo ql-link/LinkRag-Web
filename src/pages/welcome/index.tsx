@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
@@ -35,14 +28,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 type AuthMode = 'login' | 'register';
 type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
-const githubProjectUrl = (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
+const githubProjectUrl =
+  (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
 const darkModeLogoStyle = {
   filter: 'saturate(1.05) brightness(1.55) contrast(0.95) drop-shadow(0 0 1px rgba(255,255,255,0.45))',
 };
 
-const scrollSections = [
-  { id: 'knowledge', label: '功能' },
-];
+const scrollSections = [{ id: 'knowledge', label: '功能' }];
 
 const workflowSlides = [
   {
@@ -128,15 +120,7 @@ function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
   );
 }
 
-function RevealSection({
-  id,
-  className,
-  children,
-}: {
-  id?: string;
-  className?: string;
-  children: ReactNode;
-}) {
+function RevealSection({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -218,19 +202,31 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
     setActiveFileIndex(0);
 
     uploadFiles.forEach((_, index) => {
-      parseTimers.current.push(window.setTimeout(() => {
-        setActiveFileIndex(index);
-      }, index * 760));
+      parseTimers.current.push(
+        window.setTimeout(() => {
+          setActiveFileIndex(index);
+        }, index * 760),
+      );
     });
 
-    parseTimers.current.push(window.setTimeout(() => {
-      setStage('parsing');
-      setActiveFileIndex(-1);
-    }, uploadFiles.length * 760 + 180));
+    parseTimers.current.push(
+      window.setTimeout(
+        () => {
+          setStage('parsing');
+          setActiveFileIndex(-1);
+        },
+        uploadFiles.length * 760 + 180,
+      ),
+    );
 
-    parseTimers.current.push(window.setTimeout(() => {
-      setStage('done');
-    }, uploadFiles.length * 760 + 780));
+    parseTimers.current.push(
+      window.setTimeout(
+        () => {
+          setStage('done');
+        },
+        uploadFiles.length * 760 + 780,
+      ),
+    );
 
     return () => clearParseTimers();
   }, []);
@@ -242,7 +238,9 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[470px] overflow-hidden rounded-[34px] border p-6',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
+          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -262,7 +260,9 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
               transition={{ duration: 0.28, ease: 'easeOut' }}
               className={cn(
                 'absolute left-[55%] top-[46%] flex h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[34px] border p-7',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_30px_rgba(197,134,192,0.08)]' : 'border-border-subtle bg-white/86 shadow-[0_16px_40px_rgba(212,163,115,0.14)]',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_30px_rgba(197,134,192,0.08)]'
+                  : 'border-border-subtle bg-white/86 shadow-[0_16px_40px_rgba(212,163,115,0.14)]',
                 stage === 'parsing' ? 'ring-1 ring-primary/20' : '',
                 stage === 'done' ? 'scale-95 opacity-0' : '',
               )}
@@ -277,10 +277,28 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
                 <Upload size={20} className={darkMode ? 'text-[#d9d9d9]' : 'text-primary'} />
               </div>
 
-              <div className={cn('mt-4 flex-1 rounded-[28px] border border-dashed transition-colors', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72', stage === 'uploading' ? 'border-primary/50' : '')}>
+              <div
+                className={cn(
+                  'mt-4 flex-1 rounded-[28px] border border-dashed transition-colors',
+                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+                  stage === 'uploading' ? 'border-primary/50' : '',
+                )}
+              >
                 <div className="flex h-full items-center justify-center">
-                  <div className={cn('flex h-20 w-20 items-center justify-center rounded-[26px] border transition-transform', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-primary/12 bg-primary/10', stage === 'parsing' ? 'scale-90' : '')}>
-                    <ScissorsLineDashed size={36} className={cn(darkMode ? 'text-[#d9d9d9]' : 'text-primary', stage === 'parsing' ? 'animate-pulse' : '')} />
+                  <div
+                    className={cn(
+                      'flex h-20 w-20 items-center justify-center rounded-[26px] border transition-transform',
+                      darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-primary/12 bg-primary/10',
+                      stage === 'parsing' ? 'scale-90' : '',
+                    )}
+                  >
+                    <ScissorsLineDashed
+                      size={36}
+                      className={cn(
+                        darkMode ? 'text-[#d9d9d9]' : 'text-primary',
+                        stage === 'parsing' ? 'animate-pulse' : '',
+                      )}
+                    />
                   </div>
                 </div>
               </div>
@@ -305,11 +323,11 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
                 x: isActive ? [0, 70, 210, 330] : 0,
                 y: isActive
                   ? [
-                    0,
-                    index === 0 ? -18 : index === 1 ? -28 : -38,
-                    index === 0 ? 4 : index === 1 ? -18 : -44,
-                    index === 0 ? 26 : index === 1 ? -4 : -34,
-                  ]
+                      0,
+                      index === 0 ? -18 : index === 1 ? -28 : -38,
+                      index === 0 ? 4 : index === 1 ? -18 : -44,
+                      index === 0 ? 26 : index === 1 ? -4 : -34,
+                    ]
                   : 0,
                 opacity: hasPassed ? 0 : isActive ? [1, 1, 0.95, 0] : 1,
                 scale: isActive ? [1, 1.06, 0.96, 0.82] : 1,
@@ -323,7 +341,12 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
             >
               <div className="flex flex-col items-center gap-1.5">
                 <Icon size={30} className={darkMode ? 'text-[#e6e6e6]' : 'text-primary'} />
-                <span className={cn('max-w-[82px] truncate text-center text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                <span
+                  className={cn(
+                    'max-w-[82px] truncate text-center text-[11px]',
+                    darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                  )}
+                >
                   {file.name}
                 </span>
               </div>
@@ -412,7 +435,9 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
+          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -430,14 +455,22 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
               className="px-1 py-2"
             >
               <div className="mb-1.5 flex items-center gap-2">
-                <span className={cn('h-1.5 w-1.5 rounded-full', index === 1 ? 'bg-primary/55' : darkMode ? 'bg-[#858585]' : 'bg-text-main/24')} />
-                <p className={cn('font-mono text-[9px] uppercase tracking-[0.18em]', darkMode ? 'text-[#858585]' : 'text-text-main/42')}>
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full',
+                    index === 1 ? 'bg-primary/55' : darkMode ? 'bg-[#858585]' : 'bg-text-main/24',
+                  )}
+                />
+                <p
+                  className={cn(
+                    'font-mono text-[9px] uppercase tracking-[0.18em]',
+                    darkMode ? 'text-[#858585]' : 'text-text-main/42',
+                  )}
+                >
                   chunk {index + 1}
                 </p>
               </div>
-                <p className={cn('text-[12px] leading-5', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/64')}>
-                  {label}
-                </p>
+              <p className={cn('text-[12px] leading-5', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/64')}>{label}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -469,7 +502,10 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
           />
           <path
             d="M0 99H58"
-            className={cn('index-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
+            className={cn(
+              'index-moving-path index-moving-path-delay',
+              darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+            )}
           />
           <path
             d="M0 178H27Q34 178 34 166V99H58"
@@ -481,7 +517,10 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
           />
           <path
             d="M58 99V170Q58 182 65 182H100"
-            className={cn('index-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
+            className={cn(
+              'index-moving-path index-moving-path-out index-moving-path-delay',
+              darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+            )}
           />
         </svg>
 
@@ -497,20 +536,41 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
               <DatabaseZap size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
                 <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>向量索引</p>
-                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>embedding vectors</p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>
+                  embedding vectors
+                </p>
               </div>
             </div>
-            <div className={cn('relative h-[74px] overflow-hidden rounded-2xl border', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72')}>
-              <div className={cn('absolute left-[46%] top-[38%] h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#3b82f6]/28 bg-[#3b82f6]/6' : 'border-primary/28 bg-primary/10')} />
-              <div className={cn('demo-pulse-ring absolute left-[46%] top-[38%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border', darkMode ? 'border-[#3b82f6]/25' : 'border-primary/24')} />
+            <div
+              className={cn(
+                'relative h-[74px] overflow-hidden rounded-2xl border',
+                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+              )}
+            >
+              <div
+                className={cn(
+                  'absolute left-[46%] top-[38%] h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border',
+                  darkMode ? 'border-[#3b82f6]/28 bg-[#3b82f6]/6' : 'border-primary/28 bg-primary/10',
+                )}
+              />
+              <div
+                className={cn(
+                  'demo-pulse-ring absolute left-[46%] top-[38%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border',
+                  darkMode ? 'border-[#3b82f6]/25' : 'border-primary/24',
+                )}
+              />
               {vectorPoints.map((point, index) => (
                 <motion.span
                   key={`${point.x}-${point.y}`}
                   className={cn(
                     'absolute rounded-full',
                     point.near
-                      ? darkMode ? 'bg-[#3b82f6] shadow-[0_0_16px_rgba(197,134,192,0.45)]' : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
-                      : darkMode ? 'bg-[#5a5a5a]' : 'bg-text-main/18',
+                      ? darkMode
+                        ? 'bg-[#3b82f6] shadow-[0_0_16px_rgba(197,134,192,0.45)]'
+                        : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
+                      : darkMode
+                        ? 'bg-[#5a5a5a]'
+                        : 'bg-text-main/18',
                   )}
                   style={{
                     left: `${point.x}%`,
@@ -526,7 +586,10 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 />
               ))}
               <motion.span
-                className={cn('absolute left-[58%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white', darkMode ? 'border-[#3b82f6]' : 'border-primary')}
+                className={cn(
+                  'absolute left-[58%] top-[42%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white',
+                  darkMode ? 'border-[#3b82f6]' : 'border-primary',
+                )}
                 animate={{ scale: [1, 1.25, 1] }}
                 transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
               />
@@ -547,7 +610,12 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>text + metadata</p>
               </div>
             </div>
-            <div className={cn('rounded-2xl border px-2.5 py-2 font-mono text-[8px] leading-[1.8]', darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72')}>
+            <div
+              className={cn(
+                'rounded-2xl border px-2.5 py-2 font-mono text-[8px] leading-[1.8]',
+                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+              )}
+            >
               {esJsonLines.map((line, index) => (
                 <p
                   key={index}
@@ -574,7 +642,6 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             </div>
           </motion.div>
         </div>
-
       </div>
     </motion.div>
   );
@@ -608,7 +675,9 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
+          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -622,70 +691,173 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
               fill="none"
               aria-hidden="true"
             >
-            <path d="M204 237H232" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M388 237H458" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M708 237H782" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-            <path d="M782 237H890" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
+              <path
+                d="M204 237H232"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M388 237C456 237 374 66 458 66"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M388 237H458"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M388 237C456 237 374 418 458 418"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M738 66H760Q782 66 782 88V237"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M708 237H782"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M738 418H760Q782 418 782 396V237"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
+              <path
+                d="M782 237H890"
+                className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+              />
 
-            <path d="M204 237H232" className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M388 237C456 237 374 66 458 66" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M388 237H458" className={cn('recall-moving-path index-moving-path-late', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M388 237C456 237 374 418 458 418" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M738 66H760Q782 66 782 88V237" className={cn('recall-moving-path index-moving-path-out', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M708 237H782" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M738 418H760Q782 418 782 396V237" className={cn('recall-moving-path index-moving-path-out index-moving-path-late', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-            <path d="M782 237H890" className={cn('recall-moving-path index-moving-path-out index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
+              <path
+                d="M204 237H232"
+                className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
+              />
+              <path
+                d="M388 237C456 237 374 66 458 66"
+                className={cn(
+                  'recall-moving-path index-moving-path-delay',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M388 237H458"
+                className={cn(
+                  'recall-moving-path index-moving-path-late',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M388 237C456 237 374 418 458 418"
+                className={cn(
+                  'recall-moving-path index-moving-path-out',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M738 66H760Q782 66 782 88V237"
+                className={cn(
+                  'recall-moving-path index-moving-path-out',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M708 237H782"
+                className={cn(
+                  'recall-moving-path index-moving-path-out index-moving-path-delay',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M738 418H760Q782 418 782 396V237"
+                className={cn(
+                  'recall-moving-path index-moving-path-out index-moving-path-late',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
+              <path
+                d="M782 237H890"
+                className={cn(
+                  'recall-moving-path index-moving-path-out index-moving-path-delay',
+                  darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+                )}
+              />
             </svg>
 
-          <div className="absolute left-[14px] top-[184px] flex h-[106px] w-[190px] items-center">
-            <p className={cn('font-sans text-[36px] font-bold leading-[1.14] tracking-normal', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
-              <span className="block whitespace-nowrap">为什么需要</span>
-              <span className="block whitespace-nowrap">注意力机制？</span>
-            </p>
-          </div>
-
-          <div className={cn('multi-core absolute left-[238px] top-[162px] flex h-[150px] w-[150px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}>
-            <div className={cn('demo-pulse-ring absolute h-[126px] w-[126px] rounded-full border', darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28')} />
-            <div className="relative h-[110px] w-[110px]">
-              {[
-                [18, 52],
-                [40, 24],
-                [66, 38],
-                [54, 70],
-                [78, 62],
-                [36, 58],
-              ].map(([x, y], index) => (
-                <span
-                  key={`${x}-${y}`}
-                  className={cn('multi-core-dot absolute h-[10px] w-[10px] rounded-full', index % 2 ? 'bg-primary/70' : 'bg-primary')}
-                  style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${index * 0.14}s` }}
-                />
-              ))}
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
-                <path d="M23 57L45 29L70 43L60 75L41 64L23 57M41 64L45 29M41 64L70 43M70 43L82 67" className={cn('recall-core-line', darkMode ? 'stroke-[#3b82f6]/58' : 'stroke-primary/62')} />
-              </svg>
+            <div className="absolute left-[14px] top-[184px] flex h-[106px] w-[190px] items-center">
+              <p
+                className={cn(
+                  'font-sans text-[36px] font-bold leading-[1.14] tracking-normal',
+                  darkMode ? 'text-[#f0f0f0]' : 'text-text-main',
+                )}
+              >
+                <span className="block whitespace-nowrap">为什么需要</span>
+                <span className="block whitespace-nowrap">注意力机制？</span>
+              </p>
             </div>
-          </div>
 
-          {channels.map((channel, index) => {
-            const Icon = channel.icon;
-
-            return (
-              <div
-                key={channel.label}
-              className={cn('multi-channel-card absolute left-[458px] flex h-[88px] w-[280px] items-center gap-5 rounded-[20px] border px-7', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-white/62')}
-              style={{ top: channel.y, animationDelay: `${0.7 + index * 0.3}s` }}
+            <div
+              className={cn(
+                'multi-core absolute left-[238px] top-[162px] flex h-[150px] w-[150px] items-center justify-center rounded-full border-[3px]',
+                darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74',
+              )}
             >
-                <Icon size={48} strokeWidth={1.8} className={cn('shrink-0', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
-                <span className={cn('text-[27px] font-medium tracking-tight', darkMode ? 'text-[#f0f0f0]' : 'text-text-main/76')}>{channel.label}</span>
+              <div
+                className={cn(
+                  'demo-pulse-ring absolute h-[126px] w-[126px] rounded-full border',
+                  darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28',
+                )}
+              />
+              <div className="relative h-[110px] w-[110px]">
+                {[
+                  [18, 52],
+                  [40, 24],
+                  [66, 38],
+                  [54, 70],
+                  [78, 62],
+                  [36, 58],
+                ].map(([x, y], index) => (
+                  <span
+                    key={`${x}-${y}`}
+                    className={cn(
+                      'multi-core-dot absolute h-[10px] w-[10px] rounded-full',
+                      index % 2 ? 'bg-primary/70' : 'bg-primary',
+                    )}
+                    style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${index * 0.14}s` }}
+                  />
+                ))}
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" aria-hidden="true">
+                  <path
+                    d="M23 57L45 29L70 43L60 75L41 64L23 57M41 64L45 29M41 64L70 43M70 43L82 67"
+                    className={cn('recall-core-line', darkMode ? 'stroke-[#3b82f6]/58' : 'stroke-primary/62')}
+                  />
+                </svg>
               </div>
-            );
-          })}
+            </div>
 
+            {channels.map((channel, index) => {
+              const Icon = channel.icon;
+
+              return (
+                <div
+                  key={channel.label}
+                  className={cn(
+                    'multi-channel-card absolute left-[458px] flex h-[88px] w-[280px] items-center gap-5 rounded-[20px] border px-7',
+                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-white/62',
+                  )}
+                  style={{ top: channel.y, animationDelay: `${0.7 + index * 0.3}s` }}
+                >
+                  <Icon
+                    size={48}
+                    strokeWidth={1.8}
+                    className={cn('shrink-0', darkMode ? 'text-[#3b82f6]' : 'text-primary')}
+                  />
+                  <span
+                    className={cn(
+                      'text-[27px] font-medium tracking-tight',
+                      darkMode ? 'text-[#f0f0f0]' : 'text-text-main/76',
+                    )}
+                  >
+                    {channel.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -699,7 +871,9 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <div>
               <p className={cn('text-[12px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
-              <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>融合候选结果</p>
+              <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                融合候选结果
+              </p>
             </div>
             <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>K=3</span>
           </div>
@@ -717,7 +891,12 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
                     得分 {chunk.score}
                   </span>
                 </div>
-                <p className={cn('line-clamp-2 text-[10px] leading-4', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/66')}>
+                <p
+                  className={cn(
+                    'line-clamp-2 text-[10px] leading-4',
+                    darkMode ? 'text-[#d9d9d9]' : 'text-text-main/66',
+                  )}
+                >
                   {chunk.text}
                 </p>
               </motion.div>
@@ -752,7 +931,9 @@ function StreamingAnswer({ darkMode }: { darkMode?: boolean }) {
     <div
       className={cn(
         'h-[86px] overflow-hidden rounded-2xl border px-3 py-2.5 text-[11px] leading-5',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526] text-[#d9d9d9]' : 'border-border-subtle bg-white/72 text-text-main/68',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#252526] text-[#d9d9d9]'
+          : 'border-border-subtle bg-white/72 text-text-main/68',
       )}
     >
       <p>
@@ -779,119 +960,216 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25' : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
+          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
 
       <div className="relative z-10 mx-auto mt-6 h-[350px] w-[520px] overflow-visible">
         <div className="absolute left-0 top-0 h-[382px] w-[620px] origin-top-left scale-[0.835]">
-        <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 620 382" fill="none" aria-hidden="true">
-          <path d="M188 191H238" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-          <path d="M358 191H392" className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')} />
-          <path d="M188 191H238" className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-          <path d="M358 191H392" className={cn('recall-moving-path index-moving-path-delay', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')} />
-        </svg>
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 620 382"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M188 191H238"
+              className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+            />
+            <path
+              d="M358 191H392"
+              className={cn('recall-dashed-path', darkMode ? 'stroke-[#3b82f6]/30' : 'stroke-primary/38')}
+            />
+            <path
+              d="M188 191H238"
+              className={cn('recall-moving-path', darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary')}
+            />
+            <path
+              d="M358 191H392"
+              className={cn(
+                'recall-moving-path index-moving-path-delay',
+                darkMode ? 'stroke-[#3b82f6]' : 'stroke-primary',
+              )}
+            />
+          </svg>
 
-        <motion.div
-          variants={fadeUpItem}
-          className={cn('absolute left-0 top-[22px] h-[328px] w-[188px] overflow-hidden rounded-[24px] border p-3.5', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-bg-base/82')}
-        >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
-              <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>召回上下文</p>
-            </div>
-            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary')}>
-              <FileText size={20} />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {answerChunks.map((chunk, index) => (
-              <motion.div
-                key={chunk.title}
-                className={cn('rounded-2xl border px-3 py-2.5', darkMode ? 'border-[#3c3c3c] bg-[#252526]/82' : 'border-border-subtle bg-white/70')}
-                animate={{ opacity: [0.76, 1, 0.76] }}
-                transition={{ duration: 2.6, repeat: Infinity, delay: index * 0.22, ease: 'easeInOut' }}
+          <motion.div
+            variants={fadeUpItem}
+            className={cn(
+              'absolute left-0 top-[22px] h-[328px] w-[188px] overflow-hidden rounded-[24px] border p-3.5',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-bg-base/82',
+            )}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
+                  Top-K 片段
+                </p>
+                <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                  召回上下文
+                </p>
+              </div>
+              <div
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-xl',
+                  darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary',
+                )}
               >
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-mono text-[10px]', darkMode ? 'bg-[#3b82f6]/12 text-[#3b82f6]' : 'bg-primary/14 text-primary')}>{index + 1}</span>
-                    <span className={cn('truncate text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>{chunk.title}</span>
+                <FileText size={20} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {answerChunks.map((chunk, index) => (
+                <motion.div
+                  key={chunk.title}
+                  className={cn(
+                    'rounded-2xl border px-3 py-2.5',
+                    darkMode ? 'border-[#3c3c3c] bg-[#252526]/82' : 'border-border-subtle bg-white/70',
+                  )}
+                  animate={{ opacity: [0.76, 1, 0.76] }}
+                  transition={{ duration: 2.6, repeat: Infinity, delay: index * 0.22, ease: 'easeInOut' }}
+                >
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-mono text-[10px]',
+                          darkMode ? 'bg-[#3b82f6]/12 text-[#3b82f6]' : 'bg-primary/14 text-primary',
+                        )}
+                      >
+                        {index + 1}
+                      </span>
+                      <span
+                        className={cn(
+                          'truncate text-[11px] font-bold',
+                          darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70',
+                        )}
+                      >
+                        {chunk.title}
+                      </span>
+                    </div>
+                    <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>
+                      {chunk.score.toFixed(2)}
+                    </span>
                   </div>
-                  <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>{chunk.score.toFixed(2)}</span>
-                </div>
-                <p className={cn('line-clamp-1 text-[10px] leading-4', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/55')}>{chunk.text}</p>
-                <div className={cn('mt-1.5 h-1 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/10')}>
-                  <motion.div
-                    className={cn('h-1 rounded-full', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')}
-                    animate={{ width: ['24%', `${Math.round(chunk.score * 100)}%`, '24%'] }}
-                    transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={fadeUpItem}
-          className={cn('multi-core absolute left-[238px] top-[119px] flex h-[120px] w-[120px] items-center justify-center rounded-full border-[3px]', darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74')}
-        >
-          <div className={cn('demo-pulse-ring absolute h-[94px] w-[94px] rounded-full border', darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28')} />
-          <div className={cn('absolute inset-0 overflow-hidden rounded-full opacity-35', darkMode ? 'bg-[#252526]' : 'bg-bg-base')}>
-            <div className="h-full w-full bg-[linear-gradient(rgba(26,26,26,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(26,26,26,.12)_1px,transparent_1px)] bg-[size:18px_18px]" />
-          </div>
-          <div className={cn('relative flex flex-col items-center gap-1', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>
-            <BrainCircuit size={42} strokeWidth={1.8} />
-            <span className={cn('text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>LLM 智能回答</span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={fadeUpItem}
-          className={cn('absolute left-[392px] top-[22px] h-[328px] w-[212px] overflow-hidden rounded-[24px] border p-3.5', darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-bg-base/82')}
-        >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>AI 回答</p>
-              <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>生成并保留引用</p>
+                  <p
+                    className={cn(
+                      'line-clamp-1 text-[10px] leading-4',
+                      darkMode ? 'text-[#9d9d9d]' : 'text-text-main/55',
+                    )}
+                  >
+                    {chunk.text}
+                  </p>
+                  <div className={cn('mt-1.5 h-1 rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/10')}>
+                    <motion.div
+                      className={cn('h-1 rounded-full', darkMode ? 'bg-[#3b82f6]' : 'bg-primary')}
+                      animate={{ width: ['24%', `${Math.round(chunk.score * 100)}%`, '24%'] }}
+                      transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
+                    />
+                  </div>
+                </motion.div>
+              ))}
             </div>
-            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl', darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary')}>
-              <BotMessageSquare size={20} />
+          </motion.div>
+
+          <motion.div
+            variants={fadeUpItem}
+            className={cn(
+              'multi-core absolute left-[238px] top-[119px] flex h-[120px] w-[120px] items-center justify-center rounded-full border-[3px]',
+              darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74',
+            )}
+          >
+            <div
+              className={cn(
+                'demo-pulse-ring absolute h-[94px] w-[94px] rounded-full border',
+                darkMode ? 'border-[#3b82f6]/28' : 'border-primary/28',
+              )}
+            />
+            <div
+              className={cn(
+                'absolute inset-0 overflow-hidden rounded-full opacity-35',
+                darkMode ? 'bg-[#252526]' : 'bg-bg-base',
+              )}
+            >
+              <div className="h-full w-full bg-[linear-gradient(rgba(26,26,26,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(26,26,26,.12)_1px,transparent_1px)] bg-[size:18px_18px]" />
             </div>
-          </div>
+            <div
+              className={cn('relative flex flex-col items-center gap-1', darkMode ? 'text-[#3b82f6]' : 'text-primary')}
+            >
+              <BrainCircuit size={42} strokeWidth={1.8} />
+              <span className={cn('text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>
+                LLM 智能回答
+              </span>
+            </div>
+          </motion.div>
 
-          <div className="mb-2.5 grid grid-cols-3 gap-1.5">
-            {['系统', '上下文', '问题'].map((item, index) => (
-              <motion.div
-                key={item}
-                className={cn('rounded-xl border px-2 py-1.5 text-center text-[10px]', darkMode ? 'border-[#3c3c3c] bg-[#252526] text-[#858585]' : 'border-border-subtle bg-white/60 text-text-main/45')}
-                animate={{ opacity: [0.54, 1, 0.54], y: [0, -2, 0] }}
-                transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
+          <motion.div
+            variants={fadeUpItem}
+            className={cn(
+              'absolute left-[392px] top-[22px] h-[328px] w-[212px] overflow-hidden rounded-[24px] border p-3.5',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-bg-base/82',
+            )}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>AI 回答</p>
+                <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                  生成并保留引用
+                </p>
+              </div>
+              <div
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-xl',
+                  darkMode ? 'bg-[#2d2d2d] text-[#3b82f6]' : 'bg-primary/12 text-primary',
+                )}
               >
-                {item}
-              </motion.div>
-            ))}
-          </div>
+                <BotMessageSquare size={20} />
+              </div>
+            </div>
 
-          <StreamingAnswer darkMode={darkMode} />
+            <div className="mb-2.5 grid grid-cols-3 gap-1.5">
+              {['系统', '上下文', '问题'].map((item, index) => (
+                <motion.div
+                  key={item}
+                  className={cn(
+                    'rounded-xl border px-2 py-1.5 text-center text-[10px]',
+                    darkMode
+                      ? 'border-[#3c3c3c] bg-[#252526] text-[#858585]'
+                      : 'border-border-subtle bg-white/60 text-text-main/45',
+                  )}
+                  animate={{ opacity: [0.54, 1, 0.54], y: [0, -2, 0] }}
+                  transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
+                >
+                  {item}
+                </motion.div>
+              ))}
+            </div>
 
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {['chunk_01', 'chunk_08', 'chunk_12'].map((item, index) => (
-              <motion.span
-                key={item}
-                className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]', darkMode ? 'border-[#3b82f6]/22 bg-[#3b82f6]/8 text-[#d9d9d9]' : 'border-primary/20 bg-primary/10 text-text-main/62')}
-                animate={{ opacity: [0.64, 1, 0.64] }}
-                transition={{ duration: 2.2, repeat: Infinity, delay: 0.9 + index * 0.2, ease: 'easeInOut' }}
-              >
-                <TextQuote size={12} />
-                {item}
-              </motion.span>
-            ))}
-          </div>
-        </motion.div>
+            <StreamingAnswer darkMode={darkMode} />
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {['chunk_01', 'chunk_08', 'chunk_12'].map((item, index) => (
+                <motion.span
+                  key={item}
+                  className={cn(
+                    'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px]',
+                    darkMode
+                      ? 'border-[#3b82f6]/22 bg-[#3b82f6]/8 text-[#d9d9d9]'
+                      : 'border-primary/20 bg-primary/10 text-text-main/62',
+                  )}
+                  animate={{ opacity: [0.64, 1, 0.64] }}
+                  transition={{ duration: 2.2, repeat: Infinity, delay: 0.9 + index * 0.2, ease: 'easeInOut' }}
+                >
+                  <TextQuote size={12} />
+                  {item}
+                </motion.span>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </div>
     </motion.div>
@@ -965,10 +1243,7 @@ export default function WelcomePage() {
     email: '',
   });
 
-  const heading = useMemo(
-    () => (mode === 'login' ? '登录' : '注册'),
-    [mode],
-  );
+  const heading = useMemo(() => (mode === 'login' ? '登录' : '注册'), [mode]);
   const activeWorkflowSlide = workflowSlides[activeFlowIndex];
 
   useEffect(() => {
@@ -1161,109 +1436,129 @@ export default function WelcomePage() {
 
       {headerPortalTarget
         ? createPortal(
-          <header className={cn(
-            'welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 transition-all duration-300 lg:px-8',
-            headerCompact ? 'py-2' : 'py-3',
-          )}>
-            <div
+            <header
               className={cn(
-                'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 backdrop-blur-xl transition-all duration-300',
-                headerCompact ? 'py-2 shadow-md' : 'py-3 shadow-lg',
-                darkMode
-                  ? headerCompact
-                    ? 'bg-[#252526]/98 border border-[#454545] shadow-black/30'
-                    : 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
-                  : headerCompact
-                    ? 'bg-white/96 border border-white shadow-text-main/12'
-                    : 'bg-white/92 border border-white/90 shadow-text-main/10',
+                'welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 transition-all duration-300 lg:px-8',
+                headerCompact ? 'py-2' : 'py-3',
               )}
             >
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  'flex items-center justify-center transition-all duration-300',
-                  headerCompact ? 'h-10 w-10' : 'h-12 w-12',
-                )}>
-                  <LinkRagMark darkMode={darkMode} />
+              <div
+                className={cn(
+                  'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 backdrop-blur-xl transition-all duration-300',
+                  headerCompact ? 'py-2 shadow-md' : 'py-3 shadow-lg',
+                  darkMode
+                    ? headerCompact
+                      ? 'bg-[#252526]/98 border border-[#454545] shadow-black/30'
+                      : 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
+                    : headerCompact
+                      ? 'bg-white/96 border border-white shadow-text-main/12'
+                      : 'bg-white/92 border border-white/90 shadow-text-main/10',
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'flex items-center justify-center transition-all duration-300',
+                      headerCompact ? 'h-10 w-10' : 'h-12 w-12',
+                    )}
+                  >
+                    <LinkRagMark darkMode={darkMode} />
+                  </div>
+                  <div>
+                    <p
+                      className={cn(
+                        'mono-label transition-all duration-300',
+                        headerCompact ? 'mb-0 text-[8px]' : 'mb-1',
+                        darkMode ? 'text-[#858585]' : '',
+                      )}
+                    >
+                      knowledge workspace
+                    </p>
+                    <h1
+                      className={cn(
+                        'font-bold tracking-tight transition-all duration-300',
+                        headerCompact ? 'text-base' : 'text-lg',
+                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                      )}
+                    >
+                      LinkRag
+                    </h1>
+                  </div>
                 </div>
-                <div>
-                  <p className={cn('mono-label transition-all duration-300', headerCompact ? 'mb-0 text-[8px]' : 'mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge workspace</p>
-                  <h1 className={cn('font-bold tracking-tight transition-all duration-300', headerCompact ? 'text-base' : 'text-lg', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                    LinkRag
-                  </h1>
-                </div>
-              </div>
 
-              <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 lg:flex">
-                {scrollSections.map((item) => (
-                  <a
-                    key={item.id}
-                    href={`#${item.id}`}
+                <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 lg:flex">
+                  {scrollSections.map((item) => (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      className={cn(
+                        'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                        darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
+                      )}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                  <Link
+                    to={Routes.Blogs}
                     className={cn(
                       'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                       darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                     )}
                   >
-                    {item.label}
+                    博客
+                  </Link>
+                  <Link
+                    to={Routes.Feedback}
+                    className={cn(
+                      'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                      darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
+                    )}
+                  >
+                    反馈
+                  </Link>
+                  <a
+                    href={githubProjectUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="打开项目仓库"
+                    className={cn(
+                      'group inline-flex h-9 w-9 items-center justify-center transition-colors',
+                      darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
+                    )}
+                  >
+                    <Github size={18} strokeWidth={1.85} />
                   </a>
-                ))}
-                <Link
-                  to={Routes.Blogs}
-                  className={cn(
-                    'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
-                    darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
-                  )}
-                >
-                  博客
-                </Link>
-                <Link
-                  to={Routes.Feedback}
-                  className={cn(
-                    'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
-                    darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
-                  )}
-                >
-                  反馈
-                </Link>
-                <a
-                  href={githubProjectUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label="打开项目仓库"
-                  className={cn(
-                    'group inline-flex h-9 w-9 items-center justify-center transition-colors',
-                    darkMode
-                      ? 'text-[#858585] hover:text-[#e0e0e0]'
-                      : 'text-text-main/45 hover:text-text-main',
-                  )}
-                >
-                  <Github size={18} strokeWidth={1.85} />
-                </a>
-              </nav>
+                </nav>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => scrollToLogin('login')}
-                  className={cn(
-                    'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
-                    darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#3a3a3a]' : 'bg-bg-base text-text-main hover:bg-white',
-                  )}
-                >
-                  登录
-                </button>
-                <button
-                  onClick={() => scrollToLogin('register')}
-                  className={cn(
-                    'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-opacity',
-                    darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-                  )}
-                >
-                  注册
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => scrollToLogin('login')}
+                    className={cn(
+                      'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
+                      darkMode
+                        ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#3a3a3a]'
+                        : 'bg-bg-base text-text-main hover:bg-white',
+                    )}
+                  >
+                    登录
+                  </button>
+                  <button
+                    onClick={() => scrollToLogin('register')}
+                    className={cn(
+                      'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-opacity',
+                      darkMode
+                        ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                        : 'bg-text-main text-white hover:opacity-90',
+                    )}
+                  >
+                    注册
+                  </button>
+                </div>
               </div>
-            </div>
-          </header>,
-          headerPortalTarget,
-        )
+            </header>,
+            headerPortalTarget,
+          )
         : null}
 
       <main className="relative z-10 mx-auto max-w-[1240px] px-5 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 lg:px-8">
@@ -1271,21 +1566,28 @@ export default function WelcomePage() {
           id="intro"
           className="min-h-[82vh] flex flex-col justify-center border-b border-border-subtle/60 py-12 sm:min-h-[88vh] sm:py-20"
         >
-          <motion.div
-            className="max-w-[820px]"
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-          >
+          <motion.div className="max-w-[820px]" variants={staggerContainer} initial="hidden" animate="show">
             <motion.p variants={fadeUpItem} className={cn('mono-label mb-4 sm:mb-6', darkMode ? 'text-[#858585]' : '')}>
               knowledge workspace
             </motion.p>
-            <motion.h2 variants={fadeUpItem} className={cn('serif-heading text-5xl leading-[1.02] sm:text-6xl lg:text-8xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+            <motion.h2
+              variants={fadeUpItem}
+              className={cn(
+                'serif-heading text-5xl leading-[1.02] sm:text-6xl lg:text-8xl',
+                darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
+              )}
+            >
               LinkRag
               <br />
               让知识可问可答
             </motion.h2>
-            <motion.p variants={fadeUpItem} className={cn('mt-6 max-w-[820px] text-base leading-8 sm:mt-8 sm:text-lg sm:leading-9', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
+            <motion.p
+              variants={fadeUpItem}
+              className={cn(
+                'mt-6 max-w-[820px] text-base leading-8 sm:mt-8 sm:text-lg sm:leading-9',
+                darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60',
+              )}
+            >
               上传文档，自动构建知识库。围绕内容直接提问，答案溯源至原文。
               <br />
               LinkRag 使每一份资料都被检索、被理解、被使用。
@@ -1317,7 +1619,9 @@ export default function WelcomePage() {
               href="#knowledge"
               className={cn(
                 'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em]',
-                darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] border border-[#3c3c3c]' : 'bg-white/70 text-text-main border border-border-subtle',
+                darkMode
+                  ? 'bg-[#2d2d2d] text-[#e0e0e0] border border-[#3c3c3c]'
+                  : 'bg-white/70 text-text-main border border-border-subtle',
               )}
             >
               查看功能
@@ -1349,31 +1653,33 @@ export default function WelcomePage() {
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 className="grid items-start gap-8 py-6 lg:min-h-[540px] lg:grid-cols-[0.92fr_1.08fr]"
               >
-                  <div>
-                    <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>{activeWorkflowSlide.step}</p>
-                    <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                      {activeWorkflowSlide.title}
-                    </h3>
-                    <p className={cn('mt-6 max-w-[580px] text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                      {activeWorkflowSlide.description}
-                    </p>
-                  </div>
+                <div>
+                  <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>{activeWorkflowSlide.step}</p>
+                  <h3
+                    className={cn(
+                      'serif-heading text-4xl leading-tight lg:text-6xl',
+                      darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
+                    )}
+                  >
+                    {activeWorkflowSlide.title}
+                  </h3>
+                  <p
+                    className={cn(
+                      'mt-6 max-w-[580px] text-base leading-8',
+                      darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58',
+                    )}
+                  >
+                    {activeWorkflowSlide.description}
+                  </p>
+                </div>
 
-                  {activeWorkflowSlide.kind === 'capabilities' && (
-                    <UploadChunkDemo darkMode={darkMode} />
-                  )}
+                {activeWorkflowSlide.kind === 'capabilities' && <UploadChunkDemo darkMode={darkMode} />}
 
-                  {activeWorkflowSlide.kind === 'operations' && (
-                    <IndexingDemo darkMode={darkMode} />
-                  )}
+                {activeWorkflowSlide.kind === 'operations' && <IndexingDemo darkMode={darkMode} />}
 
-                  {activeWorkflowSlide.kind === 'timeline' && (
-                    <RetrievalDemo darkMode={darkMode} />
-                  )}
+                {activeWorkflowSlide.kind === 'timeline' && <RetrievalDemo darkMode={darkMode} />}
 
-                  {activeWorkflowSlide.kind === 'answer' && (
-                    <AnswerGenerationDemo darkMode={darkMode} />
-                  )}
+                {activeWorkflowSlide.kind === 'answer' && <AnswerGenerationDemo darkMode={darkMode} />}
               </motion.section>
             </AnimatePresence>
           </div>
@@ -1391,8 +1697,12 @@ export default function WelcomePage() {
                   'h-2.5 rounded-full transition-all',
                   activeFlowIndex === index ? 'w-8' : 'w-2.5',
                   darkMode
-                    ? activeFlowIndex === index ? 'bg-[#3b82f6]' : 'bg-[#3c3c3c]'
-                    : activeFlowIndex === index ? 'bg-primary' : 'bg-text-main/12',
+                    ? activeFlowIndex === index
+                      ? 'bg-[#3b82f6]'
+                      : 'bg-[#3c3c3c]'
+                    : activeFlowIndex === index
+                      ? 'bg-primary'
+                      : 'bg-text-main/12',
                 )}
                 aria-label={`查看第 ${index + 1} 页`}
               />
@@ -1403,14 +1713,23 @@ export default function WelcomePage() {
         <RevealSection id="login" className="min-h-[92vh] flex items-center py-16 lg:py-20 scroll-mt-28">
           <div ref={loginRef} className="grid w-full items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
-              <h3 className={cn('serif-heading text-4xl leading-tight lg:text-6xl', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+              <h3
+                className={cn(
+                  'serif-heading text-4xl leading-tight lg:text-6xl',
+                  darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
+                )}
+              >
                 进入工作台
                 <br />
                 登录或注册后开始使用
               </h3>
-              <p className={cn('mt-6 max-w-[480px] text-base leading-8', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
-                登录已有账号或注册新账号
-进入工作台后，即可构建知识库并进行问答。
+              <p
+                className={cn(
+                  'mt-6 max-w-[480px] text-base leading-8',
+                  darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58',
+                )}
+              >
+                登录已有账号或注册新账号 进入工作台后，即可构建知识库并进行问答。
               </p>
             </div>
 
@@ -1420,7 +1739,9 @@ export default function WelcomePage() {
               viewport={{ once: true, amount: 0.2 }}
               className={cn(
                 'rounded-[34px] p-7 shadow-xl lg:p-8 card-glow',
-                darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/84 backdrop-blur-sm border border-white/85',
+                darkMode
+                  ? 'bg-[#252526] border border-[#3c3c3c]'
+                  : 'bg-white/84 backdrop-blur-sm border border-white/85',
               )}
             >
               <div className="mb-6">
@@ -1435,7 +1756,10 @@ export default function WelcomePage() {
                         setMode('register');
                         setFieldErrors({});
                       }}
-                      className={cn('font-medium transition-colors', darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main')}
+                      className={cn(
+                        'font-medium transition-colors',
+                        darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main',
+                      )}
                     >
                       没有账号？注册
                     </button>
@@ -1446,7 +1770,10 @@ export default function WelcomePage() {
                         setMode('login');
                         setFieldErrors({});
                       }}
-                      className={cn('font-medium transition-colors', darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main')}
+                      className={cn(
+                        'font-medium transition-colors',
+                        darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main',
+                      )}
                     >
                       已有账号？登录
                     </button>
@@ -1504,7 +1831,12 @@ export default function WelcomePage() {
 
               <form className="space-y-4" onSubmit={handleSubmit} noValidate>
                 <label className="block">
-                  <span className={cn('mb-2 block text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
+                  <span
+                    className={cn(
+                      'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
+                      darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
+                    )}
+                  >
                     用户名
                   </span>
                   <input
@@ -1519,7 +1851,10 @@ export default function WelcomePage() {
                       darkMode
                         ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                         : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                      fieldErrors.username && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
+                      fieldErrors.username &&
+                        (darkMode
+                          ? 'border-red-500 placeholder:!text-red-300'
+                          : 'border-red-400 placeholder:!text-red-500'),
                     )}
                     placeholder={fieldErrors.username ?? '输入用户名'}
                   />
@@ -1535,34 +1870,47 @@ export default function WelcomePage() {
                       transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                       className="overflow-hidden"
                     >
-                    <label className="block">
-                      <span className={cn('mb-2 block text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
-                        邮箱
-                      </span>
-                      <input
-                        ref={emailInputRef}
-                        type="email"
-                        value={form.email}
-                        onChange={(event) => {
-                          clearFieldError('email');
-                          setForm((prev) => ({ ...prev, email: event.target.value }));
-                        }}
-                        className={cn(
-                          'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
-                          darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                            : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                          fieldErrors.email && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
-                        )}
-                        placeholder={fieldErrors.email ?? 'name@example.com'}
-                      />
-                    </label>
+                      <label className="block">
+                        <span
+                          className={cn(
+                            'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
+                            darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
+                          )}
+                        >
+                          邮箱
+                        </span>
+                        <input
+                          ref={emailInputRef}
+                          type="email"
+                          value={form.email}
+                          onChange={(event) => {
+                            clearFieldError('email');
+                            setForm((prev) => ({ ...prev, email: event.target.value }));
+                          }}
+                          className={cn(
+                            'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
+                            darkMode
+                              ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
+                              : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
+                            fieldErrors.email &&
+                              (darkMode
+                                ? 'border-red-500 placeholder:!text-red-300'
+                                : 'border-red-400 placeholder:!text-red-500'),
+                          )}
+                          placeholder={fieldErrors.email ?? 'name@example.com'}
+                        />
+                      </label>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
                 <label className="block">
-                  <span className={cn('mb-2 block text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
+                  <span
+                    className={cn(
+                      'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
+                      darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
+                    )}
+                  >
                     密码
                   </span>
                   <input
@@ -1578,7 +1926,10 @@ export default function WelcomePage() {
                       darkMode
                         ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                         : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                      fieldErrors.password && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
+                      fieldErrors.password &&
+                        (darkMode
+                          ? 'border-red-500 placeholder:!text-red-300'
+                          : 'border-red-400 placeholder:!text-red-500'),
                     )}
                     placeholder={fieldErrors.password ?? '输入密码'}
                   />
@@ -1594,7 +1945,12 @@ export default function WelcomePage() {
                       transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                       className="block overflow-hidden"
                     >
-                      <span className={cn('mb-2 block text-xs font-bold uppercase tracking-[0.22em]', darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60')}>
+                      <span
+                        className={cn(
+                          'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
+                          darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
+                        )}
+                      >
                         确认密码
                       </span>
                       <input
@@ -1610,7 +1966,10 @@ export default function WelcomePage() {
                           darkMode
                             ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                             : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                          fieldErrors.confirmPassword && (darkMode ? 'border-red-500 placeholder:!text-red-300' : 'border-red-400 placeholder:!text-red-500'),
+                          fieldErrors.confirmPassword &&
+                            (darkMode
+                              ? 'border-red-500 placeholder:!text-red-300'
+                              : 'border-red-400 placeholder:!text-red-500'),
                         )}
                         placeholder={fieldErrors.confirmPassword ?? '再次输入密码'}
                       />
@@ -1625,7 +1984,9 @@ export default function WelcomePage() {
                   disabled={submitting}
                   className={cn(
                     'mt-2 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold uppercase tracking-[0.24em] transition-opacity',
-                    darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                    darkMode
+                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                      : 'bg-text-main text-white hover:opacity-90',
                     submitting && 'opacity-70',
                   )}
                 >
@@ -1633,7 +1994,6 @@ export default function WelcomePage() {
                   {!submitting && <ArrowRight size={16} />}
                 </motion.button>
               </form>
-
             </motion.div>
           </div>
         </RevealSection>
