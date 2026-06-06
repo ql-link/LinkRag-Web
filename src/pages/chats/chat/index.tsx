@@ -13,6 +13,8 @@ import { recall, isRecallError, isRecallAborted, type RecallError } from '@/serv
 import type { MessageDTO, ConversationDTO, KnowledgeFileDTO, LLMConfigDTO, RecallHit } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 
+type ConversationLoadStatus = 'loading' | 'success' | 'not-found' | 'error';
+
 function ParseAfterUploadSwitch({
   darkMode,
   checked,
@@ -248,7 +250,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [conversationLoadStatus, setConversationLoadStatus] = useState<ConversationLoadStatus>('loading');
+  const [loadedConversationId, setLoadedConversationId] = useState<number | null>(null);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -265,17 +268,80 @@ export default function ChatPage() {
   const [recallError, setRecallError] = useState<string | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
 
+  const conversationId = Number(id);
+  const hasValidConversationId = Number.isFinite(conversationId);
+
   // 离开页面时取消进行中的召回，释放 Python 并发名额
   useEffect(() => {
     return () => recallAbortRef.current?.abort();
   }, []);
 
   useEffect(() => {
-    if (id) {
-      void loadConversation();
+    if (!hasValidConversationId) {
+      setConversation(null);
+      setMessages([]);
+      setFiles([]);
+      setDatasetName('');
+      setLoadedConversationId(null);
+      setConversationLoadStatus('not-found');
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+
+    let cancelled = false;
+
+    const loadConversation = async () => {
+      setConversationLoadStatus('loading');
+      setLoadedConversationId(null);
+      setConversation(null);
+      setMessages([]);
+      setFiles([]);
+      setDatasetName('');
+
+      try {
+        const convList = await getConversations(1, 100);
+        if (cancelled) return;
+
+        const conv = convList.items.find((c) => c.id === conversationId);
+        if (!conv) {
+          setLoadedConversationId(conversationId);
+          setConversationLoadStatus('not-found');
+          return;
+        }
+
+        const [msgResult, fileResult, dataset] = await Promise.all([
+          getMessages(conv.id, 1, 100),
+          getKnowledgeFiles(conv.datasetId, 1, 100),
+          getDataset(conv.datasetId).catch((error) => {
+            console.error('Failed to load dataset name:', error);
+            return null;
+          }),
+        ]);
+        if (cancelled) return;
+
+        setConversation(conv);
+        setMessages(msgResult.items);
+        setFiles(fileResult.items.sort((a, b) => b.id - a.id));
+        setDatasetName(dataset?.name ?? `知识库 #${conv.datasetId}`);
+        setLoadedConversationId(conversationId);
+        setConversationLoadStatus('success');
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to load conversation:', error);
+        setConversation(null);
+        setMessages([]);
+        setFiles([]);
+        setDatasetName('');
+        setLoadedConversationId(conversationId);
+        setConversationLoadStatus('error');
+      }
+    };
+
+    void loadConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, hasValidConversationId]);
 
   useEffect(() => {
     void loadChatModels();
@@ -304,36 +370,6 @@ export default function ChatPage() {
       setFiles([]);
     } finally {
       setLoadingFiles(false);
-    }
-  };
-
-  const loadConversation = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const convList = await getConversations(1, 100);
-      const conv = convList.items.find((c) => c.id === Number(id));
-      setConversation(conv || null);
-
-      if (conv) {
-        const [msgResult] = await Promise.all([getMessages(conv.id, 1, 100), loadFiles(conv.datasetId)]);
-        setMessages(msgResult.items);
-        try {
-          const dataset = await getDataset(conv.datasetId);
-          setDatasetName(dataset.name);
-        } catch (error) {
-          console.error('Failed to load dataset name:', error);
-          setDatasetName(`知识库 #${conv.datasetId}`);
-        }
-      } else {
-        setMessages([]);
-        setFiles([]);
-        setDatasetName('');
-      }
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -478,18 +514,26 @@ export default function ChatPage() {
     });
   }, [files, fileSortBy]);
 
-  if (loading) {
+  const isConversationLoading =
+    hasValidConversationId && (conversationLoadStatus === 'loading' || loadedConversationId !== conversationId);
+
+  if (isConversationLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+        <div className="flex items-center gap-2">
+          <Loader2 size={16} className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')} />
+          <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+        </div>
       </div>
     );
   }
 
-  if (!conversation) {
+  if (conversationLoadStatus === 'error' || !conversation) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
-        <p className={cn('text-lg mb-4', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>对话不存在</p>
+        <p className={cn('text-lg mb-4', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          {conversationLoadStatus === 'error' ? '对话加载失败' : '对话不存在'}
+        </p>
         <button
           onClick={() => navigate(Routes.Chats)}
           className={cn(
