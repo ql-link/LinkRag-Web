@@ -16,9 +16,6 @@
   --color-border-subtle: rgba(26, 26, 26, 0.1);
 
   --color-state-error: #d97373;
-
-  --color-glow: rgba(212, 163, 115, 0.18);
-  --color-border-focus: rgba(212, 163, 115, 0.5);
 }
 
 /* ===== Base Styles ===== */
@@ -48,9 +45,6 @@
     --color-text-main: #cccccc;
     --color-border-subtle: #3c3c3c;
     --color-primary: #3b82f6;
-
-    --color-glow: rgba(59, 130, 246, 0.22);
-    --color-border-focus: rgba(59, 130, 246, 0.5);
   }
 
   .dark body {
@@ -135,7 +129,7 @@
     color: #6b6b6b;
   }
   .dark input:focus {
-    border-color: var(--color-border-focus);
+    border-color: #4a4a4a;
   }
 
   .dark ::-webkit-scrollbar-thumb {
@@ -161,12 +155,6 @@
   @apply font-serif italic tracking-tighter;
 }
 
-/* Welcome-page Chinese display headline. Single toggle point for the face. */
-@utility welcome-zh {
-  font-family: 'LXGW WenKai', 'Noto Serif SC', serif;
-  font-style: normal;
-}
-
 /* ===== Scrollbar ===== */
 
 ::-webkit-scrollbar {
@@ -181,107 +169,4 @@
 
 .dark ::-webkit-scrollbar-thumb {
   @apply bg-gray-600 rounded-full;
-}
-
-/* ===== Floating Labels (Pure CSS) ===== */
-.floating-group {
-  position: relative;
-}
-
-.floating-input {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.floating-input:focus {
-  border-color: var(--color-border-focus) !important;
-  box-shadow: 0 0 14px var(--color-glow) !important;
-}
-
-.floating-label {
-  position: absolute;
-  left: 16px;
-  top: 14px;
-  pointer-events: none;
-  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: left top;
-}
-
-.floating-input:focus ~ .floating-label,
-.floating-input:not(:placeholder-shown) ~ .floating-label {
-  transform: translateY(-25px) scale(0.8);
-  font-weight: 700;
-  @apply text-primary;
-}
-
-/* Error state for floating label input */
-.floating-input-error {
-  @apply border-red-400 focus:border-red-400;
-}
-.dark .floating-input-error {
-  @apply border-red-500 focus:border-red-500;
-}
-
-.floating-input-error:focus {
-  box-shadow: 0 0 14px rgba(239, 68, 68, 0.22) !important;
-}
-
-/* ===== Welcome Document Stack Animations ===== */
-@keyframes doc-float-1 {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(-3deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(-1deg);
-  }
-}
-
-@keyframes doc-float-2 {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(4deg);
-  }
-  50% {
-    transform: translateY(-15px) rotate(1deg);
-  }
-}
-
-@keyframes doc-float-3 {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(-6deg);
-  }
-  50% {
-    transform: translateY(-8px) rotate(-4deg);
-  }
-}
-
-@keyframes ambient-glow {
-  0%,
-  100% {
-    opacity: 0.35;
-    filter: blur(35px);
-  }
-  50% {
-    opacity: 0.6;
-    filter: blur(48px);
-  }
-}
-
-.animate-doc-float-1 {
-  animation: doc-float-1 8s ease-in-out infinite;
-}
-
-.animate-doc-float-2 {
-  animation: doc-float-2 9s ease-in-out infinite;
-  animation-delay: 1.2s;
-}
-
-.animate-doc-float-3 {
-  animation: doc-float-3 10s ease-in-out infinite;
-  animation-delay: 2.5s;
-}
-
-.animate-ambient-glow {
-  animation: ambient-glow 12s ease-in-out infinite;
 }
