@@ -1,83 +1,97 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Check, ChevronDown, Key, Plus, RefreshCw, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Box, ChevronDown, Key, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { Routes } from '@/routes';
-import {
-  createLLMConfig,
-  deleteLLMConfig,
-  getLLMConfigs,
-  getLLMProviders,
-  setDefaultLLMConfig,
-  updateLLMConfig,
-} from '@/services/llm';
-import type { LLMCapability, LLMConfigDTO, ModelCapabilityDTO, ProviderModelDTO } from '@/types/api';
-
-import OpenAIIcon from '@/../icons/providers/openai.svg';
-import AnthropicIcon from '@/../icons/providers/anthropic.svg';
-import OllamaIcon from '@/../icons/providers/ollama.svg';
-import DeepSeekIcon from '@/../icons/providers/deepseek-color.svg';
-import GoogleIcon from '@/../icons/providers/gemini-color.svg';
-import QwenIcon from '@/../icons/providers/qwen-color.svg';
-import MetaIcon from '@/../icons/providers/meta-color.svg';
-import MistralIcon from '@/../icons/providers/mistral-color.svg';
-import ZhipuIcon from '@/../icons/providers/zhipu-color.svg';
 import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
+import { Routes } from '@/routes';
+import { getLLMConfigs, getLLMProviders, setDefaultLLMConfig, setupLLMProvider, toggleLLMModel } from '@/services/llm';
+import type { LLMCapability, LLMConfigDTO, ProviderModelDTO } from '@/types/api';
 
-interface DrawerTarget {
-  mode: 'create' | 'edit';
-  provider?: ProviderModelDTO;
-  model?: ModelCapabilityDTO;
-  config?: LLMConfigDTO;
+function normalizeProviderToken(value: string) {
+  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-interface ConfigFormData {
-  providerType: string;
-  configName: string;
-  apiKey?: string;
-  modelName: string;
-  capability?: LLMCapability;
-  priority: number;
-  isDefault: boolean;
-  timeoutMs: number;
-  maxRetries: number;
-  streamEnabled: boolean;
-  customApiBaseUrl?: string;
-  extraConfig?: string;
-}
+const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob('/icons/providers/*.svg', {
+      eager: true,
+      query: '?url',
+    }) as Record<string, string | { default: string }>,
+  ).map(([path, iconModule]) => {
+    const iconUrl = typeof iconModule === 'string' ? iconModule : iconModule.default;
+    const filename = normalizeProviderToken(path.split('/').pop()!.replace('.svg', ''));
+    return [filename, iconUrl];
+  }),
+);
 
-interface CapabilityMeta {
-  value: LLMCapability;
-  label: string;
-  hint: string;
-  required: boolean;
-}
+const PROVIDER_ICON_ALIASES: Record<string, string> = {
+  ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
+  '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
+  aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
+  openaiapi:
+    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
+  openaiapicompatible:
+    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
+  jiekouai:
+    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai-bright')] ||
+    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai')],
+  fishaudio:
+    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio-bright')] ||
+    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio')],
+  togetherai:
+    PROVIDER_ICON_URLS[normalizeProviderToken('together-bright')] ||
+    PROVIDER_ICON_URLS[normalizeProviderToken('together')],
+  perplexity:
+    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity-bright')] ||
+    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity')],
+  tongyiqianwen:
+    PROVIDER_ICON_URLS[normalizeProviderToken('tongyi-qianwen')] ||
+    PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
+  tencentcloud: PROVIDER_ICON_URLS[normalizeProviderToken('tencent-cloud')],
+  baiduyiyan:
+    PROVIDER_ICON_URLS[normalizeProviderToken('spark')] || PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
+  xunfeispark: PROVIDER_ICON_URLS[normalizeProviderToken('spark')],
+  tencenthunyuan: PROVIDER_ICON_URLS[normalizeProviderToken('hunyuan')],
+  giteeai: PROVIDER_ICON_URLS[normalizeProviderToken('gitee-ai')],
+  novitaai: PROVIDER_ICON_URLS[normalizeProviderToken('novita-ai')],
+  localai: PROVIDER_ICON_URLS[normalizeProviderToken('local-ai')],
+  zhipuai: PROVIDER_ICON_URLS[normalizeProviderToken('zhipu')],
+};
 
-const CAPABILITIES: CapabilityMeta[] = [
-  { value: 'CHAT', label: '对话', hint: 'Chat', required: true },
-  { value: 'EMBEDDING', label: 'Embedding', hint: 'Embedding', required: true },
-  { value: 'OCR', label: 'OCR', hint: 'OCR', required: false },
-  { value: 'VISION', label: '视觉', hint: 'Vision', required: false },
-  { value: 'REASONING', label: '推理', hint: 'Reasoning', required: false },
-  { value: 'CODE', label: '代码', hint: 'Code', required: false },
+const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
+
+const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
+  { value: 'CHAT', label: '对话', hint: '对话' },
+  { value: 'EMBEDDING', label: '向量', hint: '向量' },
+  { value: 'OCR', label: '识别', hint: '识别' },
+  { value: 'VISION', label: '视觉', hint: '视觉' },
+  { value: 'RERANK', label: '重排', hint: '重排' },
+  { value: 'ASR', label: '语音识别', hint: '语音识别' },
 ];
 
-const PROVIDER_ICON_URLS: Record<string, string> = {
-  openai: OpenAIIcon,
-  anthropic: AnthropicIcon,
-  claude: AnthropicIcon,
-  ollama: OllamaIcon,
-  deepseek: DeepSeekIcon,
-  google: GoogleIcon,
-  gemini: GoogleIcon,
-  qwen: QwenIcon,
-  aliyun: QwenIcon,
-  meta: MetaIcon,
-  llama: MetaIcon,
-  mistral: MistralIcon,
-  glm: ZhipuIcon,
-  zhipu: ZhipuIcon,
-};
+interface ConfigView extends LLMConfigDTO {
+  providerName: string;
+}
+
+interface ModelGroup {
+  modelName: string;
+  configs: ConfigView[];
+  selfConfigs: ConfigView[];
+  presetConfigs: ConfigView[];
+  isSelfActive: boolean;
+}
+
+interface ProviderGroup {
+  providerType: string;
+  providerName: string;
+  configs: ConfigView[];
+  models: ModelGroup[];
+}
+
+interface SetupTarget {
+  provider: ProviderModelDTO;
+  mode: 'create' | 'update';
+}
 
 function getCapabilityMeta(capability: LLMCapability) {
   return (
@@ -90,9 +104,26 @@ function getCapabilityMeta(capability: LLMCapability) {
 }
 
 function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map((value) => value.toLowerCase());
-  const matchedKey = Object.keys(PROVIDER_ICON_URLS).find((key) => keys.some((value) => value.includes(key)));
-  return matchedKey ? PROVIDER_ICON_URLS[matchedKey] : '';
+  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
+  const matchedAlias = keys
+    .map((key) => PROVIDER_ICON_ALIASES[key])
+    .find((iconUrl) => typeof iconUrl === 'string' && iconUrl.length > 0);
+  if (matchedAlias) {
+    return matchedAlias;
+  }
+
+  const matchedKey = keys.find((key) =>
+    PROVIDER_ICON_PREFIXES.some((iconKey) => key.includes(iconKey) || iconKey.includes(key)),
+  );
+  if (!matchedKey) {
+    return '';
+  }
+  const iconKey = PROVIDER_ICON_PREFIXES.find((item) => matchedKey.includes(item) || item.includes(matchedKey));
+  return iconKey ? PROVIDER_ICON_URLS[iconKey] : '';
+}
+
+function capabilitySort(a: LLMCapability, b: LLMCapability) {
+  return CAPABILITIES.findIndex((item) => item.value === a) - CAPABILITIES.findIndex((item) => item.value === b);
 }
 
 export default function LLMPage() {
@@ -100,13 +131,131 @@ export default function LLMPage() {
   const [configs, setConfigs] = useState<LLMConfigDTO[]>([]);
   const [providers, setProviders] = useState<ProviderModelDTO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [drawerTarget, setDrawerTarget] = useState<DrawerTarget | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
+  const [providerPickerOpen, setProviderPickerOpen] = useState(false);
+  const [setupTarget, setSetupTarget] = useState<SetupTarget | null>(null);
 
   useEffect(() => {
     loadPageData();
   }, []);
 
-  const loadPageData = async () => {
+  const providerNameByType = useMemo(() => {
+    return new Map(providers.map((provider) => [provider.providerType, provider.providerName]));
+  }, [providers]);
+
+  const viewConfigs = useMemo<ConfigView[]>(() => {
+    return configs.map((config) => ({
+      ...config,
+      providerName: providerNameByType.get(config.providerType) || config.providerType,
+    }));
+  }, [configs, providerNameByType]);
+
+  const configuredProviderTypes = useMemo(() => {
+    return new Set(viewConfigs.filter((config) => !config.isSystemPreset).map((config) => config.providerType));
+  }, [viewConfigs]);
+
+  const defaultByCapability = useMemo(() => {
+    const map = new Map<LLMCapability, ConfigView>();
+    viewConfigs.forEach((config) => {
+      if (config.isDefault && config.isActive) {
+        map.set(config.capability, config);
+      }
+    });
+    return map;
+  }, [viewConfigs]);
+
+  const candidatesByCapability = useMemo(() => {
+    const map = new Map<LLMCapability, ConfigView[]>();
+    CAPABILITIES.forEach((capability) => map.set(capability.value, []));
+    viewConfigs
+      .filter((config) => config.isActive)
+      .forEach((config) => {
+        map.get(config.capability)?.push(config);
+      });
+    map.forEach((items) => {
+      items.sort((a, b) => {
+        if (a.isSystemPreset !== b.isSystemPreset) {
+          return a.isSystemPreset ? 1 : -1;
+        }
+        return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
+      });
+    });
+    return map;
+  }, [viewConfigs]);
+
+  const providerGroups = useMemo<ProviderGroup[]>(() => {
+    const groupMap = new Map<string, ConfigView[]>();
+    viewConfigs.forEach((config) => {
+      const items = groupMap.get(config.providerType) || [];
+      items.push(config);
+      groupMap.set(config.providerType, items);
+    });
+
+    return Array.from(groupMap.entries())
+      .map(([providerType, items]) => {
+        const modelMap = new Map<string, ConfigView[]>();
+        items.forEach((config) => {
+          const modelItems = modelMap.get(config.modelName) || [];
+          modelItems.push(config);
+          modelMap.set(config.modelName, modelItems);
+        });
+
+        const models = Array.from(modelMap.entries())
+          .map(([modelName, modelConfigs]) => {
+            const sortedConfigs = [...modelConfigs].sort((a, b) => capabilitySort(a.capability, b.capability));
+            const selfConfigs = sortedConfigs.filter((config) => !config.isSystemPreset);
+            return {
+              modelName,
+              configs: sortedConfigs,
+              selfConfigs,
+              presetConfigs: sortedConfigs.filter((config) => config.isSystemPreset),
+              isSelfActive: selfConfigs.some((config) => config.isActive),
+            };
+          })
+          .sort((a, b) => a.modelName.localeCompare(b.modelName));
+
+        return {
+          providerType,
+          providerName: items[0]?.providerName || providerType,
+          configs: items,
+          models,
+        };
+      })
+      .sort((a, b) => a.providerName.localeCompare(b.providerName));
+  }, [viewConfigs]);
+
+  const filteredProviders = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    const filterSet = new Set(selectedCapabilityFilters);
+
+    if (!keyword && filterSet.size === 0) {
+      return providers;
+    }
+
+    return providers.filter((provider) => {
+      if (filterSet.size > 0) {
+        const hit = provider.models.some((model) => model.capabilities.some((capability) => filterSet.has(capability)));
+        if (!hit) {
+          return false;
+        }
+      }
+
+      const searchable = [
+        provider.providerName,
+        provider.providerType,
+        ...provider.models.flatMap((model) => [model.modelName, ...model.capabilities]),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!keyword) {
+        return true;
+      }
+      return searchable.includes(keyword);
+    });
+  }, [providers, searchTerm, selectedCapabilityFilters]);
+
+  async function loadPageData() {
     setLoading(true);
     try {
       const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
@@ -117,74 +266,22 @@ export default function LLMPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const visibleConfigs = useMemo(() => {
-    return configs;
-  }, [configs]);
-
-  const defaultConfigs = useMemo(() => {
-    const map = new Map<LLMCapability, LLMConfigDTO>();
-    configs.forEach((config) => {
-      if (config.isDefault && config.isActive) {
-        map.set(config.capability, config);
-      }
-    });
-    return map;
-  }, [configs]);
-
-  const currentDefaultConfigs = useMemo(() => {
-    return CAPABILITIES.map((capability) => ({
-      ...capability,
-      config: defaultConfigs.get(capability.value),
-    }));
-  }, [defaultConfigs]);
-
-  const requiredCapabilityCount = CAPABILITIES.filter((capability) => capability.required).length;
-  const requiredDefaultCount = currentDefaultConfigs.filter(
-    (capability) => capability.required && Boolean(capability.config),
-  ).length;
-
-  const handleSaveConfig = async (data: ConfigFormData) => {
+  async function handleSetupProvider(providerType: string, apiKey: string) {
     try {
-      if (drawerTarget?.mode === 'edit' && drawerTarget.config) {
-        const payload: Partial<ConfigFormData> = {
-          priority: data.priority,
-          isDefault: data.isDefault,
-          timeoutMs: data.timeoutMs,
-          maxRetries: data.maxRetries,
-          streamEnabled: data.streamEnabled,
-          customApiBaseUrl: data.customApiBaseUrl,
-          extraConfig: data.extraConfig,
-        };
-        if (data.apiKey) {
-          payload.apiKey = data.apiKey;
-        }
-        await updateLLMConfig(drawerTarget.config.id, payload);
-      } else {
-        await createLLMConfig({
-          providerType: data.providerType,
-          configName: data.configName,
-          apiKey: data.apiKey || '',
-          modelName: data.modelName,
-          capability: data.capability,
-          priority: data.priority,
-          isDefault: data.isDefault,
-          timeoutMs: data.timeoutMs,
-          maxRetries: data.maxRetries,
-          streamEnabled: data.streamEnabled,
-          customApiBaseUrl: data.customApiBaseUrl,
-          extraConfig: data.extraConfig,
-        });
-      }
-      setDrawerTarget(null);
+      await setupLLMProvider({ providerType, apiKey });
+      setSetupTarget(null);
       await loadPageData();
     } catch (error) {
-      console.error('Failed to save config:', error);
+      console.error('Failed to setup provider:', error);
     }
-  };
+  }
 
-  const handleSetDefault = async (config: LLMConfigDTO) => {
+  async function handleSetDefault(config: ConfigView) {
+    if (config.isDefault || !config.isActive) {
+      return;
+    }
     try {
       await setDefaultLLMConfig(config.id, config.capability);
       setConfigs((prev) =>
@@ -195,32 +292,45 @@ export default function LLMPage() {
     } catch (error) {
       console.error('Failed to set default config:', error);
     }
-  };
+  }
 
-  const handleToggleActive = async (config: LLMConfigDTO) => {
-    try {
-      await updateLLMConfig(config.id, { isActive: !config.isActive });
-      setConfigs((prev) =>
-        prev.map((item) => (item.id === config.id ? { ...item, isActive: !config.isActive } : item)),
-      );
-    } catch (error) {
-      console.error('Failed to toggle config:', error);
-    }
-  };
-
-  const handleDeleteConfig = async (config: LLMConfigDTO) => {
-    if (!confirm(`确定要删除 ${config.configName} 的 ${getCapabilityMeta(config.capability).label} 配置吗？`)) {
+  async function handleSelectDefault(capability: LLMCapability, configId: string) {
+    const config = viewConfigs.find((item) => item.id === Number(configId));
+    if (!config || config.isDefault) {
       return;
     }
-    try {
-      await deleteLLMConfig(config.id);
-      setConfigs((prev) => prev.filter((item) => item.id !== config.id));
-    } catch (error) {
-      console.error('Failed to delete config:', error);
-    }
-  };
+    await handleSetDefault(config);
+  }
 
-  const activeCount = configs.filter((config) => config.isActive).length;
+  async function handleToggleModel(group: ProviderGroup, model: ModelGroup) {
+    if (model.selfConfigs.length === 0) {
+      return;
+    }
+    const nextActive = !model.isSelfActive;
+    setConfigs((prev) =>
+      prev.map((config) =>
+        config.providerType === group.providerType && config.modelName === model.modelName && !config.isSystemPreset
+          ? { ...config, isActive: nextActive }
+          : config,
+      ),
+    );
+    try {
+      await toggleLLMModel({
+        providerType: group.providerType,
+        modelName: model.modelName,
+        enabled: nextActive,
+      });
+    } catch (error) {
+      console.error('Failed to toggle model:', error);
+      setConfigs((prev) =>
+        prev.map((config) =>
+          config.providerType === group.providerType && config.modelName === model.modelName && !config.isSystemPreset
+            ? { ...config, isActive: model.isSelfActive }
+            : config,
+        ),
+      );
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -235,28 +345,31 @@ export default function LLMPage() {
             items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '模型配置' }]}
             darkMode={darkMode}
           />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>模型配置</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadPageData}
             className={cn(
-              'p-2 rounded-lg transition-colors',
-              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-primary/5',
+              'h-9 rounded-lg px-3 text-xs font-bold inline-flex items-center gap-2 transition-colors',
+              darkMode
+                ? 'bg-[#1f2937] text-[#c7dff8] hover:bg-[#26364d]'
+                : 'border border-[#d7d2ca] bg-white text-text-main hover:bg-gray-100',
             )}
             title="刷新"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            刷新
           </button>
           <button
-            onClick={() => setDrawerTarget({ mode: 'create' })}
+            type="button"
+            onClick={() => setProviderPickerOpen(true)}
             className={cn(
-              'h-9 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-opacity',
+              'h-9 w-fit rounded-lg px-4 text-xs font-bold inline-flex items-center gap-2 transition-colors',
               darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
             )}
           >
-            <Plus size={14} />
-            添加配置
+            <Plus size={15} />
+            配置厂商
           </button>
         </div>
       </header>
@@ -269,282 +382,716 @@ export default function LLMPage() {
             : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]',
         )}
       >
-        <section className={cn('px-8 py-6 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
-          <div className="flex items-start justify-between gap-8">
-            <div>
-              <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>LLM 配置中心</h3>
-              <p className={cn('text-xs mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                后端按模型能力拆分配置，默认模型也按能力独立生效
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 min-w-[420px]">
-              <SummaryTile darkMode={darkMode} label="配置数" value={configs.length} />
-              <SummaryTile darkMode={darkMode} label="启用中" value={activeCount} />
-              <SummaryTile
-                darkMode={darkMode}
-                label="必填默认"
-                value={`${requiredDefaultCount}/${requiredCapabilityCount}`}
-              />
-            </div>
-          </div>
-        </section>
+        <section className="px-8 py-6">
+          <div className="space-y-5 min-w-0">
+            <EffectiveModelsPanel
+              darkMode={darkMode}
+              defaultByCapability={defaultByCapability}
+              candidatesByCapability={candidatesByCapability}
+              onSelect={handleSelectDefault}
+            />
 
-        <section className="px-8 py-6 space-y-5">
-          <DefaultModelStrip darkMode={darkMode} items={currentDefaultConfigs} loading={loading} />
-
-          <div
-            className={cn(
-              'rounded-lg border overflow-hidden',
-              darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-            )}
-          >
-            <div
-              className={cn(
-                'grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 text-[11px] font-bold',
-                darkMode ? 'bg-[#2d2d2d] text-[#858585]' : 'bg-bg-base/72 text-text-main/50',
-              )}
-            >
-              <span>能力</span>
-              <span>厂商</span>
-              <span>模型</span>
-              <span>优先级</span>
-              <span>状态</span>
-              <span>默认</span>
-              <span className="text-right">操作</span>
-            </div>
-
-            {loading ? (
-              <div
-                className={cn(
-                  'flex items-center justify-center py-16',
-                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                )}
-              >
-                <RefreshCw size={18} className="animate-spin mr-2" />
-                <span className="text-sm">加载模型配置...</span>
-              </div>
-            ) : visibleConfigs.length === 0 ? (
-              <EmptyState darkMode={darkMode} onAdd={() => setDrawerTarget({ mode: 'create' })} />
-            ) : (
-              <div className={cn('divide-y', darkMode ? 'divide-[#3c3c3c]' : 'divide-border-subtle')}>
-                {visibleConfigs.map((config) => (
-                  <ConfigRow
-                    key={config.id}
-                    config={config}
-                    darkMode={darkMode}
-                    onEdit={() => {
-                      const provider = providers.find((item) => item.providerType === config.providerType);
-                      setDrawerTarget({ mode: 'edit', provider, config });
-                    }}
-                    onDelete={() => handleDeleteConfig(config)}
-                    onSetDefault={() => handleSetDefault(config)}
-                    onToggleActive={() => handleToggleActive(config)}
-                  />
-                ))}
-              </div>
-            )}
+            <ConfiguredProvidersPanel
+              darkMode={darkMode}
+              loading={loading}
+              groups={providerGroups}
+              onToggleModel={handleToggleModel}
+            />
           </div>
         </section>
       </main>
 
-      {drawerTarget && (
-        <LLMConfigModal
+      {providerPickerOpen && (
+        <ProviderPickerModal
           darkMode={darkMode}
-          target={drawerTarget}
-          providers={providers}
-          onClose={() => setDrawerTarget(null)}
-          onSave={handleSaveConfig}
+          providers={filteredProviders}
+          configuredProviderTypes={configuredProviderTypes}
+          loading={loading}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          selectedCapabilityFilters={selectedCapabilityFilters}
+          onCapabilityFilterChange={setSelectedCapabilityFilters}
+          onClose={() => setProviderPickerOpen(false)}
+          onSetup={(provider, mode) => {
+            setProviderPickerOpen(false);
+            setSetupTarget({ provider, mode });
+          }}
+        />
+      )}
+
+      {setupTarget && (
+        <SetupProviderModal
+          darkMode={darkMode}
+          target={setupTarget}
+          onClose={() => {
+            setSetupTarget(null);
+            setProviderPickerOpen(true);
+          }}
+          onSubmit={handleSetupProvider}
         />
       )}
     </div>
   );
 }
 
-function SummaryTile({ darkMode, label, value }: { darkMode?: boolean; label: string; value: number | string }) {
-  return (
-    <div
-      className={cn(
-        'rounded-lg border px-4 py-3',
-        darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-      )}
-    >
-      <div className={cn('text-xl font-semibold serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-        {value}
-      </div>
-      <div className={cn('text-[11px] font-bold mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>{label}</div>
-    </div>
-  );
-}
-
-function DefaultModelStrip({
+function EffectiveModelsPanel({
   darkMode,
-  items,
-  loading,
+  defaultByCapability,
+  candidatesByCapability,
+  onSelect,
 }: {
   darkMode?: boolean;
-  items: Array<CapabilityMeta & { config?: LLMConfigDTO }>;
-  loading?: boolean;
+  defaultByCapability: Map<LLMCapability, ConfigView>;
+  candidatesByCapability: Map<LLMCapability, ConfigView[]>;
+  onSelect: (capability: LLMCapability, configId: string) => void;
 }) {
+  const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
+
+  useEffect(() => {
+    if (openCapability === null) {
+      return;
+    }
+    const handleClose = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (!target) {
+        return;
+      }
+      if (!target.closest(`[data-capability="${openCapability}"]`)) {
+        setOpenCapability(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClose);
+    return () => {
+      window.removeEventListener('mousedown', handleClose);
+    };
+  }, [openCapability]);
+
   return (
-    <div
-      className={cn(
-        'rounded-lg border px-5 py-4',
-        darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-      )}
-    >
-      <div className="flex items-center justify-between mb-3">
+    <section className={panelClassName(darkMode)}>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-inherit">
         <div>
-          <h4 className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>当前默认模型</h4>
-          <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-            对话和 Embedding 为必填能力，其余能力可选配置
-          </p>
+          <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>生效模型</h3>
         </div>
+        <ShieldCheck size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        {items.map((item) => {
+      <div className="space-y-2 p-4">
+        {CAPABILITIES.map((capability) => {
+          const current = defaultByCapability.get(capability.value);
+          const candidates = candidatesByCapability.get(capability.value) || [];
+          const isOpen = openCapability === capability.value;
+          const selectedIcon = current ? getProviderIcon(current.providerType, current.providerName) : '';
           return (
             <div
-              key={item.value}
+              key={capability.value}
               className={cn(
-                'rounded-lg px-3 py-3 border min-h-[82px]',
-                darkMode ? 'bg-[#1e1e1e]/88 border-[#3c3c3c]' : 'bg-bg-base/70 border-border-subtle',
+                'relative grid gap-3 rounded-lg border px-3 py-2 md:grid-cols-[56px_1fr_340px] md:items-center',
+                isOpen && 'ring-1 ring-[#3b82f6]/50',
+                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/48',
               )}
+              data-capability={capability.value}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className={cn('text-xs font-bold truncate', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
-                    {item.label}
-                  </span>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold',
-                      darkMode ? 'bg-[#3c3c3c] text-[#858585]' : 'bg-white/70 text-text-main/45',
-                    )}
-                  >
-                    {item.required ? '必填' : '选填'}
-                  </span>
-                </div>
-                <span className={cn('mono-label shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                  {item.hint}
-                </span>
-              </div>
-              {item.config ? (
-                <div className="mt-2 flex items-center gap-2 min-w-0">
-                  <ProviderIcon
-                    iconUrl={getProviderIcon(item.config.providerType, item.config.providerName)}
-                    name={item.config.providerName}
-                    darkMode={darkMode}
-                    size="sm"
-                  />
+              <CapabilityBadge capability={capability.value} compact />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {current ? (
+                    <ProviderIcon iconUrl={selectedIcon} name={current.providerName} darkMode={darkMode} size="sm" />
+                  ) : null}
                   <div className="min-w-0">
-                    <p className={cn('text-xs font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                      {item.config.modelName}
+                    <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                      {current ? current.modelName : '未设置'}
                     </p>
-                    <p className={cn('text-[10px] truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                      {item.config.providerName} · {item.config.configName}
+                    <p className={cn('text-[11px] mt-0.5 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                      {current ? `${current.providerName}` : '暂无生效模型'}
                     </p>
                   </div>
+                  {current?.isSystemPreset && <SourcePill darkMode={darkMode} preset compact />}
                 </div>
-              ) : (
-                <p className={cn('text-xs mt-3 font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                  {loading ? '加载中...' : '未设置默认'}
-                </p>
-              )}
+              </div>
+              <button
+                type="button"
+                disabled={candidates.length === 0}
+                onClick={() => setOpenCapability((prev) => (prev === capability.value ? null : capability.value))}
+                className={cn(
+                  'group h-8 w-full rounded-lg border px-2.5 text-left text-xs outline-none transition-all',
+                  isOpen ? (darkMode ? 'bg-[#2a2a2a] border-[#3b82f6]' : 'bg-primary/5 border-primary') : '',
+                  darkMode
+                    ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
+                    : 'border-border-subtle bg-white/80 text-text-main/80',
+                )}
+              >
+                <div className="flex h-full items-center justify-between gap-2">
+                  <span className={current ? 'text-[12px]' : 'text-[12px] text-text-main/55'}>
+                    {candidates.length === 0 ? '暂无候选' : isOpen ? '选择生效模型' : '点击选择生效模型'}
+                  </span>
+                  <ChevronDown
+                    size={13}
+                    className={cn('shrink-0 text-text-main transition-transform', isOpen && 'rotate-180')}
+                  />
+                </div>
+              </button>
+
+              {isOpen && candidates.length > 0 ? (
+                <div
+                  className={cn(
+                    'absolute right-0 top-full z-10 mt-2 w-[340px] rounded-lg border p-1 shadow-2xl md:left-auto',
+                    darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white border-border-subtle',
+                  )}
+                >
+                  <div className="max-h-72 overflow-auto space-y-1">
+                    {candidates.map((config) => {
+                      const optionIcon = getProviderIcon(config.providerType, config.providerName);
+                      return (
+                        <button
+                          type="button"
+                          key={config.id}
+                          onClick={() => {
+                            onSelect(capability.value, `${config.id}`);
+                            setOpenCapability(null);
+                          }}
+                          className={cn(
+                            'w-full rounded-md border px-2.5 py-2 text-left transition-colors',
+                            darkMode ? 'border-[#3c3c3c] hover:bg-[#2d2d2d]' : 'border-border-subtle hover:bg-bg-base',
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ProviderIcon
+                              iconUrl={optionIcon}
+                              name={config.providerName}
+                              darkMode={darkMode}
+                              size="sm"
+                            />
+                            <div className="min-w-0">
+                              <p
+                                className={cn(
+                                  'text-xs font-bold truncate',
+                                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                                )}
+                              >
+                                {config.modelName}
+                              </p>
+                            </div>
+                            {config.isSystemPreset ? <SourcePill darkMode={darkMode} preset /> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function ConfiguredProvidersPanel({
+  darkMode,
+  loading,
+  groups,
+  onToggleModel,
+}: {
+  darkMode?: boolean;
+  loading: boolean;
+  groups: ProviderGroup[];
+  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+}) {
+  return (
+    <section className={panelClassName(darkMode)}>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-inherit">
+        <div>
+          <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>已配置厂商</h3>
+          <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+            自配模型可以启停；系统预设只读。
+          </p>
+        </div>
+        <SlidersHorizontal size={18} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+      </div>
+
+      {loading ? (
+        <LoadingState darkMode={darkMode} label="加载模型配置..." />
+      ) : groups.length === 0 ? (
+        <EmptyConfiguredState darkMode={darkMode} />
+      ) : (
+        <div className="space-y-2 p-3">
+          {groups.map((group) => (
+            <Fragment key={group.providerType}>
+              <ProviderConfigCard darkMode={darkMode} group={group} onToggleModel={onToggleModel} />
+            </Fragment>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProviderConfigCard({
+  darkMode,
+  group,
+  onToggleModel,
+}: {
+  darkMode?: boolean;
+  group: ProviderGroup;
+  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+}) {
+  const iconUrl = getProviderIcon(group.providerType, group.providerName);
+  const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
+  const presetCount = group.configs.length - selfCount;
+
+  return (
+    <article
+      className={cn(
+        'rounded-lg border overflow-hidden',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/82',
+      )}
+    >
+      <header className="flex items-start gap-2 px-3 py-2 md:items-center md:justify-between">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <ProviderIcon iconUrl={iconUrl} name={group.providerName} darkMode={darkMode} size="sm" />
+          <div className="min-w-0">
+            <h4 className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+              {group.providerName}
+            </h4>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5 shrink-0">
+          <CountPill darkMode={darkMode} label={`${group.models.length} 模型`} />
+          <CountPill darkMode={darkMode} label={`${selfCount} 自配`} />
+          {presetCount > 0 && <CountPill darkMode={darkMode} label={`${presetCount} 预设`} />}
+        </div>
+      </header>
+
+      <div className={cn('divide-y', darkMode ? 'divide-[#3c3c3c]' : 'divide-border-subtle')}>
+        {group.models.map((model) => (
+          <Fragment key={model.modelName}>
+            <ModelConfigBlock darkMode={darkMode} group={group} model={model} onToggleModel={onToggleModel} />
+          </Fragment>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function ModelConfigBlock({
+  darkMode,
+  group,
+  model,
+  onToggleModel,
+}: {
+  darkMode?: boolean;
+  group: ProviderGroup;
+  model: ModelGroup;
+  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+}) {
+  return (
+    <section className={cn('px-3 py-1.5', darkMode ? 'bg-[#252526]' : 'bg-white/45')}>
+      <div className="flex items-center justify-between">
+        <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          {model.modelName}
+        </p>
+        <StateSwitch
+          darkMode={darkMode}
+          checked={model.isSelfActive}
+          label={model.selfConfigs.length === 0 ? '仅预设' : model.isSelfActive ? '自配启用' : '自配停用'}
+          disabled={model.selfConfigs.length === 0}
+          onClick={() => onToggleModel(group, model)}
+        />
+      </div>
+
+      <div className="mt-2 space-y-1.5">
+        {model.configs.map((config) => (
+          <Fragment key={config.id}>
+            <ConfigLine darkMode={darkMode} config={config} />
+          </Fragment>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ConfigLine({ darkMode, config }: { darkMode?: boolean; config: ConfigView }) {
+  const capability = getCapabilityMeta(config.capability);
+  return (
+    <div className={cn('py-1.5', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+      <span className={cn('text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+        {capability.label}
+      </span>
     </div>
   );
 }
 
-function ConfigRow({
-  config,
+function ProviderPickerModal({
   darkMode,
-  onEdit,
-  onDelete,
-  onSetDefault,
-  onToggleActive,
+  providers,
+  configuredProviderTypes,
+  loading,
+  searchTerm,
+  selectedCapabilityFilters,
+  onSearchChange,
+  onCapabilityFilterChange,
+  onClose,
+  onSetup,
 }: {
-  key?: number;
-  config: LLMConfigDTO;
   darkMode?: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  onSetDefault: () => void;
-  onToggleActive: () => void;
+  providers: ProviderModelDTO[];
+  configuredProviderTypes: Set<string>;
+  loading: boolean;
+  searchTerm: string;
+  selectedCapabilityFilters: LLMCapability[];
+  onSearchChange: (value: string) => void;
+  onCapabilityFilterChange: (value: LLMCapability[]) => void;
+  onClose: () => void;
+  onSetup: (provider: ProviderModelDTO, mode: SetupTarget['mode']) => void;
 }) {
-  const capability = getCapabilityMeta(config.capability);
-  const iconUrl = getProviderIcon(config.providerType, config.providerName);
+  const filterSet = new Set(selectedCapabilityFilters);
+
+  function toggleCapabilityFilter(capability: LLMCapability) {
+    if (selectedCapabilityFilters.length > 0 && selectedCapabilityFilters[0] === capability) {
+      onCapabilityFilterChange([]);
+      return;
+    }
+    onCapabilityFilterChange([capability]);
+  }
+
+  function clearCapabilityFilters() {
+    onCapabilityFilterChange([]);
+  }
 
   return (
-    <div
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <section
+        className={cn(
+          'relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[880px] flex-col overflow-hidden rounded-lg shadow-2xl',
+          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/95 border border-white/90',
+        )}
+      >
+        <header className={cn('px-6 py-5 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>配置厂商</h3>
+              <p className={cn('text-xs mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                选择一个厂商后填写厂商级 API Key。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-gray-100',
+              )}
+              title="关闭"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="relative mt-5">
+            <Search
+              size={15}
+              className={cn(
+                'absolute left-3 top-1/2 -translate-y-1/2',
+                darkMode ? 'text-[#858585]' : 'text-text-main/40',
+              )}
+            />
+            <input
+              value={searchTerm}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="搜索厂商、模型或能力"
+              className={cn(
+                'h-10 w-full rounded-lg border pl-9 pr-3 text-sm outline-none transition-colors',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
+                  : 'border-border-subtle bg-bg-base/50 text-text-main placeholder:text-text-main/35 focus:border-primary',
+              )}
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {CAPABILITIES.map((capability) => {
+              const active = filterSet.has(capability.value);
+              return (
+                <button
+                  type="button"
+                  key={capability.value}
+                  onClick={() => toggleCapabilityFilter(capability.value)}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-bold transition-colors',
+                    active
+                      ? darkMode
+                        ? 'border-[#3b82f6] bg-[#3b82f6]/12 text-[#8cb9ff]'
+                        : 'border-primary bg-primary/12 text-primary'
+                      : darkMode
+                        ? 'border-[#3c3c3c] bg-[#1f1f1f] text-[#b4b4b4] hover:border-[#4a4a4a]'
+                        : 'border-border-subtle bg-white/80 text-text-main/70 hover:border-[#c2b6ab]/50',
+                  )}
+                >
+                  {capability.label}
+                </button>
+              );
+            })}
+            {selectedCapabilityFilters.length > 0 ? (
+              <button
+                type="button"
+                onClick={clearCapabilityFilters}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-bold transition-colors',
+                  darkMode
+                    ? 'border-red-400/40 text-red-200/90 bg-red-500/10 hover:bg-red-500/15'
+                    : 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100',
+                )}
+              >
+                清空能力筛选
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#252526]' : 'bg-white/95')}>
+          {loading ? (
+            <LoadingState darkMode={darkMode} label="加载厂商目录..." />
+          ) : providers.length === 0 ? (
+            <div className={cn('px-6 py-16 text-center text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+              没有匹配的厂商
+            </div>
+          ) : (
+            <div className="grid gap-2 p-4 min-h-[260px] sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+              {providers.map((provider) => {
+                const configured = configuredProviderTypes.has(provider.providerType);
+                return (
+                  <Fragment key={provider.providerType}>
+                    <AvailableProviderCard
+                      darkMode={darkMode}
+                      provider={provider}
+                      configured={configured}
+                      onSetup={() => onSetup(provider, configured ? 'update' : 'create')}
+                    />
+                  </Fragment>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AvailableProviderCard({
+  darkMode,
+  provider,
+  configured,
+  onSetup,
+}: {
+  darkMode?: boolean;
+  provider: ProviderModelDTO;
+  configured: boolean;
+  onSetup: () => void;
+}) {
+  const iconUrl = getProviderIcon(provider.providerType, provider.providerName);
+  const capabilitySet = new Set(provider.models.flatMap((model) => model.capabilities));
+  const sortedCapabilities = Array.from(capabilitySet).sort(capabilitySort);
+
+  return (
+    <button
+      type="button"
+      onClick={onSetup}
       className={cn(
-        'grid grid-cols-[1.1fr_1.3fr_1.3fr_0.7fr_0.7fr_0.8fr_120px] gap-4 px-5 py-3 items-center min-h-[68px]',
-        darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main hover:bg-bg-base/45',
+        'group w-full rounded-lg border p-3 text-left transition-colors',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#3b82f6]/50 hover:bg-[#232323]'
+          : 'border-border-subtle bg-bg-base/55 hover:border-primary/35 hover:bg-white',
       )}
     >
-      <div>
-        <span
-          className={cn(
-            'inline-flex px-2 py-1 rounded text-[11px] font-bold',
-            darkMode ? 'bg-[#3c3c3c] text-[#e0e0e0]' : 'bg-primary/10 text-text-main',
-          )}
-        >
-          {capability.label}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 min-w-0">
-        <ProviderIcon iconUrl={iconUrl} name={config.providerName} darkMode={darkMode} size="sm" />
-        <div className="min-w-0">
-          <p className="text-sm font-bold truncate">{config.providerName}</p>
-          <p className={cn('mono-label truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-            {config.providerType}
-          </p>
+      <div className="flex items-center gap-2.5">
+        <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+              {provider.providerName}
+            </h4>
+            {configured && <CountPill darkMode={darkMode} label="已配置" />}
+          </div>
         </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-bold truncate">{config.modelName}</p>
-        <p className={cn('text-[11px] truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-          {config.configName}
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className={cn('truncate text-xs leading-relaxed', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
+          {sortedCapabilities.map((capability, index) => (
+            <span key={capability}>
+              {index > 0 ? ' · ' : ''}
+              {getCapabilityMeta(capability).label}
+            </span>
+          ))}
+          <span className="whitespace-nowrap"> · {provider.models.length} 个模型</span>
         </p>
-      </div>
-      <span className="text-xs font-bold">{config.priority}</span>
-      <StateSwitch
-        darkMode={darkMode}
-        checked={config.isActive}
-        label={config.isActive ? '启用' : '禁用'}
-        onClick={onToggleActive}
-      />
-      <StateSwitch
-        darkMode={darkMode}
-        checked={config.isDefault}
-        label={config.isDefault ? '默认' : '设默认'}
-        disabled={!config.isActive}
-        onClick={onSetDefault}
-      />
-      <div className="flex items-center justify-end gap-1">
-        <button
-          onClick={onEdit}
+        <span
           className={cn(
-            'p-2 rounded-lg transition-colors',
-            darkMode ? 'text-[#cccccc] hover:bg-[#3c3c3c]' : 'text-text-main/70 hover:bg-primary/10',
+            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors',
+            darkMode
+              ? 'bg-[#094771] text-white group-hover:bg-[#0a5280]'
+              : 'bg-text-main text-white group-hover:opacity-90',
           )}
-          title="编辑"
         >
-          <SlidersHorizontal size={14} />
-        </button>
-        <button
-          onClick={onDelete}
-          className={cn(
-            'p-2 rounded-lg transition-colors',
-            darkMode ? 'text-red-300 hover:bg-red-900/30' : 'text-red-500 hover:bg-red-50',
-          )}
-          title="删除"
-        >
-          <Trash2 size={14} />
-        </button>
+          <Plus size={13} />
+          {configured ? '更新' : '配置'}
+        </span>
       </div>
+    </button>
+  );
+}
+
+function SetupProviderModal({
+  darkMode,
+  target,
+  onClose,
+  onSubmit,
+}: {
+  darkMode?: boolean;
+  target: SetupTarget;
+  onClose: () => void;
+  onSubmit: (providerType: string, apiKey: string) => Promise<void>;
+}) {
+  const [apiKey, setApiKey] = useState('');
+  const [validationError, setValidationError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const iconUrl = getProviderIcon(target.provider.providerType, target.provider.providerName);
+
+  async function handleSubmit() {
+    setValidationError('');
+    if (!apiKey.trim()) {
+      setValidationError('请填写 API Key');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await onSubmit(target.provider.providerType, apiKey.trim());
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className={cn(
+          'relative w-full max-w-[520px] rounded-lg shadow-2xl overflow-hidden',
+          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/94 border border-white/90',
+        )}
+      >
+        <header
+          className={cn(
+            'h-20 px-6 flex items-center justify-between border-b',
+            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+          )}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <ProviderIcon iconUrl={iconUrl} name={target.provider.providerName} darkMode={darkMode} size="md" />
+            <div className="min-w-0">
+              <h3 className={cn('text-lg font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                {target.mode === 'update' ? '更新厂商' : '配置厂商'}
+              </h3>
+              <p className={cn('mono-label mt-1 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                {target.provider.providerName} · {target.provider.providerType}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className={cn(
+              'p-2 rounded-lg transition-colors',
+              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-gray-100',
+            )}
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="p-6 space-y-5">
+          <div
+            className={cn(
+              'rounded-lg border p-4',
+              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/50',
+            )}
+          >
+            <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>厂商级 API Key</p>
+            <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+              提交后系统会按厂商模型目录展开全部模型能力；重复配置同厂商会更新自配行 Key。
+            </p>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder="输入 API Key"
+              className={cn(
+                'mt-4 h-11 w-full rounded-lg border px-3 text-sm outline-none transition-colors',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
+                  : 'border-border-subtle bg-white/80 text-text-main placeholder:text-text-main/35 focus:border-primary',
+              )}
+            />
+          </div>
+
+          {validationError && (
+            <div
+              className={cn(
+                'rounded-lg border px-3 py-2 text-xs font-bold',
+                darkMode ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-600',
+              )}
+            >
+              {validationError}
+            </div>
+          )}
+        </div>
+
+        <footer
+          className={cn(
+            'px-6 py-4 border-t flex items-center justify-end gap-3',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
+          )}
+        >
+          <button
+            onClick={onClose}
+            className={cn(
+              'h-9 px-4 rounded-lg text-xs font-bold',
+              darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
+            )}
+            disabled={submitting}
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className={cn(
+              'h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2 transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
+              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+            )}
+          >
+            {submitting && <RefreshCw size={13} className="animate-spin" />}
+            保存
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function LoadingState({ darkMode, label }: { darkMode?: boolean; label: string }) {
+  return (
+    <div className={cn('flex items-center justify-center py-16', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+      <RefreshCw size={18} className="animate-spin mr-2" />
+      <span className="text-sm">{label}</span>
+    </div>
+  );
+}
+
+function EmptyConfiguredState({ darkMode }: { darkMode?: boolean }) {
+  return (
+    <div className={cn('text-center py-16', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+      <Key size={38} className={cn('mx-auto mb-4', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
+      <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>暂无自配厂商</p>
+      <p className="mt-1 text-xs">点击配置厂商，选择厂商并填写 API Key。</p>
     </div>
   );
 }
@@ -567,33 +1114,40 @@ function StateSwitch({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        'group inline-flex w-fit items-center gap-2 rounded-full text-[11px] font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-55',
-      )}
+      className="group inline-flex h-6 w-[126px] shrink-0 items-center justify-start gap-2 overflow-hidden rounded-full text-[11px] font-bold leading-none transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
     >
       <span
         className={cn(
-          'relative h-5 w-9 rounded-full border transition-colors',
+          'relative h-5 w-9 shrink-0 rounded-full border transition-colors duration-200',
           checked
-            ? darkMode
-              ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18'
-              : 'border-primary/35 bg-primary/18'
+            ? 'border-[#6d9b7c]/45 bg-[#6d9b7c]/14'
             : darkMode
-              ? 'border-[#3c3c3c] bg-[#2d2d2d]'
-              : 'border-border-subtle bg-bg-base',
+              ? disabled
+                ? 'border-[#3c3c3c] bg-[#2d2d2d]'
+                : 'border-[#c77a7a]/45 bg-[#c77a7a]/14'
+              : disabled
+                ? 'border-border-subtle bg-bg-base'
+                : 'border-[#c77a7a]/35 bg-[#c77a7a]/12',
         )}
       >
         <span
           className={cn(
-            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
+            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform duration-200',
             checked ? 'translate-x-4' : 'translate-x-0',
-            checked ? (darkMode ? 'bg-[#3b82f6]' : 'bg-primary') : darkMode ? 'bg-[#858585]' : 'bg-text-main/35',
+            checked ? 'bg-[#6d9b7c]' : disabled ? (darkMode ? 'bg-[#858585]' : 'bg-text-main/35') : 'bg-[#c77a7a]',
           )}
         />
       </span>
       <span
         className={cn(
-          checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : darkMode ? 'text-[#858585]' : 'text-text-main/45',
+          'inline-block w-[72px] shrink-0 text-left',
+          checked
+            ? 'text-[#6d9b7c]'
+            : disabled
+              ? darkMode
+                ? 'text-[#858585]'
+                : 'text-text-main/45'
+              : 'text-[#c77a7a]',
         )}
       >
         {label}
@@ -638,716 +1192,48 @@ function ProviderIcon({
   );
 }
 
-function CapabilityChips({ capabilities, darkMode }: { capabilities: LLMCapability[]; darkMode?: boolean }) {
-  return (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      {capabilities.map((capability) => {
-        const meta = getCapabilityMeta(capability);
-        return (
-          <span
-            key={capability}
-            className={cn(
-              'px-1.5 py-0.5 rounded text-[9px] font-bold',
-              darkMode ? 'bg-[#3c3c3c] text-[#cccccc]' : 'bg-bg-base text-text-main/70',
-            )}
-          >
-            {meta.label}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function EmptyState({ darkMode, onAdd }: { darkMode?: boolean; onAdd: () => void }) {
-  return (
-    <div className={cn('text-center py-16', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-      <Key size={38} className={cn('mx-auto mb-4', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
-      <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>暂无模型配置</p>
-      <button
-        onClick={onAdd}
-        className={cn(
-          'mt-4 h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2',
-          darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-        )}
-      >
-        <Plus size={14} />
-        添加配置
-      </button>
-    </div>
-  );
-}
-
-function LLMConfigModal({
-  darkMode,
-  target,
-  providers,
-  onClose,
-  onSave,
-}: {
-  darkMode?: boolean;
-  target: DrawerTarget;
-  providers: ProviderModelDTO[];
-  onClose: () => void;
-  onSave: (data: ConfigFormData) => void;
-}) {
-  const isEditing = target.mode === 'edit' && Boolean(target.config);
-  const initialProvider = target.provider || providers[0];
-  const [providerType, setProviderType] = useState(initialProvider?.providerType || '');
-  const selectedProvider = providers.find((provider) => provider.providerType === providerType) || initialProvider;
-  const availableModels = selectedProvider?.models || [];
-  const initialModelName = target.config?.modelName || target.model?.modelName || availableModels[0]?.modelName || '';
-  const [modelName, setModelName] = useState(initialModelName);
-  const selectedModel = availableModels.find((model) => model.modelName === modelName) || target.model;
-  const displayModels = availableModels;
-  const [entryCapability, setEntryCapability] = useState<LLMCapability | ''>(
-    target.config?.capability || selectedModel?.capabilities[0] || '',
-  );
-  const [configName, setConfigName] = useState(
-    target.config?.configName || `${selectedProvider?.providerName || ''} ${initialModelName}`.trim(),
-  );
-  const [apiKey, setApiKey] = useState('');
-  const [customApiBaseUrl, setCustomApiBaseUrl] = useState(target.config?.customApiBaseUrl || '');
-  const [priority, setPriority] = useState(target.config?.priority || 50);
-  const [isDefault, setIsDefault] = useState(target.config?.isDefault || false);
-  const [timeoutMs, setTimeoutMs] = useState(target.config?.timeoutMs || 60000);
-  const [maxRetries, setMaxRetries] = useState(target.config?.maxRetries || 3);
-  const [streamEnabled, setStreamEnabled] = useState(target.config?.streamEnabled ?? true);
-  const [extraConfig, setExtraConfig] = useState(target.config?.extraConfig || '');
-  const [applyAllCapabilities, setApplyAllCapabilities] = useState(false);
-  const [validationError, setValidationError] = useState('');
-
-  const handleProviderChange = (nextProviderType: string) => {
-    const nextProvider = providers.find((provider) => provider.providerType === nextProviderType);
-    const nextModels = nextProvider?.models || [];
-    const nextModel = nextModels[0];
-    setProviderType(nextProviderType);
-    setModelName(nextModel?.modelName || '');
-    setEntryCapability(nextModel?.capabilities[0] || '');
-    setApplyAllCapabilities(false);
-    setConfigName(`${nextProvider?.providerName || ''} ${nextModel?.modelName || ''}`.trim());
-  };
-
-  const handleModelChange = (nextModelName: string) => {
-    const nextModel = availableModels.find((model) => model.modelName === nextModelName);
-    setModelName(nextModelName);
-    setEntryCapability(nextModel?.capabilities[0] || '');
-    setApplyAllCapabilities(false);
-    if (!isEditing) {
-      setConfigName(`${selectedProvider?.providerName || ''} ${nextModelName}`.trim());
-    }
-  };
-
-  const handleSubmit = () => {
-    setValidationError('');
-    if (!providerType || !configName.trim() || !modelName.trim()) {
-      setValidationError('请先完成基础信息填写');
-      return;
-    }
-    if (!isEditing && !apiKey.trim()) {
-      setValidationError('API Key 必须填写');
-      return;
-    }
-
-    onSave({
-      providerType,
-      configName: configName.trim(),
-      apiKey: apiKey.trim() || undefined,
-      modelName,
-      capability: applyAllCapabilities ? undefined : entryCapability || undefined,
-      priority,
-      isDefault,
-      timeoutMs,
-      maxRetries,
-      streamEnabled,
-      customApiBaseUrl: customApiBaseUrl.trim() || undefined,
-      extraConfig: extraConfig.trim() || undefined,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className={cn(
-          'relative w-full max-w-[760px] max-h-[88vh] rounded-lg shadow-2xl flex flex-col overflow-hidden',
-          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/94 border border-white/90',
-        )}
-      >
-        <div
-          className={cn(
-            'h-20 px-6 flex items-center justify-between border-b',
-            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-          )}
-        >
-          <div>
-            <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              {isEditing ? '编辑配置' : '添加配置'}
-            </h3>
-            <p className={cn('mono-label mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-              {isEditing ? target.config?.modelName : 'Provider & Model'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className={cn(
-              'p-2 rounded-lg transition-colors',
-              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-gray-100',
-            )}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-hidden">
-          <div className="grid grid-cols-[220px_1fr] h-full min-h-0">
-            <aside
-              className={cn(
-                'border-r p-4 overflow-y-auto',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
-              )}
-            >
-              <p className={cn('text-xs font-bold mb-3', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>选择厂商</p>
-              <div className="space-y-2">
-                {providers.map((provider) => {
-                  const iconUrl = getProviderIcon(provider.providerType, provider.providerName);
-                  const active = provider.providerType === providerType;
-                  const selectableCount = provider.models.length;
-
-                  return (
-                    <button
-                      key={provider.providerType}
-                      type="button"
-                      onClick={() => handleProviderChange(provider.providerType)}
-                      disabled={isEditing}
-                      className={cn(
-                        'w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:opacity-60',
-                        active
-                          ? darkMode
-                            ? 'border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#f0f0f0]'
-                            : 'border-primary/35 bg-primary/12 text-text-main'
-                          : darkMode
-                            ? 'border-[#3c3c3c] bg-[#252526] hover:border-[#3b82f6]'
-                            : 'border-border-subtle bg-white/76 hover:border-primary/35 hover:bg-white',
-                      )}
-                    >
-                      <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold truncate">{provider.providerName}</p>
-                        <p
-                          className={cn(
-                            'text-[10px] mt-0.5',
-                            active ? 'text-current/65' : darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                          )}
-                        >
-                          {selectableCount} models
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
-
-            <div className="overflow-y-auto p-5 space-y-5">
-              <FormSection darkMode={darkMode} title="模型选择" hint="创建时会按模型支持的能力展开配置">
-                <div className="grid grid-cols-2 gap-4">
-                  <FieldLabel darkMode={darkMode} label="模型">
-                    <FancySelect
-                      darkMode={darkMode}
-                      value={modelName}
-                      onChange={handleModelChange}
-                      disabled={isEditing}
-                      placeholder="选择模型"
-                      options={[
-                        ...displayModels.map((model) => ({
-                          value: model.modelName,
-                          label: model.modelName,
-                          description: `${model.capabilities.length} 个能力`,
-                          trailing: <CapabilityDots capabilities={model.capabilities} darkMode={darkMode} />,
-                        })),
-                        ...(isEditing &&
-                        target.config &&
-                        !displayModels.some((model) => model.modelName === target.config?.modelName)
-                          ? [
-                              {
-                                value: target.config.modelName,
-                                label: target.config.modelName,
-                                description: '当前配置模型',
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
-                  </FieldLabel>
-
-                  <FieldLabel darkMode={darkMode} label="入口能力">
-                    <FancySelect
-                      darkMode={darkMode}
-                      value={entryCapability}
-                      onChange={(value) => setEntryCapability(value as LLMCapability)}
-                      disabled={isEditing || applyAllCapabilities}
-                      placeholder="选择能力"
-                      options={(selectedModel?.capabilities || [target.config?.capability])
-                        .filter(Boolean)
-                        .map((capability) => {
-                          const value = capability as LLMCapability;
-                          const meta = getCapabilityMeta(value);
-                          return {
-                            value,
-                            label: meta.label,
-                            description: meta.hint,
-                            leading: <CapabilityBadge capability={value} darkMode={darkMode} />,
-                          };
-                        })}
-                    />
-                  </FieldLabel>
-                </div>
-
-                {selectedModel && (
-                  <div className={cn('rounded-lg px-3 py-3', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base/50')}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                          该模型支持能力
-                        </p>
-                        <CapabilityChips capabilities={selectedModel.capabilities} darkMode={darkMode} />
-                      </div>
-                      {!isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => setApplyAllCapabilities((value) => !value)}
-                          className={cn(
-                            'shrink-0 rounded-lg border px-3 py-2 text-[11px] font-bold transition-colors',
-                            applyAllCapabilities
-                              ? darkMode
-                                ? 'border-[#3b82f6]/45 bg-[#3b82f6]/12 text-[#3b82f6]'
-                                : 'border-primary/35 bg-primary/12 text-primary'
-                              : darkMode
-                                ? 'border-[#3c3c3c] text-[#858585] hover:border-[#3b82f6]'
-                                : 'border-border-subtle text-text-main/55 hover:border-primary/35',
-                          )}
-                        >
-                          {applyAllCapabilities ? '已应用所有能力' : '应用到所有可用能力'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </FormSection>
-
-              <FormSection darkMode={darkMode} title="基本信息" hint="API Key 会由服务端加密存储">
-                <FieldLabel darkMode={darkMode} label="配置名称">
-                  <input
-                    type="text"
-                    value={configName}
-                    onChange={(event) => setConfigName(event.target.value)}
-                    disabled={isEditing}
-                    placeholder="例如：生产环境 GPT-4o"
-                    className={inputClassName(darkMode)}
-                  />
-                </FieldLabel>
-
-                <FieldLabel
-                  darkMode={darkMode}
-                  label={
-                    (
-                      <span className="inline-flex items-center gap-1">
-                        API Key
-                        {!isEditing && <span className="text-red-500">*</span>}
-                        {!isEditing && (
-                          <span className={cn('text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                            必填
-                          </span>
-                        )}
-                      </span>
-                    ) as unknown as string
-                  }
-                >
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(event) => setApiKey(event.target.value)}
-                    placeholder={isEditing ? '不修改请留空' : '输入 API Key'}
-                    className={inputClassName(darkMode)}
-                  />
-                </FieldLabel>
-                {!isEditing && (
-                  <p className={cn('text-[11px] mt-[-6px]', apiKey.trim() ? 'text-transparent' : 'text-red-500')}>
-                    {apiKey.trim() ? '占位' : '请填写 API Key'}
-                  </p>
-                )}
-
-                <FieldLabel darkMode={darkMode} label="自定义 API 地址">
-                  <input
-                    type="text"
-                    value={customApiBaseUrl}
-                    onChange={(event) => setCustomApiBaseUrl(event.target.value)}
-                    placeholder="https://proxy.example.com/v1"
-                    className={inputClassName(darkMode)}
-                  />
-                </FieldLabel>
-              </FormSection>
-              {validationError && (
-                <div
-                  className={cn(
-                    'rounded-lg border px-3 py-2 text-xs font-bold',
-                    darkMode ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-600',
-                  )}
-                >
-                  {validationError}
-                </div>
-              )}
-
-              <FormSection darkMode={darkMode} title="运行参数" hint="优先级越高，候选排序越靠前">
-                <div className="grid grid-cols-3 gap-4">
-                  <FieldLabel darkMode={darkMode} label="优先级">
-                    <input
-                      type="number"
-                      value={priority}
-                      onChange={(event) => setPriority(Number(event.target.value))}
-                      min={1}
-                      max={100}
-                      className={inputClassName(darkMode)}
-                    />
-                  </FieldLabel>
-                  <FieldLabel darkMode={darkMode} label="超时 ms">
-                    <input
-                      type="number"
-                      value={timeoutMs}
-                      onChange={(event) => setTimeoutMs(Number(event.target.value))}
-                      min={1000}
-                      step={1000}
-                      className={inputClassName(darkMode)}
-                    />
-                  </FieldLabel>
-                  <FieldLabel darkMode={darkMode} label="重试">
-                    <input
-                      type="number"
-                      value={maxRetries}
-                      onChange={(event) => setMaxRetries(Number(event.target.value))}
-                      min={0}
-                      max={10}
-                      className={inputClassName(darkMode)}
-                    />
-                  </FieldLabel>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <CheckToggle
-                    darkMode={darkMode}
-                    checked={isDefault}
-                    label="设为默认"
-                    onClick={() => setIsDefault((value) => !value)}
-                  />
-                  <CheckToggle
-                    darkMode={darkMode}
-                    checked={streamEnabled}
-                    label="流式输出"
-                    onClick={() => setStreamEnabled((value) => !value)}
-                  />
-                </div>
-              </FormSection>
-
-              <FormSection darkMode={darkMode} title="额外配置" hint="可选 JSON 字符串，会原样传给后端">
-                <textarea
-                  value={extraConfig}
-                  onChange={(event) => setExtraConfig(event.target.value)}
-                  placeholder='{"temperature":0.7}'
-                  rows={3}
-                  className={cn(inputClassName(darkMode), 'resize-none')}
-                />
-              </FormSection>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            'px-6 py-4 border-t flex items-center justify-end gap-3',
-            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
-          )}
-        >
-          <button
-            onClick={onClose}
-            className={cn(
-              'h-9 px-4 rounded-lg text-xs font-bold',
-              darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
-            )}
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSubmit}
-            className={cn(
-              'h-9 px-4 rounded-lg text-xs font-bold transition-opacity',
-              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-            )}
-          >
-            {isEditing ? '保存' : '添加'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FieldLabel({ darkMode, label, children }: { darkMode?: boolean; label: ReactNode; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className={cn('block mb-2 text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function FormSection({
-  darkMode,
-  title,
-  hint,
-  children,
-}: {
-  darkMode?: boolean;
-  title: string;
-  hint: string;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      className={cn(
-        'rounded-lg border p-4 space-y-4',
-        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white/74',
-      )}
-    >
-      <div>
-        <h4 className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</h4>
-        <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>{hint}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function CheckToggle({
-  darkMode,
-  checked,
-  label,
-  onClick,
-}: {
-  darkMode?: boolean;
-  checked: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors',
-        darkMode ? 'border-[#3c3c3c] hover:bg-[#2d2d2d]' : 'border-border-subtle hover:bg-primary/5',
-      )}
-    >
-      <span
-        className={cn(
-          'w-5 h-5 rounded flex items-center justify-center transition-colors',
-          checked ? 'bg-primary text-white' : darkMode ? 'border border-[#3c3c3c]' : 'border border-border-subtle',
-        )}
-      >
-        {checked && <Check size={12} />}
-      </span>
-      <span className={cn('text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>{label}</span>
-    </button>
-  );
-}
-
-interface FancySelectOption {
-  value: string;
-  label: string;
-  description?: string;
-  leading?: ReactNode;
-  trailing?: ReactNode;
-}
-
-function FancySelect({
-  darkMode,
-  value,
-  options,
-  placeholder,
-  disabled,
-  onChange,
-}: {
-  darkMode?: boolean;
-  value: string;
-  options: FancySelectOption[];
-  placeholder?: string;
-  disabled?: boolean;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find((option) => option.value === value);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    window.addEventListener('mousedown', handlePointerDown);
-    return () => window.removeEventListener('mousedown', handlePointerDown);
-  }, [open]);
-
-  return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((value) => !value)}
-        className={cn(
-          'h-11 w-full rounded-lg border px-3 text-left transition-colors flex items-center gap-3',
-          disabled && 'cursor-not-allowed opacity-60',
-          open
-            ? darkMode
-              ? 'border-[#3b82f6]/60 bg-[#1e1e1e]'
-              : 'border-primary/45 bg-white'
-            : darkMode
-              ? 'border-[#3c3c3c] bg-[#2d2d2d] hover:border-[#3b82f6]/45'
-              : 'border-border-subtle bg-bg-base/50 hover:border-primary/35',
-        )}
-      >
-        {selected?.leading}
-        <span className="min-w-0 flex-1">
-          <span
-            className={cn(
-              'block truncate text-sm font-bold',
-              selected
-                ? darkMode
-                  ? 'text-[#e0e0e0]'
-                  : 'text-text-main'
-                : darkMode
-                  ? 'text-[#6b6b6b]'
-                  : 'text-text-main/40',
-            )}
-          >
-            {selected?.label || placeholder || '请选择'}
-          </span>
-          {selected?.description && (
-            <span
-              className={cn('block truncate text-[10px] mt-0.5', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
-            >
-              {selected.description}
-            </span>
-          )}
-        </span>
-        {selected?.trailing}
-        <ChevronDown
-          size={16}
-          className={cn(
-            'shrink-0 transition-transform',
-            open && 'rotate-180',
-            darkMode ? 'text-[#858585]' : 'text-text-main/45',
-          )}
-        />
-      </button>
-
-      {open && !disabled && (
-        <div
-          className={cn(
-            'absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-64 overflow-y-auto rounded-lg border p-1.5 shadow-xl',
-            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-          )}
-        >
-          {options.map((option) => {
-            const active = option.value === value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
-                }}
-                className={cn(
-                  'w-full rounded-md px-2.5 py-2 text-left flex items-center gap-3 transition-colors',
-                  active
-                    ? darkMode
-                      ? 'bg-[#3b82f6]/14 text-[#f0f0f0]'
-                      : 'bg-primary/10 text-text-main'
-                    : darkMode
-                      ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
-                      : 'text-text-main hover:bg-bg-base',
-                )}
-              >
-                {option.leading}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold">{option.label}</span>
-                  {option.description && (
-                    <span
-                      className={cn(
-                        'block truncate text-[10px] mt-0.5',
-                        active ? 'text-current/65' : darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                      )}
-                    >
-                      {option.description}
-                    </span>
-                  )}
-                </span>
-                {option.trailing}
-                {active && <Check size={14} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CapabilityBadge({ capability, darkMode }: { capability: LLMCapability; darkMode?: boolean }) {
+function CapabilityBadge({ capability, compact }: { capability: LLMCapability; compact?: boolean }) {
   const meta = getCapabilityMeta(capability);
+
+  return <span className={cn(compact ? 'text-[10px]' : 'text-[10px]', 'font-bold text-black')}>{meta.label}</span>;
+}
+
+function CountPill({ darkMode, label }: { darkMode?: boolean; label: string }) {
   return (
     <span
       className={cn(
-        'h-7 min-w-7 rounded-md px-2 inline-flex items-center justify-center text-[10px] font-bold',
-        darkMode ? 'bg-[#1e1e1e] text-[#3b82f6]' : 'bg-primary/10 text-primary',
+        'h-6 rounded-md px-2 inline-flex items-center text-[10px] font-bold',
+        darkMode ? 'bg-[#2d2d2d] text-[#858585]' : 'bg-bg-base text-text-main/50',
       )}
     >
-      {meta.hint.slice(0, 2).toUpperCase()}
+      {label}
     </span>
   );
 }
 
-function CapabilityDots({ capabilities, darkMode }: { capabilities: LLMCapability[]; darkMode?: boolean }) {
+function SourcePill({ darkMode, preset, compact }: { darkMode?: boolean; preset: boolean; compact?: boolean }) {
   return (
-    <span className="shrink-0 flex items-center -space-x-1">
-      {capabilities.slice(0, 4).map((capability) => {
-        const meta = getCapabilityMeta(capability);
-        return (
-          <span
-            key={capability}
-            title={meta.label}
-            className={cn(
-              'h-2.5 w-2.5 rounded-full border',
-              darkMode ? 'border-[#252526] bg-[#3b82f6]' : 'border-white bg-primary',
-            )}
-          />
-        );
-      })}
+    <span
+      className={cn(
+        compact ? 'h-5 px-1.5 text-[9px]' : 'h-6 px-2 text-[10px]',
+        'w-fit rounded-md inline-flex items-center justify-center font-bold',
+        preset
+          ? darkMode
+            ? 'bg-[#3b82f6]/14 text-[#70a8ff]'
+            : 'bg-primary/10 text-primary'
+          : darkMode
+            ? 'bg-[#2d2d2d] text-[#cccccc]'
+            : 'bg-bg-base text-text-main/60',
+      )}
+    >
+      {preset ? '系统预设' : '自配'}
     </span>
   );
 }
 
-function inputClassName(darkMode?: boolean) {
+function panelClassName(darkMode?: boolean) {
   return cn(
-    'w-full px-3 py-2.5 rounded-lg text-sm border focus:outline-none focus:border-primary',
-    darkMode
-      ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b] disabled:text-[#858585]'
-      : 'bg-bg-base/50 border-border-subtle text-text-main disabled:text-text-main/50',
+    'rounded-lg border overflow-hidden',
+    darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
   );
 }

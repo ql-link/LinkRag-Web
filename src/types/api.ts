@@ -34,25 +34,19 @@ export interface UserProfileDTO {
 
 export interface LLMConfigDTO {
   id: number;
-  configName: string;
   providerType: string;
-  providerName: string;
   modelName: string;
   capability: LLMCapability;
   apiKeyMasked: string;
-  customApiBaseUrl: string | null;
-  priority: number;
+  apiBaseUrl: string | null;
   isActive: boolean;
   isDefault: boolean;
-  timeoutMs: number;
-  maxRetries: number;
-  streamEnabled: boolean;
-  extraConfig: string | null;
+  isSystemPreset: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'OCR' | 'VISION' | 'REASONING' | 'CODE';
+export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'OCR' | 'VISION' | 'RERANK' | 'ASR';
 
 export interface ModelCapabilityDTO {
   modelName: string;
@@ -63,6 +57,65 @@ export interface ProviderModelDTO {
   providerType: string;
   providerName: string;
   models: ModelCapabilityDTO[];
+}
+
+export interface SystemProvider {
+  id: number;
+  providerType: string;
+  providerName: string;
+  apiBaseUrl: string;
+  isActive: boolean;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProviderModel {
+  id: number;
+  providerId: number;
+  modelName: string;
+  capability: LLMCapability;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SystemPreset {
+  id: number;
+  providerId: number;
+  modelName: string;
+  capability: LLMCapability;
+  apiKey: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProviderRequest {
+  providerType: string;
+  providerName: string;
+  apiBaseUrl: string;
+  isActive: boolean;
+  priority: number;
+}
+
+export interface UpdateProviderRequest {
+  providerName?: string;
+  apiBaseUrl?: string;
+  isActive?: boolean;
+  priority?: number;
+}
+
+export interface AddProviderModelRequest {
+  modelName: string;
+  capability: LLMCapability;
+}
+
+export interface CreatePresetRequest {
+  providerId: number;
+  modelName: string;
+  capability: LLMCapability;
+  apiKey: string;
 }
 
 export interface ConversationDTO {
