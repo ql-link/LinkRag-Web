@@ -402,20 +402,12 @@ function DefaultModelStrip({
       </div>
       <div className="grid grid-cols-3 gap-3">
         {items.map((item) => {
-          const missingRequired = item.required && !item.config && !loading;
-
           return (
             <div
               key={item.value}
               className={cn(
                 'rounded-lg px-3 py-3 border min-h-[82px]',
-                missingRequired
-                  ? darkMode
-                    ? 'bg-red-500/8 border-red-500/35'
-                    : 'bg-red-50/70 border-red-200'
-                  : darkMode
-                    ? 'bg-[#1e1e1e]/88 border-[#3c3c3c]'
-                    : 'bg-bg-base/70 border-border-subtle',
+                darkMode ? 'bg-[#1e1e1e]/88 border-[#3c3c3c]' : 'bg-bg-base/70 border-border-subtle',
               )}
             >
               <div className="flex items-center justify-between gap-2">
@@ -426,13 +418,7 @@ function DefaultModelStrip({
                   <span
                     className={cn(
                       'shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold',
-                      item.required
-                        ? darkMode
-                          ? 'bg-red-500/16 text-red-300'
-                          : 'bg-red-100 text-red-600'
-                        : darkMode
-                          ? 'bg-[#3c3c3c] text-[#858585]'
-                          : 'bg-white/70 text-text-main/45',
+                      darkMode ? 'bg-[#3c3c3c] text-[#858585]' : 'bg-white/70 text-text-main/45',
                     )}
                   >
                     {item.required ? '必填' : '选填'}
@@ -460,19 +446,8 @@ function DefaultModelStrip({
                   </div>
                 </div>
               ) : (
-                <p
-                  className={cn(
-                    'text-xs mt-3 font-bold',
-                    missingRequired
-                      ? darkMode
-                        ? 'text-red-300'
-                        : 'text-red-600'
-                      : darkMode
-                        ? 'text-[#858585]'
-                        : 'text-text-main/45',
-                  )}
-                >
-                  {loading ? '加载中...' : missingRequired ? '必填项未配置' : '未设置默认'}
+                <p className={cn('text-xs mt-3 font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                  {loading ? '加载中...' : '未设置默认'}
                 </p>
               )}
             </div>

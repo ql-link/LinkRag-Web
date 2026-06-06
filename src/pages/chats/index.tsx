@@ -34,6 +34,7 @@ export default function ChatsPage() {
   const [editChatName, setEditChatName] = useState('');
   const [updating, setUpdating] = useState(false);
   const [deletingChatIds, setDeletingChatIds] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -53,6 +54,7 @@ export default function ChatsPage() {
   }, [location.pathname, location.state, navigate]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [convsResult, dsResult] = await Promise.all([getConversations(1, 100), getDatasets(1, 100)]);
       setChats(convsResult.items);
@@ -67,6 +69,8 @@ export default function ChatsPage() {
       );
     } catch (error) {
       console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -214,114 +218,125 @@ export default function ChatsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8">
-        {/* Stats Bar */}
-        <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode && 'text-gray-400')}>
-          <span>共 {chats.length} 个对话</span>
-          <span className={darkMode ? 'text-gray-600' : 'text-border-subtle'}>|</span>
-          <span>已加载 {chats.length > 0 ? '全部' : '0'} 对话</span>
-        </div>
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <Loader2 size={16} className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')} />
+              <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Stats Bar */}
+            <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode && 'text-gray-400')}>
+              <span>共 {chats.length} 个对话</span>
+              <span className={darkMode ? 'text-gray-600' : 'text-border-subtle'}>|</span>
+              <span>已加载 {chats.length > 0 ? '全部' : '0'} 对话</span>
+            </div>
 
-        {/* Chat Grid */}
-        <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
-          {filteredChats.map((chat) => {
-            const deleting = deletingChatIds.includes(chat.id);
+            {/* Chat Grid */}
+            <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
+              {filteredChats.map((chat) => {
+                const deleting = deletingChatIds.includes(chat.id);
 
-            return (
-              <div
-                key={chat.id}
-                onClick={() => navigate(`/chats/${chat.id}`)}
-                className={cn(
-                  'rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col h-full min-h-0',
-                  darkMode
-                    ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#4a4a4a]'
-                    : 'art-card hover:border-border-subtle',
-                )}
-              >
-                <div className="mb-3">
+                return (
                   <div
+                    key={chat.id}
+                    onClick={() => navigate(`/chats/${chat.id}`)}
                     className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center border',
-                      darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/60 border-border-subtle',
+                      'rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col h-full min-h-0',
+                      darkMode
+                        ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#4a4a4a]'
+                        : 'art-card hover:border-border-subtle',
                     )}
                   >
-                    <MessageSquare size={18} className={darkMode ? 'text-[#bdbdbd]' : 'text-[#7d746b]'} />
-                  </div>
-                </div>
-                <h3
-                  className={cn(
-                    'font-bold text-sm tracking-wide line-clamp-2 mb-2 group-hover:text-text-main/90 transition-colors',
-                    darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                  )}
-                >
-                  {chat.title}
-                </h3>
-                <p className={cn('text-sm mb-3 truncate', darkMode ? 'text-[#cccccc]' : 'text-text-main/75')}>
-                  {datasetNameById.get(chat.datasetId) ?? `数据集 #${chat.datasetId}`}
-                </p>
-                <div className="mt-auto flex items-end justify-between gap-2">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                      更新于 {formatTime(chat.updatedAt)}
-                    </span>
-                    {chat.isPinned && (
-                      <span
+                    <div className="mb-3">
+                      <div
                         className={cn(
-                          'w-fit px-2 py-1 rounded-lg text-[10px] font-bold uppercase',
-                          darkMode
-                            ? 'bg-[#2d2d2d] text-[#bdbdbd] border border-[#3c3c3c]'
-                            : 'bg-bg-base/70 text-text-main/60 border border-border-subtle',
+                          'w-10 h-10 rounded-xl flex items-center justify-center border',
+                          darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/60 border-border-subtle',
                         )}
                       >
-                        置顶
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={(event) => handleEditChat(chat, event)}
+                        <MessageSquare size={18} className={darkMode ? 'text-[#bdbdbd]' : 'text-[#7d746b]'} />
+                      </div>
+                    </div>
+                    <h3
                       className={cn(
-                        'p-2 rounded-xl transition-colors',
-                        darkMode
-                          ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#3b82f6]'
-                          : 'text-text-main/35 hover:bg-blue-50 hover:text-blue-500',
+                        'font-bold text-sm tracking-wide line-clamp-2 mb-2 group-hover:text-text-main/90 transition-colors',
+                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
                       )}
-                      title="编辑对话"
                     >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={(event) => void handleDeleteChat(chat, event)}
-                      disabled={deleting}
-                      className={cn(
-                        'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                        darkMode
-                          ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-red-400'
-                          : 'text-text-main/35 hover:bg-red-50 hover:text-red-500',
-                      )}
-                      title="删除对话"
-                    >
-                      {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    </button>
+                      {chat.title}
+                    </h3>
+                    <p className={cn('text-sm mb-3 truncate', darkMode ? 'text-[#cccccc]' : 'text-text-main/75')}>
+                      {datasetNameById.get(chat.datasetId) ?? `数据集 #${chat.datasetId}`}
+                    </p>
+                    <div className="mt-auto flex items-end justify-between gap-2">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                          更新于 {formatTime(chat.updatedAt)}
+                        </span>
+                        {chat.isPinned && (
+                          <span
+                            className={cn(
+                              'w-fit px-2 py-1 rounded-lg text-[10px] font-bold uppercase',
+                              darkMode
+                                ? 'bg-[#2d2d2d] text-[#bdbdbd] border border-[#3c3c3c]'
+                                : 'bg-bg-base/70 text-text-main/60 border border-border-subtle',
+                            )}
+                          >
+                            置顶
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
+                        <button
+                          onClick={(event) => handleEditChat(chat, event)}
+                          className={cn(
+                            'p-2 rounded-xl transition-colors',
+                            darkMode
+                              ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#3b82f6]'
+                              : 'text-text-main/35 hover:bg-blue-50 hover:text-blue-500',
+                          )}
+                          title="编辑对话"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={(event) => void handleDeleteChat(chat, event)}
+                          disabled={deleting}
+                          className={cn(
+                            'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                            darkMode
+                              ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-red-400'
+                              : 'text-text-main/35 hover:bg-red-50 hover:text-red-500',
+                          )}
+                          title="删除对话"
+                        >
+                          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {/* Add New */}
-          <div
-            onClick={() => setCreateDialogOpen(true)}
-            className={cn(
-              'rounded-2xl border-dashed flex flex-col items-center justify-center p-5 cursor-pointer transition-colors h-full min-h-0',
-              darkMode
-                ? 'border-[#3c3c3c] text-[#858585] hover:text-[#d0d0d0] hover:border-[#4a4a4a]'
-                : 'art-card text-text-main/40 hover:text-text-main/60 hover:border-border-subtle',
-            )}
-          >
-            <Plus size={24} className="mb-2" />
-            <span className="text-xs font-bold uppercase tracking-wider">新建对话</span>
-          </div>
-        </div>
+              {/* Add New */}
+              <div
+                onClick={() => setCreateDialogOpen(true)}
+                className={cn(
+                  'rounded-2xl border-dashed flex flex-col items-center justify-center p-5 cursor-pointer transition-colors h-full min-h-0',
+                  darkMode
+                    ? 'border-[#3c3c3c] text-[#858585] hover:text-[#d0d0d0] hover:border-[#4a4a4a]'
+                    : 'art-card text-text-main/40 hover:text-text-main/60 hover:border-border-subtle',
+                )}
+              >
+                <Plus size={24} className="mb-2" />
+                <span className="text-xs font-bold uppercase tracking-wider">新建对话</span>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Create Chat Dialog */}
         {createDialogOpen && (
