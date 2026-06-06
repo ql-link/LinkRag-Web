@@ -239,10 +239,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-start gap-4">
-            <label className="w-[190px] text-sm font-medium pt-1.5">角色</label>
-            <div className="flex-1 text-sm pt-1.5">{profile?.role || 'USER'}</div>
-          </div>
         </div>
       </div>
 
