@@ -215,21 +215,28 @@ function RecallPanel({
                 <div className={cn('mt-1 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                   doc {hit.doc_id} · 知识库 {hit.dataset_id}
                 </div>
-                {hit.scores && Object.keys(hit.scores).length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {Object.entries(hit.scores).map(([source, score]) => (
-                      <span
-                        key={source}
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-[9px] font-mono',
-                          darkMode ? 'bg-[#1e1e1e] text-[#858585]' : 'bg-bg-base/60 text-text-main/55',
-                        )}
-                      >
-                        {source} {score.toFixed(2)}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  // 某召回路未命中该 chunk 时分值为 null，过滤掉避免 null.toFixed 崩溃。
+                  const scored = Object.entries(hit.scores ?? {}).filter(
+                    (entry): entry is [string, number] => entry[1] != null,
+                  );
+                  if (scored.length === 0) return null;
+                  return (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {scored.map(([source, score]) => (
+                        <span
+                          key={source}
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[9px] font-mono',
+                            darkMode ? 'bg-[#1e1e1e] text-[#858585]' : 'bg-bg-base/60 text-text-main/55',
+                          )}
+                        >
+                          {source} {score.toFixed(2)}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

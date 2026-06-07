@@ -326,7 +326,8 @@ export interface RecallHit {
   doc_id: number;
   dataset_id: number;
   fused_score: number;
-  scores: Record<string, number>;
+  /** 各召回路原始分；某路未命中该 chunk 时值为 null（如稀疏检索命中但 BM25 未命中）。 */
+  scores: Record<string, number | null>;
 }
 
 /** event: recall_done 的 data。hits 已按 fused_score 降序。 */
