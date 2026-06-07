@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Box, ChevronDown, Key, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
+import { Box, ChevronDown, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,8 @@ const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
 );
 
 const PROVIDER_ICON_ALIASES: Record<string, string> = {
+  openai:
+    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
   ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
   '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
   aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
@@ -59,6 +61,28 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
 };
 
 const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
+
+const PROVIDER_PRIORITY: Array<[number, string[]]> = [
+  [0, ['openai', 'openaiapi', 'openaiapicompatible']],
+  [1, ['anthropic', 'claude']],
+  [2, ['google', 'gemini', 'googlecloud']],
+  [3, ['deepseek']],
+  [4, ['qwen', 'tongyi', 'tongyiqianwen', 'aliyun', 'wenxin', 'wenxinyiyan']],
+  [5, ['zhipu', 'glm']],
+  [6, ['moonshot', 'kimi']],
+  [7, ['volcengine', 'volc', 'doubao', 'byte', 'bytedance']],
+  [8, ['baichuan']],
+  [9, ['minimax']],
+  [10, ['azure', 'azureopenai']],
+  [11, ['mistral']],
+  [12, ['cohere']],
+  [13, ['perplexity']],
+  [14, ['xai']],
+  [15, ['openrouter']],
+  [16, ['siliconflow']],
+  [17, ['stepfun']],
+  [18, ['hunyuan', 'tencentcloud', 'tencent']],
+];
 
 const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
   { value: 'CHAT', label: '对话', hint: '对话' },
@@ -124,6 +148,28 @@ function getProviderIcon(providerType: string, providerName?: string) {
 
 function capabilitySort(a: LLMCapability, b: LLMCapability) {
   return CAPABILITIES.findIndex((item) => item.value === a) - CAPABILITIES.findIndex((item) => item.value === b);
+}
+
+function getProviderSortRank(providerType: string, providerName?: string) {
+  const tokens = [providerType, providerName || ''].map(normalizeProviderToken);
+  for (const [rank, patterns] of PROVIDER_PRIORITY) {
+    if (patterns.some((pattern) => tokens.some((token) => token.includes(pattern) || pattern.includes(token)))) {
+      return rank;
+    }
+  }
+  return 100;
+}
+
+function compareProviders(
+  a: { providerType: string; providerName?: string },
+  b: { providerType: string; providerName?: string },
+) {
+  const rankDiff =
+    getProviderSortRank(a.providerType, a.providerName) - getProviderSortRank(b.providerType, b.providerName);
+  if (rankDiff !== 0) {
+    return rankDiff;
+  }
+  return (a.providerName || a.providerType).localeCompare(b.providerName || b.providerType);
 }
 
 export default function LLMPage() {
@@ -222,37 +268,39 @@ export default function LLMPage() {
           models,
         };
       })
-      .sort((a, b) => a.providerName.localeCompare(b.providerName));
+      .sort((a, b) => compareProviders(a, b));
   }, [viewConfigs]);
 
   const filteredProviders = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
     const filterSet = new Set(selectedCapabilityFilters);
 
-    if (!keyword && filterSet.size === 0) {
-      return providers;
-    }
-
-    return providers.filter((provider) => {
-      if (filterSet.size > 0) {
-        const hit = provider.models.some((model) => model.capabilities.some((capability) => filterSet.has(capability)));
-        if (!hit) {
-          return false;
+    const result = providers
+      .filter((provider) => {
+        if (filterSet.size > 0) {
+          const hit = provider.models.some((model) =>
+            model.capabilities.some((capability) => filterSet.has(capability)),
+          );
+          if (!hit) {
+            return false;
+          }
         }
-      }
 
-      const searchable = [
-        provider.providerName,
-        provider.providerType,
-        ...provider.models.flatMap((model) => [model.modelName, ...model.capabilities]),
-      ]
-        .join(' ')
-        .toLowerCase();
-      if (!keyword) {
-        return true;
-      }
-      return searchable.includes(keyword);
-    });
+        const searchable = [
+          provider.providerName,
+          provider.providerType,
+          ...provider.models.flatMap((model) => [model.modelName, ...model.capabilities]),
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!keyword) {
+          return true;
+        }
+        return searchable.includes(keyword);
+      })
+      .sort((a, b) => compareProviders(a, b));
+
+    return result;
   }, [providers, searchTerm, selectedCapabilityFilters]);
 
   async function loadPageData() {
@@ -393,9 +441,10 @@ export default function LLMPage() {
 
             <ConfiguredProvidersPanel
               darkMode={darkMode}
-              loading={loading}
+              loading={loading && providerGroups.length === 0}
               groups={providerGroups}
               onToggleModel={handleToggleModel}
+              onUpdateProvider={(provider) => setSetupTarget({ provider, mode: 'update' })}
             />
           </div>
         </section>
@@ -406,7 +455,7 @@ export default function LLMPage() {
           darkMode={darkMode}
           providers={filteredProviders}
           configuredProviderTypes={configuredProviderTypes}
-          loading={loading}
+          loading={loading && providers.length === 0}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           selectedCapabilityFilters={selectedCapabilityFilters}
@@ -424,8 +473,11 @@ export default function LLMPage() {
           darkMode={darkMode}
           target={setupTarget}
           onClose={() => {
+            const shouldReopenPicker = setupTarget.mode === 'create';
             setSetupTarget(null);
-            setProviderPickerOpen(true);
+            if (shouldReopenPicker) {
+              setProviderPickerOpen(true);
+            }
           }}
           onSubmit={handleSetupProvider}
         />
@@ -472,7 +524,6 @@ function EffectiveModelsPanel({
         <div>
           <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>生效模型</h3>
         </div>
-        <ShieldCheck size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
       </div>
       <div className="space-y-2 p-4">
         {CAPABILITIES.map((capability) => {
@@ -484,9 +535,9 @@ function EffectiveModelsPanel({
             <div
               key={capability.value}
               className={cn(
-                'relative grid gap-3 rounded-lg border px-3 py-2 md:grid-cols-[56px_1fr_340px] md:items-center',
-                isOpen && 'ring-1 ring-[#3b82f6]/50',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/48',
+                'relative grid gap-3 border-b px-1 py-3 last:border-b-0 md:grid-cols-[56px_1fr_340px] md:items-center',
+                isOpen && 'ring-1 ring-[#3b82f6]/35 rounded-lg',
+                darkMode ? 'border-[#3c3c3c]/50' : 'border-border-subtle/60',
               )}
               data-capability={capability.value}
             >
@@ -512,7 +563,7 @@ function EffectiveModelsPanel({
                 disabled={candidates.length === 0}
                 onClick={() => setOpenCapability((prev) => (prev === capability.value ? null : capability.value))}
                 className={cn(
-                  'group h-8 w-full rounded-lg border px-2.5 text-left text-xs outline-none transition-all',
+                  'group h-8 w-full rounded-md border px-2.5 text-left text-xs outline-none transition-all',
                   isOpen ? (darkMode ? 'bg-[#2a2a2a] border-[#3b82f6]' : 'bg-primary/5 border-primary') : '',
                   darkMode
                     ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
@@ -591,22 +642,18 @@ function ConfiguredProvidersPanel({
   loading,
   groups,
   onToggleModel,
+  onUpdateProvider,
 }: {
   darkMode?: boolean;
   loading: boolean;
   groups: ProviderGroup[];
   onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+  onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   return (
     <section className={panelClassName(darkMode)}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-inherit">
-        <div>
-          <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>已配置厂商</h3>
-          <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-            自配模型可以启停；系统预设只读。
-          </p>
-        </div>
-        <SlidersHorizontal size={18} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+        <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>模型管理</h3>
       </div>
 
       {loading ? (
@@ -614,10 +661,15 @@ function ConfiguredProvidersPanel({
       ) : groups.length === 0 ? (
         <EmptyConfiguredState darkMode={darkMode} />
       ) : (
-        <div className="space-y-2 p-3">
+        <div className="space-y-3 p-3">
           {groups.map((group) => (
             <Fragment key={group.providerType}>
-              <ProviderConfigCard darkMode={darkMode} group={group} onToggleModel={onToggleModel} />
+              <ProviderConfigCard
+                darkMode={darkMode}
+                group={group}
+                onToggleModel={onToggleModel}
+                onUpdateProvider={onUpdateProvider}
+              />
             </Fragment>
           ))}
         </div>
@@ -630,23 +682,21 @@ function ProviderConfigCard({
   darkMode,
   group,
   onToggleModel,
+  onUpdateProvider,
 }: {
   darkMode?: boolean;
   group: ProviderGroup;
   onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+  onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   const iconUrl = getProviderIcon(group.providerType, group.providerName);
   const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
   const presetCount = group.configs.length - selfCount;
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <article
-      className={cn(
-        'rounded-lg border overflow-hidden',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/82',
-      )}
-    >
-      <header className="flex items-start gap-2 px-3 py-2 md:items-center md:justify-between">
+    <article className={cn('py-2', darkMode ? 'border-b border-[#3c3c3c]/50' : 'border-b border-border-subtle/60')}>
+      <header className="flex items-start justify-between gap-3 px-1 md:items-center">
         <div className="flex items-center gap-2.5 min-w-0">
           <ProviderIcon iconUrl={iconUrl} name={group.providerName} darkMode={darkMode} size="sm" />
           <div className="min-w-0">
@@ -655,20 +705,57 @@ function ProviderConfigCard({
             </h4>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 shrink-0">
-          <CountPill darkMode={darkMode} label={`${group.models.length} 模型`} />
-          <CountPill darkMode={darkMode} label={`${selfCount} 自配`} />
-          {presetCount > 0 && <CountPill darkMode={darkMode} label={`${presetCount} 预设`} />}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() =>
+              onUpdateProvider({
+                providerType: group.providerType,
+                providerName: group.providerName,
+                models: [],
+              })
+            }
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold transition-colors',
+              darkMode
+                ? 'text-[#c7c7c7] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                : 'text-text-main/65 hover:bg-gray-100 hover:text-text-main',
+            )}
+            title="更新密钥"
+            aria-label="更新密钥"
+          >
+            更新密钥
+          </button>
+          <div className={cn('flex flex-wrap gap-2 text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+            <span className="text-sm font-semibold">{group.models.length} 模型</span>
+            {presetCount > 0 && <span>{presetCount} 预设</span>}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCollapsed((prev) => !prev)}
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold transition-colors',
+              darkMode
+                ? 'text-[#c7c7c7] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                : 'text-text-main/65 hover:bg-gray-100 hover:text-text-main',
+            )}
+            title={collapsed ? '展开' : '收起'}
+            aria-label={collapsed ? '展开' : '收起'}
+          >
+            {collapsed ? '展开' : '收起'}
+          </button>
         </div>
       </header>
 
-      <div className={cn('divide-y', darkMode ? 'divide-[#3c3c3c]' : 'divide-border-subtle')}>
-        {group.models.map((model) => (
-          <Fragment key={model.modelName}>
-            <ModelConfigBlock darkMode={darkMode} group={group} model={model} onToggleModel={onToggleModel} />
-          </Fragment>
-        ))}
-      </div>
+      {!collapsed ? (
+        <div className="mt-1 space-y-1.5 pl-10">
+          {group.models.map((model) => (
+            <Fragment key={model.modelName}>
+              <ModelConfigBlock darkMode={darkMode} group={group} model={model} onToggleModel={onToggleModel} />
+            </Fragment>
+          ))}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -684,40 +771,30 @@ function ModelConfigBlock({
   model: ModelGroup;
   onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
 }) {
-  return (
-    <section className={cn('px-3 py-1.5', darkMode ? 'bg-[#252526]' : 'bg-white/45')}>
-      <div className="flex items-center justify-between">
-        <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-          {model.modelName}
-        </p>
-        <StateSwitch
-          darkMode={darkMode}
-          checked={model.isSelfActive}
-          label={model.selfConfigs.length === 0 ? '仅预设' : model.isSelfActive ? '自配启用' : '自配停用'}
-          disabled={model.selfConfigs.length === 0}
-          onClick={() => onToggleModel(group, model)}
-        />
-      </div>
+  const capabilityText = model.configs.map((config) => getCapabilityMeta(config.capability).label).join(' · ');
 
-      <div className="mt-2 space-y-1.5">
-        {model.configs.map((config) => (
-          <Fragment key={config.id}>
-            <ConfigLine darkMode={darkMode} config={config} />
-          </Fragment>
-        ))}
+  return (
+    <section className="py-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex items-center gap-2">
+          <p className={cn('shrink-0 text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+            {model.modelName}
+          </p>
+          <p className={cn('min-w-0 truncate text-sm font-medium', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+            {capabilityText}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StateSwitch
+            darkMode={darkMode}
+            checked={model.isSelfActive}
+            label={model.selfConfigs.length === 0 ? '仅预设' : model.isSelfActive ? '启用中' : '已停用'}
+            disabled={model.selfConfigs.length === 0}
+            onClick={() => onToggleModel(group, model)}
+          />
+        </div>
       </div>
     </section>
-  );
-}
-
-function ConfigLine({ darkMode, config }: { darkMode?: boolean; config: ConfigView }) {
-  const capability = getCapabilityMeta(config.capability);
-  return (
-    <div className={cn('py-1.5', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
-      <span className={cn('text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
-        {capability.label}
-      </span>
-    </div>
   );
 }
 
@@ -752,10 +829,6 @@ function ProviderPickerModal({
       return;
     }
     onCapabilityFilterChange([capability]);
-  }
-
-  function clearCapabilityFilters() {
-    onCapabilityFilterChange([]);
   }
 
   return (
@@ -830,20 +903,6 @@ function ProviderPickerModal({
                 </button>
               );
             })}
-            {selectedCapabilityFilters.length > 0 ? (
-              <button
-                type="button"
-                onClick={clearCapabilityFilters}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-bold transition-colors',
-                  darkMode
-                    ? 'border-red-400/40 text-red-200/90 bg-red-500/10 hover:bg-red-500/15'
-                    : 'border-red-200 text-red-600 bg-red-50 hover:bg-red-100',
-                )}
-              >
-                清空能力筛选
-              </button>
-            ) : null}
           </div>
         </header>
 
@@ -989,11 +1048,19 @@ function SetupProviderModal({
             <ProviderIcon iconUrl={iconUrl} name={target.provider.providerName} darkMode={darkMode} size="md" />
             <div className="min-w-0">
               <h3 className={cn('text-lg font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                {target.mode === 'update' ? '更新厂商' : '配置厂商'}
+                {target.provider.providerName}
               </h3>
-              <p className={cn('mono-label mt-1 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                {target.provider.providerName} · {target.provider.providerType}
-              </p>
+              <div
+                className={cn(
+                  'mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs',
+                  darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                )}
+              >
+                <span className="truncate">{target.provider.providerType}</span>
+                <span className={cn('text-[11px] font-medium', darkMode ? 'text-[#bdbdbd]' : 'text-text-main/60')}>
+                  {target.mode === 'update' ? '更新厂商' : '配置厂商'}
+                </span>
+              </div>
             </div>
           </div>
           <button
@@ -1007,38 +1074,22 @@ function SetupProviderModal({
           </button>
         </header>
 
-        <div className="p-6 space-y-5">
-          <div
+        <div className="p-6 space-y-4">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="输入 API Key"
             className={cn(
-              'rounded-lg border p-4',
-              darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/50',
+              'h-11 w-full rounded-lg border px-3 text-sm outline-none transition-colors',
+              darkMode
+                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
+                : 'border-border-subtle bg-white/80 text-text-main placeholder:text-text-main/35 focus:border-primary',
             )}
-          >
-            <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>厂商级 API Key</p>
-            <p className={cn('text-[11px] mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-              提交后系统会按厂商模型目录展开全部模型能力；重复配置同厂商会更新自配行 Key。
-            </p>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="输入 API Key"
-              className={cn(
-                'mt-4 h-11 w-full rounded-lg border px-3 text-sm outline-none transition-colors',
-                darkMode
-                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
-                  : 'border-border-subtle bg-white/80 text-text-main placeholder:text-text-main/35 focus:border-primary',
-              )}
-            />
-          </div>
+          />
 
           {validationError && (
-            <div
-              className={cn(
-                'rounded-lg border px-3 py-2 text-xs font-bold',
-                darkMode ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-red-200 bg-red-50 text-red-600',
-              )}
-            >
+            <div className={cn('px-1 text-xs font-bold', darkMode ? 'text-red-300' : 'text-red-600')}>
               {validationError}
             </div>
           )}
@@ -1047,7 +1098,7 @@ function SetupProviderModal({
         <footer
           className={cn(
             'px-6 py-4 border-t flex items-center justify-end gap-3',
-            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/55',
+            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           )}
         >
           <button
@@ -1195,15 +1246,15 @@ function ProviderIcon({
 function CapabilityBadge({ capability, compact }: { capability: LLMCapability; compact?: boolean }) {
   const meta = getCapabilityMeta(capability);
 
-  return <span className={cn(compact ? 'text-[10px]' : 'text-[10px]', 'font-bold text-black')}>{meta.label}</span>;
+  return <span className={cn(compact ? 'text-sm' : 'text-sm', 'font-semibold text-black')}>{meta.label}</span>;
 }
 
 function CountPill({ darkMode, label }: { darkMode?: boolean; label: string }) {
   return (
     <span
       className={cn(
-        'h-6 rounded-md px-2 inline-flex items-center text-[10px] font-bold',
-        darkMode ? 'bg-[#2d2d2d] text-[#858585]' : 'bg-bg-base text-text-main/50',
+        'inline-flex items-center text-[10px] font-medium',
+        darkMode ? 'text-[#858585]' : 'text-text-main/45',
       )}
     >
       {label}
