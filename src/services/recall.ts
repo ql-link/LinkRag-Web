@@ -91,9 +91,12 @@ interface RawRecallSession {
 /**
  * 向 Java 申请短期召回 session（LINK-104）。
  * 走 apiClient（自动带登录态 satoken 头、按 Result 解包）。
+ *
+ * <p>{@code datasetIds} 必须显式非空：Java 端 {@code @NotEmpty} 强校验，缺省/空列表会被 400 拒绝
+ * （避免下发空 dataset_ids claim 被 Python 误判为「全库授权」造成越权放大）。</p>
  */
-export async function createRecallSession(signal?: AbortSignal): Promise<RecallSessionDTO> {
-  const raw = await apiClient.post<RawRecallSession>('/api/v1/recall/sessions', undefined, { signal });
+export async function createRecallSession(datasetIds: number[], signal?: AbortSignal): Promise<RecallSessionDTO> {
+  const raw = await apiClient.post<RawRecallSession>('/api/v1/recall/sessions', { datasetIds }, { signal });
   return {
     token: raw.token,
     streamUrl: raw.streamUrl ?? raw.stream_url ?? '',
@@ -105,17 +108,28 @@ export async function createRecallSession(signal?: AbortSignal): Promise<RecallS
 // ── token 复用：未过期前断线重连复用同一 token，401 才回 Java 重申 ──────────
 
 let cachedSession: RecallSessionDTO | null = null;
+// 缓存的 session 绑定其授权的 datasetIds——换数据集范围必须重新签发，
+// 否则复用旧 scope 的 token 会被 Python 判 403（RECALL_SCOPE_FORBIDDEN）。
+let cachedKey: string | null = null;
 
-/** 取已缓存 session，没有则向 Java 申请并缓存。 */
-async function getOrCreateSession(signal?: AbortSignal): Promise<RecallSessionDTO> {
-  if (cachedSession) return cachedSession;
-  cachedSession = await createRecallSession(signal);
+/** 稳定的 datasetIds 缓存键（去重 + 升序，与顺序无关）。 */
+function sessionKey(datasetIds: number[]): string {
+  return [...new Set(datasetIds)].sort((a, b) => a - b).join(',');
+}
+
+/** 取已缓存 session（需同一 datasetIds 范围），没有则向 Java 申请并缓存。 */
+async function getOrCreateSession(datasetIds: number[], signal?: AbortSignal): Promise<RecallSessionDTO> {
+  const key = sessionKey(datasetIds);
+  if (cachedSession && cachedKey === key) return cachedSession;
+  cachedSession = await createRecallSession(datasetIds, signal);
+  cachedKey = key;
   return cachedSession;
 }
 
 /** 清除缓存 session（token 过期/无效时），下次将回 Java 重申。 */
 export function clearRecallSession(): void {
   cachedSession = null;
+  cachedKey = null;
 }
 
 // ── 单用户并发上限：重连前先 abort 旧连接，否则旧连接占名额导致新连接 429 ────
@@ -158,8 +172,8 @@ function parseFrame(frame: string): RecallStreamEvent | null {
 export interface RecallOptions {
   /** 必填，非空非纯空白 */
   query: string;
-  /** 可选，必须 ⊆ token 授权范围 */
-  datasetIds?: number[];
+  /** 必填非空：既用于签发 session token 的授权范围，也作为本次 stream 的检索范围（必须 ⊆ token 授权范围）。 */
+  datasetIds: number[];
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
   /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / error 不经此回调）。 */
@@ -300,6 +314,10 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   if (!options.query || options.query.trim() === '') {
     throw new RecallError('RECALL_INVALID_REQUEST', 'query 不能为空');
   }
+  if (!options.datasetIds || options.datasetIds.length === 0) {
+    // Java 端 @NotEmpty 必拒，提前本地拦截避免一次必败的 400 请求。
+    throw new RecallError('RECALL_INVALID_REQUEST', 'datasetIds 不能为空');
+  }
 
   // 重连前先 abort 旧连接，释放并发名额。
   abortActiveRecall();
@@ -314,14 +332,14 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   }
 
   try {
-    const session = await getOrCreateSession(controller.signal);
+    const session = await getOrCreateSession(options.datasetIds, controller.signal);
     try {
       return await streamOnce(session, options, controller.signal);
     } catch (error) {
       // token 过期：清缓存、回 Java 重申一次后重试。
       if (isRecallUnauthorized(error)) {
         clearRecallSession();
-        const fresh = await getOrCreateSession(controller.signal);
+        const fresh = await getOrCreateSession(options.datasetIds, controller.signal);
         return await streamOnce(fresh, options, controller.signal);
       }
       throw error;
