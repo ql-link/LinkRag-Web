@@ -10,7 +10,7 @@ export class ApiError extends Error {
   constructor(
     public code: number,
     message: string,
-    public data: unknown = null
+    public data: unknown = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -58,11 +58,7 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-async function request<T>(
-  method: string,
-  path: string,
-  options: RequestOptions = {}
-): Promise<T> {
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers = {}, params, timeout = DEFAULT_TIMEOUT, signal } = options;
   const isFormData = body instanceof FormData;
 
@@ -98,7 +94,7 @@ async function request<T>(
   };
 
   if (body !== undefined) {
-    config.body = isFormData ? body as FormData : JSON.stringify(body);
+    config.body = isFormData ? (body as FormData) : JSON.stringify(body);
   }
 
   // Support both internal timeout and external abort signal
@@ -165,7 +161,11 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get<T>(path: string, params?: Record<string, string | number | boolean>, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  get<T>(
+    path: string,
+    params?: Record<string, string | number | boolean>,
+    options?: Pick<RequestOptions, 'timeout' | 'signal'>,
+  ): Promise<T> {
     return request<T>('GET', path, { params, ...options });
   },
 
@@ -175,6 +175,10 @@ export const apiClient = {
 
   patch<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
     return request<T>('PATCH', path, { body, ...options });
+  },
+
+  put<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+    return request<T>('PUT', path, { body, ...options });
   },
 
   delete<T>(path: string, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
