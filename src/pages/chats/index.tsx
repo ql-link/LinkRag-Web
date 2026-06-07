@@ -5,6 +5,7 @@ import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { DatasetSelector } from '@/components/DatasetSelector';
+import { ApiError } from '@/lib/api-client';
 import { getConversations, createConversation, updateConversation, deleteConversation } from '@/services/chat';
 import { getDatasets } from '@/services/dataset';
 import type { ConversationDTO } from '@/types/api';
@@ -33,6 +34,8 @@ export default function ChatsPage() {
   const [editingChat, setEditingChat] = useState<ConversationDTO | null>(null);
   const [editChatName, setEditChatName] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [createNameError, setCreateNameError] = useState('');
+  const [editNameError, setEditNameError] = useState('');
   const [deletingChatIds, setDeletingChatIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,23 +77,38 @@ export default function ChatsPage() {
     }
   };
 
+  const handleCloseCreateDialog = () => {
+    setCreateDialogOpen(false);
+    setCreateNameError('');
+  };
+
   const handleCreateChat = async () => {
     if (!newChatName.trim()) return;
     if (newChatKbIds.length === 0) {
       alert('请先选择一个数据集');
       return;
     }
+    const selectedDatasetId = Number(newChatKbIds[0]);
+    const isDuplicate = chats.some((c) => c.title.trim() === newChatName.trim() && c.datasetId === selectedDatasetId);
+    if (isDuplicate) {
+      setCreateNameError('当前数据集下已存在同名对话');
+      return;
+    }
     try {
       const conv = await createConversation({
         title: newChatName,
-        datasetId: Number(newChatKbIds[0]),
+        datasetId: selectedDatasetId,
       });
       setChats((prev) => [conv, ...prev]);
       setNewChatName('');
       setNewChatKbIds([]);
+      setCreateNameError('');
       setCreateDialogOpen(false);
       navigate(`/chats/${conv.id}`);
     } catch (error) {
+      if (error instanceof ApiError && error.code === 400) {
+        setCreateNameError(error.message);
+      }
       console.error('Failed to create chat:', error);
     }
   };
@@ -104,6 +122,7 @@ export default function ChatsPage() {
   const resetEditDialog = () => {
     setEditingChat(null);
     setEditChatName('');
+    setEditNameError('');
   };
 
   const handleCloseEditDialog = () => {
@@ -116,6 +135,14 @@ export default function ChatsPage() {
     const title = editChatName.trim();
     if (!title) return;
 
+    const isDuplicate = chats.some(
+      (c) => c.id !== editingChat.id && c.title.trim() === title && c.datasetId === editingChat.datasetId,
+    );
+    if (isDuplicate) {
+      setEditNameError('当前数据集下已存在同名对话');
+      return;
+    }
+
     setUpdating(true);
     try {
       const updated = await updateConversation(editingChat.id, { title });
@@ -123,6 +150,9 @@ export default function ChatsPage() {
       resetEditDialog();
       addToast('success', '对话名称已更新');
     } catch (error) {
+      if (error instanceof ApiError && error.code === 400) {
+        setEditNameError(error.message);
+      }
       console.error('Failed to update conversation:', error);
     } finally {
       setUpdating(false);
@@ -341,7 +371,7 @@ export default function ChatsPage() {
         {/* Create Chat Dialog */}
         {createDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)} />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCloseCreateDialog} />
             <div
               className={cn(
                 'relative w-[480px] rounded-2xl shadow-2xl overflow-visible',
@@ -356,7 +386,7 @@ export default function ChatsPage() {
               >
                 <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>新建对话</h3>
                 <button
-                  onClick={() => setCreateDialogOpen(false)}
+                  onClick={handleCloseCreateDialog}
                   className={cn(
                     'p-2 rounded-xl hover:bg-[#2d2d2d] transition-colors',
                     darkMode ? 'text-[#858585]' : 'text-text-main/50',
@@ -378,15 +408,22 @@ export default function ChatsPage() {
                   <input
                     type="text"
                     value={newChatName}
-                    onChange={(e) => setNewChatName(e.target.value)}
+                    onChange={(e) => {
+                      setNewChatName(e.target.value);
+                      if (createNameError) setCreateNameError('');
+                    }}
                     placeholder="输入对话名称"
                     className={cn(
-                      'w-full px-4 py-2.5 rounded-xl border shadow-none text-sm focus:outline-none focus:ring-0 focus:border-border-subtle',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-white border-border-subtle',
+                      'w-full px-4 py-2.5 rounded-xl border shadow-none text-sm focus:outline-none focus:ring-0',
+                      createNameError
+                        ? 'border-red-400 focus:border-red-400'
+                        : darkMode
+                          ? 'border-[#3c3c3c] focus:border-border-subtle'
+                          : 'border-border-subtle focus:border-border-subtle',
+                      darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'bg-white',
                     )}
                   />
+                  {createNameError && <p className="mt-1.5 text-xs text-red-500">{createNameError}</p>}
                 </div>
                 <div>
                   <label
@@ -414,7 +451,7 @@ export default function ChatsPage() {
                 )}
               >
                 <button
-                  onClick={() => setCreateDialogOpen(false)}
+                  onClick={handleCloseCreateDialog}
                   className={cn(
                     'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors',
                     darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
@@ -479,19 +516,26 @@ export default function ChatsPage() {
                   <input
                     type="text"
                     value={editChatName}
-                    onChange={(e) => setEditChatName(e.target.value)}
+                    onChange={(e) => {
+                      setEditChatName(e.target.value);
+                      if (editNameError) setEditNameError('');
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') void handleUpdateChat();
                     }}
                     maxLength={128}
                     placeholder="输入对话名称"
                     className={cn(
-                      'w-full px-4 py-2.5 rounded-xl border shadow-none text-sm focus:outline-none focus:ring-0 focus:border-border-subtle',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-white border-border-subtle',
+                      'w-full px-4 py-2.5 rounded-xl border shadow-none text-sm focus:outline-none focus:ring-0',
+                      editNameError
+                        ? 'border-red-400 focus:border-red-400'
+                        : darkMode
+                          ? 'border-[#3c3c3c] focus:border-border-subtle'
+                          : 'border-border-subtle focus:border-border-subtle',
+                      darkMode ? 'bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'bg-white',
                     )}
                   />
+                  {editNameError && <p className="mt-1.5 text-xs text-red-500">{editNameError}</p>}
                 </div>
               </div>
               <div
