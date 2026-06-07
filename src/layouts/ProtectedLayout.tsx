@@ -27,10 +27,7 @@ const ProfilePage = lazy(() => import('@/pages/settings/profile'));
 function PageLoader() {
   const { darkMode } = useTheme();
   return (
-    <div className={cn(
-      'flex h-full items-center justify-center',
-      darkMode ? 'text-[#858585]' : 'text-text-main/40',
-    )}>
+    <div className={cn('flex h-full items-center justify-center', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
       <span className="text-xs uppercase tracking-[0.2em]">加载中...</span>
     </div>
   );
@@ -91,16 +88,20 @@ export function ProtectedLayout() {
   }, [location.pathname]);
 
   return (
-    <div className={cn(
-      'relative flex h-screen min-h-0 flex-col gap-2 overflow-hidden p-2 font-sans lg:flex-row lg:gap-4 lg:p-4',
-      darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
-    )}>
+    <div
+      className={cn(
+        'relative flex h-screen min-h-0 flex-col gap-2 overflow-hidden p-2 font-sans lg:flex-row lg:gap-0 lg:p-0',
+        darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
+      )}
+    >
       {/* Mobile Header */}
       {!isChatDetailPage && (
-        <header className={cn(
-          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
-        )}>
+        <header
+          className={cn(
+            'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
+            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
+          )}
+        >
           <button
             onClick={() => setMobileSidebarOpen(true)}
             className={cn(
@@ -111,12 +112,16 @@ export function ProtectedLayout() {
           >
             <Menu size={18} />
           </button>
-          <p className={cn('text-sm font-semibold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{pageTitle}</p>
+          <p className={cn('text-sm font-semibold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+            {pageTitle}
+          </p>
           <button
             onClick={toggleTheme}
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wider',
-              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]' : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
+              darkMode
+                ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
+                : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
             )}
             aria-label="切换主题"
           >
@@ -167,9 +172,7 @@ export function ProtectedLayout() {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      {!isChatDetailPage && (
-        <Sidebar className="hidden lg:flex" />
-      )}
+      {!isChatDetailPage && <Sidebar className="hidden rounded-none lg:flex" />}
 
       {/* Main Content */}
       {isMobile ? (
@@ -179,10 +182,10 @@ export function ProtectedLayout() {
               <motion.div
                 key={`${location.pathname}${location.search}`}
                 className="h-full min-w-0"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.16, ease: 'easeOut' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.08, ease: 'easeOut' }}
               >
                 <AppRoutesContent location={location} />
               </motion.div>
@@ -198,10 +201,10 @@ export function ProtectedLayout() {
                   <motion.div
                     key={`${location.pathname}${location.search}`}
                     className="h-full min-w-0"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: 'easeOut' }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.08, ease: 'easeOut' }}
                   >
                     <AppRoutesContent location={location} />
                   </motion.div>
@@ -213,6 +216,7 @@ export function ProtectedLayout() {
             <RightPanel
               collapsed={rightPanelCollapsed}
               onToggle={() => setRightPanelCollapsed((v) => !v)}
+              className="rounded-none"
             />
           )}
         </>

@@ -132,8 +132,8 @@ export default function ProfilePage() {
       <div className="h-full flex flex-col">
         <header
           className={cn(
-            'h-20 px-8 flex items-center shrink-0 backdrop-blur-md border-b',
-            darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+            'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+            darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
           )}
         >
           <div className="flex flex-col gap-1">
@@ -141,7 +141,6 @@ export default function ProfilePage() {
               items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]}
               darkMode={darkMode}
             />
-            <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>个人信息</h2>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -155,8 +154,8 @@ export default function ProfilePage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center shrink-0 backdrop-blur-md border-b',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
         <div className="flex flex-col gap-1">
@@ -164,10 +163,6 @@ export default function ProfilePage() {
             items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]}
             darkMode={darkMode}
           />
-          <h2 className={cn('text-xl font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>个人信息</h2>
-          <p className={cn('text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-            当前页已对齐后端真实支持字段
-          </p>
         </div>
       </header>
 

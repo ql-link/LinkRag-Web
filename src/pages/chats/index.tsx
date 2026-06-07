@@ -193,15 +193,14 @@ export default function ChatsPage() {
       {/* Header */}
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
         <div className="flex flex-col gap-1">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>对话</h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <div className="relative">
             <Search
               size={14}
@@ -216,16 +215,16 @@ export default function ChatsPage() {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                'w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-border-subtle',
+                'h-9 w-48 rounded-lg border pl-9 pr-3 text-xs outline-none transition-colors focus:border-primary/50',
                 darkMode
                   ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                  : 'bg-bg-base/50 border-border-subtle',
+                  : 'bg-bg-base/50 border-border-subtle text-text-main placeholder:text-text-main/35',
               )}
             />
           </div>
           <div
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-xl border',
+              'flex h-9 items-center gap-2 rounded-lg border px-3',
               darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
             )}
           >
@@ -242,6 +241,16 @@ export default function ChatsPage() {
               <span>{sortLabel}</span>
             </button>
           </div>
+          <button
+            onClick={() => setCreateDialogOpen(true)}
+            className={cn(
+              'inline-flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold transition-colors',
+              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+            )}
+          >
+            <Plus size={15} />
+            新建对话
+          </button>
         </div>
       </header>
 

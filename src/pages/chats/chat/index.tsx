@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent 
 import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowUpDown, ChevronDown, FileText, Loader2, Search, Send, Upload, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,6 +90,7 @@ function RecallPanel({
   failedSources,
   error,
   onAbort,
+  className,
 }: {
   darkMode?: boolean;
   recalling: boolean;
@@ -98,11 +98,13 @@ function RecallPanel({
   failedSources: string[];
   error: string | null;
   onAbort: () => void;
+  className?: string;
 }) {
   return (
     <aside
       className={cn(
         'rounded-3xl border overflow-hidden flex flex-col',
+        className,
         darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
       )}
     >
@@ -253,6 +255,7 @@ export default function ChatPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const [conversation, setConversation] = useState<ConversationDTO | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
@@ -267,12 +270,14 @@ export default function ChatPage() {
   const [chatModels, setChatModels] = useState<LLMConfigDTO[]>([]);
   const [loadingChatModels, setLoadingChatModels] = useState(false);
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [datasetName, setDatasetName] = useState('');
   // 召回（直连 Python SSE）状态
   const [recalling, setRecalling] = useState(false);
   const [recallHits, setRecallHits] = useState<RecallHit[] | null>(null);
   const [recallFailedSources, setRecallFailedSources] = useState<string[]>([]);
   const [recallError, setRecallError] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<'files' | 'recall' | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
 
   const conversationId = Number(id);
@@ -281,6 +286,17 @@ export default function ChatPage() {
   // 离开页面时取消进行中的召回，释放 Python 并发名额
   useEffect(() => {
     return () => recallAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+        setModelMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -550,6 +566,7 @@ export default function ChatPage() {
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
     });
   }, [files, fileSortBy]);
+  const selectedChatModel = chatModels.find((model) => model.id === selectedModelConfigId);
 
   const isConversationLoading =
     hasValidConversationId && (conversationLoadStatus === 'loading' || loadedConversationId !== conversationId);
@@ -585,75 +602,133 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={cn('relative flex h-full flex-col', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
       <header
         className={cn(
-          'h-20 pl-6 pr-8 flex items-center justify-between shrink-0 backdrop-blur-md border-b',
+          'h-16 px-8 flex shrink-0 items-center justify-between gap-3 border-b backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
         )}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={() => navigate(Routes.Chats)}
             className={cn(
-              'p-2 rounded-xl transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/45 hover:bg-primary/5',
             )}
+            aria-label="返回对话列表"
           >
             <ArrowLeft size={18} />
           </button>
-          <div className="flex flex-col gap-1">
-            <Breadcrumb
-              items={[
-                { label: '首页', path: Routes.Home },
-                { label: '对话', path: Routes.Chats },
-                { label: conversation.title },
-              ]}
-              darkMode={darkMode}
-            />
-            <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              #{datasetName || `知识库 #${conversation.datasetId}`}-{conversation.title}
+          <div className="min-w-0">
+            <h2
+              className={cn(
+                'truncate text-sm font-semibold tracking-tight',
+                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+              )}
+            >
+              {conversation.title}
             </h2>
+            <p className={cn('mono-label mt-0.5 truncate', darkMode && 'text-[#858585]')}>
+              {datasetName || `知识库 #${conversation.datasetId}`}
+            </p>
           </div>
         </div>
-        <div />
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActivePanel((panel) => (panel === 'files' ? null : 'files'))}
+            className={cn(
+              'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
+              activePanel === 'files'
+                ? darkMode
+                  ? 'border-[#3b82f6] text-[#3b82f6]'
+                  : 'border-primary text-primary'
+                : darkMode
+                  ? 'border-[#3c3c3c] text-[#cccccc] hover:bg-[#2d2d2d]'
+                  : 'border-border-subtle text-text-main/65 hover:bg-primary/5',
+            )}
+            title="查看关联文件"
+          >
+            <FileText size={14} />
+            <span className="hidden sm:inline">文件</span>
+            <span className="font-mono">{files.length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActivePanel((panel) => (panel === 'recall' ? null : 'recall'))}
+            className={cn(
+              'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
+              activePanel === 'recall'
+                ? darkMode
+                  ? 'border-[#3b82f6] text-[#3b82f6]'
+                  : 'border-primary text-primary'
+                : darkMode
+                  ? 'border-[#3c3c3c] text-[#cccccc] hover:bg-[#2d2d2d]'
+                  : 'border-border-subtle text-text-main/65 hover:bg-primary/5',
+            )}
+            title="查看召回候选"
+          >
+            <Search size={14} />
+            <span className="hidden sm:inline">召回</span>
+            {recalling ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <span className="font-mono">{recallHits?.length ?? 0}</span>
+            )}
+          </button>
+        </div>
       </header>
 
-      <div className="flex-1 px-0 py-5 min-h-0">
-        <div className="h-full grid grid-cols-[250px_minmax(0,1fr)_300px] gap-2">
-          <aside
+      {activePanel === 'files' && (
+        <div className="absolute right-4 top-20 z-30 w-[min(420px,calc(100vw-2rem))]">
+          <div
             className={cn(
-              'rounded-3xl border overflow-hidden flex flex-col',
-              darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+              'flex max-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-md',
+              darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/90',
             )}
           >
-            <div className={cn('px-5 py-4 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className={cn('text-sm font-bold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                    关联文件
-                  </p>
-                </div>
+            <div
+              className={cn(
+                'flex items-center justify-between gap-3 border-b px-5 py-4',
+                darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+              )}
+            >
+              <div>
+                <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>关联文件</p>
+                <p className={cn('mono-label mt-0.5', darkMode && 'text-[#858585]')}>{files.length} files</p>
+              </div>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setFileSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
                   className={cn(
-                    'h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold transition-colors border',
+                    'flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-bold transition-colors',
                     darkMode
-                      ? 'text-[#cccccc] hover:bg-[#2d2d2d] border-[#3c3c3c]'
-                      : 'text-text-main/70 hover:bg-bg-base/60 border-border-subtle',
+                      ? 'border-[#3c3c3c] text-[#cccccc] hover:bg-[#2d2d2d]'
+                      : 'border-border-subtle text-text-main/65 hover:bg-primary/5',
                   )}
                   title="点击切换文件排序方式"
                 >
-                  <ArrowUpDown size={14} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
-                  <span>{fileSortLabel}</span>
+                  <ArrowUpDown size={13} />
+                  {fileSortLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePanel(null)}
+                  className={cn(
+                    'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
+                    darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/45 hover:bg-primary/5',
+                  )}
+                  aria-label="关闭文件面板"
+                >
+                  <X size={15} />
                 </button>
               </div>
             </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               {loadingFiles ? (
-                <div className="h-full flex items-center justify-center">
+                <div className="flex h-36 items-center justify-center">
                   <Loader2
                     size={18}
                     className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
@@ -662,7 +737,7 @@ export default function ChatPage() {
               ) : files.length === 0 ? (
                 <div
                   className={cn(
-                    'h-full flex items-center justify-center text-xs text-center px-2',
+                    'flex h-36 items-center justify-center px-4 text-center text-xs',
                     darkMode ? 'text-[#858585]' : 'text-text-main/50',
                   )}
                 >
@@ -674,14 +749,17 @@ export default function ChatPage() {
                     <div
                       key={file.id}
                       className={cn(
-                        'rounded-xl border px-3 py-2',
-                        darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white border-border-subtle',
+                        'rounded-2xl border px-3 py-3',
+                        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white/70',
                       )}
                     >
-                      <div className="flex items-center gap-2">
-                        <FileText size={14} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText
+                          size={14}
+                          className={cn('shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
+                        />
                         <p
-                          className={cn('text-sm font-medium truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+                          className={cn('truncate text-sm font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
                         >
                           {file.originalFilename}
                         </p>
@@ -694,8 +772,7 @@ export default function ChatPage() {
                 </div>
               )}
             </div>
-
-            <div className={cn('p-4 border-t', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
+            <div className={cn('border-t p-4', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -704,7 +781,7 @@ export default function ChatPage() {
                   if (!uploading) fileInputRef.current?.click();
                 }}
                 className={cn(
-                  'rounded-2xl border border-dashed p-4 transition-colors cursor-pointer',
+                  'cursor-pointer rounded-2xl border border-dashed p-4 transition-colors',
                   dragging
                     ? darkMode
                       ? 'border-[#3b82f6] bg-[#3b82f6]/10'
@@ -714,22 +791,15 @@ export default function ChatPage() {
                       : 'border-border-subtle bg-bg-base/40',
                 )}
               >
-                <div className="flex flex-col items-center justify-center gap-2 mb-3">
+                <div className="mb-3 flex flex-col items-center justify-center gap-2">
                   <Upload size={16} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
                   <p
                     className={cn(
-                      'text-xs text-center leading-tight',
+                      'text-center text-xs leading-tight',
                       darkMode ? 'text-[#858585]' : 'text-text-main/60',
                     )}
                   >
-                    {uploading ? (
-                      '上传中...'
-                    ) : (
-                      <>
-                        <span className="block">拖拽文件到此处上传</span>
-                        <span className="block">或点击此区域上传</span>
-                      </>
-                    )}
+                    {uploading ? '上传中...' : '拖拽或点击上传文件'}
                   </p>
                 </div>
                 <input
@@ -740,7 +810,7 @@ export default function ChatPage() {
                   onChange={handleFileInputChange}
                 />
               </div>
-              <div className="mt-3 flex items-center justify-start gap-2">
+              <div className="mt-3 flex items-center justify-between gap-2">
                 <ParseAfterUploadSwitch
                   darkMode={darkMode}
                   checked={parseAfterUpload}
@@ -748,156 +818,22 @@ export default function ChatPage() {
                 />
                 <span
                   className={cn(
-                    'text-[8px] font-medium whitespace-nowrap leading-none',
+                    'text-[8px] font-medium whitespace-nowrap',
                     darkMode ? 'text-[#858585]' : 'text-text-main/45',
                   )}
                 >
-                  支持 md/pdf/docx/txt
+                  md/pdf/docx/txt
                 </span>
               </div>
             </div>
-          </aside>
+          </div>
+        </div>
+      )}
 
-          <section
-            className={cn(
-              'rounded-3xl border overflow-hidden flex flex-col',
-              darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
-            )}
-          >
-            <div className="flex-1 overflow-y-auto p-6">
-              {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <p
-                      className={cn(
-                        'text-2xl mb-3 font-sans font-medium',
-                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                      )}
-                    >
-                      {displayName}，今天想聊点什么？
-                    </p>
-                    <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
-                      可以上传文件，或者直接提问我。
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-3xl mx-auto space-y-4">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'rounded-2xl p-4',
-                        msg.role === 'user'
-                          ? darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] ml-12'
-                            : 'bg-bg-base/70 border border-border-subtle mr-12'
-                          : darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] mr-12'
-                            : 'art-card ml-12',
-                      )}
-                    >
-                      <p
-                        className={cn(
-                          'text-sm leading-relaxed',
-                          msg.role === 'user'
-                            ? darkMode
-                              ? 'text-white'
-                              : 'text-text-main'
-                            : darkMode
-                              ? 'text-[#e0e0e0]'
-                              : 'text-text-main',
-                        )}
-                      >
-                        {msg.content}
-                      </p>
-                      <p
-                        className={cn('mono-label mt-2 text-[8px]', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/30')}
-                      >
-                        {formatTime(msg.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div
-              className={cn(
-                'p-4 shrink-0 border-t',
-                darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
-              )}
-            >
-              <div className="max-w-3xl mx-auto flex items-center gap-3">
-                <div
-                  className={cn(
-                    'flex-1 h-12 rounded-xl border flex items-center px-2 gap-2',
-                    darkMode ? 'bg-[#1e1e1e] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
-                  )}
-                >
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="输入提问，回车开始召回..."
-                    disabled={recalling}
-                    className={cn(
-                      'flex-1 bg-transparent text-sm focus:outline-none',
-                      darkMode
-                        ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'text-text-main placeholder:text-text-main/40',
-                    )}
-                  />
-                  <div className={cn('h-5 w-px shrink-0', darkMode ? 'bg-[#3c3c3c]' : 'bg-border-subtle')} />
-                  <div className="relative shrink-0">
-                    <select
-                      value={selectedModelConfigId ?? ''}
-                      onChange={(event) =>
-                        setSelectedModelConfigId(event.target.value ? Number(event.target.value) : null)
-                      }
-                      disabled={loadingChatModels || chatModels.length === 0}
-                      className={cn(
-                        'appearance-none bg-transparent pl-1 pr-5 text-xs focus:outline-none min-w-[92px] max-w-[120px] truncate',
-                        darkMode ? 'text-[#cccccc]' : 'text-text-main/75',
-                        (loadingChatModels || chatModels.length === 0) && 'opacity-60',
-                      )}
-                      title="选择对话模型"
-                    >
-                      <option value="">
-                        {loadingChatModels ? '加载中' : chatModels.length === 0 ? '暂无模型' : '选择模型'}
-                      </option>
-                      {chatModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.modelName}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={12}
-                      className={cn(
-                        'pointer-events-none absolute right-0 top-1/2 -translate-y-1/2',
-                        darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                      )}
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={handleSend}
-                  disabled={recalling || !inputValue.trim() || !selectedModelConfigId}
-                  title={!selectedModelConfigId ? '请先配置并选择对话模型' : undefined}
-                  className={cn(
-                    'p-3 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                    'bg-text-main text-white hover:opacity-90',
-                  )}
-                >
-                  {recalling ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                </button>
-              </div>
-            </div>
-          </section>
-
+      {activePanel === 'recall' && (
+        <div className="absolute right-4 top-20 z-30 w-[min(420px,calc(100vw-2rem))]">
           <RecallPanel
+            className="h-[min(620px,calc(100vh-9rem))] shadow-2xl"
             darkMode={darkMode}
             recalling={recalling}
             hits={recallHits}
@@ -905,6 +841,224 @@ export default function ChatPage() {
             error={recallError}
             onAbort={() => recallAbortRef.current?.abort()}
           />
+        </div>
+      )}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8">
+        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col">
+          {messages.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center pb-24">
+              <div className="text-center">
+                <p
+                  className={cn(
+                    'mb-3 text-2xl font-medium tracking-tight sm:text-3xl',
+                    darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                  )}
+                >
+                  {displayName}，今天想聊点什么？
+                </p>
+                <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                  选择模型后直接提问，文件和召回信息可从右上角查看。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-7 pb-6">
+              {messages.map((msg) => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div key={msg.id} className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}>
+                    <div
+                      className={cn(
+                        'max-w-[86%] whitespace-pre-wrap text-sm leading-7 sm:max-w-[78%]',
+                        isUser
+                          ? cn(
+                              'rounded-[1.35rem] px-4 py-3',
+                              darkMode ? 'bg-[#2d2d2d] text-white' : 'bg-white/80 text-text-main shadow-sm',
+                            )
+                          : cn('px-1 py-1', darkMode ? 'text-[#e0e0e0]' : 'text-text-main'),
+                      )}
+                    >
+                      {msg.content || (msg.role === 'assistant' && recalling ? '正在生成...' : '')}
+                      <p
+                        className={cn('mono-label mt-2 text-[8px]', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/30')}
+                      >
+                        {formatTime(msg.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={cn('shrink-0 px-4 pb-4 pt-2', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+        <div className="mx-auto w-full max-w-3xl">
+          <div
+            className={cn(
+              'rounded-[1.75rem] border p-2 shadow-sm backdrop-blur-md',
+              darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
+            )}
+          >
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setActivePanel((panel) => (panel === 'files' ? null : 'files'))}
+                className={cn(
+                  'mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors',
+                  darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/45 hover:bg-primary/5',
+                )}
+                title="上传或查看文件"
+              >
+                <Upload size={17} />
+              </button>
+              <div className="min-w-0 flex-1">
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="输入提问..."
+                  disabled={recalling}
+                  rows={1}
+                  className={cn(
+                    'max-h-36 min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm leading-6 focus:outline-none',
+                    darkMode
+                      ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]'
+                      : 'text-text-main placeholder:text-text-main/40',
+                  )}
+                />
+                <div className="flex items-center gap-3 px-1 pb-1">
+                  <div className="relative min-w-0" ref={modelMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!loadingChatModels && chatModels.length > 0) {
+                          setModelMenuOpen((open) => !open);
+                        }
+                      }}
+                      disabled={loadingChatModels || chatModels.length === 0}
+                      className={cn(
+                        'flex h-7 max-w-[180px] items-center gap-1.5 rounded-full px-2 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-[220px]',
+                        darkMode
+                          ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                          : 'text-text-main/60 hover:bg-primary/5 hover:text-text-main/75',
+                      )}
+                      title="选择对话模型"
+                      aria-haspopup="listbox"
+                      aria-expanded={modelMenuOpen}
+                    >
+                      <span className="truncate">
+                        {loadingChatModels
+                          ? '模型加载中'
+                          : chatModels.length === 0
+                            ? '暂无模型'
+                            : (selectedChatModel?.modelName ?? '选择模型')}
+                      </span>
+                      <ChevronDown
+                        size={12}
+                        className={cn(
+                          'shrink-0 transition-transform',
+                          modelMenuOpen && 'rotate-180',
+                          darkMode ? 'text-[#858585]' : 'text-text-main/40',
+                        )}
+                      />
+                    </button>
+
+                    {modelMenuOpen && (
+                      <div
+                        className={cn(
+                          'absolute bottom-full left-0 z-40 mb-2 w-[min(260px,calc(100vw-4rem))] overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-md',
+                          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/95',
+                        )}
+                      >
+                        <div
+                          className={cn('border-b px-3 py-2', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}
+                        >
+                          <p className={cn('mono-label', darkMode && 'text-[#858585]')}>选择模型</p>
+                        </div>
+                        <div className="max-h-[180px] overflow-y-auto p-1" role="listbox">
+                          {chatModels.map((model) => {
+                            const selected = model.id === selectedModelConfigId;
+                            return (
+                              <button
+                                key={model.id}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() => {
+                                  setSelectedModelConfigId(model.id);
+                                  setModelMenuOpen(false);
+                                }}
+                                className={cn(
+                                  'flex h-9 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-xs transition-colors',
+                                  selected
+                                    ? darkMode
+                                      ? 'bg-[#3b82f6]/15 text-[#3b82f6]'
+                                      : 'bg-primary/10 text-primary'
+                                    : darkMode
+                                      ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                                      : 'text-text-main/70 hover:bg-primary/5',
+                                )}
+                              >
+                                <span className="min-w-0 truncate font-bold">{model.modelName}</span>
+                                {selected && (
+                                  <span
+                                    className={cn(
+                                      'h-1.5 w-1.5 shrink-0 rounded-full',
+                                      darkMode ? 'bg-[#3b82f6]' : 'bg-primary',
+                                    )}
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => void handleSend()}
+                disabled={recalling || !inputValue.trim() || !selectedModelConfigId}
+                title={!selectedModelConfigId ? '请先配置并选择对话模型' : undefined}
+                className={cn(
+                  'mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                  darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                )}
+              >
+                {recalling ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+              </button>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-3 pb-1 pt-1 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setActivePanel((panel) => (panel === 'recall' ? null : 'recall'))}
+                className={cn(
+                  'text-[11px] font-bold',
+                  activePanel === 'recall'
+                    ? darkMode
+                      ? 'text-[#3b82f6]'
+                      : 'text-primary'
+                    : darkMode
+                      ? 'text-[#858585]'
+                      : 'text-text-main/45',
+                )}
+              >
+                召回 {recallHits?.length ?? 0}
+              </button>
+            </div>
+          </div>
+          <p className={cn('mt-2 text-center text-[10px]', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/35')}>
+            Enter 发送，Shift + Enter 换行
+          </p>
         </div>
       </div>
     </div>
