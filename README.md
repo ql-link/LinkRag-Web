@@ -23,17 +23,17 @@
 
 ## 🛠 技术栈
 
-| 类别   | 选型                                    |
-| ------ | --------------------------------------- |
-| 框架   | React 19 + TypeScript                   |
-| 构建   | Vite 6                                  |
-| 样式   | Tailwind CSS 4                          |
-| 路由   | React Router 7                          |
-| 可视化 | D3                                      |
-| 动画   | Motion                                  |
-| 图标   | lucide-react                            |
-| 测试   | Vitest + Testing Library                |
-| 质量   | ESLint + Prettier + Husky + lint-staged |
+| 类别 | 选型 |
+| --- | --- |
+| 框架 | React 19 + TypeScript |
+| 构建 | Vite 6 |
+| 样式 | Tailwind CSS 4 |
+| 路由 | React Router 7 |
+| 可视化 | D3 |
+| 动画 | Motion |
+| 图标 | lucide-react |
+| 测试 | Vitest + Testing Library |
+| 质量 | ESLint + Prettier + Husky + lint-staged |
 
 ## 🚀 本地开发
 
@@ -52,23 +52,23 @@ npm run dev
 
 ## 📜 常用脚本
 
-| 命令                | 说明                         |
-| ------------------- | ---------------------------- |
-| `npm run dev`       | 启动开发服务器               |
-| `npm run build`     | 生产构建，产物输出到 `dist/` |
-| `npm run preview`   | 本地预览构建产物             |
-| `npm run lint`      | ESLint 检查（零警告）        |
-| `npm run lint:fix`  | ESLint 自动修复              |
-| `npm run typecheck` | TypeScript 类型检查          |
-| `npm run format`    | Prettier 格式化              |
-| `npm run test`      | 运行单元测试                 |
+| 命令 | 说明 |
+| --- | --- |
+| `npm run dev` | 启动开发服务器 |
+| `npm run build` | 生产构建，产物输出到 `dist/` |
+| `npm run preview` | 本地预览构建产物 |
+| `npm run lint` | ESLint 检查（零警告） |
+| `npm run lint:fix` | ESLint 自动修复 |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm run format` | Prettier 格式化 |
+| `npm run test` | 运行单元测试 |
 
 ## ⚙️ 环境变量
 
 构建期可注入的 `VITE_` 前缀变量（会被打进静态产物）：
 
-| 变量              | 说明                   |
-| ----------------- | ---------------------- |
+| 变量 | 说明 |
+| --- | --- |
 | `VITE_GITHUB_URL` | 页面中 GitHub 链接地址 |
 
 ## 📂 目录结构
