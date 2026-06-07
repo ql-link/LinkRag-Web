@@ -4,7 +4,13 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
-import { getLLMConfigs, getLLMProviders, setDefaultLLMConfig, setupLLMProvider, toggleLLMModel } from '@/services/llm';
+import {
+  getLLMConfigs,
+  getLLMProviders,
+  selectEffectiveLLMModel,
+  setupLLMProvider,
+  toggleLLMModel,
+} from '@/services/llm';
 import type { LLMCapability, LLMConfigDTO, ProviderModelDTO } from '@/types/api';
 
 function normalizeProviderToken(value: string) {
@@ -117,6 +123,8 @@ interface SetupTarget {
   mode: 'create' | 'update';
 }
 
+type ModelSourceFilter = 'preset' | 'self';
+
 function getCapabilityMeta(capability: LLMCapability) {
   return (
     CAPABILITIES.find((item) => item.value === capability) || {
@@ -179,6 +187,7 @@ export default function LLMPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
+  const [selectedModelSourceFilter, setSelectedModelSourceFilter] = useState<ModelSourceFilter>('preset');
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [setupTarget, setSetupTarget] = useState<SetupTarget | null>(null);
 
@@ -271,6 +280,53 @@ export default function LLMPage() {
       .sort((a, b) => compareProviders(a, b));
   }, [viewConfigs]);
 
+  const filteredProviderGroups = useMemo(() => {
+    const includePreset = selectedModelSourceFilter === 'preset';
+    const includeSelf = selectedModelSourceFilter === 'self';
+
+    return providerGroups
+      .map((group) => {
+        const models = group.models
+          .map((model) => {
+            const selfConfigs = includeSelf ? model.selfConfigs : [];
+            const presetConfigs = includePreset ? model.presetConfigs : [];
+            const configs = model.configs.filter((config) => (config.isSystemPreset ? includePreset : includeSelf));
+
+            return {
+              ...model,
+              configs,
+              selfConfigs,
+              presetConfigs,
+              isSelfActive: selfConfigs.some((config) => config.isActive),
+            };
+          })
+          .filter((model) => model.configs.length > 0);
+
+        return {
+          ...group,
+          configs: group.configs.filter((config) => (config.isSystemPreset ? includePreset : includeSelf)),
+          models,
+        };
+      })
+      .filter((group) => group.models.length > 0);
+  }, [providerGroups, selectedModelSourceFilter]);
+
+  const modelSourceCounts = useMemo(() => {
+    return providerGroups.reduce(
+      (acc, group) => {
+        group.configs.forEach((config) => {
+          if (config.isSystemPreset) {
+            acc.preset += 1;
+          } else {
+            acc.self += 1;
+          }
+        });
+        return acc;
+      },
+      { preset: 0, self: 0 },
+    );
+  }, [providerGroups]);
+
   const filteredProviders = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
     const filterSet = new Set(selectedCapabilityFilters);
@@ -318,36 +374,41 @@ export default function LLMPage() {
 
   async function handleSetupProvider(providerType: string, apiKey: string) {
     try {
-      await setupLLMProvider({ providerType, apiKey });
+      const nextConfigs = await setupLLMProvider({ providerType, apiKey });
+      setConfigs(nextConfigs);
+      setSelectedModelSourceFilter('self');
       setSetupTarget(null);
-      await loadPageData();
+      void loadPageData();
     } catch (error) {
       console.error('Failed to setup provider:', error);
     }
   }
 
-  async function handleSetDefault(config: ConfigView) {
-    if (config.isDefault || !config.isActive) {
-      return;
-    }
-    try {
-      await setDefaultLLMConfig(config.id, config.capability);
-      setConfigs((prev) =>
-        prev.map((item) =>
-          item.capability === config.capability ? { ...item, isDefault: item.id === config.id } : item,
-        ),
-      );
-    } catch (error) {
-      console.error('Failed to set default config:', error);
-    }
-  }
-
   async function handleSelectDefault(capability: LLMCapability, configId: string) {
     const config = viewConfigs.find((item) => item.id === Number(configId));
-    if (!config || config.isDefault) {
+    if (!config || config.isDefault || !config.isActive) {
       return;
     }
-    await handleSetDefault(config);
+    const previousDefaultId = viewConfigs.find((item) => item.capability === capability && item.isDefault)?.id;
+    setConfigs((prev) =>
+      prev.map((item) => (item.capability === capability ? { ...item, isDefault: item.id === config.id } : item)),
+    );
+    try {
+      await selectEffectiveLLMModel({
+        capability,
+        providerType: config.providerType,
+        modelName: config.modelName,
+      });
+      void loadPageData();
+    } catch (error) {
+      console.error('Failed to select effective config:', error);
+      setConfigs((prev) =>
+        prev.map((item) =>
+          item.capability === capability ? { ...item, isDefault: item.id === previousDefaultId } : item,
+        ),
+      );
+      void loadPageData();
+    }
   }
 
   async function handleToggleModel(group: ProviderGroup, model: ModelGroup) {
@@ -368,6 +429,7 @@ export default function LLMPage() {
         modelName: model.modelName,
         enabled: nextActive,
       });
+      void loadPageData();
     } catch (error) {
       console.error('Failed to toggle model:', error);
       setConfigs((prev) =>
@@ -378,6 +440,10 @@ export default function LLMPage() {
         ),
       );
     }
+  }
+
+  function handleModelSourceFilterToggle(source: ModelSourceFilter) {
+    setSelectedModelSourceFilter(source);
   }
 
   return (
@@ -422,14 +488,7 @@ export default function LLMPage() {
         </div>
       </header>
 
-      <main
-        className={cn(
-          'flex-1 overflow-y-auto',
-          darkMode
-            ? 'bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_42%,#1f1f1f_100%)]'
-            : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]',
-        )}
-      >
+      <main className={cn('flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
         <section className="px-8 py-6">
           <div className="space-y-5 min-w-0">
             <EffectiveModelsPanel
@@ -442,7 +501,10 @@ export default function LLMPage() {
             <ConfiguredProvidersPanel
               darkMode={darkMode}
               loading={loading && providerGroups.length === 0}
-              groups={providerGroups}
+              groups={filteredProviderGroups}
+              sourceFilter={selectedModelSourceFilter}
+              sourceCounts={modelSourceCounts}
+              onSourceFilterToggle={handleModelSourceFilterToggle}
               onToggleModel={handleToggleModel}
               onUpdateProvider={(provider) => setSetupTarget({ provider, mode: 'update' })}
             />
@@ -519,13 +581,13 @@ function EffectiveModelsPanel({
   }, [openCapability]);
 
   return (
-    <section className={panelClassName(darkMode)}>
+    <section className={cn(panelClassName(darkMode), 'relative z-10 overflow-visible')}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-inherit">
         <div>
           <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>生效模型</h3>
         </div>
       </div>
-      <div className="space-y-2 p-4">
+      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
         {CAPABILITIES.map((capability) => {
           const current = defaultByCapability.get(capability.value);
           const candidates = candidatesByCapability.get(capability.value) || [];
@@ -535,60 +597,82 @@ function EffectiveModelsPanel({
             <div
               key={capability.value}
               className={cn(
-                'relative grid gap-3 border-b px-1 py-3 last:border-b-0 md:grid-cols-[56px_1fr_340px] md:items-center',
-                isOpen && 'ring-1 ring-[#3b82f6]/35 rounded-lg',
-                darkMode ? 'border-[#3c3c3c]/50' : 'border-border-subtle/60',
+                'relative flex h-full min-h-[146px] flex-col gap-3.5 overflow-visible rounded-2xl border p-4 shadow-sm hover:border-primary transition-all duration-300',
+                isOpen && 'z-20',
+                darkMode ? 'border-[#3c3c3c]/60 bg-[#2d2d2d]' : 'border-border-subtle/60 bg-white/50 backdrop-blur-sm',
               )}
               data-capability={capability.value}
             >
-              <CapabilityBadge capability={capability.value} compact />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <CapabilityBadge capability={capability.value} compact />
+                {current ? <SourcePill darkMode={darkMode} preset={current.isSystemPreset} compact /> : null}
+              </div>
+
+              <div className="min-w-0 flex-1 flex items-center">
+                <div className="flex items-center gap-3 min-w-0">
                   {current ? (
                     <ProviderIcon iconUrl={selectedIcon} name={current.providerName} darkMode={darkMode} size="sm" />
                   ) : null}
                   <div className="min-w-0">
-                    <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                    <p
+                      className={cn(
+                        'text-sm font-bold truncate leading-5',
+                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                      )}
+                    >
                       {current ? current.modelName : '未设置'}
                     </p>
-                    <p className={cn('text-[11px] mt-0.5 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                    <p
+                      className={cn(
+                        'text-[11px] mt-0.5 truncate font-mono uppercase tracking-wider',
+                        darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                      )}
+                    >
                       {current ? `${current.providerName}` : '暂无生效模型'}
                     </p>
                   </div>
-                  {current?.isSystemPreset && <SourcePill darkMode={darkMode} preset compact />}
                 </div>
               </div>
+
               <button
                 type="button"
                 disabled={candidates.length === 0}
                 onClick={() => setOpenCapability((prev) => (prev === capability.value ? null : capability.value))}
                 className={cn(
-                  'group h-8 w-full rounded-md border px-2.5 text-left text-xs outline-none transition-all',
-                  isOpen ? (darkMode ? 'bg-[#2a2a2a] border-[#3b82f6]' : 'bg-primary/5 border-primary') : '',
-                  darkMode
-                    ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
-                    : 'border-border-subtle bg-white/80 text-text-main/80',
+                  'group flex h-9 w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-xs outline-none transition-all duration-300 font-medium disabled:cursor-not-allowed disabled:opacity-50',
+                  isOpen
+                    ? darkMode
+                      ? 'bg-[#1e1e1e] border-primary/80 shadow-inner'
+                      : 'bg-white border-primary/50 shadow-inner'
+                    : darkMode
+                      ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc] hover:border-primary/50 hover:bg-[#2d2d2d]'
+                      : 'border-border-subtle bg-white/90 text-text-main/80 hover:border-primary/40 hover:bg-white',
                 )}
               >
-                <div className="flex h-full items-center justify-between gap-2">
-                  <span className={current ? 'text-[12px]' : 'text-[12px] text-text-main/55'}>
-                    {candidates.length === 0 ? '暂无候选' : isOpen ? '选择生效模型' : '点击选择生效模型'}
-                  </span>
-                  <ChevronDown
-                    size={13}
-                    className={cn('shrink-0 text-text-main transition-transform', isOpen && 'rotate-180')}
-                  />
-                </div>
+                <span
+                  className={
+                    current ? 'text-[11px] tracking-wide' : 'text-[11px] text-text-main/50 tracking-wide font-mono'
+                  }
+                >
+                  {candidates.length === 0 ? '暂无候选模型' : isOpen ? '选择生效模型...' : '点击选择生效模型'}
+                </span>
+                <ChevronDown
+                  size={12}
+                  className={cn(
+                    'shrink-0 text-text-main/60 transition-transform duration-300 group-hover:text-primary',
+                    isOpen && 'rotate-180',
+                  )}
+                />
               </button>
 
               {isOpen && candidates.length > 0 ? (
                 <div
                   className={cn(
-                    'absolute right-0 top-full z-10 mt-2 w-[340px] rounded-lg border p-1 shadow-2xl md:left-auto',
-                    darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white border-border-subtle',
+                    'absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border p-1.5 shadow-2xl backdrop-blur-md transition-all duration-300',
+                    darkMode ? 'bg-[#252526]/95 border-[#3c3c3c]' : 'bg-white/95 border-border-subtle/75',
                   )}
                 >
-                  <div className="max-h-72 overflow-auto space-y-1">
+                  <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
                     {candidates.map((config) => {
                       const optionIcon = getProviderIcon(config.providerType, config.providerName);
                       return (
@@ -600,18 +684,20 @@ function EffectiveModelsPanel({
                             setOpenCapability(null);
                           }}
                           className={cn(
-                            'w-full rounded-md border px-2.5 py-2 text-left transition-colors',
-                            darkMode ? 'border-[#3c3c3c] hover:bg-[#2d2d2d]' : 'border-border-subtle hover:bg-bg-base',
+                            'w-full rounded-lg px-2.5 py-2 text-left transition-all duration-200 border border-transparent',
+                            darkMode
+                              ? 'hover:bg-[#313131] hover:border-[#4a4a4a]'
+                              : 'hover:bg-bg-base hover:border-border-subtle/50',
                           )}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <ProviderIcon
                               iconUrl={optionIcon}
                               name={config.providerName}
                               darkMode={darkMode}
                               size="sm"
                             />
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p
                                 className={cn(
                                   'text-xs font-bold truncate',
@@ -621,7 +707,7 @@ function EffectiveModelsPanel({
                                 {config.modelName}
                               </p>
                             </div>
-                            {config.isSystemPreset ? <SourcePill darkMode={darkMode} preset /> : null}
+                            <SourcePill darkMode={darkMode} preset={config.isSystemPreset} compact />
                           </div>
                         </button>
                       );
@@ -641,12 +727,18 @@ function ConfiguredProvidersPanel({
   darkMode,
   loading,
   groups,
+  sourceFilter,
+  sourceCounts,
+  onSourceFilterToggle,
   onToggleModel,
   onUpdateProvider,
 }: {
   darkMode?: boolean;
   loading: boolean;
   groups: ProviderGroup[];
+  sourceFilter: ModelSourceFilter;
+  sourceCounts: { preset: number; self: number };
+  onSourceFilterToggle: (source: ModelSourceFilter) => void;
   onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
@@ -654,12 +746,50 @@ function ConfiguredProvidersPanel({
     <section className={panelClassName(darkMode)}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-inherit">
         <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>模型管理</h3>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onSourceFilterToggle('preset')}
+            aria-pressed={sourceFilter === 'preset'}
+            className={cn(
+              'inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-semibold transition-colors',
+              sourceFilter === 'preset'
+                ? darkMode
+                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0]'
+                  : 'border-border-subtle bg-bg-base text-text-main'
+                : darkMode
+                  ? 'border-[#3c3c3c] bg-transparent text-[#a8a8a8] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                  : 'border-border-subtle bg-transparent text-text-main/60 hover:bg-gray-100 hover:text-text-main',
+            )}
+          >
+            系统预设
+            <span className="ml-1.5 text-[10px] font-bold opacity-70">{sourceCounts.preset}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSourceFilterToggle('self')}
+            aria-pressed={sourceFilter === 'self'}
+            className={cn(
+              'inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-semibold transition-colors',
+              sourceFilter === 'self'
+                ? darkMode
+                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0]'
+                  : 'border-border-subtle bg-bg-base text-text-main'
+                : darkMode
+                  ? 'border-[#3c3c3c] bg-transparent text-[#a8a8a8] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                  : 'border-border-subtle bg-transparent text-text-main/60 hover:bg-gray-100 hover:text-text-main',
+            )}
+          >
+            自配
+            <span className="ml-1.5 text-[10px] font-bold opacity-70">{sourceCounts.self}</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <LoadingState darkMode={darkMode} label="加载模型配置..." />
       ) : groups.length === 0 ? (
-        <EmptyConfiguredState darkMode={darkMode} />
+        <EmptyConfiguredState darkMode={darkMode} sourceFilter={sourceFilter} />
       ) : (
         <div className="space-y-3 p-3">
           {groups.map((group) => (
@@ -695,60 +825,83 @@ function ProviderConfigCard({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <article className={cn('py-2', darkMode ? 'border-b border-[#3c3c3c]/50' : 'border-b border-border-subtle/60')}>
-      <header className="flex items-start justify-between gap-3 px-1 md:items-center">
-        <div className="flex items-center gap-2.5 min-w-0">
+    <article
+      className={cn(
+        'py-3 first:pt-1 last:pb-1',
+        darkMode ? 'border-b border-[#3c3c3c]/50' : 'border-b border-border-subtle/60',
+      )}
+    >
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-2 py-1.5">
+        <div className="flex items-center gap-3 min-w-0">
           <ProviderIcon iconUrl={iconUrl} name={group.providerName} darkMode={darkMode} size="sm" />
           <div className="min-w-0">
-            <h4 className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+            <h4
+              className={cn('text-sm font-bold truncate tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+            >
               {group.providerName}
             </h4>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() =>
-              onUpdateProvider({
-                providerType: group.providerType,
-                providerName: group.providerName,
-                models: [],
-              })
-            }
+        <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 w-full md:w-auto">
+          <div
             className={cn(
-              'inline-flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold transition-colors',
-              darkMode
-                ? 'text-[#c7c7c7] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
-                : 'text-text-main/65 hover:bg-gray-100 hover:text-text-main',
+              'text-[10px] font-mono uppercase tracking-widest font-semibold',
+              darkMode ? 'text-[#858585]' : 'text-text-main/50',
             )}
-            title="更新密钥"
-            aria-label="更新密钥"
           >
-            更新密钥
-          </button>
-          <div className={cn('flex flex-wrap gap-2 text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-            <span className="text-sm font-semibold">{group.models.length} 模型</span>
-            {presetCount > 0 && <span>{presetCount} 预设</span>}
+            <span>
+              {group.models.length} MODELS
+              {selfCount > 0 ? ` · ${selfCount} SELF` : ''}
+              {presetCount > 0 ? ` · ${presetCount} PRESET` : ''}
+            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed((prev) => !prev)}
-            className={cn(
-              'inline-flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold transition-colors',
-              darkMode
-                ? 'text-[#c7c7c7] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
-                : 'text-text-main/65 hover:bg-gray-100 hover:text-text-main',
-            )}
-            title={collapsed ? '展开' : '收起'}
-            aria-label={collapsed ? '展开' : '收起'}
-          >
-            {collapsed ? '展开' : '收起'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateProvider({
+                  providerType: group.providerType,
+                  providerName: group.providerName,
+                  models: [],
+                })
+              }
+              className={cn(
+                'inline-flex h-8 items-center justify-center rounded-xl border px-3 text-[11px] font-bold transition-all duration-300',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#313131]/80 text-[#e0e0e0] hover:bg-[#3a3a3a] hover:border-[#4a4a4a]'
+                  : 'border-border-subtle bg-white text-text-main hover:bg-gray-50 hover:border-primary/30',
+              )}
+              title="更新密钥"
+              aria-label="更新密钥"
+            >
+              更新密钥
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => !prev)}
+              className={cn(
+                'inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-bold transition-all duration-300',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#202020] text-[#d0d0d0] hover:bg-[#2a2a2a] hover:text-[#f0f0f0]'
+                  : 'border-border-subtle bg-bg-base text-text-main/80 hover:bg-gray-100 hover:text-text-main hover:border-primary/20',
+              )}
+              title={collapsed ? '展开' : '收起'}
+              aria-label={collapsed ? '展开' : '收起'}
+            >
+              <ChevronDown size={12} className={cn('transition-transform duration-300', !collapsed && 'rotate-180')} />
+              {collapsed ? '展开' : '收起'}
+            </button>
+          </div>
         </div>
       </header>
 
       {!collapsed ? (
-        <div className="mt-1 space-y-1.5 pl-10">
+        <div
+          className={cn(
+            'mt-2 pl-5 md:pl-8 space-y-1.5 border-l ml-6 md:ml-7',
+            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle/50',
+          )}
+        >
           {group.models.map((model) => (
             <Fragment key={model.modelName}>
               <ModelConfigBlock darkMode={darkMode} group={group} model={model} onToggleModel={onToggleModel} />
@@ -774,13 +927,24 @@ function ModelConfigBlock({
   const capabilityText = model.configs.map((config) => getCapabilityMeta(config.capability).label).join(' · ');
 
   return (
-    <section className="py-1">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex items-center gap-2">
-          <p className={cn('shrink-0 text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            {model.modelName}
-          </p>
-          <p className={cn('min-w-0 truncate text-sm font-medium', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+    <section className="py-2.5 px-3 rounded-xl hover:bg-primary/3 transition-colors duration-300">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex flex-col gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className={cn('text-sm font-bold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+              {model.modelName}
+            </p>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {model.selfConfigs.length > 0 ? <SourcePill darkMode={darkMode} preset={false} compact /> : null}
+              {model.presetConfigs.length > 0 ? <SourcePill darkMode={darkMode} preset compact /> : null}
+            </div>
+          </div>
+          <p
+            className={cn(
+              'text-[10px] font-mono uppercase tracking-wider',
+              darkMode ? 'text-[#858585]' : 'text-text-main/50',
+            )}
+          >
             {capabilityText}
           </p>
         </div>
@@ -833,17 +997,19 @@ function ProviderPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <section
         className={cn(
-          'relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[880px] flex-col overflow-hidden rounded-lg shadow-2xl',
+          'relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[880px] flex-col overflow-hidden rounded-2xl shadow-2xl border',
           darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/95 border border-white/90',
         )}
       >
         <header className={cn('px-6 py-5 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>配置厂商</h3>
+              <h3 className={cn('text-lg font-bold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+                配置厂商
+              </h3>
               <p className={cn('text-xs mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                 选择一个厂商后填写厂商级 API Key。
               </p>
@@ -873,10 +1039,10 @@ function ProviderPickerModal({
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="搜索厂商、模型或能力"
               className={cn(
-                'h-10 w-full rounded-lg border pl-9 pr-3 text-sm outline-none transition-colors',
+                'h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition-all duration-300',
                 darkMode
-                  ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
-                  : 'border-border-subtle bg-bg-base/50 text-text-main placeholder:text-text-main/35 focus:border-primary',
+                  ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#e0e0e0] placeholder:text-[#6b6b6b] placeholder:tracking-wider focus:border-primary/50'
+                  : 'border-border-subtle bg-bg-base/50 text-text-main placeholder:text-text-main/35 placeholder:tracking-wider focus:border-primary/50 focus:bg-white',
               )}
             />
           </div>
@@ -889,14 +1055,14 @@ function ProviderPickerModal({
                   key={capability.value}
                   onClick={() => toggleCapabilityFilter(capability.value)}
                   className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-bold transition-colors',
+                    'rounded-full border px-3 py-1 text-xs font-bold transition-all duration-300',
                     active
                       ? darkMode
-                        ? 'border-[#3b82f6] bg-[#3b82f6]/12 text-[#8cb9ff]'
+                        ? 'border-primary bg-primary/12 text-primary'
                         : 'border-primary bg-primary/12 text-primary'
                       : darkMode
                         ? 'border-[#3c3c3c] bg-[#1f1f1f] text-[#b4b4b4] hover:border-[#4a4a4a]'
-                        : 'border-border-subtle bg-white/80 text-text-main/70 hover:border-[#c2b6ab]/50',
+                        : 'border-border-subtle bg-white/80 text-text-main/70 hover:border-primary/35',
                   )}
                 >
                   {capability.label}
@@ -914,7 +1080,7 @@ function ProviderPickerModal({
               没有匹配的厂商
             </div>
           ) : (
-            <div className="grid gap-2 p-4 min-h-[260px] sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+            <div className="grid gap-2.5 p-4 min-h-[260px] sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
               {providers.map((provider) => {
                 const configured = configuredProviderTypes.has(provider.providerType);
                 return (
@@ -956,9 +1122,9 @@ function AvailableProviderCard({
       type="button"
       onClick={onSetup}
       className={cn(
-        'group w-full rounded-lg border p-3 text-left transition-colors',
+        'group w-full rounded-xl border p-3.5 text-left transition-all duration-300',
         darkMode
-          ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#3b82f6]/50 hover:bg-[#232323]'
+          ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-primary/50 hover:bg-[#232323]'
           : 'border-border-subtle bg-bg-base/55 hover:border-primary/35 hover:bg-white',
       )}
     >
@@ -966,26 +1132,33 @@ function AvailableProviderCard({
         <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+            <h4
+              className={cn('text-sm font-bold truncate tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+            >
               {provider.providerName}
             </h4>
             {configured && <CountPill darkMode={darkMode} label="已配置" />}
           </div>
         </div>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <p className={cn('truncate text-xs leading-relaxed', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p
+          className={cn(
+            'truncate text-xs leading-relaxed font-mono uppercase tracking-wider',
+            darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60',
+          )}
+        >
           {sortedCapabilities.map((capability, index) => (
             <span key={capability}>
               {index > 0 ? ' · ' : ''}
               {getCapabilityMeta(capability).label}
             </span>
           ))}
-          <span className="whitespace-nowrap"> · {provider.models.length} 个模型</span>
+          <span className="whitespace-nowrap"> · {provider.models.length} MODELS</span>
         </p>
         <span
           className={cn(
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors',
+            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all duration-300',
             darkMode
               ? 'bg-[#094771] text-white group-hover:bg-[#0a5280]'
               : 'bg-text-main text-white group-hover:opacity-90',
@@ -1031,11 +1204,11 @@ function SetupProviderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
         className={cn(
-          'relative w-full max-w-[520px] rounded-lg shadow-2xl overflow-hidden',
-          darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white/94 border border-white/90',
+          'relative w-full max-w-[520px] rounded-2xl shadow-2xl overflow-hidden border',
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/94 border border-white/90',
         )}
       >
         <header
@@ -1047,7 +1220,12 @@ function SetupProviderModal({
           <div className="flex items-center gap-3 min-w-0">
             <ProviderIcon iconUrl={iconUrl} name={target.provider.providerName} darkMode={darkMode} size="md" />
             <div className="min-w-0">
-              <h3 className={cn('text-lg font-bold truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+              <h3
+                className={cn(
+                  'text-lg font-bold truncate tracking-wide',
+                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                )}
+              >
                 {target.provider.providerName}
               </h3>
               <div
@@ -1057,8 +1235,13 @@ function SetupProviderModal({
                 )}
               >
                 <span className="truncate">{target.provider.providerType}</span>
-                <span className={cn('text-[11px] font-medium', darkMode ? 'text-[#bdbdbd]' : 'text-text-main/60')}>
-                  {target.mode === 'update' ? '更新厂商' : '配置厂商'}
+                <span
+                  className={cn(
+                    'text-[11px] font-medium font-mono uppercase tracking-wider',
+                    darkMode ? 'text-[#bdbdbd]' : 'text-text-main/60',
+                  )}
+                >
+                  {target.mode === 'update' ? '更新厂商 // UPDATE' : '配置厂商 // CONFIG'}
                 </span>
               </div>
             </div>
@@ -1079,12 +1262,12 @@ function SetupProviderModal({
             type="password"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder="输入 API Key"
+            placeholder="输入 API KEY"
             className={cn(
-              'h-11 w-full rounded-lg border px-3 text-sm outline-none transition-colors',
+              'h-11 w-full rounded-xl border px-3 text-sm outline-none transition-all duration-300',
               darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-[#3b82f6]'
-                : 'border-border-subtle bg-white/80 text-text-main placeholder:text-text-main/35 focus:border-primary',
+                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b] placeholder:tracking-wider focus:border-primary/50'
+                : 'border-border-subtle bg-white/80 text-text-main placeholder:text-text-main/35 placeholder:tracking-wider focus:border-primary/50',
             )}
           />
 
@@ -1104,7 +1287,7 @@ function SetupProviderModal({
           <button
             onClick={onClose}
             className={cn(
-              'h-9 px-4 rounded-lg text-xs font-bold',
+              'h-9 px-4 rounded-xl text-xs font-bold transition-colors',
               darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
             )}
             disabled={submitting}
@@ -1115,7 +1298,7 @@ function SetupProviderModal({
             onClick={handleSubmit}
             disabled={submitting}
             className={cn(
-              'h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center gap-2 transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
+              'h-9 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60',
               darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
             )}
           >
@@ -1137,12 +1320,14 @@ function LoadingState({ darkMode, label }: { darkMode?: boolean; label: string }
   );
 }
 
-function EmptyConfiguredState({ darkMode }: { darkMode?: boolean }) {
+function EmptyConfiguredState({ darkMode, sourceFilter }: { darkMode?: boolean; sourceFilter: ModelSourceFilter }) {
+  const title = sourceFilter === 'preset' ? '暂无系统预设模型' : '暂无自配模型';
+
   return (
     <div className={cn('text-center py-16', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
       <Key size={38} className={cn('mx-auto mb-4', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
-      <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>暂无自配厂商</p>
-      <p className="mt-1 text-xs">点击配置厂商，选择厂商并填写 API Key。</p>
+      <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</p>
+      <p className="mt-1 text-xs">切换上方按钮查看另一类模型。</p>
     </div>
   );
 }
@@ -1160,48 +1345,39 @@ function StateSwitch({
   disabled?: boolean;
   onClick?: () => void;
 }) {
+  if (disabled) {
+    return (
+      <span
+        className={cn(
+          'inline-flex h-6 items-center justify-center rounded-full border border-dashed px-2.5 text-[10px] font-bold font-mono tracking-wide',
+          darkMode
+            ? 'border-[#3c3c3c] bg-[#1e1e1e]/50 text-[#6b6b6b]'
+            : 'border-border-subtle/60 bg-bg-base/30 text-text-main/35',
+        )}
+      >
+        {label}
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
-      className="group inline-flex h-6 w-[126px] shrink-0 items-center justify-start gap-2 overflow-hidden rounded-full text-[11px] font-bold leading-none transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
+      className={cn(
+        'group relative inline-flex h-6 w-[88px] items-center justify-center rounded-full border text-[10px] font-bold font-mono tracking-wide transition-all duration-300 outline-none cursor-pointer',
+        checked
+          ? darkMode
+            ? 'border-[#6d9b7c]/40 bg-[#6d9b7c]/10 text-[#6d9b7c] hover:bg-[#6d9b7c]/20 hover:border-[#6d9b7c]/60'
+            : 'border-[#6d9b7c]/35 bg-[#6d9b7c]/8 text-[#548062] hover:bg-[#6d9b7c]/15 hover:border-[#6d9b7c]/50'
+          : darkMode
+            ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#858585] hover:bg-[#252526] hover:border-[#4a4a4a]'
+            : 'border-border-subtle bg-bg-base/40 text-text-main/60 hover:bg-bg-base hover:border-border-subtle/80',
+      )}
     >
-      <span
-        className={cn(
-          'relative h-5 w-9 shrink-0 rounded-full border transition-colors duration-200',
-          checked
-            ? 'border-[#6d9b7c]/45 bg-[#6d9b7c]/14'
-            : darkMode
-              ? disabled
-                ? 'border-[#3c3c3c] bg-[#2d2d2d]'
-                : 'border-[#c77a7a]/45 bg-[#c77a7a]/14'
-              : disabled
-                ? 'border-border-subtle bg-bg-base'
-                : 'border-[#c77a7a]/35 bg-[#c77a7a]/12',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform duration-200',
-            checked ? 'translate-x-4' : 'translate-x-0',
-            checked ? 'bg-[#6d9b7c]' : disabled ? (darkMode ? 'bg-[#858585]' : 'bg-text-main/35') : 'bg-[#c77a7a]',
-          )}
-        />
-      </span>
-      <span
-        className={cn(
-          'inline-block w-[72px] shrink-0 text-left',
-          checked
-            ? 'text-[#6d9b7c]'
-            : disabled
-              ? darkMode
-                ? 'text-[#858585]'
-                : 'text-text-main/45'
-              : 'text-[#c77a7a]',
-        )}
-      >
-        {label}
+      <span className="inline-block group-hover:hidden transition-all duration-200">{label}</span>
+      <span className="hidden group-hover:inline-block transition-all duration-200 text-[10px]">
+        {checked ? '点击停用' : '点击启用'}
       </span>
     </button>
   );
@@ -1225,7 +1401,11 @@ function ProviderIcon({
       <img
         src={iconUrl}
         alt={name}
-        className={cn(className, 'rounded-lg object-contain shrink-0', darkMode ? 'bg-[#3c3c3c]' : 'bg-white')}
+        className={cn(
+          className,
+          'rounded-xl border object-contain shrink-0 p-1 transition-colors duration-300',
+          darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-white border-border-subtle/50',
+        )}
       />
     );
   }
@@ -1234,11 +1414,11 @@ function ProviderIcon({
     <div
       className={cn(
         className,
-        'rounded-lg flex items-center justify-center shrink-0',
-        darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10',
+        'rounded-xl border flex items-center justify-center shrink-0 transition-colors duration-300',
+        darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-primary/5 border-primary/20',
       )}
     >
-      <Box size={16} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+      <Box size={16} className={darkMode ? 'text-primary' : 'text-primary'} />
     </div>
   );
 }
@@ -1246,7 +1426,18 @@ function ProviderIcon({
 function CapabilityBadge({ capability, compact }: { capability: LLMCapability; compact?: boolean }) {
   const meta = getCapabilityMeta(capability);
 
-  return <span className={cn(compact ? 'text-sm' : 'text-sm', 'font-semibold text-black')}>{meta.label}</span>;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center justify-center font-bold tracking-wide rounded-md transition-colors',
+        compact
+          ? 'text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary'
+          : 'text-[11px] px-2.5 py-1 bg-primary/10 text-primary',
+      )}
+    >
+      {meta.label}
+    </span>
+  );
 }
 
 function CountPill({ darkMode, label }: { darkMode?: boolean; label: string }) {
@@ -1284,7 +1475,7 @@ function SourcePill({ darkMode, preset, compact }: { darkMode?: boolean; preset:
 
 function panelClassName(darkMode?: boolean) {
   return cn(
-    'rounded-lg border overflow-hidden',
-    darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
+    'rounded-2xl border backdrop-blur-sm transition-all duration-300',
+    darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle shadow-sm',
   );
 }
