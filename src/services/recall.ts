@@ -19,6 +19,8 @@ export type RecallErrorCode =
   | 'RECALL_ALL_SOURCES_FAILED'
   | 'RECALL_TIMEOUT'
   | 'RECALL_INTERNAL_ERROR'
+  | 'RECALL_MODEL_CONFIG_MISSING' // 所选模型未配置 / 不属本人 / 非 CHAT / 已停用 → 前置失败
+  | 'RECALL_GENERATION_FAILED' // 生成阶段 LLM 失败 → 整请求失败
   // 客户端本地
   | 'RECALL_ABORTED' // 主动 abort
   | 'RECALL_NETWORK_ERROR' // fetch 失败 / 流中断
@@ -40,6 +42,8 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<RecallErrorCode>([
   'RECALL_ALL_SOURCES_FAILED',
   'RECALL_TIMEOUT',
   'RECALL_INTERNAL_ERROR',
+  'RECALL_MODEL_CONFIG_MISSING',
+  'RECALL_GENERATION_FAILED',
   'RECALL_ABORTED',
   'RECALL_NETWORK_ERROR',
   'RECALL_UNKNOWN',
@@ -174,9 +178,13 @@ export interface RecallOptions {
   query: string;
   /** 必填非空：既用于签发 session token 的授权范围，也作为本次 stream 的检索范围（必须 ⊆ token 授权范围）。 */
   datasetIds: number[];
+  /** 必填：本次生成所用 CHAT 模型配置 id（用户在对话页选中的模型）。后端按 (user_id, config_id) 前置校验。 */
+  configId: number;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
-  /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / error 不经此回调）。 */
+  /** 流式生成增量回调：每收到一帧 answer_delta 触发，参数为本帧增量文本。 */
+  onAnswerDelta?: (text: string) => void;
+  /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / answer_done / error / answer_delta 不经此回调）。 */
   onEvent?: (event: RecallStreamEvent) => void;
 }
 
@@ -189,8 +197,11 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + 可选 datasetIds——任何未知字段 Python 直接 422。
-  const body: { query: string; dataset_ids?: number[] } = { query: options.query };
+  // 请求体只允许 query + config_id + 可选 datasetIds——任何未知字段 Python 直接 422。
+  const body: { query: string; config_id: number; dataset_ids?: number[] } = {
+    query: options.query,
+    config_id: options.configId,
+  };
   if (options.datasetIds && options.datasetIds.length > 0) {
     body.dataset_ids = options.datasetIds;
   }
@@ -237,8 +248,15 @@ async function streamOnce(
   const handleFrame = (frame: string): RecallDonePayload | undefined => {
     const parsed = parseFrame(frame);
     if (!parsed) return undefined;
-    if (parsed.event === 'recall_done') {
+    // 终态：生成完成（answer_done）或空命中不生成（recall_done）。
+    if (parsed.event === 'answer_done' || parsed.event === 'recall_done') {
       return parsed.data as RecallDonePayload;
+    }
+    // 流式增量 token。
+    if (parsed.event === 'answer_delta') {
+      const delta = parsed.data as { text?: string };
+      if (delta?.text) options.onAnswerDelta?.(delta.text);
+      return undefined;
     }
     if (parsed.event === 'error') {
       const err = parsed.data as RecallErrorPayload;

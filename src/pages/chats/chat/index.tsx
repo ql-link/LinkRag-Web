@@ -417,13 +417,20 @@ export default function ChatPage() {
     });
   }, [conversation, chatModels]);
 
-  // 对话即召回：发送提问直连 Python 拉 SSE，候选展示在右侧面板。
+  // 对话即召回：发送提问直连 Python 拉 SSE，候选展示在右侧面板，答案流式渲染到对话区。
   const handleSend = async () => {
     if (!conversation) return;
     const content = inputValue.trim();
     if (!content || recalling) return;
 
-    // 本地追加用户提问（召回链路不经 Java 持久化）
+    // 无可用 / 未选模型时禁止对话——模型为本次生成必备，前端前置拦截，后端再做兜底校验。
+    if (!selectedModelConfigId) {
+      addToast('error', '请先在上方配置并选择对话模型');
+      return;
+    }
+    const configId = selectedModelConfigId;
+
+    // 本地追加用户提问 + 助手答案占位（召回链路不经 Java 持久化）
     const userMsg: MessageDTO = {
       id: Date.now(),
       conversationId: conversation.id,
@@ -434,8 +441,23 @@ export default function ChatPage() {
       tokenCount: null,
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    const assistantId = Date.now() + 1;
+    const assistantMsg: MessageDTO = {
+      id: assistantId,
+      conversationId: conversation.id,
+      role: 'assistant',
+      content: '',
+      configId,
+      modelName: chatModels.find((m) => m.id === configId)?.modelName ?? null,
+      tokenCount: null,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setInputValue('');
+
+    const appendAnswerDelta = (text: string) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + text } : m)));
+    };
 
     // 重连前先 abort 旧召回，避免占用并发名额
     recallAbortRef.current?.abort();
@@ -451,14 +473,22 @@ export default function ChatPage() {
       const result = await recall({
         query: content,
         datasetIds: [conversation.datasetId],
+        configId,
         signal: controller.signal,
+        onAnswerDelta: appendAnswerDelta,
       });
       setRecallHits(result.hits);
       setRecallFailedSources(result.failed_sources);
+      // 空命中（recall_done 无 answer）时给出占位提示；非空答案以流式增量为准。
+      if (!result.answer && result.hits.length === 0) {
+        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: '未召回到相关内容' } : m)));
+      }
     } catch (error) {
       if (isRecallAborted(error)) return; // 主动取消，静默
       const message = recallErrorMessage(error);
       setRecallError(message);
+      // 失败时移除答案占位，避免残留空气泡
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
       // RecallError 自行提示；ApiError（申请 token 失败）已由 apiClient 弹过 toast
       if (isRecallError(error)) addToast('error', message);
     } finally {
@@ -854,7 +884,8 @@ export default function ChatPage() {
                 </div>
                 <button
                   onClick={handleSend}
-                  disabled={recalling || !inputValue.trim()}
+                  disabled={recalling || !inputValue.trim() || !selectedModelConfigId}
+                  title={!selectedModelConfigId ? '请先配置并选择对话模型' : undefined}
                   className={cn(
                     'p-3 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                     'bg-text-main text-white hover:opacity-90',

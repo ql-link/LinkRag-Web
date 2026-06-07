@@ -330,11 +330,16 @@ export interface RecallHit {
   scores: Record<string, number | null>;
 }
 
-/** event: recall_done 的 data。hits 已按 fused_score 降序。 */
+/**
+ * 终态 data：answer_done（生成完成）或 recall_done（空命中不生成）。
+ * hits 已按 fused_score 降序。
+ */
 export interface RecallDonePayload {
   hits: RecallHit[];
   /** 非空表示部分召回路降级，仍返回了结果 */
   failed_sources: string[];
+  /** 生成完成（answer_done）时的完整答案；空命中（recall_done）时不含此字段。 */
+  answer?: string;
 }
 
 /** event: error 的 data（握手后失败）。 */
@@ -352,6 +357,8 @@ export interface RecallStreamEvent {
 export interface RecallRequest {
   /** 必填，非空非纯空白，否则 400 */
   query: string;
+  /** 必填：本次生成所用 CHAT 模型配置 id；缺失 422，模型不可用前置失败 RECALL_MODEL_CONFIG_MISSING */
+  configId: number;
   /** 可选，必须 ⊆ token 授权范围（超出 403）；省略/空 = token 全量授权范围 */
   datasetIds?: number[];
 }
