@@ -180,11 +180,31 @@ function compareProviders(
   return (a.providerName || a.providerType).localeCompare(b.providerName || b.providerType);
 }
 
+// Module-level SWR-style cache: persists across route navigations within the same session.
+const LLM_CACHE_TTL = 5 * 60 * 1000;
+const llmPageCache: { configs: LLMConfigDTO[] | null; providers: ProviderModelDTO[] | null; fetchedAt: number } = {
+  configs: null,
+  providers: null,
+  fetchedAt: 0,
+};
+function isCacheValid() {
+  return (
+    llmPageCache.configs !== null &&
+    llmPageCache.providers !== null &&
+    Date.now() - llmPageCache.fetchedAt < LLM_CACHE_TTL
+  );
+}
+function invalidateLLMPageCache() {
+  llmPageCache.configs = null;
+  llmPageCache.providers = null;
+  llmPageCache.fetchedAt = 0;
+}
+
 export default function LLMPage() {
   const { darkMode } = useTheme();
-  const [configs, setConfigs] = useState<LLMConfigDTO[]>([]);
-  const [providers, setProviders] = useState<ProviderModelDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [configs, setConfigs] = useState<LLMConfigDTO[]>(() => llmPageCache.configs ?? []);
+  const [providers, setProviders] = useState<ProviderModelDTO[]>(() => llmPageCache.providers ?? []);
+  const [loading, setLoading] = useState(() => !isCacheValid());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
   const [selectedModelSourceFilter, setSelectedModelSourceFilter] = useState<ModelSourceFilter>('preset');
@@ -360,9 +380,27 @@ export default function LLMPage() {
   }, [providers, searchTerm, selectedCapabilityFilters]);
 
   async function loadPageData() {
+    if (isCacheValid()) {
+      // Stale-while-revalidate: cache still fresh, revalidate silently in background.
+      try {
+        const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
+        llmPageCache.configs = configResult;
+        llmPageCache.providers = providerResult;
+        llmPageCache.fetchedAt = Date.now();
+        setConfigs(configResult);
+        setProviders(providerResult);
+      } catch (error) {
+        console.error('Failed to revalidate LLM page data:', error);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
       const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
+      llmPageCache.configs = configResult;
+      llmPageCache.providers = providerResult;
+      llmPageCache.fetchedAt = Date.now();
       setConfigs(configResult);
       setProviders(providerResult);
     } catch (error) {
@@ -372,13 +410,27 @@ export default function LLMPage() {
     }
   }
 
+  // Silent background revalidation after mutations — no loading state, optimistic UI stays visible.
+  async function revalidate() {
+    try {
+      const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
+      llmPageCache.configs = configResult;
+      llmPageCache.providers = providerResult;
+      llmPageCache.fetchedAt = Date.now();
+      setConfigs(configResult);
+      setProviders(providerResult);
+    } catch (error) {
+      console.error('Failed to revalidate LLM page data:', error);
+    }
+  }
+
   async function handleSetupProvider(providerType: string, apiKey: string) {
     try {
       const nextConfigs = await setupLLMProvider({ providerType, apiKey });
       setConfigs(nextConfigs);
       setSelectedModelSourceFilter('self');
       setSetupTarget(null);
-      void loadPageData();
+      void revalidate();
     } catch (error) {
       console.error('Failed to setup provider:', error);
     }
@@ -399,7 +451,7 @@ export default function LLMPage() {
         providerType: config.providerType,
         modelName: config.modelName,
       });
-      void loadPageData();
+      void revalidate();
     } catch (error) {
       console.error('Failed to select effective config:', error);
       setConfigs((prev) =>
@@ -407,7 +459,6 @@ export default function LLMPage() {
           item.capability === capability ? { ...item, isDefault: item.id === previousDefaultId } : item,
         ),
       );
-      void loadPageData();
     }
   }
 
@@ -429,7 +480,7 @@ export default function LLMPage() {
         modelName: model.modelName,
         enabled: nextActive,
       });
-      void loadPageData();
+      void revalidate();
     } catch (error) {
       console.error('Failed to toggle model:', error);
       setConfigs((prev) =>
@@ -462,7 +513,10 @@ export default function LLMPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={loadPageData}
+            onClick={() => {
+              invalidateLLMPageCache();
+              void loadPageData();
+            }}
             className={cn(
               'h-9 rounded-lg px-3 text-xs font-bold inline-flex items-center gap-2 transition-colors',
               darkMode
