@@ -104,7 +104,6 @@ export default function ChatsPage() {
       setNewChatKbIds([]);
       setCreateNameError('');
       setCreateDialogOpen(false);
-      navigate(`/chats/${conv.id}`);
     } catch (error) {
       if (error instanceof ApiError && error.code === 400) {
         setCreateNameError(error.message);
