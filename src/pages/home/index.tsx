@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, DatabaseZap, FileUp, MessageSquarePlus, MessagesSquare } from 'lucide-react';
+import { DatabaseZap, FileUp, MessageSquarePlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { Routes } from '@/routes';
-import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -11,17 +10,9 @@ import { getRecentKnowledgeFiles } from '@/services/dataset';
 import type { ConversationDTO, KnowledgeFileDTO } from '@/types/api';
 
 const quickActions = [
-  { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
-  { path: Routes.Chats, icon: MessagesSquare, title: '知识问答', desc: '基于引用片段生成回答' },
-  { path: Routes.Datasets, icon: DatabaseZap, title: '管理知识库', desc: '维护数据集与索引状态' },
+  { path: Routes.Files, icon: FileUp, title: '存入文档', desc: '让散落的信息，化作你的数字养分' },
+  { path: Routes.Datasets, icon: DatabaseZap, title: '梳理知识库', desc: '编织网状记忆，构建你的私人智库' },
 ];
-
-function panelClassName(darkMode?: boolean) {
-  return cn(
-    'rounded-2xl border backdrop-blur-sm transition-all duration-300',
-    darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white/50 shadow-sm',
-  );
-}
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -89,206 +80,81 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <header
-        className={cn(
-          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
-        )}
-      >
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-frosted px-8 backdrop-blur-md">
         <div className="flex flex-col gap-1">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }]} darkMode={darkMode} />
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to={Routes.Chats}
-            state={{ openCreate: true }}
-            className={cn(
-              'h-9 w-fit rounded-lg px-4 text-xs font-bold inline-flex items-center gap-2 transition-colors',
-              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
-            )}
-          >
-            <MessageSquarePlus size={15} />
-            新建会话
-          </Link>
         </div>
       </header>
 
       {/* Content */}
-      <div
-        className={cn(
-          'flex-1 overflow-y-auto px-4 pb-24 pt-2 sm:px-8 sm:pb-8 sm:pt-6',
-          darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base',
-        )}
-      >
-        <div className="space-y-5">
-          <section className={panelClassName(darkMode)}>
-            <div
-              className={cn(
-                'flex flex-col gap-4 border-b px-5 py-4 md:flex-row md:items-center md:justify-between',
-                darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-              )}
-            >
-              <div>
-                <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  {getGreeting()}，<span className="font-serif italic tracking-tight">{displayName}</span>
-                </h3>
-                <p className={cn('mt-1 text-xs leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                  选择一个入口，继续处理文档、知识库或对话任务。
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {[
-                  { label: 'RECENT FILES', value: recentFilesLoading ? '...' : recentFiles.length },
-                  { label: 'RECENT CHATS', value: recentChats.length },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className={cn(
-                      'rounded-xl border px-3 py-2 text-right',
-                      darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/70',
-                    )}
-                  >
-                    <p className={cn('text-sm font-bold leading-none', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                      {item.value}
-                    </p>
-                    <p className={cn('mono-label mt-1 text-[8px]', darkMode && 'text-[#858585]')}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
+      <div className="flex-1 overflow-y-auto bg-bg-base px-4 pb-24 pt-4 sm:px-10 sm:pb-12 sm:pt-8">
+        <div className="mx-auto max-w-6xl space-y-10">
+          <section className="space-y-6">
+            <div className="pl-1">
+              <h3 className="text-2xl serif-heading text-text-main">
+                {getGreeting()}，<span className="font-serif italic tracking-tight">{displayName}</span>
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                在这片属于你的专注空间，安静地沉淀灵感与知识。
+              </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
               <Link
                 to={Routes.Chats}
                 state={{ openCreate: true }}
-                className={cn(
-                  'group relative flex min-h-[132px] flex-col rounded-2xl border p-4 transition-all duration-300',
-                  darkMode
-                    ? 'border-[#3c3c3c]/60 bg-[#252526] hover:border-[#3b82f6]'
-                    : 'border-border-subtle/60 bg-white/50 hover:border-primary hover:bg-white',
-                )}
+                className="group art-card relative flex min-h-[132px] flex-col rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
               >
-                <div className="mb-4 flex items-start justify-between">
-                  <div
-                    className={cn(
-                      'flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
-                      darkMode
-                        ? 'bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20'
-                        : 'bg-primary/10 text-primary group-hover:bg-primary/20',
-                    )}
-                  >
-                    <MessageSquarePlus size={21} strokeWidth={1.8} />
+                <div className="mb-5">
+                  <div className="icon-tile h-10 w-10 shadow-sm transition-transform group-hover:scale-105">
+                    <MessageSquarePlus size={20} strokeWidth={2} />
                   </div>
-                  <ArrowRight
-                    size={16}
-                    className={cn(
-                      'mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100',
-                      darkMode ? 'text-[#3b82f6]' : 'text-primary',
-                    )}
-                  />
                 </div>
-                <h4
-                  className={cn(
-                    'mb-1 mt-auto text-sm font-bold tracking-wide',
-                    darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                  )}
-                >
-                  快速会话
-                </h4>
-                <p className={cn('text-xs leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
-                  直接新建一个对话，马上开始问答
-                </p>
+                <h4 className="mb-1.5 mt-auto text-sm font-bold tracking-wide text-text-main">开启对谈</h4>
+                <p className="text-xs leading-relaxed text-text-tertiary">随时唤醒思考，展开一次随性的灵感碰撞</p>
               </Link>
               {quickActions.map(({ path, icon: Icon, title, desc }) => (
                 <Link
                   key={path}
                   to={path}
-                  className={cn(
-                    'group relative flex min-h-[132px] flex-col rounded-2xl border p-4 transition-all duration-300',
-                    darkMode
-                      ? 'border-[#3c3c3c]/60 bg-[#252526] hover:border-[#3b82f6]'
-                      : 'border-border-subtle/60 bg-white/50 hover:border-primary hover:bg-white',
-                  )}
+                  className="group art-card relative flex min-h-[132px] flex-col rounded-2xl p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary hover:shadow-lg"
                 >
-                  <div className="mb-4 flex items-start justify-between">
-                    <div
-                      className={cn(
-                        'flex h-10 w-10 items-center justify-center rounded-xl transition-colors',
-                        darkMode
-                          ? 'bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20'
-                          : 'bg-primary/10 text-primary group-hover:bg-primary/20',
-                      )}
-                    >
-                      <Icon size={21} strokeWidth={1.8} />
+                  <div className="mb-5">
+                    <div className="icon-tile h-10 w-10 shadow-sm transition-transform group-hover:scale-105">
+                      <Icon size={20} strokeWidth={2} />
                     </div>
-                    <ArrowRight
-                      size={16}
-                      className={cn(
-                        'mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100',
-                        darkMode ? 'text-[#3b82f6]' : 'text-primary',
-                      )}
-                    />
                   </div>
-                  <h4
-                    className={cn(
-                      'mb-1 mt-auto text-sm font-bold tracking-wide',
-                      darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                    )}
-                  >
-                    {title}
-                  </h4>
-                  <p className={cn('text-xs leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>{desc}</p>
+                  <h4 className="mb-1.5 mt-auto text-sm font-bold tracking-wide text-text-main">{title}</h4>
+                  <p className="text-xs leading-relaxed text-text-tertiary">{desc}</p>
                 </Link>
               ))}
             </div>
           </section>
 
           {/* Recent Section */}
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-10 xl:grid-cols-2">
             {/* Recent Files */}
-            <section className={panelClassName(darkMode)}>
-              <div
-                className={cn(
-                  'flex items-center justify-between gap-4 border-b px-5 py-4',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
-                <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>最近文档</h3>
-                <Link
-                  to={Routes.Files}
-                  className={cn(
-                    'shrink-0 text-[9px] font-bold uppercase tracking-widest transition-colors',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                    darkMode ? 'hover:text-[#3b82f6]' : 'hover:text-primary',
-                  )}
-                >
-                  查看全部
-                </Link>
-              </div>
-              <div className="space-y-1 p-3">
+            <section className="border-t border-border-subtle pt-6">
+              <h3 className="mb-4 pl-1 text-xs font-bold uppercase tracking-widest text-text-secondary">最近文档</h3>
+              <div className="divide-y divide-border-subtle">
                 {recentFilesLoading ? (
-                  <p className={cn('py-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>正在加载文档</p>
+                  <p className="py-4 pl-1 text-sm text-text-tertiary">正在加载文档</p>
                 ) : recentFilesError ? (
-                  <p className={cn('py-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                    {recentFilesError}
-                  </p>
+                  <p className="py-4 pl-1 text-sm text-[#d97373]">{recentFilesError}</p>
                 ) : recentFiles.length === 0 ? (
-                  <p className={cn('py-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>暂无文档</p>
+                  <p className="py-4 pl-1 text-sm text-text-tertiary">此地仍是留白，等待你的第一篇记录</p>
                 ) : (
                   recentFiles.map((file) => (
                     <div
                       key={file.id}
                       onClick={() => navigate(`/datasets/${file.datasetId}`)}
-                      className={cn(
-                        'flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors',
-                        darkMode ? 'hover:bg-[#252526] hover:text-[#3b82f6]' : 'hover:bg-bg-base hover:text-primary',
-                      )}
+                      className="group flex min-h-[48px] cursor-pointer items-center justify-between gap-4 rounded-xl px-3 py-2.5 transition-colors hover:bg-text-main/5"
                     >
-                      <span className={cn('min-w-0 truncate text-xs font-medium', darkMode ? 'text-[#e0e0e0]' : '')}>
+                      <span className="min-w-0 truncate text-sm font-medium text-text-main/80 transition-colors group-hover:text-text-main">
                         {file.originalFilename}
                       </span>
-                      <span className={cn('mono-label shrink-0 text-[10px]', darkMode ? 'text-[#858585]' : '')}>
+                      <span className="mono-label shrink-0 opacity-70 transition-opacity group-hover:opacity-100">
                         {formatRelativeTime(file.createdAt)}
                       </span>
                     </div>
@@ -298,42 +164,22 @@ export default function HomePage() {
             </section>
 
             {/* Recent Chats */}
-            <section className={panelClassName(darkMode)}>
-              <div
-                className={cn(
-                  'flex items-center justify-between gap-4 border-b px-5 py-4',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
-                <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>最近对话</h3>
-                <Link
-                  to={Routes.Chats}
-                  className={cn(
-                    'shrink-0 text-[9px] font-bold uppercase tracking-widest transition-colors',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                    darkMode ? 'hover:text-[#3b82f6]' : 'hover:text-primary',
-                  )}
-                >
-                  查看全部
-                </Link>
-              </div>
-              <div className="space-y-1 p-3">
+            <section className="border-t border-border-subtle pt-6">
+              <h3 className="mb-4 pl-1 text-xs font-bold uppercase tracking-widest text-text-secondary">最近对话</h3>
+              <div className="divide-y divide-border-subtle">
                 {recentChats.length === 0 ? (
-                  <p className={cn('py-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>暂无对话</p>
+                  <p className="py-4 pl-1 text-sm text-text-tertiary">时光安静，暂无回音</p>
                 ) : (
                   recentChats.map((chat) => (
                     <div
                       key={chat.id}
                       onClick={() => navigate(`/chats/${chat.id}`)}
-                      className={cn(
-                        'flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors',
-                        darkMode ? 'hover:bg-[#252526] hover:text-[#3b82f6]' : 'hover:bg-bg-base hover:text-primary',
-                      )}
+                      className="group flex min-h-[48px] cursor-pointer items-center justify-between gap-4 rounded-xl px-3 py-2.5 transition-colors hover:bg-text-main/5"
                     >
-                      <span className={cn('min-w-0 truncate text-xs font-medium', darkMode ? 'text-[#e0e0e0]' : '')}>
+                      <span className="min-w-0 truncate text-sm font-medium text-text-main/80 transition-colors group-hover:text-text-main">
                         {chat.title}
                       </span>
-                      <span className={cn('mono-label shrink-0 text-[10px]', darkMode ? 'text-[#858585]' : '')}>
+                      <span className="mono-label shrink-0 opacity-70 transition-opacity group-hover:opacity-100">
                         {formatRelativeTime(chat.updatedAt)}
                       </span>
                     </div>
