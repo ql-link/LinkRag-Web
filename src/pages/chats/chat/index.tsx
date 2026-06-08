@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, ArrowUpDown, ChevronDown, FileText, Loader2, Search, Send, Upload, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, ChevronDown, FileText, Loader2, Search, Send, Upload, X, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMessages, getConversations } from '@/services/chat';
-import { getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
+import {
+  getDataset,
+  getKnowledgeFiles,
+  uploadKnowledgeFile,
+  enrichKnowledgeFilesWithParseResults,
+  createParseTask,
+} from '@/services/dataset';
 import { getLLMConfigs } from '@/services/llm';
 import { recall, isRecallError, isRecallAborted, type RecallError } from '@/services/recall';
 import type { MessageDTO, ConversationDTO, KnowledgeFileDTO, LLMConfigDTO, RecallHit } from '@/types/api';
@@ -84,6 +89,40 @@ function recallErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '召回失败';
 }
 
+function getFileStatusLabel(file: KnowledgeFileDTO) {
+  if (file.frontendStatus === 'upload_failed' || file.failureReason) return '上传失败';
+  if (file.frontendStatus === 'parse_waiting') return '待解析';
+  if (file.frontendStatus === 'parsing') return '解析中';
+  if (file.frontendStatus === 'parse_success') return '解析完成';
+  if (file.frontendStatus === 'parse_failed') return '解析失败';
+  if (file.parseStatus) return file.parseStatus;
+  if (file.uploadStatus === 'UPLOAD_SUCCESS') return '上传成功';
+  if (file.uploadStatus === 'UPLOAD_FAILED') return '上传失败';
+  return '上传中';
+}
+
+function getFileStatusTone(file: KnowledgeFileDTO) {
+  if (
+    file.frontendStatus === 'upload_failed' ||
+    file.frontendStatus === 'parse_failed' ||
+    file.failureReason ||
+    file.parseFailureReason
+  )
+    return 'text-red-500';
+  if (file.frontendStatus === 'parsing') return 'text-blue-500';
+  if (file.frontendStatus === 'parse_success') return 'text-emerald-500';
+  return '';
+}
+
+function canSubmitParse(file: KnowledgeFileDTO) {
+  return (
+    file.isUploadSuccess &&
+    file.uploadStatus === 'UPLOAD_SUCCESS' &&
+    !file.failureReason &&
+    file.frontendStatus !== 'parsing'
+  );
+}
+
 function RecallPanel({
   darkMode,
   recalling,
@@ -91,6 +130,7 @@ function RecallPanel({
   failedSources,
   error,
   onAbort,
+  className,
 }: {
   darkMode?: boolean;
   recalling: boolean;
@@ -98,11 +138,13 @@ function RecallPanel({
   failedSources: string[];
   error: string | null;
   onAbort: () => void;
+  className?: string;
 }) {
   return (
     <aside
       className={cn(
         'rounded-3xl border overflow-hidden flex flex-col',
+        className,
         darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
       )}
     >
@@ -253,6 +295,7 @@ export default function ChatPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const [conversation, setConversation] = useState<ConversationDTO | null>(null);
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
@@ -266,7 +309,30 @@ export default function ChatPage() {
   const [fileSortBy, setFileSortBy] = useState<'createdAt' | 'updatedAt'>('updatedAt');
   const [chatModels, setChatModels] = useState<LLMConfigDTO[]>([]);
   const [loadingChatModels, setLoadingChatModels] = useState(false);
+  const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
+
+  const handleParseFile = async (fileId: number) => {
+    setParsingFileIds((prev) => [...prev, fileId]);
+    try {
+      await createParseTask(fileId);
+      setFiles((prev) =>
+        prev.map((item) =>
+          item.id === fileId ? { ...item, frontendStatus: 'parsing', parseStatus: 'created' } : item,
+        ),
+      );
+      addToast('success', '解析任务已提交');
+      if (conversation) {
+        await loadFiles(conversation.datasetId);
+      }
+    } catch (error) {
+      console.error('Failed to create parse task:', error);
+    } finally {
+      setParsingFileIds((prev) => prev.filter((item) => item !== fileId));
+    }
+  };
+
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [datasetName, setDatasetName] = useState('');
   // 召回（直连 Python SSE）状态
   const [recalling, setRecalling] = useState(false);
@@ -281,6 +347,17 @@ export default function ChatPage() {
   // 离开页面时取消进行中的召回，释放 Python 并发名额
   useEffect(() => {
     return () => recallAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+        setModelMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -327,7 +404,9 @@ export default function ChatPage() {
 
         setConversation(conv);
         setMessages(msgResult.items);
-        setFiles(fileResult.items.sort((a, b) => b.id - a.id));
+        const enrichedFiles = await enrichKnowledgeFilesWithParseResults(conv.datasetId, fileResult.items);
+        if (cancelled) return;
+        setFiles(enrichedFiles.sort((a, b) => b.id - a.id));
         setDatasetName(dataset?.name ?? `知识库 #${conv.datasetId}`);
         setLoadedConversationId(conversationId);
         setConversationLoadStatus('success');
@@ -371,7 +450,8 @@ export default function ChatPage() {
     setLoadingFiles(true);
     try {
       const result = await getKnowledgeFiles(datasetId, 1, 100);
-      setFiles(result.items.sort((a, b) => b.id - a.id));
+      const enrichedFiles = await enrichKnowledgeFilesWithParseResults(datasetId, result.items);
+      setFiles(enrichedFiles.sort((a, b) => b.id - a.id));
     } catch (error) {
       console.error('Failed to load knowledge files:', error);
       setFiles([]);
@@ -550,6 +630,7 @@ export default function ChatPage() {
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
     });
   }, [files, fileSortBy]);
+  const selectedChatModel = chatModels.find((model) => model.id === selectedModelConfigId);
 
   const isConversationLoading =
     hasValidConversationId && (conversationLoadStatus === 'loading' || loadedConversationId !== conversationId);
@@ -585,319 +666,395 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <header
+    <div className={cn('flex h-full overflow-hidden', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+      {/* Left Sidebar: Files */}
+      <aside
         className={cn(
-          'h-20 pl-6 pr-8 flex items-center justify-between shrink-0 backdrop-blur-md border-b',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+          'hidden lg:flex w-[280px] shrink-0 flex-col border-r',
+          darkMode ? 'border-[#3c3c3c] bg-white/[0.02]' : 'border-border-subtle/50 bg-black/[0.02] backdrop-blur-sm',
         )}
       >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(Routes.Chats)}
-            className={cn(
-              'p-2 rounded-xl transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
-            )}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div className="flex flex-col gap-1">
-            <Breadcrumb
-              items={[
-                { label: '首页', path: Routes.Home },
-                { label: '对话', path: Routes.Chats },
-                { label: conversation.title },
-              ]}
-              darkMode={darkMode}
-            />
-            <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              #{datasetName || `知识库 #${conversation.datasetId}`}-{conversation.title}
-            </h2>
+        <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-4">
+          <div>
+            <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>关联文件</p>
+            <p className={cn('mono-label mt-0.5', darkMode && 'text-[#858585]')}>{files.length} files</p>
           </div>
-        </div>
-        <div />
-      </header>
-
-      <div className="flex-1 px-0 py-5 min-h-0">
-        <div className="h-full grid grid-cols-[250px_minmax(0,1fr)_300px] gap-2">
-          <aside
+          <button
+            type="button"
+            onClick={() => setFileSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
             className={cn(
-              'rounded-3xl border overflow-hidden flex flex-col',
-              darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+              'flex h-8 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-bold transition-colors',
+              darkMode
+                ? 'border-[#3c3c3c] text-[#cccccc] hover:bg-[#2d2d2d]'
+                : 'border-border-subtle text-text-main/65 hover:bg-primary/5',
             )}
+            title="点击切换文件排序方式"
           >
-            <div className={cn('px-5 py-4 border-b', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className={cn('text-sm font-bold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                    关联文件
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFileSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
-                  className={cn(
-                    'h-8 flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold transition-colors border',
-                    darkMode
-                      ? 'text-[#cccccc] hover:bg-[#2d2d2d] border-[#3c3c3c]'
-                      : 'text-text-main/70 hover:bg-bg-base/60 border-border-subtle',
-                  )}
-                  title="点击切换文件排序方式"
-                >
-                  <ArrowUpDown size={14} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
-                  <span>{fileSortLabel}</span>
-                </button>
-              </div>
+            <ArrowUpDown size={13} />
+            {fileSortLabel}
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-4">
+          {loadingFiles ? (
+            <div className="flex h-36 items-center justify-center">
+              <Loader2 size={18} className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')} />
             </div>
+          ) : files.length === 0 ? (
+            <div
+              className={cn(
+                'flex h-36 items-center justify-center px-4 text-center text-xs',
+                darkMode ? 'text-[#858585]' : 'text-text-main/50',
+              )}
+            >
+              当前知识库还没有文件
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sortedFiles.map((file) => {
+                const parsing = parsingFileIds.includes(file.id);
+                const canParse = canSubmitParse(file);
+                const statusTone = getFileStatusTone(file);
 
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-              {loadingFiles ? (
-                <div className="h-full flex items-center justify-center">
-                  <Loader2
-                    size={18}
-                    className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
-                  />
-                </div>
-              ) : files.length === 0 ? (
-                <div
-                  className={cn(
-                    'h-full flex items-center justify-center text-xs text-center px-2',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                  )}
-                >
-                  当前知识库还没有文件
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sortedFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className={cn(
-                        'rounded-xl border px-3 py-2',
-                        darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white border-border-subtle',
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText size={14} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+                return (
+                  <div
+                    key={file.id}
+                    className={cn(
+                      'rounded-2xl border px-3 py-3 transition-colors flex flex-col gap-2',
+                      darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white/70',
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText
+                          size={14}
+                          className={cn('shrink-0', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
+                        />
                         <p
-                          className={cn('text-sm font-medium truncate', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+                          className={cn('truncate text-sm font-medium', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+                          title={file.originalFilename}
                         >
                           {file.originalFilename}
                         </p>
                       </div>
-                      <div className={cn('mt-1 text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                        {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
+                      <div className="flex shrink-0">
+                        <button
+                          onClick={() => void handleParseFile(file.id)}
+                          disabled={!canParse || parsing}
+                          className={cn(
+                            'flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                            darkMode
+                              ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                              : 'bg-primary text-white hover:bg-primary/90',
+                            !canParse && !parsing && 'hidden',
+                          )}
+                          title="点击解析文件"
+                        >
+                          {parsing ? <Loader2 size={10} className="animate-spin" /> : <Wand2 size={10} />}
+                          {parsing ? '解析中' : '解析'}
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div
+                      className={cn(
+                        'flex items-center justify-between text-[11px]',
+                        darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                      )}
+                    >
+                      <div className="truncate">
+                        {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
+                      </div>
+                      <span className={statusTone}>{getFileStatusLabel(file)}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <div className={cn('p-4 border-t', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => {
-                  if (!uploading) fileInputRef.current?.click();
-                }}
-                className={cn(
-                  'rounded-2xl border border-dashed p-4 transition-colors cursor-pointer',
-                  dragging
-                    ? darkMode
-                      ? 'border-[#3b82f6] bg-[#3b82f6]/10'
-                      : 'border-primary bg-primary/5'
-                    : darkMode
-                      ? 'border-[#3c3c3c] bg-[#1e1e1e]'
-                      : 'border-border-subtle bg-bg-base/40',
-                )}
-              >
-                <div className="flex flex-col items-center justify-center gap-2 mb-3">
-                  <Upload size={16} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
-                  <p
-                    className={cn(
-                      'text-xs text-center leading-tight',
-                      darkMode ? 'text-[#858585]' : 'text-text-main/60',
-                    )}
-                  >
-                    {uploading ? (
-                      '上传中...'
-                    ) : (
-                      <>
-                        <span className="block">拖拽文件到此处上传</span>
-                        <span className="block">或点击此区域上传</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept=".md,.markdown,.pdf,.docx,.txt"
-                  onChange={handleFileInputChange}
-                />
-              </div>
-              <div className="mt-3 flex items-center justify-start gap-2">
-                <ParseAfterUploadSwitch
-                  darkMode={darkMode}
-                  checked={parseAfterUpload}
-                  onToggle={() => setParseAfterUpload((prev) => !prev)}
-                />
-                <span
-                  className={cn(
-                    'text-[8px] font-medium whitespace-nowrap leading-none',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                  )}
-                >
-                  支持 md/pdf/docx/txt
-                </span>
-              </div>
-            </div>
-          </aside>
-
-          <section
+          )}
+        </div>
+        <div className="p-4 shrink-0 mt-auto">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => {
+              if (!uploading) fileInputRef.current?.click();
+            }}
             className={cn(
-              'rounded-3xl border overflow-hidden flex flex-col',
-              darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+              'cursor-pointer rounded-2xl border border-dashed p-4 transition-colors',
+              dragging
+                ? darkMode
+                  ? 'border-[#3b82f6] bg-[#3b82f6]/10'
+                  : 'border-primary bg-primary/5'
+                : darkMode
+                  ? 'border-[#3c3c3c] bg-[#1e1e1e]'
+                  : 'border-border-subtle bg-bg-base/40',
             )}
           >
-            <div className="flex-1 overflow-y-auto p-6">
-              {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <p
-                      className={cn(
-                        'text-2xl mb-3 font-sans font-medium',
-                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                      )}
-                    >
-                      {displayName}，今天想聊点什么？
-                    </p>
-                    <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
-                      可以上传文件，或者直接提问我。
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-3xl mx-auto space-y-4">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'rounded-2xl p-4',
-                        msg.role === 'user'
-                          ? darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] ml-12'
-                            : 'bg-bg-base/70 border border-border-subtle mr-12'
-                          : darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] mr-12'
-                            : 'art-card ml-12',
-                      )}
-                    >
-                      <p
-                        className={cn(
-                          'text-sm leading-relaxed',
-                          msg.role === 'user'
-                            ? darkMode
-                              ? 'text-white'
-                              : 'text-text-main'
-                            : darkMode
-                              ? 'text-[#e0e0e0]'
-                              : 'text-text-main',
-                        )}
-                      >
-                        {msg.content}
-                      </p>
-                      <p
-                        className={cn('mono-label mt-2 text-[8px]', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/30')}
-                      >
-                        {formatTime(msg.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="mb-3 flex flex-col items-center justify-center gap-2">
+              <Upload size={16} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+              <p className={cn('text-center text-xs leading-tight', darkMode ? 'text-[#858585]' : 'text-text-main/60')}>
+                {uploading ? '上传中...' : '拖拽或点击上传文件'}
+              </p>
             </div>
-
-            <div
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".md,.markdown,.pdf,.docx,.txt"
+              onChange={handleFileInputChange}
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <ParseAfterUploadSwitch
+              darkMode={darkMode}
+              checked={parseAfterUpload}
+              onToggle={() => setParseAfterUpload((prev) => !prev)}
+            />
+            <span
               className={cn(
-                'p-4 shrink-0 border-t',
-                darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+                'text-[8px] font-medium whitespace-nowrap',
+                darkMode ? 'text-[#858585]' : 'text-text-main/45',
               )}
             >
-              <div className="max-w-3xl mx-auto flex items-center gap-3">
-                <div
-                  className={cn(
-                    'flex-1 h-12 rounded-xl border flex items-center px-2 gap-2',
-                    darkMode ? 'bg-[#1e1e1e] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
-                  )}
-                >
-                  <input
-                    type="text"
+              md/pdf/docx/txt
+            </span>
+          </div>
+        </div>
+      </aside>
+      {/* Center Chat Area */}
+      <main className="flex-1 min-w-0 flex flex-col bg-transparent">
+        <header className="h-16 px-8 flex shrink-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              onClick={() => navigate(Routes.Chats)}
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors',
+                darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/45 hover:bg-primary/5',
+              )}
+              aria-label="返回对话列表"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="min-w-0">
+              <h2
+                className={cn(
+                  'truncate text-sm font-semibold tracking-tight',
+                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                )}
+              >
+                {conversation.title}
+              </h2>
+              <p className={cn('mono-label mt-0.5 truncate', darkMode && 'text-[#858585]')}>
+                {datasetName || `知识库 #${conversation.datasetId}`}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-4 py-8">
+          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col">
+            {messages.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center pb-24">
+                <div className="text-center">
+                  <p
+                    className={cn(
+                      'mb-3 text-2xl font-medium tracking-tight sm:text-3xl',
+                      darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                    )}
+                  >
+                    {displayName}，今天想聊点什么？
+                  </p>
+                  <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                    选择模型后直接提问，所有信息将在工作台实时呈现。
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-7 pb-6">
+                {messages.map((msg) => {
+                  const isUser = msg.role === 'user';
+                  return (
+                    <div
+                      id={`msg-${msg.id}`}
+                      key={msg.id}
+                      className={cn('flex w-full scroll-mt-6', isUser ? 'justify-end' : 'justify-start')}
+                    >
+                      <div
+                        className={cn(
+                          'max-w-[86%] whitespace-pre-wrap text-sm leading-7 sm:max-w-[78%]',
+                          isUser
+                            ? cn(
+                                'rounded-[1.35rem] px-4 py-3',
+                                darkMode ? 'bg-[#2d2d2d] text-white' : 'bg-white/80 text-text-main shadow-sm',
+                              )
+                            : cn('px-1 py-1', darkMode ? 'text-[#e0e0e0]' : 'text-text-main'),
+                        )}
+                      >
+                        {msg.content || (msg.role === 'assistant' && recalling ? '正在生成...' : '')}
+                        <p
+                          className={cn(
+                            'mono-label mt-2 text-[8px]',
+                            darkMode ? 'text-[#6b6b6b]' : 'text-text-main/30',
+                          )}
+                        >
+                          {formatTime(msg.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0 px-4 sm:px-8 pb-6 pt-2 bg-transparent">
+          <div className="mx-auto w-full max-w-3xl">
+            <div
+              className={cn(
+                'rounded-[1.75rem] border p-2 backdrop-blur-md transition-shadow',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#252526]/80 hover:border-[#4c4c4c]'
+                  : 'border-border-subtle/80 bg-white/80 hover:border-border-subtle',
+              )}
+            >
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1 pl-2">
+                  <textarea
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="输入提问，回车开始召回..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void handleSend();
+                      }
+                    }}
+                    placeholder="输入提问..."
                     disabled={recalling}
+                    rows={1}
                     className={cn(
-                      'flex-1 bg-transparent text-sm focus:outline-none',
+                      'max-h-36 min-h-11 w-full resize-none bg-transparent px-1 py-2.5 text-sm leading-6 focus:outline-none custom-scrollbar',
                       darkMode
                         ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                         : 'text-text-main placeholder:text-text-main/40',
                     )}
                   />
-                  <div className={cn('h-5 w-px shrink-0', darkMode ? 'bg-[#3c3c3c]' : 'bg-border-subtle')} />
-                  <div className="relative shrink-0">
-                    <select
-                      value={selectedModelConfigId ?? ''}
-                      onChange={(event) =>
-                        setSelectedModelConfigId(event.target.value ? Number(event.target.value) : null)
+                </div>
+                <div className="relative shrink-0 mb-1" ref={modelMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!loadingChatModels && chatModels.length > 0) {
+                        setModelMenuOpen((open) => !open);
                       }
-                      disabled={loadingChatModels || chatModels.length === 0}
-                      className={cn(
-                        'appearance-none bg-transparent pl-1 pr-5 text-xs focus:outline-none min-w-[92px] max-w-[120px] truncate',
-                        darkMode ? 'text-[#cccccc]' : 'text-text-main/75',
-                        (loadingChatModels || chatModels.length === 0) && 'opacity-60',
-                      )}
-                      title="选择对话模型"
-                    >
-                      <option value="">
-                        {loadingChatModels ? '加载中' : chatModels.length === 0 ? '暂无模型' : '选择模型'}
-                      </option>
-                      {chatModels.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.modelName}
-                        </option>
-                      ))}
-                    </select>
+                    }}
+                    disabled={loadingChatModels || chatModels.length === 0}
+                    className={cn(
+                      'flex h-7 max-w-[180px] items-center gap-1.5 rounded-full px-2 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-[220px]',
+                      darkMode
+                        ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                        : 'text-text-main/60 hover:bg-primary/5 hover:text-text-main/75',
+                    )}
+                    title="选择对话模型"
+                    aria-haspopup="listbox"
+                    aria-expanded={modelMenuOpen}
+                  >
+                    <span className="truncate">
+                      {loadingChatModels
+                        ? '模型加载中'
+                        : chatModels.length === 0
+                          ? '暂无模型'
+                          : (selectedChatModel?.modelName ?? '选择模型')}
+                    </span>
                     <ChevronDown
                       size={12}
                       className={cn(
-                        'pointer-events-none absolute right-0 top-1/2 -translate-y-1/2',
-                        darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                        'shrink-0 transition-transform',
+                        modelMenuOpen && 'rotate-180',
+                        darkMode ? 'text-[#858585]' : 'text-text-main/40',
                       )}
                     />
-                  </div>
+                  </button>
+
+                  {modelMenuOpen && (
+                    <div
+                      className={cn(
+                        'absolute bottom-full left-0 z-40 mb-2 w-[min(260px,calc(100vw-4rem))] overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-md',
+                        darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/95',
+                      )}
+                    >
+                      <div className={cn('border-b px-3 py-2', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
+                        <p className={cn('mono-label', darkMode && 'text-[#858585]')}>选择模型</p>
+                      </div>
+                      <div className="max-h-[180px] overflow-y-auto custom-scrollbar p-1" role="listbox">
+                        {chatModels.map((model) => {
+                          const selected = model.id === selectedModelConfigId;
+                          return (
+                            <button
+                              key={model.id}
+                              type="button"
+                              role="option"
+                              aria-selected={selected}
+                              onClick={() => {
+                                setSelectedModelConfigId(model.id);
+                                setModelMenuOpen(false);
+                              }}
+                              className={cn(
+                                'flex h-9 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-xs transition-colors',
+                                selected
+                                  ? darkMode
+                                    ? 'bg-[#3b82f6]/15 text-[#3b82f6]'
+                                    : 'bg-primary/10 text-primary'
+                                  : darkMode
+                                    ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                                    : 'text-text-main/70 hover:bg-primary/5',
+                              )}
+                            >
+                              <span className="min-w-0 truncate font-bold">{model.modelName}</span>
+                              {selected && (
+                                <span
+                                  className={cn(
+                                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                                    darkMode ? 'bg-[#3b82f6]' : 'bg-primary',
+                                  )}
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
-                  onClick={handleSend}
+                  onClick={() => void handleSend()}
                   disabled={recalling || !inputValue.trim() || !selectedModelConfigId}
                   title={!selectedModelConfigId ? '请先配置并选择对话模型' : undefined}
                   className={cn(
-                    'p-3 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                    'bg-text-main text-white hover:opacity-90',
+                    'mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    darkMode
+                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                      : 'bg-text-main text-white hover:opacity-90',
                   )}
                 >
-                  {recalling ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  {recalling ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
                 </button>
               </div>
             </div>
-          </section>
+          </div>
+        </div>
+      </main>
 
+      {/* Right Sidebar: Recall & Chat Outline */}
+      <aside
+        className={cn(
+          'hidden lg:flex w-[280px] shrink-0 flex-col border-l',
+          darkMode ? 'border-[#3c3c3c] bg-white/[0.02]' : 'border-border-subtle/50 bg-black/[0.02] backdrop-blur-sm',
+        )}
+      >
+        <div className="flex-1 min-h-0 flex flex-col">
           <RecallPanel
+            className="flex-1 rounded-none border-none shadow-none"
             darkMode={darkMode}
             recalling={recalling}
             hits={recallHits}
@@ -906,7 +1063,42 @@ export default function ChatPage() {
             onAbort={() => recallAbortRef.current?.abort()}
           />
         </div>
-      </div>
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="px-5 py-4 shrink-0 flex items-center gap-2">
+            <p className={cn('text-sm font-bold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+              大纲节点
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-4 space-y-2">
+            {messages
+              .filter((m) => m.role === 'user')
+              .map((msg) => (
+                <div
+                  key={msg.id}
+                  onClick={() => {
+                    document.getElementById(`msg-${msg.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className={cn(
+                    'cursor-pointer rounded-xl px-3 py-2 transition-colors',
+                    darkMode ? 'hover:bg-[#2d2d2d] text-[#e0e0e0]' : 'hover:bg-black/5 text-text-main',
+                  )}
+                >
+                  <p className="line-clamp-2 text-xs leading-relaxed">{msg.content}</p>
+                </div>
+              ))}
+            {messages.filter((m) => m.role === 'user').length === 0 && (
+              <div
+                className={cn(
+                  'h-full flex items-center justify-center text-xs text-center px-2',
+                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                )}
+              >
+                发送提问后生成提纲节点
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

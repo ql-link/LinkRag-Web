@@ -25,16 +25,19 @@ function AppContent() {
   }, [addToast]);
 
   const loadingView = (
-    <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
+    <div
+      className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}
+    >
       <div className="text-sm uppercase tracking-[0.3em]">Loading LinkRag...</div>
     </div>
   );
+  const shellKey = user ? 'protected-shell' : location.pathname;
 
   return (
     <Suspense fallback={loadingView}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={location.pathname}
+          key={shellKey}
           className="min-h-screen"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -48,11 +51,7 @@ function AppContent() {
             <Route
               path="*"
               element={
-                loading
-                  ? loadingView
-                  : user
-                    ? <ProtectedLayout />
-                    : <Navigate to={RoutePaths.Welcome} replace />
+                loading ? loadingView : user ? <ProtectedLayout /> : <Navigate to={RoutePaths.Welcome} replace />
               }
             />
           </Routes>
