@@ -99,8 +99,6 @@ const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }>
   { value: 'ASR', label: '语音识别', hint: '语音识别' },
 ];
 
-const PROVIDER_MODEL_PREVIEW_LIMIT = 5;
-
 interface ConfigView extends LLMConfigDTO {
   providerName: string;
 }
@@ -503,7 +501,7 @@ export default function LLMPage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
@@ -887,12 +885,7 @@ function ProviderConfigCard({
   const iconUrl = getProviderIcon(group.providerType, group.providerName);
   const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
   const presetCount = group.configs.length - selfCount;
-  const canUpdateProviderKey = selfCount > 0;
   const [collapsed, setCollapsed] = useState(false);
-  const [showAllModels, setShowAllModels] = useState(false);
-  const hasMoreModels = group.models.length > PROVIDER_MODEL_PREVIEW_LIMIT;
-  const visibleModels = showAllModels ? group.models : group.models.slice(0, PROVIDER_MODEL_PREVIEW_LIMIT);
-  const hiddenModelCount = group.models.length - PROVIDER_MODEL_PREVIEW_LIMIT;
 
   return (
     <article
@@ -926,28 +919,26 @@ function ProviderConfigCard({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {canUpdateProviderKey ? (
-              <button
-                type="button"
-                onClick={() =>
-                  onUpdateProvider({
-                    providerType: group.providerType,
-                    providerName: group.providerName,
-                    models: [],
-                  })
-                }
-                className={cn(
-                  'inline-flex h-8 items-center justify-center rounded-xl border px-3 text-[11px] font-bold transition-all duration-300',
-                  darkMode
-                    ? 'border-[#3c3c3c] bg-[#313131]/80 text-[#e0e0e0] hover:bg-[#3a3a3a] hover:border-[#4a4a4a]'
-                    : 'border-border-subtle bg-white text-text-main hover:bg-gray-50 hover:border-primary/30',
-                )}
-                title="更新密钥"
-                aria-label="更新密钥"
-              >
-                更新密钥
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() =>
+                onUpdateProvider({
+                  providerType: group.providerType,
+                  providerName: group.providerName,
+                  models: [],
+                })
+              }
+              className={cn(
+                'inline-flex h-8 items-center justify-center rounded-xl border px-3 text-[11px] font-bold transition-all duration-300',
+                darkMode
+                  ? 'border-[#3c3c3c] bg-[#313131]/80 text-[#e0e0e0] hover:bg-[#3a3a3a] hover:border-[#4a4a4a]'
+                  : 'border-border-subtle bg-white text-text-main hover:bg-gray-50 hover:border-primary/30',
+              )}
+              title="更新密钥"
+              aria-label="更新密钥"
+            >
+              更新密钥
+            </button>
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
@@ -974,29 +965,11 @@ function ProviderConfigCard({
             darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle/50',
           )}
         >
-          {visibleModels.map((model) => (
+          {group.models.map((model) => (
             <Fragment key={model.modelName}>
               <ModelConfigBlock darkMode={darkMode} group={group} model={model} onToggleModel={onToggleModel} />
             </Fragment>
           ))}
-          {hasMoreModels ? (
-            <button
-              type="button"
-              onClick={() => setShowAllModels((prev) => !prev)}
-              className={cn(
-                'mt-1 inline-flex h-8 items-center gap-1.5 rounded-xl border px-3 text-[11px] font-bold transition-all duration-300',
-                darkMode
-                  ? 'border-[#3c3c3c] bg-[#202020] text-[#d0d0d0] hover:bg-[#2a2a2a] hover:text-[#f0f0f0]'
-                  : 'border-border-subtle bg-bg-base text-text-main/70 hover:border-primary/20 hover:bg-gray-100 hover:text-text-main',
-              )}
-            >
-              <ChevronDown
-                size={12}
-                className={cn('transition-transform duration-300', showAllModels && 'rotate-180')}
-              />
-              {showAllModels ? '收起模型' : `展示更多 ${hiddenModelCount}`}
-            </button>
-          ) : null}
         </div>
       ) : null}
     </article>

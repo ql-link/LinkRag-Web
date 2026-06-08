@@ -1,6 +1,6 @@
 import { useState, useEffect, type MouseEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Loader2, MessageSquare, Pencil, Plus, Search, Trash2, X, ArrowUpDown, RefreshCw } from 'lucide-react';
+import { Loader2, MessageSquare, Pencil, Plus, Search, Trash2, X, ArrowUpDown } from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -186,7 +186,6 @@ export default function ChatsPage() {
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
     });
   const datasetNameById = new Map(datasets.map((dataset) => [Number(dataset.id), dataset.name]));
-  const hasSearch = searchString.trim().length > 0;
   const sortLabel = sortBy === 'createdAt' ? '按创建时间排序' : '按更新时间排序';
 
   return (
@@ -194,14 +193,15 @@ export default function ChatsPage() {
       {/* Header */}
       <header
         className={cn(
-          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
         <div className="flex flex-col gap-1">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} darkMode={darkMode} />
+          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>对话</h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <div className="relative">
             <Search
               size={14}
@@ -216,16 +216,16 @@ export default function ChatsPage() {
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                'h-9 w-48 rounded-lg border pl-9 pr-3 text-xs outline-none transition-colors focus:border-primary/50',
+                'w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-border-subtle',
                 darkMode
                   ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                  : 'bg-bg-base/50 border-border-subtle text-text-main placeholder:text-text-main/35',
+                  : 'bg-bg-base/50 border-border-subtle',
               )}
             />
           </div>
           <div
             className={cn(
-              'flex h-9 items-center gap-2 rounded-lg border px-3',
+              'flex items-center gap-2 px-3 py-2 rounded-xl border',
               darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
             )}
           >
@@ -242,18 +242,6 @@ export default function ChatsPage() {
               <span>{sortLabel}</span>
             </button>
           </div>
-          <button
-            onClick={() => void loadData()}
-            disabled={loading}
-            className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
-              loading && 'opacity-60',
-            )}
-            title="刷新对话"
-          >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          </button>
         </div>
       </header>
 
@@ -269,95 +257,75 @@ export default function ChatsPage() {
         ) : (
           <>
             {/* Stats Bar */}
-            <div className={cn('mb-4 flex items-center gap-4 mono-label', darkMode && 'text-gray-400')}>
+            <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode && 'text-gray-400')}>
               <span>共 {chats.length} 个对话</span>
-              {hasSearch && <span>筛选出 {filteredChats.length} 个</span>}
+              <span className={darkMode ? 'text-gray-600' : 'text-border-subtle'}>|</span>
+              <span>已加载 {chats.length > 0 ? '全部' : '0'} 对话</span>
             </div>
 
             {/* Chat Grid */}
-            <div className="grid auto-rows-[136px] grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
               {filteredChats.map((chat) => {
                 const deleting = deletingChatIds.includes(chat.id);
-                const datasetName = datasetNameById.get(chat.datasetId) ?? `数据集 #${chat.datasetId}`;
 
                 return (
                   <div
                     key={chat.id}
                     onClick={() => navigate(`/chats/${chat.id}`)}
                     className={cn(
-                      'group flex h-full min-h-0 cursor-pointer flex-col rounded-2xl p-4 transition-colors',
+                      'rounded-2xl p-5 transition-colors cursor-pointer group flex flex-col h-full min-h-0',
                       darkMode
-                        ? 'border border-[#3c3c3c] bg-[#2d2d2d] hover:border-[#565656]'
-                        : 'art-card hover:border-text-main/18 hover:bg-white',
+                        ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#4a4a4a]'
+                        : 'art-card hover:border-border-subtle',
                     )}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div
-                          className={cn(
-                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
-                            darkMode
-                              ? 'border-[#3c3c3c] bg-[#252526] text-[#bdbdbd]'
-                              : 'border-border-subtle bg-bg-base/70 text-[#7d746b]',
-                          )}
-                        >
-                          <MessageSquare size={17} />
-                        </div>
-                        <div className="min-w-0">
-                          <h3
-                            className={cn(
-                              'truncate text-sm font-bold tracking-wide transition-colors',
-                              darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                            )}
-                          >
-                            {chat.title}
-                          </h3>
-                          <p
-                            className={cn(
-                              'mono-label mt-1 truncate',
-                              darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                            )}
-                          >
-                            更新 {formatTime(chat.updatedAt)}
-                          </p>
-                        </div>
-                      </div>
-                      {chat.isPinned ? (
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold leading-none',
-                            darkMode
-                              ? 'border-[#4a4a4a] bg-[#252526] text-[#d0d0d0]'
-                              : 'border-border-subtle bg-bg-base/70 text-text-main/62',
-                          )}
-                        >
-                          置顶
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 min-w-0">
-                      <span
+                    <div className="mb-3">
+                      <div
                         className={cn(
-                          'inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-xs font-medium',
-                          darkMode
-                            ? 'border-[#3c3c3c] bg-[#252526] text-[#a8a8a8]'
-                            : 'border-border-subtle bg-bg-base/70 text-text-main/62',
+                          'w-10 h-10 rounded-xl flex items-center justify-center border',
+                          darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/60 border-border-subtle',
                         )}
                       >
-                        <span className="truncate">{datasetName}</span>
-                      </span>
+                        <MessageSquare size={18} className={darkMode ? 'text-[#bdbdbd]' : 'text-[#7d746b]'} />
+                      </div>
                     </div>
-
-                    <div className="mt-auto flex items-center justify-end">
-                      <div className="flex shrink-0 items-center gap-1.5">
+                    <h3
+                      className={cn(
+                        'font-bold text-sm tracking-wide line-clamp-2 mb-2 group-hover:text-text-main/90 transition-colors',
+                        darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                      )}
+                    >
+                      {chat.title}
+                    </h3>
+                    <p className={cn('text-sm mb-3 truncate', darkMode ? 'text-[#cccccc]' : 'text-text-main/75')}>
+                      {datasetNameById.get(chat.datasetId) ?? `数据集 #${chat.datasetId}`}
+                    </p>
+                    <div className="mt-auto flex items-end justify-between gap-2">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+                          更新于 {formatTime(chat.updatedAt)}
+                        </span>
+                        {chat.isPinned && (
+                          <span
+                            className={cn(
+                              'w-fit px-2 py-1 rounded-lg text-[10px] font-bold uppercase',
+                              darkMode
+                                ? 'bg-[#2d2d2d] text-[#bdbdbd] border border-[#3c3c3c]'
+                                : 'bg-bg-base/70 text-text-main/60 border border-border-subtle',
+                            )}
+                          >
+                            置顶
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
                         <button
                           onClick={(event) => handleEditChat(chat, event)}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-xl border transition-colors',
+                            'p-2 rounded-xl transition-colors',
                             darkMode
-                              ? 'border-[#3c3c3c] bg-[#252526] text-[#bdbdbd] hover:border-[#565656] hover:bg-[#2f2f2f] hover:text-[#f0f0f0]'
-                              : 'border-border-subtle bg-white/75 text-text-main/55 hover:border-text-main/20 hover:bg-bg-base hover:text-text-main',
+                              ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#3b82f6]'
+                              : 'text-text-main/35 hover:bg-blue-50 hover:text-blue-500',
                           )}
                           title="编辑对话"
                         >
@@ -367,10 +335,10 @@ export default function ChatsPage() {
                           onClick={(event) => void handleDeleteChat(chat, event)}
                           disabled={deleting}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                            'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60',
                             darkMode
-                              ? 'border-[#3c3c3c] bg-[#252526] text-[#bdbdbd] hover:border-red-400/35 hover:text-red-300'
-                              : 'border-border-subtle bg-white/75 text-text-main/55 hover:border-red-200 hover:bg-red-50 hover:text-red-500',
+                              ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-red-400'
+                              : 'text-text-main/35 hover:bg-red-50 hover:text-red-500',
                           )}
                           title="删除对话"
                         >
@@ -386,14 +354,14 @@ export default function ChatsPage() {
               <div
                 onClick={() => setCreateDialogOpen(true)}
                 className={cn(
-                  'flex h-full min-h-0 cursor-pointer flex-col items-center justify-center rounded-2xl border-dashed p-4 transition-colors',
+                  'rounded-2xl border-dashed flex flex-col items-center justify-center p-5 cursor-pointer transition-colors h-full min-h-0',
                   darkMode
                     ? 'border-[#3c3c3c] text-[#858585] hover:text-[#d0d0d0] hover:border-[#4a4a4a]'
                     : 'art-card text-text-main/40 hover:text-text-main/60 hover:border-border-subtle',
                 )}
               >
-                <Plus size={22} className="mb-2" />
-                <span className="text-xs font-bold tracking-wide">新建对话</span>
+                <Plus size={24} className="mb-2" />
+                <span className="text-xs font-bold uppercase tracking-wider">新建对话</span>
               </div>
             </div>
           </>
