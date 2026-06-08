@@ -11,20 +11,11 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   --color-primary: #d4a373;
-  --color-primary-light: rgba(212, 163, 115, 0.1);
-  --color-primary-mid: rgba(212, 163, 115, 0.2);
   --color-bg-base: #f4f1ed;
-  --color-bg-card: rgba(255, 255, 255, 0.5);
-  --color-bg-frosted: rgba(255, 255, 255, 0.8);
   --color-text-main: #1a1a1a;
-  --color-text-secondary: rgba(26, 26, 26, 0.7);
-  --color-text-tertiary: rgba(26, 26, 26, 0.5);
   --color-border-subtle: rgba(26, 26, 26, 0.1);
-  --color-border-medium: rgba(26, 26, 26, 0.18);
 
   --color-state-error: #d97373;
-  --shadow-card: 0 1px 3px rgba(26, 26, 26, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(26, 26, 26, 0.1);
 }
 
 /* ===== Base Styles ===== */
@@ -37,7 +28,6 @@
   body {
     @apply bg-bg-base text-text-main font-sans selection:bg-primary/30;
     font-variant-numeric: lining-nums tabular-nums;
-    text-rendering: optimizeLegibility;
   }
 
   .welcome-floating-header {
@@ -52,18 +42,9 @@
   /* Dark mode - VSCode-like comfortable dark theme */
   .dark {
     --color-bg-base: #1e1e1e;
-    --color-bg-card: #2d2d2d;
-    --color-bg-frosted: #252526;
     --color-text-main: #cccccc;
-    --color-text-secondary: #e0e0e0;
-    --color-text-tertiary: #858585;
     --color-border-subtle: #3c3c3c;
-    --color-border-medium: #4a4a4a;
     --color-primary: #3b82f6;
-    --color-primary-light: rgba(59, 130, 246, 0.1);
-    --color-primary-mid: rgba(59, 130, 246, 0.2);
-    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25);
-    --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
 
   .dark body {
@@ -163,8 +144,7 @@
 }
 
 @utility art-card {
-  @apply border border-border-subtle bg-white/50 backdrop-blur-sm;
-  box-shadow: var(--shadow-card);
+  @apply bg-white/50 backdrop-blur-sm border border-border-subtle;
 }
 
 @utility mono-label {
@@ -173,14 +153,6 @@
 
 @utility serif-heading {
   @apply font-serif italic tracking-tighter;
-}
-
-@utility control-surface {
-  @apply border border-border-subtle bg-bg-base/40 backdrop-blur-sm transition-colors;
-}
-
-@utility icon-tile {
-  @apply flex items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors;
 }
 
 /* ===== Scrollbar ===== */
