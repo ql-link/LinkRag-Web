@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -25,6 +26,11 @@ export default function ProfilePage() {
   const [editField, setEditField] = useState<EditField>(null);
   const [draftValue, setDraftValue] = useState('');
   const [formError, setFormError] = useState('');
+  const navigate = useNavigate();
+
+  function handleManageBlog() {
+    navigate(Routes.Blogs, { state: { adminOpen: true } });
+  }
 
   useEffect(() => {
     loadProfile();
@@ -177,6 +183,25 @@ export default function ProfilePage() {
             <label className="w-[190px] text-sm font-medium pt-1.5">用户名</label>
             <div className="flex-1 text-sm pt-1.5">{profile?.username || '未设置'}</div>
           </div>
+
+          {profile?.role === 'ADMIN' && (
+            <div className="flex items-start gap-4">
+              <label className="w-[190px] text-sm font-medium pt-1.5">内容管理</label>
+              <div className="flex-1">
+                <button
+                  onClick={handleManageBlog}
+                  className={cn(
+                    'px-4 py-2 rounded-lg text-sm font-medium border transition-colors flex items-center gap-2',
+                    darkMode
+                      ? 'border-cyan-500/50 bg-cyan-900/30 text-cyan-300 hover:border-cyan-400 hover:bg-cyan-800/40'
+                      : 'border-primary/30 bg-primary/10 text-primary hover:border-primary/50 hover:bg-primary/20',
+                  )}
+                >
+                  管理官方博客
+                </button>
+              </div>
+            </div>
+          )}
 
           {renderEditableRow('昵称', profile?.nickname, 'nickname')}
 

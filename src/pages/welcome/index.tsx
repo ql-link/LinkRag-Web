@@ -1998,6 +1998,20 @@ export default function WelcomePage() {
           </div>
         </RevealSection>
       </main>
+
+      <footer className="relative z-10 py-6 text-center">
+        <a
+          href="https://beian.miit.gov.cn/"
+          target="_blank"
+          rel="noreferrer noopener"
+          className={cn(
+            'text-xs transition-colors',
+            darkMode ? 'text-[#5a5a5a] hover:text-[#858585]' : 'text-text-main/30 hover:text-text-main/55',
+          )}
+        >
+          © 2026 LinkRag · 皖ICP备2026017322号
+        </a>
+      </footer>
     </div>
   );
 }
