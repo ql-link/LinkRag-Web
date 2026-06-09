@@ -3,6 +3,7 @@ export const Routes = {
   Welcome: '/',
   Home: '/home',
   Blogs: '/blogs',
+  BlogDetail: '/blogs/:slug',
   Feedback: '/feedback',
   Usage: '/usage',
   Datasets: '/datasets',
@@ -13,4 +14,7 @@ export const Routes = {
   Settings: '/settings',
   LLMPage: '/settings/llm-config',
   ProfilePage: '/settings/profile',
+  CreatorRoot: '/creator',
+  CreatorBlogs: '/creator/blogs',
+  CreatorBlogEdit: '/creator/blogs/edit/:id',
 } as const;

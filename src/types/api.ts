@@ -362,3 +362,67 @@ export interface RecallRequest {
   /** 可选，必须 ⊆ token 授权范围（超出 403）；省略/空 = token 全量授权范围 */
   datasetIds?: number[];
 }
+
+// ── Blog (Admin & Public) ──────────────────────────────────────────────
+
+export type BlogPostStatus = 'DRAFT' | 'PUBLISHED';
+export type BlogAssetType = 'COVER' | 'CONTENT_IMAGE';
+
+export interface BlogPostAdminListDTO {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string | null;
+  contentObjectKey: string | null;
+  coverAssetId: number | null;
+  status: BlogPostStatus;
+  publishedAt: string | null;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogPostAdminDetailDTO extends BlogPostAdminListDTO {
+  contentMarkdown: string | null;
+}
+
+export interface BlogPostPublicListDTO {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string | null;
+  coverAssetId: number | null;
+  coverPublicUrl: string | null;
+  publishedAt: string;
+}
+
+export interface BlogPostPublicDetailDTO extends BlogPostPublicListDTO {
+  contentMarkdown: string | null;
+}
+
+export interface BlogAssetDTO {
+  id: number;
+  postId: number;
+  assetType: BlogAssetType;
+  originalFilename: string;
+  contentType: string;
+  fileSize: number;
+  objectKey: string;
+  publicUrl: string;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBlogPostRequest {
+  title: string;
+  slug: string;
+  summary?: string;
+}
+
+export interface UpdateBlogPostRequest {
+  title?: string;
+  slug?: string;
+  summary?: string;
+  coverAssetId?: number;
+}
