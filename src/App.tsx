@@ -12,7 +12,12 @@ import { ProtectedLayout } from '@/layouts/ProtectedLayout';
 // Lazy-load public pages (welcome page is ~1600 lines with heavy animations)
 const WelcomePage = lazy(() => import('@/pages/welcome'));
 const BlogsPage = lazy(() => import('@/pages/blogs'));
+const BlogDetailPage = lazy(() => import('@/pages/blogs/BlogDetail'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
+
+const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then(m => ({ default: m.CreatorLayout })));
+const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
+const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
 
 function AppContent() {
   const { addToast } = useToast();
@@ -44,7 +49,20 @@ function AppContent() {
           <Routes location={location}>
             <Route index element={<WelcomePage />} />
             <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
+            <Route path={RoutePaths.BlogDetail} element={<BlogDetailPage />} />
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
+            
+            {/* Creator Routes */}
+            {user && (
+              <>
+                <Route path="/creator" element={<CreatorLayout />}>
+                  <Route index element={<Navigate to="/creator/blogs" replace />} />
+                  <Route path="blogs" element={<CreatorBlogsPage />} />
+                </Route>
+                <Route path="/creator/blogs/edit/:id" element={<CreatorBlogEditor />} />
+              </>
+            )}
+
             <Route
               path="*"
               element={
