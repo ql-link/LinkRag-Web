@@ -117,7 +117,6 @@ export default function CreatorBlogsPage() {
                     {post.status === 'PUBLISHED' ? '已发布' : '草稿'}
                   </span>
                   <span>{new Date(post.updatedAt).toLocaleDateString()}</span>
-                  <span>浏览 {post.viewCount || 0}</span>
                 </div>
               </div>
               
