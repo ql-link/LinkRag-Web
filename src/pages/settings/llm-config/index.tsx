@@ -99,6 +99,11 @@ const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }>
   { value: 'ASR', label: '语音识别', hint: '语音识别' },
 ];
 
+const EFFECTIVE_MODEL_CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
+  ...CAPABILITIES.filter((capability) => capability.value !== 'OCR'),
+  { value: 'OCR', label: 'OCR', hint: 'OCR' },
+];
+
 interface ConfigView extends LLMConfigDTO {
   providerName: string;
 }
@@ -332,19 +337,22 @@ export default function LLMPage() {
   }, [providerGroups, selectedModelSourceFilter]);
 
   const modelSourceCounts = useMemo(() => {
-    return providerGroups.reduce(
-      (acc, group) => {
-        group.configs.forEach((config) => {
-          if (config.isSystemPreset) {
-            acc.preset += 1;
-          } else {
-            acc.self += 1;
-          }
-        });
-        return acc;
-      },
-      { preset: 0, self: 0 },
-    );
+    const presetProviderTypes = new Set<string>();
+    const selfProviderTypes = new Set<string>();
+
+    providerGroups.forEach((group) => {
+      if (group.configs.some((config) => config.isSystemPreset)) {
+        presetProviderTypes.add(group.providerType);
+      }
+      if (group.configs.some((config) => !config.isSystemPreset)) {
+        selfProviderTypes.add(group.providerType);
+      }
+    });
+
+    return {
+      preset: presetProviderTypes.size,
+      self: selfProviderTypes.size,
+    };
   }, [providerGroups]);
 
   const filteredProviders = useMemo(() => {
@@ -648,7 +656,7 @@ function EffectiveModelsPanel({
         <LoadingState darkMode={darkMode} label="加载生效模型..." />
       ) : (
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-          {CAPABILITIES.map((capability) => {
+          {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
             const isOpen = openCapability === capability.value;
@@ -666,7 +674,7 @@ function EffectiveModelsPanel({
                 data-capability={capability.value}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <CapabilityBadge capability={capability.value} compact />
+                  <CapabilityBadge capability={capability.value} compact label={capability.label} />
                   {current ? <SourcePill darkMode={darkMode} preset={current.isSystemPreset} compact /> : null}
                 </div>
 
@@ -1486,7 +1494,15 @@ function ProviderIcon({
   );
 }
 
-function CapabilityBadge({ capability, compact }: { capability: LLMCapability; compact?: boolean }) {
+function CapabilityBadge({
+  capability,
+  compact,
+  label,
+}: {
+  capability: LLMCapability;
+  compact?: boolean;
+  label?: string;
+}) {
   const meta = getCapabilityMeta(capability);
 
   return (
@@ -1498,7 +1514,7 @@ function CapabilityBadge({ capability, compact }: { capability: LLMCapability; c
           : 'text-[11px] px-2.5 py-1 bg-primary/10 text-primary',
       )}
     >
-      {meta.label}
+      {label ?? meta.label}
     </span>
   );
 }
