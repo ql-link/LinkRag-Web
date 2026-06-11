@@ -44,7 +44,7 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith('/blogs')) return '博客';
   if (pathname.startsWith('/feedback')) return '反馈';
   if (pathname.startsWith('/usage')) return '用量';
-  if (pathname.startsWith('/settings/llm-config')) return 'LLM 配置';
+  if (pathname.startsWith('/settings/llm-config')) return '模型配置';
   if (pathname.startsWith('/settings/profile')) return '个人信息';
   return 'LinkRag';
 }

@@ -26,7 +26,7 @@ const navItems = [
   { path: Routes.Datasets, name: '知识库', icon: Database },
   { path: Routes.Chats, name: '对话', icon: MessageSquare },
   { path: Routes.Files, name: '文件', icon: FolderOpen },
-  { path: Routes.LLMPage, name: 'LLM 配置', icon: Cpu },
+  { path: Routes.LLMPage, name: '模型配置', icon: Cpu },
   { path: Routes.Usage, name: '用量', icon: BarChart3 },
 ];
 
