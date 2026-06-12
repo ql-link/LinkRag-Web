@@ -5,6 +5,8 @@ services:
     image: linkrag-web:${TAG:-latest}
     container_name: linkrag-web
     restart: always
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
     networks:
