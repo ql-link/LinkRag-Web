@@ -10,7 +10,6 @@ export const Routes = {
   DatasetDetail: '/datasets/:id',
   Chats: '/chats',
   ChatDetail: '/chats/:id',
-  Files: '/files',
   Settings: '/settings',
   LLMPage: '/settings/llm-config',
   ProfilePage: '/settings/profile',
