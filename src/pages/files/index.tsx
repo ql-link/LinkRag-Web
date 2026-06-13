@@ -15,6 +15,12 @@ import {
 } from '@/services/dataset';
 import type { DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
+import {
+  KNOWLEDGE_FILE_ACCEPT,
+  KNOWLEDGE_FILE_HINT,
+  KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
+  isSupportedKnowledgeFile,
+} from '@/lib/knowledge-file';
 
 const FILE_TYPES: Record<string, typeof FileText> = {
   PDF: FileText,
@@ -22,10 +28,6 @@ const FILE_TYPES: Record<string, typeof FileText> = {
   PPTX: Presentation,
   XLSX: FileSpreadsheet,
 };
-const SUPPORTED_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'txt'];
-const FILE_ACCEPT = SUPPORTED_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
-const SUPPORTED_FILE_HINT = `支持 ${SUPPORTED_FILE_SUFFIXES.join(' / ')}`;
-
 interface FileWithDataset extends KnowledgeFileDTO {
   dataset: DatasetDTO;
 }
@@ -160,11 +162,21 @@ export default function FilesPage() {
   function handleFileSelect(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     event.target.value = '';
+    if (file && !isSupportedKnowledgeFile(file)) {
+      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      setSelectedFile(null);
+      return;
+    }
     setSelectedFile(file);
   }
 
   async function handleSubmitUpload() {
     if (!selectedFile || !uploadDatasetId) return;
+    if (!isSupportedKnowledgeFile(selectedFile)) {
+      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      setSelectedFile(null);
+      return;
+    }
     setUploading(true);
     try {
       const uploaded = await uploadKnowledgeFile(uploadDatasetId, selectedFile, parseAfterUpload);
@@ -289,7 +301,7 @@ export default function FilesPage() {
         <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode && 'text-[#858585]')}>
           <span>共 {visibleFiles.length} 个文件</span>
           <span className={darkMode ? 'text-[#3c3c3c]' : 'text-border-subtle'}>|</span>
-          <span>{SUPPORTED_FILE_HINT}</span>
+          <span>{KNOWLEDGE_FILE_HINT}</span>
         </div>
 
         {loading ? (
@@ -465,9 +477,9 @@ export default function FilesPage() {
                   <span className={cn('text-xs truncate', darkMode ? 'text-gray-400' : 'text-text-main/50')}>
                     {selectedFile ? selectedFile.name : '未选择文件'}
                   </span>
-                  <input ref={inputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleFileSelect} />
+                  <input ref={inputRef} type="file" accept={KNOWLEDGE_FILE_ACCEPT} className="hidden" onChange={handleFileSelect} />
                 </div>
-                <p className={cn('mt-1.5 mono-label', darkMode ? 'text-gray-500' : 'text-text-main/40')}>{SUPPORTED_FILE_HINT}</p>
+                <p className={cn('mt-1.5 mono-label', darkMode ? 'text-gray-500' : 'text-text-main/40')}>{KNOWLEDGE_FILE_HINT}</p>
               </div>
               <ParseAfterUploadSwitch
                 darkMode={darkMode}

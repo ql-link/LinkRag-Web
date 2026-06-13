@@ -948,7 +948,7 @@ curl -X POST "http://{host}:8080/api/v1/datasets/10001/knowledge-files" \
 | 配置项 | 默认值 |
 |--------|--------|
 | 最大大小 | `20971520` 字节，即 `20MB` |
-| 允许后缀 | `md`, `markdown`, `pdf`, `docx`, `txt` |
+| 允许后缀 | `md`, `markdown`, `pdf`, `docx` |
 
 ### 12.2 获取知识文件列表
 
@@ -1259,7 +1259,7 @@ PATCH /api/v1/admin/knowledge-file-config
 ```json
 {
   "maxSizeBytes": 20971520,
-  "allowedSuffixes": ["md", "pdf", "txt"]
+  "allowedSuffixes": ["md", "pdf", "docx"]
 }
 ```
 

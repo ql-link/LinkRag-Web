@@ -12,6 +12,12 @@ import { getLLMConfigs } from '@/services/llm';
 import { recall, isRecallError, isRecallAborted, type RecallError } from '@/services/recall';
 import type { MessageDTO, ConversationDTO, KnowledgeFileDTO, LLMConfigDTO, RecallHit } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
+import {
+  KNOWLEDGE_FILE_ACCEPT,
+  KNOWLEDGE_FILE_HINT,
+  KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
+  isSupportedKnowledgeFile,
+} from '@/lib/knowledge-file';
 
 type ConversationLoadStatus = 'loading' | 'success' | 'not-found' | 'error';
 
@@ -501,6 +507,11 @@ export default function ChatPage() {
 
   const handleFileUpload = async (file: File) => {
     if (!conversation) return;
+    if (!isSupportedKnowledgeFile(file)) {
+      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      setDragging(false);
+      return;
+    }
     setUploading(true);
     try {
       await uploadKnowledgeFile(conversation.datasetId, file, parseAfterUpload);
@@ -736,7 +747,7 @@ export default function ChatPage() {
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept=".md,.markdown,.pdf,.docx,.txt"
+                  accept={KNOWLEDGE_FILE_ACCEPT}
                   onChange={handleFileInputChange}
                 />
               </div>
@@ -752,7 +763,7 @@ export default function ChatPage() {
                     darkMode ? 'text-[#858585]' : 'text-text-main/45',
                   )}
                 >
-                  支持 md/pdf/docx/txt
+                  {KNOWLEDGE_FILE_HINT}
                 </span>
               </div>
             </div>
