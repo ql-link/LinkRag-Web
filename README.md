@@ -23,17 +23,17 @@
 
 ## 🛠 技术栈
 
-| 类别 | 选型 |
-| --- | --- |
-| 框架 | React 19 + TypeScript |
-| 构建 | Vite 6 |
-| 样式 | Tailwind CSS 4 |
-| 路由 | React Router 7 |
-| 可视化 | D3 |
-| 动画 | Motion |
-| 图标 | lucide-react |
-| 测试 | Vitest + Testing Library |
-| 质量 | ESLint + Prettier + Husky + lint-staged |
+| 类别   | 选型                                    |
+| ------ | --------------------------------------- |
+| 框架   | React 19 + TypeScript                   |
+| 构建   | Vite 6                                  |
+| 样式   | Tailwind CSS 4                          |
+| 路由   | React Router 7                          |
+| 可视化 | D3                                      |
+| 动画   | Motion                                  |
+| 图标   | lucide-react                            |
+| 测试   | Vitest + Testing Library                |
+| 质量   | ESLint + Prettier + Husky + lint-staged |
 
 ## 🚀 本地开发
 
@@ -52,23 +52,42 @@ npm run dev
 
 ## 📜 常用脚本
 
-| 命令 | 说明 |
-| --- | --- |
-| `npm run dev` | 启动开发服务器 |
-| `npm run build` | 生产构建，产物输出到 `dist/` |
-| `npm run preview` | 本地预览构建产物 |
-| `npm run lint` | ESLint 检查（零警告） |
-| `npm run lint:fix` | ESLint 自动修复 |
-| `npm run typecheck` | TypeScript 类型检查 |
-| `npm run format` | Prettier 格式化 |
-| `npm run test` | 运行单元测试 |
+| 命令                | 说明                         |
+| ------------------- | ---------------------------- |
+| `npm run dev`       | 启动开发服务器               |
+| `npm run build`     | 生产构建，产物输出到 `dist/` |
+| `npm run preview`   | 本地预览构建产物             |
+| `npm run lint`      | ESLint 检查（零警告）        |
+| `npm run lint:fix`  | ESLint 自动修复              |
+| `npm run typecheck` | TypeScript 类型检查          |
+| `npm run format`    | Prettier 格式化              |
+| `npm run test`      | 运行单元测试                 |
+
+## 🌿 分支与发布管理
+
+本仓库与 LinkRag Python 端保持一致的分支模型：
+
+- `dev`：日常集成分支，feature/refactor/chore 等日常开发分支通过 PR 合入这里。
+- `master`：稳定发布分支，只接受发布 PR 或 hotfix PR，不接受日常 feature/refactor/chore 直接合入。
+- `feature/<topic>` / `refactor/<topic>` / `chore/<topic>`：日常开发分支，从 `dev` 拉出并 PR 到 `dev`。
+- `release/<version>`：每周发布准备分支，从 `dev` 拉出，最终通过 release PR 合入 `master`。
+- `hotfix/<topic>`：紧急修复分支，从 `master` 拉出，修复后 PR 到 `master`，发布后必须 merge 或 cherry-pick 回 `dev`。
+
+发布合并规则：
+
+- `dev` -> `master` 必须使用普通 merge commit，禁止 squash merge，确保发布分支保留完整 PR 父子关系。
+- 每周发布必须通过 `release/<version>` PR 进入 `master`。
+- release PR 合入 `master` 后，在 `master` 顶部的 merge commit 上打版本 tag。
+- release PR 描述必须列出：包含的业务 PR、数据库/配置/契约变更、测试结果、已知风险。
+- hotfix 合入 `master` 并发布后，必须回合 `dev`，避免修复只存在于发布线。
+- CI 或 workflow 的分支过滤如需显式配置，应使用 `dev, master`。
 
 ## ⚙️ 环境变量
 
 构建期可注入的 `VITE_` 前缀变量（会被打进静态产物）：
 
-| 变量 | 说明 |
-| --- | --- |
+| 变量              | 说明                   |
+| ----------------- | ---------------------- |
 | `VITE_GITHUB_URL` | 页面中 GitHub 链接地址 |
 
 ## 📂 目录结构
@@ -78,7 +97,7 @@ src/
 ├── components/   # 通用组件（知识图谱、问答、侧边栏等）
 ├── contexts/     # 全局状态（Auth / Theme / Toast）
 ├── layouts/      # 布局（受保护布局、移动导航、右侧面板）
-├── pages/        # 页面（home / chats / datasets / files / settings ...）
+├── pages/        # 页面（home / chats / datasets / settings ...）
 ├── services/     # API 调用封装（auth / chat / dataset / llm / oss / user）
 ├── lib/          # 工具与 API 客户端
 ├── types/        # 类型定义

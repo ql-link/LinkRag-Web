@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import type {
   DatasetDTO,
+  DatasetParseConfigDTO,
   KnowledgeFileDTO,
   CreateDatasetRequest,
   UpdateDatasetRequest,
@@ -18,6 +19,14 @@ export async function getDatasets(page = 1, pageSize = 20): Promise<PageResult<D
 
 export async function getDataset(datasetId: number): Promise<DatasetDTO> {
   return apiClient.get<DatasetDTO>(`/api/v1/datasets/${datasetId}`);
+}
+
+export async function getDatasetParseConfig(datasetId: number): Promise<DatasetParseConfigDTO> {
+  return apiClient.get<DatasetParseConfigDTO>(`/api/v1/datasets/${datasetId}/parse-config`);
+}
+
+export async function updateDatasetParseConfig(datasetId: number, data: DatasetParseConfigDTO): Promise<void> {
+  await apiClient.put(`/api/v1/datasets/${datasetId}/parse-config`, data);
 }
 
 export async function createDataset(data: CreateDatasetRequest): Promise<DatasetDTO> {

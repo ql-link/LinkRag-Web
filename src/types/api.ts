@@ -149,6 +149,39 @@ export interface DatasetDTO {
   updatedAt: string;
 }
 
+export type PdfParserBackend = 'auto' | 'mineru' | 'opendataloader' | 'naive';
+
+export interface DatasetParseChunkingConfig {
+  heading_break_level?: number | null;
+  min_candidate_chunk_tokens?: number | null;
+  overlap_tokens?: number | null;
+}
+
+export interface DatasetParseEnhancementConfig {
+  enable_table_enhancement?: boolean | null;
+  enable_image_enhancement?: boolean | null;
+}
+
+export interface DatasetParsePdfConfig {
+  pdf_parser_backend?: PdfParserBackend | null;
+}
+
+export interface DatasetParseRecallConfig {
+  recall_result_limit?: number | null;
+  recall_context_token_budget?: number | null;
+  sparse_top_k?: number | null;
+  sparse_score_threshold?: number | null;
+  dense_top_k?: number | null;
+  dense_score_threshold?: number | null;
+}
+
+export interface DatasetParseConfigDTO {
+  chunking?: DatasetParseChunkingConfig | null;
+  enhancement?: DatasetParseEnhancementConfig | null;
+  pdf?: DatasetParsePdfConfig | null;
+  recall?: DatasetParseRecallConfig | null;
+}
+
 export interface KnowledgeFileDTO {
   id: number;
   datasetId: number;
@@ -361,4 +394,68 @@ export interface RecallRequest {
   configId: number;
   /** 可选，必须 ⊆ token 授权范围（超出 403）；省略/空 = token 全量授权范围 */
   datasetIds?: number[];
+}
+
+// ── Blog (Admin & Public) ──────────────────────────────────────────────
+
+export type BlogPostStatus = 'DRAFT' | 'PUBLISHED';
+export type BlogAssetType = 'COVER' | 'CONTENT_IMAGE';
+
+export interface BlogPostAdminListDTO {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string | null;
+  contentObjectKey: string | null;
+  coverAssetId: number | null;
+  status: BlogPostStatus;
+  publishedAt: string | null;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogPostAdminDetailDTO extends BlogPostAdminListDTO {
+  contentMarkdown: string | null;
+}
+
+export interface BlogPostPublicListDTO {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string | null;
+  coverAssetId: number | null;
+  coverPublicUrl: string | null;
+  publishedAt: string;
+}
+
+export interface BlogPostPublicDetailDTO extends BlogPostPublicListDTO {
+  contentMarkdown: string | null;
+}
+
+export interface BlogAssetDTO {
+  id: number;
+  postId: number;
+  assetType: BlogAssetType;
+  originalFilename: string;
+  contentType: string;
+  fileSize: number;
+  objectKey: string;
+  publicUrl: string;
+  createdBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBlogPostRequest {
+  title: string;
+  slug: string;
+  summary?: string;
+}
+
+export interface UpdateBlogPostRequest {
+  title?: string;
+  slug?: string;
+  summary?: string;
+  coverAssetId?: number;
 }
