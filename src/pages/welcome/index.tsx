@@ -1222,6 +1222,7 @@ function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
 export default function WelcomePage() {
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const knowledgeRef = useRef<HTMLDivElement | null>(null);
   const loginRef = useRef<HTMLDivElement | null>(null);
   const { user, setUser, refreshProfile } = useAuth();
   const { addToast } = useToast();
@@ -1276,10 +1277,7 @@ export default function WelcomePage() {
     return <Navigate to={Routes.Home} replace />;
   }
 
-  function scrollToLogin(nextMode: AuthMode) {
-    setMode(nextMode);
-    setFieldErrors({});
-    const target = loginRef.current;
+  function scrollElementIntoCenteredView(target: HTMLElement | null) {
     if (!target) return;
 
     const header = document.querySelector<HTMLElement>('.welcome-floating-header');
@@ -1294,6 +1292,16 @@ export default function WelcomePage() {
       top: scrollTop,
       behavior: 'smooth',
     });
+  }
+
+  function scrollToKnowledge() {
+    scrollElementIntoCenteredView(knowledgeRef.current);
+  }
+
+  function scrollToLogin(nextMode: AuthMode) {
+    setMode(nextMode);
+    setFieldErrors({});
+    scrollElementIntoCenteredView(loginRef.current);
   }
 
   function clearFieldError(field: AuthFieldKey) {
@@ -1491,6 +1499,10 @@ export default function WelcomePage() {
                     <a
                       key={item.id}
                       href={`#${item.id}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        scrollToKnowledge();
+                      }}
                       className={cn(
                         'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
                         darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
@@ -1617,6 +1629,10 @@ export default function WelcomePage() {
               variants={fadeUpItem}
               whileHover={{ y: -3 }}
               href="#knowledge"
+              onClick={(event) => {
+                event.preventDefault();
+                scrollToKnowledge();
+              }}
               className={cn(
                 'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em]',
                 darkMode
@@ -1632,81 +1648,85 @@ export default function WelcomePage() {
 
         <RevealSection
           id="knowledge"
-          className="min-h-[88vh] flex flex-col justify-center border-b border-border-subtle/60 py-16"
+          className="min-h-[88vh] flex items-center border-b border-border-subtle/60 py-16 scroll-mt-28"
         >
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>workflow</p>
-              <h3 className={cn('text-xl font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                四步流程
-              </h3>
+          <div ref={knowledgeRef} className="w-full">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>workflow</p>
+                <h3 className={cn('text-xl font-bold tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                  四步流程
+                </h3>
+              </div>
             </div>
-          </div>
 
-          <div className="relative min-h-[600px] overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.section
-                key={activeWorkflowSlide.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="grid items-start gap-8 py-6 lg:min-h-[540px] lg:grid-cols-[0.92fr_1.08fr]"
-              >
-                <div>
-                  <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>{activeWorkflowSlide.step}</p>
-                  <h3
-                    className={cn(
-                      'serif-heading text-4xl leading-tight lg:text-6xl',
-                      darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
-                    )}
-                  >
-                    {activeWorkflowSlide.title}
-                  </h3>
-                  <p
-                    className={cn(
-                      'mt-6 max-w-[580px] text-base leading-8',
-                      darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58',
-                    )}
-                  >
-                    {activeWorkflowSlide.description}
-                  </p>
-                </div>
+            <div className="relative flex min-h-[560px] items-center overflow-hidden sm:min-h-[600px]">
+              <AnimatePresence mode="wait">
+                <motion.section
+                  key={activeWorkflowSlide.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="grid w-full items-center gap-8 py-6 lg:min-h-[540px] lg:grid-cols-[0.92fr_1.08fr]"
+                >
+                  <div>
+                    <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>
+                      {activeWorkflowSlide.step}
+                    </p>
+                    <h3
+                      className={cn(
+                        'serif-heading text-4xl leading-tight lg:text-6xl',
+                        darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
+                      )}
+                    >
+                      {activeWorkflowSlide.title}
+                    </h3>
+                    <p
+                      className={cn(
+                        'mt-6 max-w-[580px] text-base leading-8',
+                        darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58',
+                      )}
+                    >
+                      {activeWorkflowSlide.description}
+                    </p>
+                  </div>
 
-                {activeWorkflowSlide.kind === 'capabilities' && <UploadChunkDemo darkMode={darkMode} />}
+                  {activeWorkflowSlide.kind === 'capabilities' && <UploadChunkDemo darkMode={darkMode} />}
 
-                {activeWorkflowSlide.kind === 'operations' && <IndexingDemo darkMode={darkMode} />}
+                  {activeWorkflowSlide.kind === 'operations' && <IndexingDemo darkMode={darkMode} />}
 
-                {activeWorkflowSlide.kind === 'timeline' && <RetrievalDemo darkMode={darkMode} />}
+                  {activeWorkflowSlide.kind === 'timeline' && <RetrievalDemo darkMode={darkMode} />}
 
-                {activeWorkflowSlide.kind === 'answer' && <AnswerGenerationDemo darkMode={darkMode} />}
-              </motion.section>
-            </AnimatePresence>
-          </div>
+                  {activeWorkflowSlide.kind === 'answer' && <AnswerGenerationDemo darkMode={darkMode} />}
+                </motion.section>
+              </AnimatePresence>
+            </div>
 
-          <div className="mt-5 flex items-center justify-center gap-3">
-            {workflowSlides.map((slide, index) => (
-              <button
-                key={slide.id}
-                type="button"
-                onClick={() => {
-                  setHasUserSelectedFlow(true);
-                  setActiveFlowIndex(index);
-                }}
-                className={cn(
-                  'h-2.5 rounded-full transition-all',
-                  activeFlowIndex === index ? 'w-8' : 'w-2.5',
-                  darkMode
-                    ? activeFlowIndex === index
-                      ? 'bg-[#3b82f6]'
-                      : 'bg-[#3c3c3c]'
-                    : activeFlowIndex === index
-                      ? 'bg-primary'
-                      : 'bg-text-main/12',
-                )}
-                aria-label={`查看第 ${index + 1} 页`}
-              />
-            ))}
+            <div className="mt-5 flex items-center justify-center gap-3">
+              {workflowSlides.map((slide, index) => (
+                <button
+                  key={slide.id}
+                  type="button"
+                  onClick={() => {
+                    setHasUserSelectedFlow(true);
+                    setActiveFlowIndex(index);
+                  }}
+                  className={cn(
+                    'h-2.5 rounded-full transition-all',
+                    activeFlowIndex === index ? 'w-8' : 'w-2.5',
+                    darkMode
+                      ? activeFlowIndex === index
+                        ? 'bg-[#3b82f6]'
+                        : 'bg-[#3c3c3c]'
+                      : activeFlowIndex === index
+                        ? 'bg-primary'
+                        : 'bg-text-main/12',
+                  )}
+                  aria-label={`查看第 ${index + 1} 页`}
+                />
+              ))}
+            </div>
           </div>
         </RevealSection>
 
