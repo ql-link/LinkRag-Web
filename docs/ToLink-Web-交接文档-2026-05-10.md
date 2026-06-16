@@ -309,13 +309,13 @@ npm run build
 - `src/pages/files/index.tsx`
   - 文件总览页加载所有知识库下文件，并合并解析结果。
   - 上传支持选择目标知识库和“上传后解析”。
-  - 上传入口限制为后端当前白名单格式，并展示 `md / markdown / pdf / docx / txt` 提示。
+  - 上传入口限制为当前前端支持格式，并展示 `md / markdown / pdf / docx` 提示。
   - 删除、解析按钮增加操作态和成功提示。
   - 增加文件列表加载态、失败态、空态。
 - `src/pages/datasets/dataset/index.tsx`
   - 知识库详情页文件列表合并解析结果。
   - 上传支持“上传后解析”。
-  - 上传入口限制为后端当前白名单格式，并展示 `md / markdown / pdf / docx / txt` 提示。
+  - 上传入口限制为当前前端支持格式，并展示 `md / markdown / pdf / docx` 提示。
   - 文件状态文案收敛为上传失败、待解析、解析中、解析完成、解析失败。
 
 当前未做：

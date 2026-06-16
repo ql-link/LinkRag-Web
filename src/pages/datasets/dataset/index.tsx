@@ -17,10 +17,12 @@ import {
 import { getConversations } from '@/services/chat';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
-
-const SUPPORTED_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'txt'];
-const FILE_ACCEPT = SUPPORTED_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
-const SUPPORTED_FILE_HINT = `支持 ${SUPPORTED_FILE_SUFFIXES.join(' / ')}`;
+import {
+  KNOWLEDGE_FILE_ACCEPT,
+  KNOWLEDGE_FILE_HINT,
+  KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
+  isSupportedKnowledgeFile,
+} from '@/lib/knowledge-file';
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes)) return '-';
@@ -223,6 +225,10 @@ export default function DatasetPage() {
     if (!file || !dataset) {
       return;
     }
+    if (!isSupportedKnowledgeFile(file)) {
+      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      return;
+    }
 
     setUploading(true);
     try {
@@ -384,7 +390,7 @@ export default function DatasetPage() {
           >
             {deletingDataset ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
           </button>
-          <input ref={fileInputRef} type="file" accept={FILE_ACCEPT} className="hidden" onChange={handleUpload} />
+          <input ref={fileInputRef} type="file" accept={KNOWLEDGE_FILE_ACCEPT} className="hidden" onChange={handleUpload} />
         </div>
       </header>
 
@@ -450,7 +456,7 @@ export default function DatasetPage() {
                   <div className="min-w-0">
                     <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>上传文件</p>
                     <p className={cn('mono-label mt-1 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                      {SUPPORTED_FILE_HINT}
+                      {KNOWLEDGE_FILE_HINT}
                     </p>
                   </div>
                 </div>
