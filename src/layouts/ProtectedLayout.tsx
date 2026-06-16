@@ -18,7 +18,6 @@ const DatasetPage = lazy(() => import('@/pages/datasets/dataset'));
 const DatasetParseConfigPage = lazy(() => import('@/pages/datasets/parse-config'));
 const ChatsPage = lazy(() => import('@/pages/chats'));
 const ChatPage = lazy(() => import('@/pages/chats/chat'));
-const FilesPage = lazy(() => import('@/pages/files'));
 const BlogsPage = lazy(() => import('@/pages/blogs'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
 const UsagePage = lazy(() => import('@/pages/usage'));
@@ -38,7 +37,6 @@ function getPageTitle(pathname: string) {
   if (pathname === RoutePaths.Home) return '首页';
   if (pathname.startsWith('/datasets')) return '知识库';
   if (pathname.startsWith('/chats')) return '对话';
-  if (pathname.startsWith('/files')) return '文件';
   if (pathname.startsWith('/blogs')) return '博客';
   if (pathname.startsWith('/feedback')) return '反馈';
   if (pathname.startsWith('/usage')) return '用量';
@@ -57,7 +55,7 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
         <Route path={RoutePaths.DatasetDetail} element={<DatasetPage />} />
         <Route path={RoutePaths.Chats} element={<ChatsPage />} />
         <Route path={RoutePaths.ChatDetail} element={<ChatPage />} />
-        <Route path={RoutePaths.Files} element={<FilesPage />} />
+        <Route path="/files" element={<Navigate to={RoutePaths.Datasets} replace />} />
         <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
         <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
         <Route path={RoutePaths.Usage} element={<UsagePage />} />

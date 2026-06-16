@@ -11,9 +11,9 @@ import { getRecentKnowledgeFiles } from '@/services/dataset';
 import type { ConversationDTO, KnowledgeFileDTO } from '@/types/api';
 
 const quickActions = [
-  { path: Routes.Files, icon: FileUp, title: '上传文档', desc: '导入 PDF、Word、Markdown' },
-  { path: Routes.Chats, icon: MessagesSquare, title: '知识问答', desc: '基于引用片段生成回答' },
-  { path: Routes.Datasets, icon: DatabaseZap, title: '管理知识库', desc: '维护数据集与索引状态' },
+  { id: 'upload', path: Routes.Datasets, icon: FileUp, title: '上传文档', desc: '进入知识库后添加文件' },
+  { id: 'qa', path: Routes.Chats, icon: MessagesSquare, title: '知识问答', desc: '基于引用片段生成回答' },
+  { id: 'datasets', path: Routes.Datasets, icon: DatabaseZap, title: '管理知识库', desc: '维护数据集与索引状态' },
 ];
 
 function getGreeting() {
@@ -154,9 +154,9 @@ export default function HomePage() {
                 直接新建一个对话，马上开始问答
               </p>
             </Link>
-            {quickActions.map(({ path, icon: Icon, title, desc }) => (
+            {quickActions.map(({ id, path, icon: Icon, title, desc }) => (
               <Link
-                key={path}
+                key={id}
                 to={path}
                 className={cn(
                   'group cursor-pointer rounded-2xl border p-4 sm:p-5 transition-all duration-300',
@@ -212,13 +212,13 @@ export default function HomePage() {
                 最近文档
               </h3>
               <Link
-                to={Routes.Files}
+                to={Routes.Datasets}
                 className={cn(
                   'text-[9px] font-bold uppercase tracking-widest hover:text-[#3b82f6] transition-colors',
                   darkMode ? 'text-[#858585]' : 'text-text-main/50',
                 )}
               >
-                查看全部
+                查看知识库
               </Link>
             </div>
             <div className="space-y-2">
