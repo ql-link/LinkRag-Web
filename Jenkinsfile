@@ -18,26 +18,26 @@ pipeline {
             steps { checkout scm }
         }
 
-        stage('Install & Lint & Test') {
+        stage('Install & Verify & Build') {
             agent {
                 // 挂载 npm 缓存到 jenkins_home，跨构建复用已下载的包
                 docker { image 'node:20-alpine'; args '-v $HOME/.npm:/root/.npm'; reuseNode true }
             }
             steps {
-                sh 'npm install --registry=https://registry.npmmirror.com'
+                sh 'HUSKY=0 npm ci --prefer-offline --no-audit --registry=https://registry.npmmirror.com'
                 sh 'npm run typecheck'
                 // 只在 ESLint error 时失败；warning 仍打印但不阻断部署（原 npm script 带 --max-warnings 0 过严）
                 sh 'npx eslint src/'
                 sh 'npm run test'
+                sh 'VITE_GITHUB_URL=https://github.com/ql-link/LinkRag npm run build'
             }
         }
 
         stage('Build Image') {
             steps {
                 sh """
-                    DOCKER_BUILDKIT=1 docker build \
+                    docker build \
                         -t ${IMAGE}:${TAG} -t ${IMAGE}:latest \
-                        --build-arg VITE_GITHUB_URL=https://github.com/ql-link/LinkRag \
                         .
                 """
             }
