@@ -8,6 +8,7 @@ export const Routes = {
   Usage: '/usage',
   Datasets: '/datasets',
   DatasetDetail: '/datasets/:id',
+  DatasetParseConfig: '/datasets/:id/parse-config',
   Chats: '/chats',
   ChatDetail: '/chats/:id',
   Files: '/files',

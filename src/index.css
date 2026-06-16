@@ -170,3 +170,59 @@
 .dark ::-webkit-scrollbar-thumb {
   @apply bg-gray-600 rounded-full;
 }
+
+/* ===== Form Controls ===== */
+
+.parse-config-range {
+  appearance: none;
+  background: transparent;
+  --range-fill: var(--color-primary);
+  --range-track: #d1d5db;
+}
+
+.parse-config-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--range-fill) 0%,
+    var(--range-fill) var(--range-progress, 0%),
+    var(--range-track) var(--range-progress, 0%),
+    var(--range-track) 100%
+  );
+}
+
+.parse-config-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  box-shadow: 0 1px 4px rgba(26, 26, 26, 0.18);
+}
+
+.parse-config-range::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--range-track);
+}
+
+.parse-config-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--range-fill);
+}
+
+.parse-config-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  box-shadow: 0 1px 4px rgba(26, 26, 26, 0.18);
+}
+
+.dark .parse-config-range {
+  --range-track: #525252;
+}
