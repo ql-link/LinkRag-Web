@@ -57,7 +57,7 @@ export default function FeedbackPage() {
     });
   }
 
-  function handleAttachmentDrop(event: DragEvent<HTMLLabelElement>) {
+  function handleAttachmentDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDraggingAttachment(false);
     addAttachments(event.dataTransfer.files);
