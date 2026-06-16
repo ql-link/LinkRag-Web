@@ -27,6 +27,22 @@ Run tests matching a name: `npx vitest run -t "substring of test name"`
 
 Husky + lint-staged run `eslint --fix --max-warnings 0` and `prettier` on staged `*.{ts,tsx}` pre-commit, so a commit fails on any lint warning.
 
+## Branches and releases
+
+This repository follows the same branch and release model as the LinkRag Python service:
+
+- `dev` is the daily integration branch. Feature, refactor, and chore branches open PRs into `dev`.
+- `master` is the stable release branch. Do not merge daily feature/refactor/chore branches directly into `master`.
+- `release/<version>` branches are cut from `dev` for weekly release preparation and enter `master` through a release PR.
+- `hotfix/<topic>` branches are cut from `master`, merged back into `master`, then merged or cherry-picked back into `dev`.
+
+Release rules:
+
+- `dev` -> `master` release merges must use a normal merge commit. Squash merge is forbidden for release PRs.
+- After a release PR lands, create the version tag on the resulting `master` merge commit.
+- A release PR description must list included business PRs, database/config/contract changes, test results, and known risks.
+- If CI or workflow branch filters are configured explicitly, use `dev, master`.
+
 ## Architecture
 
 **Provider stack** (`src/main.tsx`): `BrowserRouter` → `ThemeProvider` → `AuthProvider` → `App` → `ToastProvider`.

@@ -63,6 +63,25 @@ npm run dev
 | `npm run format`    | Prettier 格式化              |
 | `npm run test`      | 运行单元测试                 |
 
+## 🌿 分支与发布管理
+
+本仓库与 LinkRag Python 端保持一致的分支模型：
+
+- `dev`：日常集成分支，feature/refactor/chore 等日常开发分支通过 PR 合入这里。
+- `master`：稳定发布分支，只接受发布 PR 或 hotfix PR，不接受日常 feature/refactor/chore 直接合入。
+- `feature/<topic>` / `refactor/<topic>` / `chore/<topic>`：日常开发分支，从 `dev` 拉出并 PR 到 `dev`。
+- `release/<version>`：每周发布准备分支，从 `dev` 拉出，最终通过 release PR 合入 `master`。
+- `hotfix/<topic>`：紧急修复分支，从 `master` 拉出，修复后 PR 到 `master`，发布后必须 merge 或 cherry-pick 回 `dev`。
+
+发布合并规则：
+
+- `dev` -> `master` 必须使用普通 merge commit，禁止 squash merge，确保发布分支保留完整 PR 父子关系。
+- 每周发布必须通过 `release/<version>` PR 进入 `master`。
+- release PR 合入 `master` 后，在 `master` 顶部的 merge commit 上打版本 tag。
+- release PR 描述必须列出：包含的业务 PR、数据库/配置/契约变更、测试结果、已知风险。
+- hotfix 合入 `master` 并发布后，必须回合 `dev`，避免修复只存在于发布线。
+- CI 或 workflow 的分支过滤如需显式配置，应使用 `dev, master`。
+
 ## ⚙️ 环境变量
 
 构建期可注入的 `VITE_` 前缀变量（会被打进静态产物）：
