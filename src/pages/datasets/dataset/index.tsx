@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { AlertCircle, FileText, Loader2, MessageSquare, Plus, RefreshCw, Trash2, Wand2 } from 'lucide-react';
+import { AlertCircle, FileText, Loader2, MessageSquare, Plus, RefreshCw, Settings, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
@@ -52,7 +52,12 @@ function getFileStatusLabel(file: KnowledgeFileDTO) {
 }
 
 function getFileStatusTone(file: KnowledgeFileDTO) {
-  if (file.frontendStatus === 'upload_failed' || file.frontendStatus === 'parse_failed' || file.failureReason || file.parseFailureReason) {
+  if (
+    file.frontendStatus === 'upload_failed' ||
+    file.frontendStatus === 'parse_failed' ||
+    file.failureReason ||
+    file.parseFailureReason
+  ) {
     return 'text-red-500';
   }
   if (file.frontendStatus === 'parsing') return 'text-blue-500';
@@ -61,10 +66,12 @@ function getFileStatusTone(file: KnowledgeFileDTO) {
 }
 
 function canSubmitParse(file: KnowledgeFileDTO) {
-  return file.isUploadSuccess
-    && file.uploadStatus === 'UPLOAD_SUCCESS'
-    && !file.failureReason
-    && file.frontendStatus !== 'parsing';
+  return (
+    file.isUploadSuccess &&
+    file.uploadStatus === 'UPLOAD_SUCCESS' &&
+    !file.failureReason &&
+    file.frontendStatus !== 'parsing'
+  );
 }
 
 function ParseAfterUploadSwitch({
@@ -86,19 +93,27 @@ function ParseAfterUploadSwitch({
         className={cn(
           'relative h-5 w-9 rounded-full border transition-colors',
           checked
-            ? darkMode ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18' : 'border-primary/35 bg-primary/18'
-            : darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base'
+            ? darkMode
+              ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18'
+              : 'border-primary/35 bg-primary/18'
+            : darkMode
+              ? 'border-[#3c3c3c] bg-[#2d2d2d]'
+              : 'border-border-subtle bg-bg-base',
         )}
       >
         <span
           className={cn(
             'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
             checked ? 'translate-x-4' : 'translate-x-0',
-            checked ? darkMode ? 'bg-[#3b82f6]' : 'bg-primary' : darkMode ? 'bg-[#858585]' : 'bg-text-main/35'
+            checked ? (darkMode ? 'bg-[#3b82f6]' : 'bg-primary') : darkMode ? 'bg-[#858585]' : 'bg-text-main/35',
           )}
         />
       </span>
-      <span className={cn(checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : (darkMode ? 'text-[#cccccc]' : 'text-text-main/70'))}>
+      <span
+        className={cn(
+          checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : darkMode ? 'text-[#cccccc]' : 'text-text-main/70',
+        )}
+      >
         上传后立即解析
       </span>
     </button>
@@ -120,11 +135,14 @@ export default function DatasetPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const activeTab: 'files' | 'conversations' = searchParams.get('tab') === 'conversations' ? 'conversations' : 'files';
   const setActiveTab = (tab: 'files' | 'conversations') => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', tab);
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', tab);
+        return next;
+      },
+      { replace: true },
+    );
   };
   const [uploading, setUploading] = useState(false);
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
@@ -132,54 +150,57 @@ export default function DatasetPage() {
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
   const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
 
+  const loadDataset = useCallback(
+    async (showRefreshing = false) => {
+      if (!id) return;
+      const datasetId = Number(id);
+      if (Number.isNaN(datasetId)) {
+        setDataset(null);
+        setErrorMessage('数据集地址不正确。');
+        setLoading(false);
+        return;
+      }
+
+      setErrorMessage('');
+      if (showRefreshing) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const ds = await getDataset(datasetId);
+        setDataset(ds);
+
+        const filesResult = await getKnowledgeFiles(ds.id, 1, 100);
+        const enrichedFiles = await enrichKnowledgeFilesWithParseResults(ds.id, filesResult.items);
+
+        setFiles(enrichedFiles);
+
+        try {
+          const convResult = await getConversations(1, 100);
+          setConversations(convResult.items.filter((item) => item.datasetId === ds.id));
+        } catch (error) {
+          console.error('Failed to load dataset conversations:', error);
+          setConversations([]);
+        }
+      } catch (error) {
+        console.error('Failed to load dataset:', error);
+        setErrorMessage('知识库详情加载失败，请检查后端服务或稍后重试。');
+        setDataset(null);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id],
+  );
+
   useEffect(() => {
     if (id) {
       void loadDataset();
     }
-  }, [id]);
-
-  async function loadDataset() {
-    if (!id) return;
-    const datasetId = Number(id);
-    if (Number.isNaN(datasetId)) {
-      setDataset(null);
-      setErrorMessage('数据集地址不正确。');
-      setLoading(false);
-      return;
-    }
-
-    setErrorMessage('');
-    if (dataset) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const ds = await getDataset(datasetId);
-      setDataset(ds);
-
-      const filesResult = await getKnowledgeFiles(ds.id, 1, 100);
-      const enrichedFiles = await enrichKnowledgeFilesWithParseResults(ds.id, filesResult.items);
-
-      setFiles(enrichedFiles);
-
-      try {
-        const convResult = await getConversations(1, 100);
-        setConversations(convResult.items.filter((item) => item.datasetId === ds.id));
-      } catch (error) {
-        console.error('Failed to load dataset conversations:', error);
-        setConversations([]);
-      }
-    } catch (error) {
-      console.error('Failed to load dataset:', error);
-      setErrorMessage('知识库详情加载失败，请检查后端服务或稍后重试。');
-      setDataset(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
+  }, [id, loadDataset]);
 
   async function handleDeleteDataset() {
     if (!dataset) return;
@@ -228,7 +249,7 @@ export default function DatasetPage() {
       }
       await new Promise((r) => setTimeout(r, intervalMs));
     }
-    await loadDataset();
+    await loadDataset(true);
   }
 
   async function handleDeleteFile(fileId: number) {
@@ -249,9 +270,13 @@ export default function DatasetPage() {
     setParsingFileIds((prev) => [...prev, fileId]);
     try {
       await createParseTask(fileId);
-      setFiles((prev) => prev.map((item) => item.id === fileId ? { ...item, frontendStatus: 'parsing', parseStatus: 'created' } : item));
+      setFiles((prev) =>
+        prev.map((item) =>
+          item.id === fileId ? { ...item, frontendStatus: 'parsing', parseStatus: 'created' } : item,
+        ),
+      );
       addToast('success', '解析任务已提交');
-      await loadDataset();
+      await loadDataset(true);
     } catch (error) {
       console.error('Failed to create parse task:', error);
     } finally {
@@ -282,7 +307,7 @@ export default function DatasetPage() {
           onClick={() => navigate(Routes.Datasets)}
           className={cn(
             'px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider',
-            darkMode ? 'bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]' : 'bg-text-main text-white hover:opacity-90'
+            darkMode ? 'bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]' : 'bg-text-main text-white hover:opacity-90',
           )}
         >
           返回数据集列表
@@ -296,7 +321,7 @@ export default function DatasetPage() {
       <header
         className={cn(
           'h-20 px-8 flex items-center justify-between shrink-0 border-b',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle'
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
         )}
       >
         <div className="flex flex-col gap-1">
@@ -314,24 +339,34 @@ export default function DatasetPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors',
+              darkMode ? 'bg-[#3b82f6] text-white hover:bg-[#2563eb]' : 'bg-[#7B6B5D] text-white hover:bg-[#6b5d51]',
+            )}
+          >
+            <Settings size={14} />
+            解析配置
+          </button>
+          <button
             onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors',
               darkMode
                 ? 'bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c] border border-[#3c3c3c]'
-                : 'bg-white border border-border-subtle hover:border-primary'
+                : 'bg-white border border-border-subtle hover:border-primary',
             )}
           >
-              <MessageSquare size={14} />
-              新建对话
-            </button>
+            <MessageSquare size={14} />
+            新建对话
+          </button>
           <button
-            onClick={() => void loadDataset()}
+            onClick={() => void loadDataset(true)}
             disabled={refreshing}
             className={cn(
               'p-2 rounded-xl transition-colors',
               darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
-              refreshing && 'opacity-60'
+              refreshing && 'opacity-60',
             )}
             title="刷新知识库"
           >
@@ -343,7 +378,7 @@ export default function DatasetPage() {
             className={cn(
               'p-2 rounded-xl transition-colors',
               darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
-              deletingDataset && 'opacity-60'
+              deletingDataset && 'opacity-60',
             )}
             title="删除知识库"
           >
@@ -356,7 +391,7 @@ export default function DatasetPage() {
       <div
         className={cn(
           'px-8 flex gap-4 shrink-0 border-b',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle'
+          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle',
         )}
       >
         <button
@@ -367,7 +402,7 @@ export default function DatasetPage() {
               ? 'border-[#3b82f6] text-[#3b82f6]'
               : darkMode
                 ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
-                : 'border-transparent text-text-main/50 hover:text-text-main'
+                : 'border-transparent text-text-main/50 hover:text-text-main',
           )}
         >
           知识文件 ({files.length})
@@ -380,7 +415,7 @@ export default function DatasetPage() {
               ? 'border-[#3b82f6] text-[#3b82f6]'
               : darkMode
                 ? 'border-transparent text-[#858585] hover:text-[#cccccc]'
-                : 'border-transparent text-text-main/50 hover:text-text-main'
+                : 'border-transparent text-text-main/50 hover:text-text-main',
           )}
         >
           关联对话 ({conversations.length})
@@ -399,12 +434,17 @@ export default function DatasetPage() {
               className={cn(
                 'rounded-2xl border border-dashed p-4 cursor-pointer transition-colors',
                 darkMode ? 'bg-[#2d2d2d]/60 border-[#3c3c3c]' : 'bg-white border-border-subtle border-dashed',
-                uploading && 'opacity-70'
+                uploading && 'opacity-70',
               )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', darkMode ? 'bg-[#094771]/30' : 'bg-primary/10')}>
+                  <div
+                    className={cn(
+                      'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
+                      darkMode ? 'bg-[#094771]/30' : 'bg-primary/10',
+                    )}
+                  >
                     <Plus size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
                   </div>
                   <div className="min-w-0">
@@ -427,9 +467,7 @@ export default function DatasetPage() {
               </div>
             </div>
             {files.length === 0 ? (
-              <p className={cn('mono-label px-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                暂无知识文件
-              </p>
+              <p className={cn('mono-label px-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>暂无知识文件</p>
             ) : (
               files.map((file) => {
                 const parsing = parsingFileIds.includes(file.id);
@@ -438,62 +476,66 @@ export default function DatasetPage() {
                 const statusTone = getFileStatusTone(file);
 
                 return (
-                <div
-                  key={file.id}
-                  className={cn(
-                    'rounded-xl px-4 py-3 flex items-center justify-between gap-4 transition-colors',
-                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]' : 'art-card hover:border-primary'
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={cn(
-                        'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
-                        darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10'
-                      )}
-                    >
-                      <FileText size={16} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
+                  <div
+                    key={file.id}
+                    className={cn(
+                      'rounded-xl px-4 py-3 flex items-center justify-between gap-4 transition-colors',
+                      darkMode
+                        ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
+                        : 'art-card hover:border-primary',
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={cn(
+                          'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
+                          darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10',
+                        )}
+                      >
+                        <FileText size={16} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : '')}>
+                          {file.originalFilename}
+                        </p>
+                        <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                          {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} ·{' '}
+                          <span className={statusTone}>{getFileStatusLabel(file)}</span>
+                        </p>
+                        <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                          上传于 {formatTime(file.createdAt)}
+                        </p>
+                        {(file.failureReason || file.parseFailureReason) && (
+                          <p className="text-xs text-red-500 mt-1">{file.failureReason || file.parseFailureReason}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : '')}>
-                        {file.originalFilename}
-                      </p>
-                      <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                        {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} ·{' '}
-                        <span className={statusTone}>{getFileStatusLabel(file)}</span>
-                      </p>
-                      <p className={cn('mono-label text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                        上传于 {formatTime(file.createdAt)}
-                      </p>
-                      {(file.failureReason || file.parseFailureReason) && (
-                        <p className="text-xs text-red-500 mt-1">{file.failureReason || file.parseFailureReason}</p>
-                      )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => void handleParseFile(file.id)}
+                        disabled={!canParse || parsing}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
+                          darkMode
+                            ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
+                            : 'bg-primary text-white hover:bg-primary/90',
+                        )}
+                      >
+                        {parsing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                        {parsing ? '提交中' : '解析'}
+                      </button>
+                      <button
+                        onClick={() => void handleDeleteFile(file.id)}
+                        disabled={deleting}
+                        className={cn(
+                          'p-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          darkMode ? 'hover:bg-[#3c3c3c] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
+                        )}
+                      >
+                        {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => void handleParseFile(file.id)}
-                      disabled={!canParse || parsing}
-                      className={cn(
-                        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
-                        darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-primary text-white hover:bg-primary/90'
-                      )}
-                    >
-                      {parsing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                      {parsing ? '提交中' : '解析'}
-                    </button>
-                    <button
-                      onClick={() => void handleDeleteFile(file.id)}
-                      disabled={deleting}
-                      className={cn(
-                        'p-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                        darkMode ? 'hover:bg-[#3c3c3c] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40'
-                      )}
-                    >
-                      {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                    </button>
-                  </div>
-                </div>
                 );
               })
             )}
@@ -504,12 +546,17 @@ export default function DatasetPage() {
               <div
                 className={cn(
                   'text-center py-12 rounded-2xl',
-                  darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card'
+                  darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
                 )}
               >
-                <MessageSquare size={32} className={cn('mx-auto mb-3', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
+                <MessageSquare
+                  size={32}
+                  className={cn('mx-auto mb-3', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')}
+                />
                 <p className={cn('mono-label mb-2', darkMode ? 'text-[#858585]' : '')}>暂无关联对话</p>
-                <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>可从当前知识库直接创建</p>
+                <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                  可从当前知识库直接创建
+                </p>
               </div>
             ) : (
               conversations.map((conversation) => (
@@ -518,7 +565,9 @@ export default function DatasetPage() {
                   onClick={() => navigate(`/chats/${conversation.id}`)}
                   className={cn(
                     'rounded-xl p-4 flex items-center justify-between cursor-pointer transition-colors',
-                    darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]' : 'art-card hover:border-primary'
+                    darkMode
+                      ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
+                      : 'art-card hover:border-primary',
                   )}
                 >
                   <div>
@@ -531,7 +580,7 @@ export default function DatasetPage() {
                     <span
                       className={cn(
                         'px-2 py-1 rounded-lg text-[10px] font-bold uppercase',
-                        darkMode ? 'bg-[#094771] text-blue-400' : 'bg-blue-100 text-blue-600'
+                        darkMode ? 'bg-[#094771] text-blue-400' : 'bg-blue-100 text-blue-600',
                       )}
                     >
                       已置顶
