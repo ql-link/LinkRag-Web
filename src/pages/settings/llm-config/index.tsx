@@ -11,7 +11,7 @@ import {
   setupLLMProvider,
   toggleLLMModel,
 } from '@/services/llm';
-import type { LLMCapability, LLMConfigDTO, ProviderModelDTO } from '@/types/api';
+import type { LLMCapability, LLMConfigDTO, ModelCapabilityDTO, ProviderModelDTO } from '@/types/api';
 
 function normalizeProviderToken(value: string) {
   return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -161,6 +161,25 @@ function getProviderIcon(providerType: string, providerName?: string) {
 
 function capabilitySort(a: LLMCapability, b: LLMCapability) {
   return CAPABILITIES.findIndex((item) => item.value === a) - CAPABILITIES.findIndex((item) => item.value === b);
+}
+
+function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapability {
+  return typeof capability === 'string' ? capability : capability.capability;
+}
+
+function getModelCapabilityValues(model: ModelCapabilityDTO) {
+  return model.capabilities.map(getCapabilityValue);
+}
+
+function getModelSearchTokens(model: ModelCapabilityDTO) {
+  return [
+    model.modelName,
+    ...model.capabilities.flatMap((capability) =>
+      typeof capability === 'string'
+        ? [capability]
+        : [capability.capability, capability.protocol, capability.apiBaseUrl],
+    ),
+  ];
 }
 
 function getProviderSortRank(providerType: string, providerName?: string) {
@@ -363,7 +382,7 @@ export default function LLMPage() {
       .filter((provider) => {
         if (filterSet.size > 0) {
           const hit = provider.models.some((model) =>
-            model.capabilities.some((capability) => filterSet.has(capability)),
+            getModelCapabilityValues(model).some((capability) => filterSet.has(capability)),
           );
           if (!hit) {
             return false;
@@ -373,7 +392,7 @@ export default function LLMPage() {
         const searchable = [
           provider.providerName,
           provider.providerType,
-          ...provider.models.flatMap((model) => [model.modelName, ...model.capabilities]),
+          ...provider.models.flatMap(getModelSearchTokens),
         ]
           .join(' ')
           .toLowerCase();
@@ -1185,7 +1204,7 @@ function AvailableProviderCard({
   onSetup: () => void;
 }) {
   const iconUrl = getProviderIcon(provider.providerType, provider.providerName);
-  const capabilitySet = new Set(provider.models.flatMap((model) => model.capabilities));
+  const capabilitySet = new Set(provider.models.flatMap(getModelCapabilityValues));
   const sortedCapabilities = Array.from(capabilitySet).sort(capabilitySort);
 
   return (
