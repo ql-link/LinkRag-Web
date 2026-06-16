@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, Navigate, useNavigate } from 'react-router';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, type Variants } from 'motion/react';
 import {
   ArrowDown,
   ArrowRight,
@@ -91,7 +91,7 @@ const workflowSlides = [
   },
 ] as const;
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: {},
   show: {
     transition: {
@@ -100,7 +100,7 @@ const staggerContainer = {
   },
 };
 
-const fadeUpItem = {
+const fadeUpItem: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: {
     opacity: 1,
@@ -264,7 +264,6 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
                   ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_30px_rgba(197,134,192,0.08)]'
                   : 'border-border-subtle bg-white/86 shadow-[0_16px_40px_rgba(212,163,115,0.14)]',
                 stage === 'parsing' ? 'ring-1 ring-primary/20' : '',
-                stage === 'done' ? 'scale-95 opacity-0' : '',
               )}
             >
               <div className="flex items-center justify-between">
