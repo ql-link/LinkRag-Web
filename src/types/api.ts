@@ -48,9 +48,15 @@ export interface LLMConfigDTO {
 
 export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'OCR' | 'VISION' | 'RERANK' | 'ASR';
 
+export interface ModelCapabilityDetailDTO {
+  capability: LLMCapability;
+  protocol: string;
+  apiBaseUrl: string;
+}
+
 export interface ModelCapabilityDTO {
   modelName: string;
-  capabilities: LLMCapability[];
+  capabilities: Array<LLMCapability | ModelCapabilityDetailDTO>;
 }
 
 export interface ProviderModelDTO {
