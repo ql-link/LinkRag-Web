@@ -197,14 +197,18 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + config_id + 可选 datasetIds——任何未知字段 Python 直接 422。
-  const body: { query: string; config_id: number; dataset_ids?: number[] } = {
+  // 请求体只允许 query + config_id + dataset_ids——任何未知字段 Python 直接 422。
+  //
+  // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
+  // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
+  // token 授权范围里「第一个」数据集或系统默认，生效配置可能与用户正在对话的数据集不符。
+  // user_id 只取 session token claims，body 不传（多传也会被 Python 当未知字段 422）。
+  // datasetIds 由 recall() 前置校验保证非空，这里恒定写入以让契约显式化。
+  const body: { query: string; config_id: number; dataset_ids: number[] } = {
     query: options.query,
     config_id: options.configId,
+    dataset_ids: options.datasetIds,
   };
-  if (options.datasetIds && options.datasetIds.length > 0) {
-    body.dataset_ids = options.datasetIds;
-  }
 
   let resp: Response;
   try {

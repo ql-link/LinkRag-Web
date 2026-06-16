@@ -149,6 +149,39 @@ export interface DatasetDTO {
   updatedAt: string;
 }
 
+export type PdfParserBackend = 'auto' | 'mineru' | 'opendataloader' | 'naive';
+
+export interface DatasetParseChunkingConfig {
+  heading_break_level?: number | null;
+  min_candidate_chunk_tokens?: number | null;
+  overlap_tokens?: number | null;
+}
+
+export interface DatasetParseEnhancementConfig {
+  enable_table_enhancement?: boolean | null;
+  enable_image_enhancement?: boolean | null;
+}
+
+export interface DatasetParsePdfConfig {
+  pdf_parser_backend?: PdfParserBackend | null;
+}
+
+export interface DatasetParseRecallConfig {
+  recall_result_limit?: number | null;
+  recall_context_token_budget?: number | null;
+  sparse_top_k?: number | null;
+  sparse_score_threshold?: number | null;
+  dense_top_k?: number | null;
+  dense_score_threshold?: number | null;
+}
+
+export interface DatasetParseConfigDTO {
+  chunking?: DatasetParseChunkingConfig | null;
+  enhancement?: DatasetParseEnhancementConfig | null;
+  pdf?: DatasetParsePdfConfig | null;
+  recall?: DatasetParseRecallConfig | null;
+}
+
 export interface KnowledgeFileDTO {
   id: number;
   datasetId: number;
