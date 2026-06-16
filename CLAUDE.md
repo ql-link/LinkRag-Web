@@ -34,7 +34,7 @@ Husky + lint-staged run `eslint --fix --max-warnings 0` and `prettier` on staged
 **Routing is two-tiered:**
 
 - `src/App.tsx` defines _public_ routes (`/` Welcome, `/blogs`, `/feedback`) plus a catch-all `*` that renders `ProtectedLayout` only when `useAuth().user` exists, otherwise redirects to Welcome.
-- `src/layouts/ProtectedLayout.tsx` holds its own nested `<Routes>` for all authenticated app pages (home, datasets, chats, files, usage, settings, …) and the responsive sidebar/right-panel shell.
+- `src/layouts/ProtectedLayout.tsx` holds its own nested `<Routes>` for all authenticated app pages (home, datasets, chats, usage, settings, …) and the responsive sidebar/right-panel shell.
 - Route path constants live in `src/routes.ts` (`Routes` object) — use these, don't hardcode paths.
 - Pages are lazy-loaded via `React.lazy` in both `App.tsx` and `ProtectedLayout.tsx`.
 

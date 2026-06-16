@@ -1,6 +1,6 @@
 import { type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router';
-import { Database, FolderOpen, Home, MessageSquare, User } from 'lucide-react';
+import { Database, Home, MessageSquare, User } from 'lucide-react';
 import { Routes as RoutePaths } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,8 +16,12 @@ const mobileTabItems: MobileTabItem[] = [
   { path: RoutePaths.Home, label: '首页', icon: Home },
   { path: RoutePaths.Datasets, label: '知识库', icon: Database },
   { path: RoutePaths.Chats, label: '对话', icon: MessageSquare },
-  { path: RoutePaths.Files, label: '文件', icon: FolderOpen },
-  { path: RoutePaths.ProfilePage, label: '我的', icon: User, match: (pathname: string) => pathname.startsWith('/settings') },
+  {
+    path: RoutePaths.ProfilePage,
+    label: '我的',
+    icon: User,
+    match: (pathname: string) => pathname.startsWith('/settings'),
+  },
 ];
 
 function isTabActive(pathname: string, item: MobileTabItem) {
@@ -33,8 +37,10 @@ export function MobileNav() {
   return (
     <nav
       className={cn(
-        'fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 gap-1 border-t px-2 pt-2 lg:hidden',
-        darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/95 backdrop-blur-md' : 'border-border-subtle bg-white/95 backdrop-blur-md',
+        'fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t px-2 pt-2 lg:hidden',
+        darkMode
+          ? 'border-[#3c3c3c] bg-[#1e1e1e]/95 backdrop-blur-md'
+          : 'border-border-subtle bg-white/95 backdrop-blur-md',
       )}
       style={bottomBarStyle}
     >

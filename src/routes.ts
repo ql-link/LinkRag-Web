@@ -11,7 +11,6 @@ export const Routes = {
   DatasetParseConfig: '/datasets/:id/parse-config',
   Chats: '/chats',
   ChatDetail: '/chats/:id',
-  Files: '/files',
   Settings: '/settings',
   LLMPage: '/settings/llm-config',
   ProfilePage: '/settings/profile',
