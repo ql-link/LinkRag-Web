@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import { Maximize2, Settings2, Minus, Plus, Maximize } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { GraphNode, GraphLink } from '../types';
 
 const INITIAL_NODES: GraphNode[] = [
@@ -24,13 +24,6 @@ const INITIAL_LINKS: GraphLink[] = [
   { source: '4', target: '8' },
 ];
 
-const THEME_COLORS = {
-  tech: '#1A1A1A',
-  field: '#D4A373',
-  app: '#1A1A1A',
-  eval: '#D4A373'
-};
-
 export const KnowledgeGraph: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -40,17 +33,24 @@ export const KnowledgeGraph: React.FC = () => {
     const width = 400;
     const height = 300;
 
-    const svg = d3.select(svgRef.current)
-      .attr('viewBox', [0, 0, width, height]);
+    const svg = d3.select(svgRef.current).attr('viewBox', [0, 0, width, height]);
 
     svg.selectAll('*').remove();
 
-    const simulation = d3.forceSimulation<GraphNode>(INITIAL_NODES)
-      .force('link', d3.forceLink<GraphNode, GraphLink>(INITIAL_LINKS).id(d => d.id).distance(60))
+    const simulation = d3
+      .forceSimulation<GraphNode>(INITIAL_NODES)
+      .force(
+        'link',
+        d3
+          .forceLink<GraphNode, GraphLink>(INITIAL_LINKS)
+          .id((d) => d.id)
+          .distance(60),
+      )
       .force('charge', d3.forceManyBody().strength(-150))
       .force('center', d3.forceCenter(width / 2, height / 2));
 
-    const link = svg.append('g')
+    const link = svg
+      .append('g')
       .selectAll('line')
       .data(INITIAL_LINKS)
       .join('line')
@@ -59,65 +59,73 @@ export const KnowledgeGraph: React.FC = () => {
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '2,2');
 
-    const node = svg.append('g')
+    const node = svg
+      .append('g')
       .selectAll('g')
       .data(INITIAL_NODES)
       .join('g')
-      .call(d3.drag<SVGGElement, GraphNode>()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended) as any);
+      .call(d3.drag<SVGGElement, GraphNode>().on('start', dragstarted).on('drag', dragged).on('end', dragended));
 
-    node.append('rect')
-      .attr('width', d => d.label.length * 8 + 12)
+    node
+      .append('rect')
+      .attr('width', (d) => d.label.length * 8 + 12)
       .attr('height', 20)
-      .attr('x', d => -(d.label.length * 8 + 12) / 2)
+      .attr('x', (d) => -(d.label.length * 8 + 12) / 2)
       .attr('y', -10)
       .attr('rx', 10)
       .attr('ry', 10)
-      .attr('fill', d => d.group === 'tech' ? '#1A1A1A' : '#F4F1ED')
+      .attr('fill', (d) => (d.group === 'tech' ? '#1A1A1A' : '#F4F1ED'))
       .attr('stroke', '#1A1A1A')
       .attr('stroke-width', 1)
       .attr('class', 'cursor-pointer hover:fill-primary transition-colors');
 
-    node.append('text')
+    node
+      .append('text')
       .attr('dy', 4)
       .attr('text-anchor', 'middle')
       .attr('font-size', '8px')
       .attr('font-weight', 'bold')
-      .attr('font-family', 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace')
-      .attr('fill', d => d.group === 'tech' ? '#F4F1ED' : '#1A1A1A')
-      .text(d => d.label.toUpperCase());
+      .attr(
+        'font-family',
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      )
+      .attr('fill', (d) => (d.group === 'tech' ? '#F4F1ED' : '#1A1A1A'))
+      .text((d) => d.label.toUpperCase());
 
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', (d) => getNodePosition(d.source, 'x'))
+        .attr('y1', (d) => getNodePosition(d.source, 'y'))
+        .attr('x2', (d) => getNodePosition(d.target, 'x'))
+        .attr('y2', (d) => getNodePosition(d.target, 'y'));
 
-      node
-        .attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
-    function dragstarted(event: any) {
+    function getNodePosition(node: string | GraphNode, axis: 'x' | 'y') {
+      return typeof node === 'string' ? 0 : (node[axis] ?? 0);
+    }
+
+    function dragstarted(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;
     }
 
-    function dragged(event: any) {
+    function dragged(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       event.subject.fx = event.x;
       event.subject.fy = event.y;
     }
 
-    function dragended(event: any) {
+    function dragended(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>) {
       if (!event.active) simulation.alphaTarget(0);
       event.subject.fx = null;
       event.subject.fy = null;
     }
 
-    return () => simulation.stop();
+    return () => {
+      simulation.stop();
+    };
   }, []);
 
   return (
@@ -127,19 +135,23 @@ export const KnowledgeGraph: React.FC = () => {
       </div>
 
       <div className="absolute top-4 right-4 flex flex-col gap-2">
-         <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all"><Plus size={14}/></button>
-         <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all"><Minus size={14}/></button>
+        <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all">
+          <Plus size={14} />
+        </button>
+        <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all">
+          <Minus size={14} />
+        </button>
       </div>
 
       <div className="absolute bottom-4 left-4 flex gap-4">
-         <div className="flex items-center gap-2">
-           <div className="w-2 h-2 bg-text-main" />
-           <span className="mono-label italic">Core Node</span>
-         </div>
-         <div className="flex items-center gap-2">
-           <div className="w-2 h-2 border border-text-main" />
-           <span className="mono-label italic">Entity</span>
-         </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-text-main" />
+          <span className="mono-label italic">Core Node</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 border border-text-main" />
+          <span className="mono-label italic">Entity</span>
+        </div>
       </div>
     </div>
   );

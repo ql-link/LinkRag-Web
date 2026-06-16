@@ -57,7 +57,7 @@ const knowledgeBases = [
 function Sidebar({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { darkMode, toggleDarkMode } = useTheme();
+  const { darkMode, toggleTheme } = useTheme();
   const [expandedKbs, setExpandedKbs] = useState<Set<string>>(new Set(['kb-1']));
   const [search, setSearch] = useState('');
 
@@ -120,7 +120,7 @@ function Sidebar({ expanded, onToggle }: { expanded: boolean; onToggle: () => vo
         <div className="mt-auto" />
 
         <button
-          onClick={toggleDarkMode}
+          onClick={toggleTheme}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors"
         >
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -255,7 +255,7 @@ function Sidebar({ expanded, onToggle }: { expanded: boolean; onToggle: () => vo
             <span className="text-xs font-medium text-text-primary">方一帆</span>
           </div>
           <button
-            onClick={toggleDarkMode}
+            onClick={toggleTheme}
             className="w-6 h-6 flex items-center justify-center rounded text-text-muted hover:text-text-primary transition-colors"
           >
             {darkMode ? <Sun size={13} /> : <Moon size={13} />}

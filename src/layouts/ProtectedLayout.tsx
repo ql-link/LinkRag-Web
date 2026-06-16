@@ -194,7 +194,7 @@ export function ProtectedLayout() {
         </main>
       ) : (
         <>
-          <Group direction="horizontal" className="flex-1 min-w-0">
+          <Group orientation="horizontal" className="flex-1 min-w-0">
             <Panel defaultSize={isChatDetailPage ? 100 : 80} minSize={50}>
               <ErrorBoundary>
                 <AnimatePresence mode="sync" initial={false}>
