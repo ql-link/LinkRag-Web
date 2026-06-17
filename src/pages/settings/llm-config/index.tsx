@@ -12,7 +12,13 @@ import {
   setupLLMProvider,
   toggleLLMModel,
 } from '@/services/llm';
-import type { LLMCapability, LLMConfigDTO, ModelCapabilityDTO, ProviderModelDTO } from '@/types/api';
+import type {
+  LLMCapability,
+  LLMCapabilityValue,
+  LLMConfigDTO,
+  ModelCapabilityDTO,
+  ProviderModelDTO,
+} from '@/types/api';
 
 const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [0, ['openai', 'openaiapi', 'openaiapicompatible']],
@@ -36,19 +42,22 @@ const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [18, ['hunyuan', 'tencentcloud', 'tencent']],
 ];
 
-const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
+interface CapabilityMeta {
+  value: LLMCapabilityValue;
+  label: string;
+  hint: string;
+}
+
+const CAPABILITIES: Array<CapabilityMeta & { value: LLMCapability }> = [
   { value: 'CHAT', label: '对话', hint: '对话' },
-  { value: 'EMBEDDING', label: '向量', hint: '向量' },
-  { value: 'OCR', label: '识别', hint: '识别' },
-  { value: 'VISION', label: '视觉', hint: '视觉' },
+  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量' },
+  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量' },
   { value: 'RERANK', label: '重排', hint: '重排' },
+  { value: 'VISION', label: '视觉', hint: '视觉' },
   { value: 'ASR', label: '语音识别', hint: '语音识别' },
 ];
 
-const EFFECTIVE_MODEL_CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
-  ...CAPABILITIES.filter((capability) => capability.value !== 'OCR'),
-  { value: 'OCR', label: 'OCR', hint: 'OCR' },
-];
+const EFFECTIVE_MODEL_CAPABILITIES = CAPABILITIES;
 
 interface ConfigView extends LLMConfigDTO {
   providerName: string;
@@ -76,7 +85,19 @@ interface SetupTarget {
 
 type ModelSourceFilter = 'preset' | 'self';
 
-function getCapabilityMeta(capability: LLMCapability) {
+function isSupportedCapability(capability: LLMCapabilityValue): capability is LLMCapability {
+  return CAPABILITIES.some((item) => item.value === capability);
+}
+
+function getCapabilityMeta(capability: LLMCapabilityValue): CapabilityMeta {
+  if (capability === 'OCR') {
+    return {
+      value: capability,
+      label: 'OCR（废弃）',
+      hint: 'OCR',
+    };
+  }
+
   return (
     CAPABILITIES.find((item) => item.value === capability) || {
       value: capability,
@@ -86,11 +107,18 @@ function getCapabilityMeta(capability: LLMCapability) {
   );
 }
 
-function capabilitySort(a: LLMCapability, b: LLMCapability) {
-  return CAPABILITIES.findIndex((item) => item.value === a) - CAPABILITIES.findIndex((item) => item.value === b);
+function capabilitySort(a: LLMCapabilityValue, b: LLMCapabilityValue) {
+  const aIndex = CAPABILITIES.findIndex((item) => item.value === a);
+  const bIndex = CAPABILITIES.findIndex((item) => item.value === b);
+  const aRank = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+  const bRank = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+  if (aRank !== bRank) {
+    return aRank - bRank;
+  }
+  return a.localeCompare(b);
 }
 
-function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapability {
+function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapabilityValue {
   return typeof capability === 'string' ? capability : capability.capability;
 }
 
@@ -184,7 +212,7 @@ export default function LLMPage() {
   const defaultByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView>();
     viewConfigs.forEach((config) => {
-      if (config.isDefault && config.isActive) {
+      if (config.isDefault && config.isActive && isSupportedCapability(config.capability)) {
         map.set(config.capability, config);
       }
     });
@@ -194,11 +222,11 @@ export default function LLMPage() {
   const candidatesByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView[]>();
     CAPABILITIES.forEach((capability) => map.set(capability.value, []));
-    viewConfigs
-      .filter((config) => config.isActive)
-      .forEach((config) => {
+    viewConfigs.forEach((config) => {
+      if (config.isActive && isSupportedCapability(config.capability)) {
         map.get(config.capability)?.push(config);
-      });
+      }
+    });
     map.forEach((items) => {
       items.sort((a, b) => {
         if (a.isSystemPreset !== b.isSystemPreset) {
@@ -309,7 +337,9 @@ export default function LLMPage() {
       .filter((provider) => {
         if (filterSet.size > 0) {
           const hit = provider.models.some((model) =>
-            getModelCapabilityValues(model).some((capability) => filterSet.has(capability)),
+            getModelCapabilityValues(model).some(
+              (capability) => isSupportedCapability(capability) && filterSet.has(capability),
+            ),
           );
           if (!hit) {
             return false;
@@ -1451,7 +1481,7 @@ function CapabilityBadge({
   compact,
   label,
 }: {
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   compact?: boolean;
   label?: string;
 }) {
