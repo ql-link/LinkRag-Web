@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Box, ChevronDown, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
@@ -12,61 +13,6 @@ import {
   toggleLLMModel,
 } from '@/services/llm';
 import type { LLMCapability, LLMConfigDTO, ModelCapabilityDTO, ProviderModelDTO } from '@/types/api';
-
-function normalizeProviderToken(value: string) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
-  Object.entries(
-    import.meta.glob('/icons/providers/*.svg', {
-      eager: true,
-      query: '?url',
-    }) as Record<string, string | { default: string }>,
-  ).map(([path, iconModule]) => {
-    const iconUrl = typeof iconModule === 'string' ? iconModule : iconModule.default;
-    const filename = normalizeProviderToken(path.split('/').pop()!.replace('.svg', ''));
-    return [filename, iconUrl];
-  }),
-);
-
-const PROVIDER_ICON_ALIASES: Record<string, string> = {
-  openai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  openaiapi:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  openaiapicompatible:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  jiekouai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai')],
-  fishaudio:
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio')],
-  togetherai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('together-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('together')],
-  perplexity:
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity')],
-  tongyiqianwen:
-    PROVIDER_ICON_URLS[normalizeProviderToken('tongyi-qianwen')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  tencentcloud: PROVIDER_ICON_URLS[normalizeProviderToken('tencent-cloud')],
-  baiduyiyan:
-    PROVIDER_ICON_URLS[normalizeProviderToken('spark')] || PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  xunfeispark: PROVIDER_ICON_URLS[normalizeProviderToken('spark')],
-  tencenthunyuan: PROVIDER_ICON_URLS[normalizeProviderToken('hunyuan')],
-  giteeai: PROVIDER_ICON_URLS[normalizeProviderToken('gitee-ai')],
-  novitaai: PROVIDER_ICON_URLS[normalizeProviderToken('novita-ai')],
-  localai: PROVIDER_ICON_URLS[normalizeProviderToken('local-ai')],
-  zhipuai: PROVIDER_ICON_URLS[normalizeProviderToken('zhipu')],
-};
-
-const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
 
 const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [0, ['openai', 'openaiapi', 'openaiapicompatible']],
@@ -138,25 +84,6 @@ function getCapabilityMeta(capability: LLMCapability) {
       hint: capability,
     }
   );
-}
-
-function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
-  const matchedAlias = keys
-    .map((key) => PROVIDER_ICON_ALIASES[key])
-    .find((iconUrl) => typeof iconUrl === 'string' && iconUrl.length > 0);
-  if (matchedAlias) {
-    return matchedAlias;
-  }
-
-  const matchedKey = keys.find((key) =>
-    PROVIDER_ICON_PREFIXES.some((iconKey) => key.includes(iconKey) || iconKey.includes(key)),
-  );
-  if (!matchedKey) {
-    return '';
-  }
-  const iconKey = PROVIDER_ICON_PREFIXES.find((item) => matchedKey.includes(item) || item.includes(matchedKey));
-  return iconKey ? PROVIDER_ICON_URLS[iconKey] : '';
 }
 
 function capabilitySort(a: LLMCapability, b: LLMCapability) {
@@ -1485,18 +1412,23 @@ function ProviderIcon({
   size: 'sm' | 'md';
 }) {
   const className = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
 
   if (iconUrl) {
     return (
-      <img
-        src={iconUrl}
-        alt={name}
+      <div
         className={cn(
           className,
-          'rounded-xl border object-contain shrink-0 p-1 transition-colors duration-300',
+          'rounded-xl border shrink-0 transition-colors duration-300',
           darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-white border-border-subtle/50',
         )}
-      />
+      >
+        <img
+          src={iconUrl}
+          alt={name}
+          className={cn('h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+        />
+      </div>
     );
   }
 

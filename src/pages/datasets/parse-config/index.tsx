@@ -15,6 +15,7 @@ import {
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getProviderIcon, isProviderIconMonochrome } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
@@ -310,80 +311,6 @@ const GROUPS: ParamGroup[] = [
 
 const DISPLAY_MODEL_FALLBACK = '未配置默认模型';
 const LEAVE_MESSAGE = '解析配置有未保存改动，确定离开吗？';
-
-function normalizeProviderToken(value: string) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
-  Object.entries(
-    import.meta.glob('/icons/providers/*.svg', {
-      eager: true,
-      query: '?url',
-    }) as Record<string, string | { default: string }>,
-  ).map(([path, iconModule]) => {
-    const iconUrl = typeof iconModule === 'string' ? iconModule : iconModule.default;
-    const filename = normalizeProviderToken(path.split('/').pop()!.replace('.svg', ''));
-    return [filename, iconUrl];
-  }),
-);
-
-const PROVIDER_ICON_ALIASES: Record<string, string> = {
-  openai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  openaiapi:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  openaiapicompatible:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  jiekouai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai')],
-  fishaudio:
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio')],
-  togetherai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('together-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('together')],
-  perplexity:
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity')],
-  tongyiqianwen:
-    PROVIDER_ICON_URLS[normalizeProviderToken('tongyi-qianwen')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  tencentcloud: PROVIDER_ICON_URLS[normalizeProviderToken('tencent-cloud')],
-  baiduyiyan:
-    PROVIDER_ICON_URLS[normalizeProviderToken('spark')] || PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  xunfeispark: PROVIDER_ICON_URLS[normalizeProviderToken('spark')],
-  tencenthunyuan: PROVIDER_ICON_URLS[normalizeProviderToken('hunyuan')],
-  giteeai: PROVIDER_ICON_URLS[normalizeProviderToken('gitee-ai')],
-  novitaai: PROVIDER_ICON_URLS[normalizeProviderToken('novita-ai')],
-  localai: PROVIDER_ICON_URLS[normalizeProviderToken('local-ai')],
-  zhipuai: PROVIDER_ICON_URLS[normalizeProviderToken('zhipu')],
-};
-
-const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
-
-function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
-  const matchedAlias = keys
-    .map((key) => PROVIDER_ICON_ALIASES[key])
-    .find((iconUrl) => typeof iconUrl === 'string' && iconUrl.length > 0);
-  if (matchedAlias) {
-    return matchedAlias;
-  }
-
-  const matchedKey = keys.find((key) =>
-    PROVIDER_ICON_PREFIXES.some((iconKey) => key.includes(iconKey) || iconKey.includes(key)),
-  );
-  if (!matchedKey) {
-    return '';
-  }
-  const iconKey = PROVIDER_ICON_PREFIXES.find((item) => matchedKey.includes(item) || item.includes(matchedKey));
-  return iconKey ? PROVIDER_ICON_URLS[iconKey] : '';
-}
 
 function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDTO[]): DefaultModelInfo {
   const provider = providers.find((item) => item.providerType === config.providerType);
@@ -1199,16 +1126,22 @@ function ReadonlyModelField({
 }
 
 function ProviderIcon({ iconUrl, name, darkMode }: { iconUrl: string; name: string; darkMode: boolean }) {
+  const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
+
   if (iconUrl) {
     return (
-      <img
-        src={iconUrl}
-        alt={name}
+      <div
         className={cn(
-          'h-8 w-8 shrink-0 rounded-lg border object-contain p-1',
+          'h-8 w-8 shrink-0 rounded-lg border',
           darkMode ? 'border-[#3c3c3c] bg-[#313131]' : 'border-border-subtle/60 bg-white',
         )}
-      />
+      >
+        <img
+          src={iconUrl}
+          alt={name}
+          className={cn('h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+        />
+      </div>
     );
   }
 
