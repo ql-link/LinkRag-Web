@@ -1,0 +1,114 @@
+import YAML from 'yaml';
+
+export interface ParsedMarkdown {
+  content: string;
+  frontmatter: Record<string, unknown>;
+}
+
+export interface MarkdownTocItem {
+  id: string;
+  text: string;
+  level: number;
+}
+
+export function parseMarkdownContent(markdown: string): ParsedMarkdown {
+  const match = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(markdown);
+  if (!match) {
+    return {
+      content: markdown.trim(),
+      frontmatter: {},
+    };
+  }
+
+  let frontmatter: Record<string, unknown> = {};
+  try {
+    const parsed = YAML.parse(match[1]);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      frontmatter = parsed as Record<string, unknown>;
+    }
+  } catch (error) {
+    console.warn('Failed to parse markdown frontmatter', error);
+  }
+
+  return {
+    content: markdown.slice(match[0].length).trim(),
+    frontmatter,
+  };
+}
+
+export function slugifyMarkdownHeading(text: string): string {
+  const slug = text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\u4e00-\u9fa5-]+/g, '')
+    .replace(/^-+|-+$/g, '');
+
+  return slug || 'section';
+}
+
+export function createMarkdownSlugger() {
+  const seen = new Map<string, number>();
+
+  return (text: string) => {
+    const base = slugifyMarkdownHeading(text);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+
+    return count === 0 ? base : `${base}-${count}`;
+  };
+}
+
+function stripInlineMarkdown(value: string): string {
+  return value
+    .replace(/\s+#+\s*$/g, '')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/[*_~]+/g, '')
+    .replace(/<[^>]+>/g, '')
+    .trim();
+}
+
+export function extractMarkdownToc(markdown: string, levels: number[] = [2, 3]): MarkdownTocItem[] {
+  const { content } = parseMarkdownContent(markdown);
+  const toc: MarkdownTocItem[] = [];
+  const getSlug = createMarkdownSlugger();
+  const lines = content.split(/\r?\n/);
+  let fence: { marker: '`' | '~'; length: number } | null = null;
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0] as '`' | '~';
+      const length = fenceMatch[1].length;
+
+      if (!fence) {
+        fence = { marker, length };
+      } else if (fence.marker === marker && length >= fence.length) {
+        fence = null;
+      }
+
+      continue;
+    }
+
+    if (fence) continue;
+
+    const headingMatch = line.match(/^ {0,3}(#{1,6})\s+(.+?)\s*$/);
+    if (!headingMatch) continue;
+
+    const level = headingMatch[1].length;
+    if (!levels.includes(level)) continue;
+
+    const text = stripInlineMarkdown(headingMatch[2]);
+    if (!text) continue;
+
+    toc.push({
+      id: getSlug(text),
+      text,
+      level,
+    });
+  }
+
+  return toc;
+}

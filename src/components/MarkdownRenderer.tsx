@@ -1,188 +1,196 @@
-import React, { useState, useEffect, useRef, type ComponentPropsWithoutRef } from 'react';
+import React, { useEffect, useId, useMemo, useState, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
-import YAML from 'yaml';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Check, Copy } from 'lucide-react';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Check, Copy, FileCode2 } from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
+import { createMarkdownSlugger, parseMarkdownContent } from '@/lib/markdown';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  showFrontmatter?: boolean;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    input: [...(defaultSchema.attributes?.input ?? []), ['checked', true]],
+  },
+};
 
 const extractText = (children: React.ReactNode): string => {
-  if (typeof children === 'string') return children;
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
   if (Array.isArray(children)) return children.map(extractText).join('');
   if (React.isValidElement<{ children?: React.ReactNode }>(children)) return extractText(children.props.children);
   return '';
 };
 
-const slugify = (text: string) => {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\u4e00-\u9fa5-]+/g, '');
-};
-
-// ── Mermaid Component ───────────────────────────────────────────────────
+const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
 
 const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [svgContent, setSvgContent] = useState<string>('');
+  const [svgContent, setSvgContent] = useState('');
+  const [error, setError] = useState('');
+  const reactId = useId();
+  const renderId = useMemo(() => `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`, [reactId]);
 
   useEffect(() => {
+    let isMounted = true;
+    setSvgContent('');
+    setError('');
+
     mermaid.initialize({
       startOnLoad: false,
       theme: darkMode ? 'dark' : 'default',
+      securityLevel: 'strict',
     });
 
-    let isMounted = true;
-    const renderChart = async () => {
-      try {
-        const id = `mermaid-${Math.random().toString(36).substring(2, 9)}`;
-        const { svg } = await mermaid.render(id, chart);
+    mermaid
+      .render(renderId, chart)
+      .then(({ svg }) => {
         if (isMounted) setSvgContent(svg);
-      } catch (e) {
-        console.error('Mermaid rendering failed', e);
-      }
-    };
-    renderChart();
+      })
+      .catch((reason) => {
+        console.error('Mermaid rendering failed', reason);
+        if (isMounted) setError('Mermaid 图表渲染失败');
+      });
 
     return () => {
       isMounted = false;
     };
-  }, [chart, darkMode]);
+  }, [chart, darkMode, renderId]);
+
+  if (error) {
+    return (
+      <pre className="my-6 overflow-x-auto rounded-lg border border-state-error/30 bg-state-error/10 p-4 text-sm text-state-error">
+        <code>{error}</code>
+      </pre>
+    );
+  }
 
   return (
     <div
-      ref={ref}
-      className="flex justify-center my-8 overflow-x-auto p-4 bg-white/5 dark:bg-black/20 rounded-xl"
+      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-white/50 p-4 dark:bg-[#1e1e1e]"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
 };
 
-// ── Heading Component ───────────────────────────────────────────────────
-
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 type HeadingRendererProps = ComponentPropsWithoutRef<'h1'> & {
   level: HeadingLevel;
+  getHeadingId: (text: string) => string;
+  node?: unknown;
 };
 
-const HeadingRenderer = ({ level, children, ...props }: HeadingRendererProps) => {
+const headingSizeClasses: Record<HeadingLevel, string> = {
+  1: 'text-3xl md:text-4xl',
+  2: 'text-2xl md:text-3xl border-b border-border-subtle pb-2',
+  3: 'text-xl md:text-2xl',
+  4: 'text-lg md:text-xl',
+  5: 'text-base md:text-lg',
+  6: 'text-sm md:text-base uppercase text-text-main/60',
+};
+
+const HeadingRenderer = ({ level, getHeadingId, children, className, node: _node, ...props }: HeadingRendererProps) => {
   const text = extractText(children);
-  const id = slugify(text);
+  const id = getHeadingId(text);
   const Tag = `h${level}` as React.ElementType<ComponentPropsWithoutRef<'h1'>>;
 
-  const sizeClasses =
-    {
-      1: 'text-4xl md:text-5xl font-extrabold mt-12 mb-6 tracking-tight',
-      2: 'text-3xl md:text-4xl font-bold mt-10 mb-5 tracking-tight border-b pb-2 border-black/5 dark:border-white/5',
-      3: 'text-2xl md:text-3xl font-bold mt-8 mb-4 tracking-tight',
-      4: 'text-xl md:text-2xl font-bold mt-6 mb-3 tracking-tight',
-      5: 'text-lg md:text-xl font-bold mt-5 mb-2',
-      6: 'text-base md:text-lg font-bold mt-4 mb-2 uppercase tracking-wider text-black/50 dark:text-white/50',
-    }[level] || '';
-
   return (
-    <Tag id={id} className={cn('group relative scroll-mt-24', sizeClasses, props.className)} {...props}>
+    <Tag
+      id={id}
+      className={cn('group relative scroll-mt-24 font-bold tracking-normal', headingSizeClasses[level], className)}
+      {...props}
+    >
       <a
         href={`#${id}`}
-        className={cn(
-          'absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 no-underline text-primary/50 hover:text-primary hidden sm:block font-normal',
-          level === 1 ? 'text-3xl' : level === 2 ? 'text-2xl' : 'text-xl',
-        )}
-        aria-label="Permalink"
+        className="not-prose absolute -left-10 top-1/2 hidden -translate-y-1/2 font-mono text-xs font-semibold text-primary/50 no-underline opacity-0 transition-opacity hover:text-primary group-hover:opacity-100 sm:block"
+        aria-label={`${text} permalink`}
       >
-        #
+        H{level}
       </a>
       {children}
     </Tag>
   );
 };
 
-// ── Code Component ──────────────────────────────────────────────────────
-
-type CodeBlockProps = ComponentPropsWithoutRef<'code'> & {
+type CodeRendererProps = ComponentPropsWithoutRef<'code'> & {
   inline?: boolean;
+  node?: unknown;
 };
 
-const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) => {
+const CodeRenderer = ({ inline, className, children, node: _node, ...props }: CodeRendererProps) => {
   const [copied, setCopied] = useState(false);
   const { darkMode } = useTheme();
+  const code = String(children).replace(/\n$/, '');
+  const languageMatch = /language-([\w-]+)/.exec(className || '');
+  const language = languageMatch?.[1] ?? '';
 
-  const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : '';
-
-  if (language === 'mermaid' && !inline) {
-    return <MermaidChart chart={String(children)} darkMode={darkMode} />;
+  if (!inline && language === 'mermaid') {
+    return <MermaidChart chart={code} darkMode={darkMode} />;
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!inline && match) {
+  if (!inline && language) {
     return (
-      <div className="relative group my-6 rounded-xl overflow-hidden bg-[#1E1E1E] border border-white/10 shadow-lg">
-        {/* Code Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#2D2D2D]/80 border-b border-white/5">
+      <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
+        <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
           <div className="flex items-center gap-2">
-            <div className="flex gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-              <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-              <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-            </div>
-            <span className="ml-2 text-xs font-mono font-semibold text-gray-400 uppercase tracking-wider">
+            <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileCode2 size={15} strokeWidth={1.8} />
+            </span>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
               {language}
             </span>
           </div>
           <button
+            type="button"
             onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold text-gray-400 hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100"
+            className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
             title="复制代码"
           >
             {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             {copied ? '已复制' : '复制'}
           </button>
         </div>
-
         <SyntaxHighlighter
-          style={vscDarkPlus as Record<string, React.CSSProperties>}
+          style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
           language={language}
           PreTag="div"
           customStyle={{
             margin: 0,
-            padding: '1.25rem 1rem',
+            padding: '1.125rem 1rem',
             background: 'transparent',
             fontSize: '0.875rem',
-            lineHeight: '1.6',
+            lineHeight: '1.65',
           }}
           codeTagProps={{
             style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
           }}
         >
-          {String(children).replace(/\n$/, '')}
+          {code}
         </SyntaxHighlighter>
       </div>
     );
   }
 
-  // Inline code
   return (
     <code
       className={cn(
-        'bg-black/5 dark:bg-white/10 text-[#eb5757] dark:text-[#ff7b72] rounded-md px-1.5 py-0.5 text-[0.9em] font-mono',
+        'rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] text-[#b42318] dark:bg-white/10 dark:text-[#ff7b72]',
         className,
       )}
       {...props}
@@ -192,101 +200,101 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) =>
   );
 };
 
-// ── Main Renderer Component ───────────────────────────────────────────────
+function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
+  const entries = Object.entries(data);
+  if (entries.length === 0) return null;
 
-export function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
+  return (
+    <div className="not-prose mb-10 mt-2 rounded-lg border border-border-subtle bg-white/35 p-4 dark:bg-white/5">
+      <dl className="grid gap-3 sm:grid-cols-[140px_1fr]">
+        {entries.map(([key, value]) => (
+          <React.Fragment key={key}>
+            <dt className="font-mono text-xs uppercase tracking-widest text-text-main/50">{key}</dt>
+            <dd className="break-words text-sm text-text-main">
+              {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+            </dd>
+          </React.Fragment>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+export function MarkdownRenderer({ content, className, showFrontmatter = true }: MarkdownRendererProps) {
   const { darkMode } = useTheme();
+  const parsed = useMemo(() => parseMarkdownContent(content), [content]);
+  const getHeadingId = createMarkdownSlugger();
 
-  // Extract Frontmatter
-  let cleanContent = content;
-  let frontmatter: Record<string, unknown> | null = null;
-  const match = /^---\n([\s\S]*?)\n---/.exec(content);
-  if (match) {
-    try {
-      frontmatter = YAML.parse(match[1]);
-      cleanContent = content.slice(match[0].length).trim();
-    } catch (e) {
-      console.warn('Failed to parse frontmatter', e);
-    }
-  }
+  const components: Components = {
+    code: CodeRenderer as Components['code'],
+    h1: (props) => <HeadingRenderer level={1} getHeadingId={getHeadingId} {...props} />,
+    h2: (props) => <HeadingRenderer level={2} getHeadingId={getHeadingId} {...props} />,
+    h3: (props) => <HeadingRenderer level={3} getHeadingId={getHeadingId} {...props} />,
+    h4: (props) => <HeadingRenderer level={4} getHeadingId={getHeadingId} {...props} />,
+    h5: (props) => <HeadingRenderer level={5} getHeadingId={getHeadingId} {...props} />,
+    h6: (props) => <HeadingRenderer level={6} getHeadingId={getHeadingId} {...props} />,
+    table: ({ node: _node, className: tableClassName, ...props }) => (
+      <div className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle">
+        <table className={cn('w-full border-collapse text-sm', tableClassName)} {...props} />
+      </div>
+    ),
+    th: ({ node: _node, className: thClassName, ...props }) => (
+      <th
+        className={cn(
+          'border-b border-border-subtle bg-black/5 px-3 py-2 text-left font-semibold text-text-main dark:bg-white/5',
+          thClassName,
+        )}
+        {...props}
+      />
+    ),
+    td: ({ node: _node, className: tdClassName, ...props }) => (
+      <td
+        className={cn('border-b border-border-subtle px-3 py-2 align-top text-text-main last:border-b-0', tdClassName)}
+        {...props}
+      />
+    ),
+    a: ({ node: _node, href, className: linkClassName, ...props }) => (
+      <a
+        href={href}
+        target={isExternalHref(href) ? '_blank' : undefined}
+        rel={isExternalHref(href) ? 'noopener noreferrer' : undefined}
+        className={cn('underline-offset-4', linkClassName)}
+        {...props}
+      />
+    ),
+    img: ({ node: _node, className: imageClassName, alt, ...props }) => (
+      <img className={cn('mx-auto rounded-lg shadow-sm', imageClassName)} alt={alt ?? ''} loading="lazy" {...props} />
+    ),
+    input: ({ node: _node, className: inputClassName, ...props }) => (
+      <input className={cn('mr-2 translate-y-[1px] accent-primary', inputClassName)} readOnly {...props} />
+    ),
+  };
 
   return (
     <div
       className={cn(
-        'w-full break-words prose max-w-none',
-        darkMode
-          ? 'prose-invert prose-headings:text-[#e0e0e0] prose-p:text-[#cccccc] prose-a:text-[#3b82f6] prose-strong:text-[#e0e0e0] prose-blockquote:border-l-[#3b82f6] prose-blockquote:bg-[#1e1e1e] prose-th:bg-[#1e1e1e] prose-td:border-[#333]'
-          : 'prose-slate prose-headings:text-[#1a1a1a] prose-p:text-[#4a4a4a] prose-a:text-primary prose-strong:text-[#1a1a1a] prose-blockquote:border-l-primary prose-blockquote:bg-gray-50 prose-th:bg-gray-50 prose-td:border-gray-200',
-        // Custom generic styles
-        'prose-p:leading-loose prose-p:my-5',
-        'prose-li:my-2 prose-ul:my-5 prose-ol:my-5',
-        'prose-blockquote:not-italic prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:rounded-r-xl prose-blockquote:my-8',
-        'prose-headings:font-bold prose-headings:tracking-tight prose-headings:mt-10 prose-headings:mb-5 prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-h4:text-lg',
-        'prose-img:rounded-2xl prose-img:shadow-md prose-img:my-10',
-        'prose-a:no-underline hover:prose-a:underline hover:prose-a:underline-offset-4',
-        'prose-table:overflow-hidden prose-table:rounded-xl prose-table:border prose-table:my-8 prose-th:p-3 prose-td:p-3',
+        'markdown-body w-full max-w-none break-words',
+        'prose prose-slate dark:prose-invert',
+        'prose-headings:font-bold prose-headings:tracking-normal prose-headings:text-text-main',
+        'prose-p:leading-8 prose-p:text-text-main',
+        'prose-li:text-text-main prose-ol:text-text-main prose-ul:text-text-main',
+        'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
+        'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
+        'prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
+        'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-white/5',
+        'prose-hr:border-border-subtle prose-img:my-8',
+        darkMode &&
+          'prose-headings:text-[#f2f2f2] prose-p:text-[#cccccc] prose-li:text-[#cccccc] prose-strong:text-[#f2f2f2]',
         className,
       )}
     >
-      {frontmatter && Object.keys(frontmatter).length > 0 && (
-        <div className="mb-10 mt-2">
-          <div className="flex flex-col gap-2">
-            {Object.entries(frontmatter).map(([key, value]) => (
-              <div key={key} className="flex items-baseline gap-4">
-                <span className="text-[13px] font-medium opacity-50 min-w-[120px] shrink-0">{key}</span>
-                <span className="text-[13px] font-medium opacity-90 break-all">
-                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <hr className="my-8 border-black/10 dark:border-white/10" />
-        </div>
-      )}
-
+      {showFrontmatter && <FrontmatterBlock data={parsed.frontmatter} />}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[
-          rehypeRaw,
-          [
-            rehypeSanitize,
-            {
-              ...defaultSchema,
-              attributes: {
-                ...defaultSchema.attributes,
-                '*': ['className', 'style'],
-                div: ['className', 'style'],
-              },
-            },
-          ],
-        ]}
-        components={{
-          code: CodeBlock as Components['code'],
-          h1: (props) => <HeadingRenderer level={1} {...props} />,
-          h2: (props) => <HeadingRenderer level={2} {...props} />,
-          h3: (props) => <HeadingRenderer level={3} {...props} />,
-          h4: (props) => <HeadingRenderer level={4} {...props} />,
-          h5: (props) => <HeadingRenderer level={5} {...props} />,
-          h6: (props) => <HeadingRenderer level={6} {...props} />,
-          // Custom wrapper for tables to allow horizontal scrolling on small screens
-          table: ({ node: _node, ...props }) => (
-            <div className="overflow-x-auto my-8 rounded-xl border border-black/10 dark:border-white/10 shadow-sm">
-              <table className="w-full text-sm m-0 border-collapse" {...props} />
-            </div>
-          ),
-          th: ({ node: _node, ...props }) => (
-            <th
-              className="font-bold p-3 text-left border-b border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5"
-              {...props}
-            />
-          ),
-          td: ({ node: _node, ...props }) => (
-            <td className="p-3 border-b border-black/5 dark:border-white/5 last:border-b-0" {...props} />
-          ),
-          a: ({ node: _node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />,
-        }}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+        components={components}
       >
-        {cleanContent}
+        {parsed.content}
       </ReactMarkdown>
     </div>
   );
