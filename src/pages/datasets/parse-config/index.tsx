@@ -1243,7 +1243,7 @@ function ReadonlyModelField({
   hint?: string;
   darkMode: boolean;
 }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName) : '';
+  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName) : '';
 
   return (
     <div className={cn('rounded-xl px-3 py-3', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base/40')}>

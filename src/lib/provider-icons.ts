@@ -73,12 +73,15 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
   novitaai: firstAvailableIconKey('novita-ai'),
   localai: firstAvailableIconKey('local-ai'),
   zhipuai: firstAvailableIconKey('zhipu'),
+  mimo: firstAvailableIconKey('xiaomimimo'),
+  xiaomi: firstAvailableIconKey('xiaomimimo'),
+  xiaomimimo: firstAvailableIconKey('xiaomimimo'),
 };
 
 const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
 
-export function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
+export function getProviderIcon(providerType: string, providerName?: string, modelName?: string) {
+  const keys = [providerType, providerName || '', modelName || ''].map(normalizeProviderToken);
   const matchedAliasKey = keys
     .map((key) => PROVIDER_ICON_ALIASES[key])
     .find((iconKey) => typeof iconKey === 'string' && iconKey.length > 0);
