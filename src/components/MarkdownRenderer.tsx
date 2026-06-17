@@ -32,6 +32,32 @@ const slugify = (text: string) => {
     .replace(/[^\w\u4e00-\u9fa5-]+/g, '');
 };
 
+const CJK_CHAR_CLASS = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}';
+
+const normalizeInlineMarkdown = (text: string) => {
+  return text
+    .replace(/\\n/g, '\n')
+    .replace(new RegExp(`([${CJK_CHAR_CLASS}])\\*\\*([^*\\n]+?)\\*\\*`, 'gu'), '$1<strong>$2</strong>')
+    .replace(new RegExp(`\\*\\*([^*\\n]+?)\\*\\*([${CJK_CHAR_CLASS}])`, 'gu'), '<strong>$1</strong>$2');
+};
+
+const normalizeMarkdownContent = (content: string) => {
+  return content
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
+    .map((block) => {
+      if (block.startsWith('```') || block.startsWith('~~~')) return block;
+      return block
+        .split(/(`[^`\n]*`)/g)
+        .map((part) => (part.startsWith('`') ? part : normalizeInlineMarkdown(part)))
+        .join('');
+    })
+    .join('')
+    .replace(
+      new RegExp(`([${CJK_CHAR_CLASS}，。；：！？）】》」』])\\n([ \\t]*(?:[-*+]\\s+|\\d+\\.\\s+))`, 'gu'),
+      '$1\n\n$2',
+    );
+};
+
 // ── Mermaid Component ───────────────────────────────────────────────────
 
 const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean }) => {
@@ -198,7 +224,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
   const { darkMode } = useTheme();
 
   // Extract Frontmatter
-  let cleanContent = content;
+  let cleanContent = normalizeMarkdownContent(content);
   let frontmatter: Record<string, unknown> | null = null;
   const match = /^---\n([\s\S]*?)\n---/.exec(content);
   if (match) {
@@ -261,6 +287,13 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           ],
         ]}
         components={{
+          p: ({ node: _node, ...props }) => <p className="my-4 leading-relaxed" {...props} />,
+          strong: ({ node: _node, ...props }) => (
+            <strong className={cn('font-extrabold', darkMode ? 'text-[#93c5fd]' : 'text-[#8a5a2b]')} {...props} />
+          ),
+          ul: ({ node: _node, ...props }) => <ul className="my-4 list-disc space-y-1 pl-6" {...props} />,
+          ol: ({ node: _node, ...props }) => <ol className="my-4 list-decimal space-y-1 pl-6" {...props} />,
+          li: ({ node: _node, ...props }) => <li className="pl-1 leading-relaxed" {...props} />,
           code: CodeBlock as Components['code'],
           h1: (props) => <HeadingRenderer level={1} {...props} />,
           h2: (props) => <HeadingRenderer level={2} {...props} />,

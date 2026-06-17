@@ -31,10 +31,11 @@ const navItems = [
 interface SidebarProps {
   onNavigate?: () => void;
   allowCollapse?: boolean;
+  forceCollapsed?: boolean;
   className?: string;
 }
 
-export function Sidebar({ onNavigate, allowCollapse = true, className }: SidebarProps) {
+export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = false, className }: SidebarProps) {
   const { darkMode, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -55,6 +56,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
 
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
+  const isCollapsed = forceCollapsed || collapsed;
 
   async function handleLogout() {
     try {
@@ -71,7 +73,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
     <aside
       className={cn(
         'rounded-3xl border shadow-sm flex flex-col overflow-hidden shrink-0 transition-all duration-300',
-        allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[200px]') : 'w-[200px]',
+        forceCollapsed ? 'w-[64px] min-w-[64px]' : allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[200px]') : 'w-[200px]',
         className,
         darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
       )}
@@ -80,21 +82,21 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
       <div
         className={cn(
           'h-20 flex items-center overflow-hidden',
-          collapsed ? 'justify-center px-0' : 'px-6',
+          isCollapsed ? 'justify-center px-0' : 'px-6',
           darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           darkMode ? 'bg-[#1e1e1e]' : 'bg-white/50',
         )}
       >
-        <div className={cn('flex items-center min-w-max', collapsed ? 'justify-center' : 'gap-3')}>
+        <div className={cn('flex items-center min-w-max', isCollapsed ? 'justify-center' : 'gap-3')}>
           <div
             className={cn(
               'rounded-lg flex items-center justify-center overflow-hidden',
-              collapsed ? 'h-11 w-11 p-1.5' : 'h-8 w-8 p-1',
+              isCollapsed ? 'h-11 w-11 p-1.5' : 'h-8 w-8 p-1',
             )}
           >
             <LinkRagMark darkMode={darkMode} />
           </div>
-          {!collapsed && (
+          {!isCollapsed && (
             <h1 className={cn('text-lg serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>LinkRag</h1>
           )}
         </div>
@@ -104,7 +106,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
       <nav
         className={cn(
           'flex-1 py-6 space-y-2 overflow-y-auto overflow-x-hidden',
-          collapsed ? 'px-2' : 'px-3',
+          isCollapsed ? 'px-2' : 'px-3',
           darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base/30',
         )}
       >
@@ -120,7 +122,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
               }}
               className={cn(
                 'flex items-center transition-all duration-300 group relative rounded-2xl',
-                collapsed ? 'mx-auto h-12 w-12 justify-center p-0' : 'mx-1 gap-3 px-4 py-3',
+                isCollapsed ? 'mx-auto h-12 w-12 justify-center p-0' : 'mx-1 gap-3 px-4 py-3',
                 isActive
                   ? darkMode
                     ? 'bg-[#2f2f2f] text-[#f0f0f0] border border-[#434343] shadow-sm'
@@ -143,13 +145,13 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
                       : 'text-text-main/45',
                 )}
               />
-              {!collapsed && <span className="text-xs font-bold uppercase tracking-widest">{name}</span>}
-              {isActive && !collapsed && (
+              {!isCollapsed && <span className="text-xs font-bold uppercase tracking-widest">{name}</span>}
+              {isActive && !isCollapsed && (
                 <div
                   className={cn('absolute right-4 w-1.5 h-1.5 rounded-full', darkMode ? 'bg-[#d7d7d7]' : 'bg-primary')}
                 />
               )}
-              {collapsed && (
+              {isCollapsed && (
                 <div
                   className={cn(
                     'absolute left-full ml-4 px-3 py-1 text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl',
@@ -168,7 +170,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
       <div
         className={cn(
           'shrink-0 flex flex-col',
-          collapsed ? 'items-center px-0 py-4' : 'p-4',
+          isCollapsed ? 'items-center px-0 py-4' : 'p-4',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle',
         )}
       >
@@ -177,14 +179,14 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
           onClick={toggleTheme}
           className={cn(
             'flex items-center rounded-xl transition-colors mb-2',
-            collapsed ? 'h-11 w-11 justify-center p-0' : 'w-full gap-3 px-2 py-2',
+            isCollapsed ? 'h-11 w-11 justify-center p-0' : 'w-full gap-3 px-2 py-2',
             darkMode
               ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
               : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
           )}
         >
           {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-          {!collapsed && (
+          {!isCollapsed && (
             <span className="text-[10px] font-bold uppercase tracking-widest">
               {darkMode ? '日间模式' : '夜间模式'}
             </span>
@@ -197,7 +199,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
             onClick={() => setShowUserMenu(!showUserMenu)}
             className={cn(
               'flex items-center rounded-2xl transition-colors',
-              collapsed ? 'h-12 w-12 justify-center p-0' : 'w-full gap-3 px-2 py-3',
+              isCollapsed ? 'h-12 w-12 justify-center p-0' : 'w-full gap-3 px-2 py-3',
               darkMode ? 'bg-[#2d2d2d] hover:bg-[#3c3c3c]' : 'bg-bg-base/30 hover:bg-primary/5',
             )}
           >
@@ -209,7 +211,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
             >
               <User size={14} className={darkMode ? 'text-[#e0e0e0]' : 'text-text-main/60'} />
             </div>
-            {!collapsed && (
+            {!isCollapsed && (
               <div className="flex-1 min-w-0 text-left">
                 <p
                   className={cn(
@@ -282,7 +284,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, className }: Sidebar
         </div>
 
         {/* Collapse button */}
-        {allowCollapse && (
+        {allowCollapse && !forceCollapsed && (
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
