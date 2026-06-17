@@ -284,10 +284,7 @@ export default function HomePage() {
                 <button
                   key={item.label}
                   type="button"
-                  onClick={() => {
-                    setQuestion(item.prompt);
-                    void submitQuestion(item.prompt);
-                  }}
+                  onClick={() => setQuestion(item.prompt)}
                   className={cn(
                     'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors hover:border-primary',
                     item.featured

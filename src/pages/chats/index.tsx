@@ -235,6 +235,7 @@ export default function ChatsPage() {
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [citationsByMessageId, setCitationsByMessageId] = useState<Record<number, Citation[]>>({});
+  const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
 
   const activeConversationId = id ? Number(id) : null;
   const routeInitialQuestion =
@@ -366,6 +367,14 @@ export default function ChatsPage() {
   );
   const historyGroup = { label: '对话', items: filteredConversations };
 
+  useEffect(() => {
+    if (!activeConversationId || !initialQuestion) return;
+    const sendKey = `${activeConversationId}:${initialQuestion}`;
+    if (initialQuestionSentRef.current === sendKey) return;
+    setPendingInitialQuestion(initialQuestion);
+    setInputValue(initialQuestion);
+  }, [activeConversationId, initialQuestion]);
+
   const beginNewConversation = () => {
     recallAbortRef.current?.abort();
     setConversation(null);
@@ -483,7 +492,7 @@ export default function ChatsPage() {
 
   useEffect(() => {
     if (
-      !initialQuestion ||
+      !pendingInitialQuestion ||
       !activeConversationId ||
       !conversation ||
       conversation.id !== activeConversationId ||
@@ -495,20 +504,24 @@ export default function ChatsPage() {
       return;
     }
 
-    const sendKey = `${activeConversationId}:${initialQuestion}`;
+    const sendKey = `${activeConversationId}:${pendingInitialQuestion}`;
     if (initialQuestionSentRef.current === sendKey) return;
     initialQuestionSentRef.current = sendKey;
     sessionStorage.removeItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`);
-    navigate(location.pathname, { replace: true, state: {} });
-    void handleSend(initialQuestion);
+    setPendingInitialQuestion('');
+    void handleSend(pendingInitialQuestion);
+    if (routeInitialQuestion) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
   }, [
     activeConversationId,
     conversation,
     handleSend,
-    initialQuestion,
     loadingConversation,
     location.pathname,
     navigate,
+    pendingInitialQuestion,
+    routeInitialQuestion,
     selectedDatasetId,
     selectedModelConfigId,
     sending,
