@@ -45,6 +45,7 @@ import {
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO, LLMConfigDTO, MessageDTO, RecallHit } from '@/types/api';
 
 type LeftTab = 'history' | 'files';
+const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 
 interface Citation {
   id: string;
@@ -236,10 +237,14 @@ export default function ChatsPage() {
   const [citationsByMessageId, setCitationsByMessageId] = useState<Record<number, Citation[]>>({});
 
   const activeConversationId = id ? Number(id) : null;
-  const initialQuestion =
+  const routeInitialQuestion =
     typeof (location.state as { initialQuestion?: unknown } | null)?.initialQuestion === 'string'
       ? ((location.state as { initialQuestion: string }).initialQuestion.trim() ?? '')
       : '';
+  const storedInitialQuestion = activeConversationId
+    ? (sessionStorage.getItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`)?.trim() ?? '')
+    : '';
+  const initialQuestion = routeInitialQuestion || storedInitialQuestion;
   const displayName = user?.nickname || user?.username || '用户';
   const datasetById = useMemo(() => new Map(datasets.map((dataset) => [dataset.id, dataset])), [datasets]);
   const selectedDataset = selectedDatasetId ? datasetById.get(selectedDatasetId) : null;
@@ -493,6 +498,7 @@ export default function ChatsPage() {
     const sendKey = `${activeConversationId}:${initialQuestion}`;
     if (initialQuestionSentRef.current === sendKey) return;
     initialQuestionSentRef.current = sendKey;
+    sessionStorage.removeItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`);
     navigate(location.pathname, { replace: true, state: {} });
     void handleSend(initialQuestion);
   }, [

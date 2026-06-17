@@ -12,6 +12,7 @@ import { getDatasets, getRecentKnowledgeFiles } from '@/services/dataset';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 
 const presetQuestions = ['RAG 索引怎么配置', '帮我找最近的产品决策'];
+const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 
 const actionItems = [
   { id: 'upload', label: '上传文档', to: Routes.Datasets, state: { openUpload: true }, icon: FileUp },
@@ -136,6 +137,7 @@ export default function HomePage() {
     try {
       const title = content.length > 28 ? `${content.slice(0, 28)}...` : content;
       const conversation = await createConversation({ title, datasetId: targetDatasetId });
+      sessionStorage.setItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${conversation.id}`, content);
       navigate(`/chats/${conversation.id}`, { state: { initialQuestion: content } });
     } catch (error) {
       console.error('Failed to create conversation:', error);
