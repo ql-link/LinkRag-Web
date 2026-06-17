@@ -839,7 +839,7 @@ function ProviderConfigCard({
   const iconUrl = getProviderIcon(group.providerType, group.providerName);
   const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
   const presetCount = group.configs.length - selfCount;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <article
@@ -1097,7 +1097,7 @@ function ProviderPickerModal({
               没有匹配的厂商
             </div>
           ) : (
-            <div className="grid gap-2.5 p-4 min-h-[260px] sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-2.5 p-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
               {providers.map((provider) => {
                 const configured = configuredProviderTypes.has(provider.providerType);
                 return (
@@ -1139,13 +1139,13 @@ function AvailableProviderCard({
       type="button"
       onClick={onSetup}
       className={cn(
-        'group w-full rounded-xl border p-3.5 text-left transition-all duration-300',
+        'group h-fit w-full rounded-xl border p-3.5 text-left transition-all duration-300',
         darkMode
           ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-primary/50 hover:bg-[#232323]'
           : 'border-border-subtle bg-bg-base/55 hover:border-primary/35 hover:bg-white',
       )}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex min-h-8 items-center gap-2.5">
         <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -1411,7 +1411,8 @@ function ProviderIcon({
   darkMode?: boolean;
   size: 'sm' | 'md';
 }) {
-  const className = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  const className =
+    size === 'sm' ? 'h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8' : 'h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
 
   if (iconUrl) {
@@ -1419,14 +1420,14 @@ function ProviderIcon({
       <div
         className={cn(
           className,
-          'rounded-xl border shrink-0 transition-colors duration-300',
+          'overflow-hidden rounded-xl border shrink-0 transition-colors duration-300',
           darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-white border-border-subtle/50',
         )}
       >
         <img
           src={iconUrl}
           alt={name}
-          className={cn('h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+          className={cn('block h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
         />
       </div>
     );
