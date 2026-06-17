@@ -75,6 +75,7 @@ export function ProtectedLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const isChatRoute = location.pathname === RoutePaths.Chats || /^\/chats\/\d+$/.test(location.pathname);
+  const isHomePage = location.pathname === RoutePaths.Home;
   const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
@@ -212,7 +213,7 @@ export function ProtectedLayout() {
               </ErrorBoundary>
             </Panel>
           </Group>
-          {!isChatRoute && (
+          {!isChatRoute && !isHomePage && (
             <RightPanel collapsed={rightPanelCollapsed} onToggle={() => setRightPanelCollapsed((v) => !v)} />
           )}
         </>
