@@ -54,6 +54,10 @@ interface Citation {
   snippet: string;
 }
 
+interface SendOptions {
+  onStarted?: () => void;
+}
+
 function formatTime(value: string) {
   if (!value) return '-';
   const time = new Date(value);
@@ -387,17 +391,17 @@ export default function ChatsPage() {
   };
 
   const handleSend = useCallback(
-    async (overrideContent?: string) => {
+    async (overrideContent?: string, options?: SendOptions) => {
       const content = (overrideContent ?? inputValue).trim();
-      if (!content || sending) return;
+      if (!content || sending) return false;
       if (!selectedDatasetId) {
         setKbOpen(true);
-        return;
+        return false;
       }
       if (!selectedModelConfigId) {
         addToast('error', '请先选择对话模型');
         setModelOpen(true);
-        return;
+        return false;
       }
 
       let activeConversation = conversation;
@@ -417,7 +421,7 @@ export default function ChatsPage() {
       } catch (error) {
         console.error('Failed to create conversation:', error);
         addToast('error', '创建对话失败');
-        return;
+        return false;
       }
 
       const userMsg: MessageDTO = {
@@ -448,6 +452,7 @@ export default function ChatsPage() {
       recallAbortRef.current?.abort();
       const controller = new AbortController();
       recallAbortRef.current = controller;
+      options?.onStarted?.();
 
       try {
         const result = await recall({
@@ -477,6 +482,7 @@ export default function ChatsPage() {
         if (recallAbortRef.current === controller) recallAbortRef.current = null;
         setSending(false);
       }
+      return true;
     },
     [
       addToast,
@@ -507,12 +513,21 @@ export default function ChatsPage() {
     const sendKey = `${activeConversationId}:${pendingInitialQuestion}`;
     if (initialQuestionSentRef.current === sendKey) return;
     initialQuestionSentRef.current = sendKey;
-    sessionStorage.removeItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`);
-    setPendingInitialQuestion('');
-    void handleSend(pendingInitialQuestion);
-    if (routeInitialQuestion) {
-      navigate(location.pathname, { replace: true, state: {} });
-    }
+    let started = false;
+    void handleSend(pendingInitialQuestion, {
+      onStarted: () => {
+        started = true;
+        sessionStorage.removeItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`);
+        setPendingInitialQuestion('');
+        if (routeInitialQuestion) {
+          navigate(location.pathname, { replace: true, state: {} });
+        }
+      },
+    }).then((sent) => {
+      if (!sent && !started) {
+        initialQuestionSentRef.current = null;
+      }
+    });
   }, [
     activeConversationId,
     conversation,
