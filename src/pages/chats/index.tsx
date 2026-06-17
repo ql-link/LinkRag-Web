@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import {
   ChevronDown,
   ChevronUp,
@@ -8,6 +17,8 @@ import {
   Files,
   Loader2,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Send,
@@ -76,27 +87,6 @@ function recallErrorMessage(error: unknown): string {
     }
   }
   return error instanceof Error ? error.message : '召回失败';
-}
-
-function groupConversations(conversations: ConversationDTO[]) {
-  const now = new Date();
-  const today = now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const groups = [
-    { label: '今天', items: [] as ConversationDTO[] },
-    { label: '昨天', items: [] as ConversationDTO[] },
-    { label: '更早', items: [] as ConversationDTO[] },
-  ];
-
-  conversations.forEach((item) => {
-    const date = new Date(item.updatedAt || item.createdAt);
-    if (date.toDateString() === today) groups[0].items.push(item);
-    else if (date.toDateString() === yesterday.toDateString()) groups[1].items.push(item);
-    else groups[2].items.push(item);
-  });
-
-  return groups.filter((group) => group.items.length > 0);
 }
 
 function hitsToCitations(hits: RecallHit[], files: KnowledgeFileDTO[]): Citation[] {
@@ -212,14 +202,18 @@ function ThinkingBubble({ darkMode }: { darkMode?: boolean }) {
 export default function ChatsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { darkMode } = useTheme();
   const { user } = useAuth();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
+  const initialQuestionSentRef = useRef<string | null>(null);
 
   const [leftTab, setLeftTab] = useState<LeftTab>('history');
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [fileSearch, setFileSearch] = useState('');
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
@@ -242,6 +236,10 @@ export default function ChatsPage() {
   const [citationsByMessageId, setCitationsByMessageId] = useState<Record<number, Citation[]>>({});
 
   const activeConversationId = id ? Number(id) : null;
+  const initialQuestion =
+    typeof (location.state as { initialQuestion?: unknown } | null)?.initialQuestion === 'string'
+      ? ((location.state as { initialQuestion: string }).initialQuestion.trim() ?? '')
+      : '';
   const displayName = user?.nickname || user?.username || '用户';
   const datasetById = useMemo(() => new Map(datasets.map((dataset) => [dataset.id, dataset])), [datasets]);
   const selectedDataset = selectedDatasetId ? datasetById.get(selectedDatasetId) : null;
@@ -361,7 +359,7 @@ export default function ChatsPage() {
   const filteredFiles = files.filter((file) =>
     file.originalFilename.toLowerCase().includes(fileSearch.trim().toLowerCase()),
   );
-  const historyGroups = groupConversations(filteredConversations);
+  const historyGroup = { label: '对话', items: filteredConversations };
 
   const beginNewConversation = () => {
     recallAbortRef.current?.abort();
@@ -374,94 +372,141 @@ export default function ChatsPage() {
     navigate(Routes.Chats);
   };
 
-  const handleSend = async () => {
-    const content = inputValue.trim();
-    if (!content || sending) return;
-    if (!selectedDatasetId) {
-      setKbOpen(true);
-      return;
-    }
-    if (!selectedModelConfigId) {
-      addToast('error', '请先选择对话模型');
-      setModelOpen(true);
-      return;
-    }
-
-    let activeConversation = conversation;
-    try {
-      if (!activeConversation) {
-        activeConversation = await createConversation({
-          title: content.slice(0, 28) || '新的对话',
-          datasetId: selectedDatasetId,
-          lastConfigId: selectedModelConfigId,
-        });
-        setConversation(activeConversation);
-        setConversations((prev) => [activeConversation!, ...prev.filter((item) => item.id !== activeConversation!.id)]);
+  const handleSend = useCallback(
+    async (overrideContent?: string) => {
+      const content = (overrideContent ?? inputValue).trim();
+      if (!content || sending) return;
+      if (!selectedDatasetId) {
+        setKbOpen(true);
+        return;
       }
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
-      addToast('error', '创建对话失败');
-      return;
-    }
+      if (!selectedModelConfigId) {
+        addToast('error', '请先选择对话模型');
+        setModelOpen(true);
+        return;
+      }
 
-    const userMsg: MessageDTO = {
-      id: Date.now(),
-      conversationId: activeConversation.id,
-      role: 'user',
-      content,
-      configId: null,
-      modelName: null,
-      tokenCount: null,
-      createdAt: new Date().toISOString(),
-    };
-    const assistantId = Date.now() + 1;
-    const assistantMsg: MessageDTO = {
-      id: assistantId,
-      conversationId: activeConversation.id,
-      role: 'assistant',
-      content: '',
-      configId: selectedModelConfigId,
-      modelName: selectedModel?.modelName ?? null,
-      tokenCount: null,
-      createdAt: new Date().toISOString(),
-    };
+      let activeConversation = conversation;
+      try {
+        if (!activeConversation) {
+          activeConversation = await createConversation({
+            title: content.slice(0, 28) || '新的对话',
+            datasetId: selectedDatasetId,
+            lastConfigId: selectedModelConfigId,
+          });
+          setConversation(activeConversation);
+          setConversations((prev) => [
+            activeConversation!,
+            ...prev.filter((item) => item.id !== activeConversation!.id),
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to create conversation:', error);
+        addToast('error', '创建对话失败');
+        return;
+      }
 
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setInputValue('');
-    setSending(true);
-    recallAbortRef.current?.abort();
-    const controller = new AbortController();
-    recallAbortRef.current = controller;
-
-    try {
-      const result = await recall({
-        query: content,
-        datasetIds: [selectedDatasetId],
+      const userMsg: MessageDTO = {
+        id: Date.now(),
+        conversationId: activeConversation.id,
+        role: 'user',
+        content,
+        configId: null,
+        modelName: null,
+        tokenCount: null,
+        createdAt: new Date().toISOString(),
+      };
+      const assistantId = Date.now() + 1;
+      const assistantMsg: MessageDTO = {
+        id: assistantId,
+        conversationId: activeConversation.id,
+        role: 'assistant',
+        content: '',
         configId: selectedModelConfigId,
-        signal: controller.signal,
-        onAnswerDelta: (text) => {
+        modelName: selectedModel?.modelName ?? null,
+        tokenCount: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setInputValue('');
+      setSending(true);
+      recallAbortRef.current?.abort();
+      const controller = new AbortController();
+      recallAbortRef.current = controller;
+
+      try {
+        const result = await recall({
+          query: content,
+          datasetIds: [selectedDatasetId],
+          configId: selectedModelConfigId,
+          signal: controller.signal,
+          onAnswerDelta: (text) => {
+            setMessages((prev) =>
+              prev.map((msg) => (msg.id === assistantId ? { ...msg, content: msg.content + text } : msg)),
+            );
+          },
+        });
+        setCitationsByMessageId((prev) => ({ ...prev, [assistantId]: hitsToCitations(result.hits, files) }));
+        if (!result.answer && result.hits.length === 0) {
           setMessages((prev) =>
-            prev.map((msg) => (msg.id === assistantId ? { ...msg, content: msg.content + text } : msg)),
+            prev.map((msg) => (msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg)),
           );
-        },
-      });
-      setCitationsByMessageId((prev) => ({ ...prev, [assistantId]: hitsToCitations(result.hits, files) }));
-      if (!result.answer && result.hits.length === 0) {
-        setMessages((prev) =>
-          prev.map((msg) => (msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg)),
-        );
+        }
+      } catch (error) {
+        if (!isRecallAborted(error)) {
+          const message = recallErrorMessage(error);
+          setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? { ...msg, content: message } : msg)));
+          if (isRecallError(error)) addToast('error', message);
+        }
+      } finally {
+        if (recallAbortRef.current === controller) recallAbortRef.current = null;
+        setSending(false);
       }
-    } catch (error) {
-      if (!isRecallAborted(error)) {
-        const message = recallErrorMessage(error);
-        setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? { ...msg, content: message } : msg)));
-        if (isRecallError(error)) addToast('error', message);
-      }
-    } finally {
-      if (recallAbortRef.current === controller) recallAbortRef.current = null;
-      setSending(false);
+    },
+    [
+      addToast,
+      conversation,
+      files,
+      inputValue,
+      selectedDatasetId,
+      selectedModel?.modelName,
+      selectedModelConfigId,
+      sending,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      !initialQuestion ||
+      !activeConversationId ||
+      !conversation ||
+      conversation.id !== activeConversationId ||
+      !selectedDatasetId ||
+      !selectedModelConfigId ||
+      loadingConversation ||
+      sending
+    ) {
+      return;
     }
-  };
+
+    const sendKey = `${activeConversationId}:${initialQuestion}`;
+    if (initialQuestionSentRef.current === sendKey) return;
+    initialQuestionSentRef.current = sendKey;
+    navigate(location.pathname, { replace: true, state: {} });
+    void handleSend(initialQuestion);
+  }, [
+    activeConversationId,
+    conversation,
+    handleSend,
+    initialQuestion,
+    loadingConversation,
+    location.pathname,
+    navigate,
+    selectedDatasetId,
+    selectedModelConfigId,
+    sending,
+  ]);
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -474,6 +519,7 @@ export default function ChatsPage() {
     if (!selectedDatasetId) {
       setKbOpen(true);
       setLeftTab('history');
+      setLeftPanelCollapsed(false);
       setDragging(false);
       return;
     }
@@ -508,16 +554,19 @@ export default function ChatsPage() {
     <div className={cn('flex h-full min-h-0 gap-3 p-4', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
       <aside
         className={cn(
-          'flex h-full w-[292px] min-w-[292px] overflow-hidden rounded-3xl border shadow-sm transition-all duration-500',
+          'flex h-full overflow-hidden rounded-3xl border shadow-sm transition-all duration-300',
+          leftPanelCollapsed ? 'w-[64px] min-w-[64px]' : 'w-[292px] min-w-[292px]',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
         )}
       >
         <Sidebar forceCollapsed allowCollapse={false} className="h-full rounded-none border-0 shadow-none" />
         <div
           className={cn(
-            'flex h-full w-[228px] min-w-[228px] flex-none flex-col border-l opacity-100 transition-all duration-500',
+            'flex h-full flex-none flex-col overflow-hidden border-l transition-all duration-300',
+            leftPanelCollapsed ? 'w-0 min-w-0 opacity-0 pointer-events-none' : 'w-[228px] min-w-[228px] opacity-100',
             darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           )}
+          aria-hidden={leftPanelCollapsed}
         >
           <div className="flex h-14 shrink-0 items-center gap-2 px-3">
             {(['history', 'files'] as LeftTab[]).map((tab) => (
@@ -539,6 +588,20 @@ export default function ChatsPage() {
                 {tab === 'history' ? '历史对话' : `文件 · ${files.length}`}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setLeftPanelCollapsed(true)}
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors',
+                darkMode
+                  ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                  : 'text-text-main/45 hover:bg-primary/8 hover:text-text-main',
+              )}
+              title="收起对话列表"
+              aria-label="收起对话列表"
+            >
+              <PanelLeftClose size={15} />
+            </button>
           </div>
 
           {leftTab === 'history' ? (
@@ -550,7 +613,7 @@ export default function ChatsPage() {
                   'mb-3 flex h-10 items-center justify-center gap-2 rounded-2xl text-xs font-bold transition-colors',
                   darkMode
                     ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#353535]'
-                    : 'bg-text-main text-white hover:opacity-90',
+                    : 'bg-[#7B6B5D] text-white hover:bg-[#6b5d51]',
                 )}
               >
                 <Plus size={14} />
@@ -575,66 +638,56 @@ export default function ChatsPage() {
                   <div className="flex h-full items-center justify-center">
                     <Loader2 size={16} className="animate-spin" />
                   </div>
-                ) : historyGroups.length === 0 ? (
+                ) : historyGroup.items.length === 0 ? (
                   <p className={cn('px-2 py-8 text-center text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
                     暂无历史对话
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    {historyGroups.map((group) => (
-                      <div key={group.label}>
-                        <p className={cn('mono-label mb-2 px-2 !text-[9px]', darkMode && 'text-[#858585]')}>
-                          {group.label}
-                        </p>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setHistoryCollapsed((value) => !value)}
+                        className={cn(
+                          'mb-1 flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs font-bold transition-colors',
+                          darkMode ? 'text-[#bdbdbd] hover:text-[#e0e0e0]' : 'text-text-main/75 hover:text-text-main',
+                        )}
+                        aria-expanded={!historyCollapsed}
+                      >
+                        <span>{historyGroup.label}</span>
+                        <ChevronDown
+                          size={12}
+                          className={cn('transition-transform', historyCollapsed && '-rotate-90')}
+                        />
+                      </button>
+                      {!historyCollapsed && (
                         <div className="space-y-1">
-                          {group.items.map((item) => {
+                          {historyGroup.items.map((item) => {
                             const active = conversation?.id === item.id || activeConversationId === item.id;
                             return (
                               <button
                                 key={item.id}
                                 type="button"
                                 onClick={() => navigate(`/chats/${item.id}`)}
+                                title={datasetById.get(item.datasetId)?.name ?? `知识库 #${item.datasetId}`}
                                 className={cn(
-                                  'relative w-full rounded-xl border px-3 py-2 text-left transition-colors',
+                                  'relative flex h-9 w-full items-center rounded-xl px-3 text-left text-sm font-medium transition-colors',
                                   active
                                     ? darkMode
-                                      ? 'border-[#3c3c3c] bg-[#2d2d2d]'
-                                      : 'border-border-subtle bg-white'
+                                      ? 'bg-[#2d2d2d] text-[#e0e0e0]'
+                                      : 'bg-primary/8 text-text-main'
                                     : darkMode
-                                      ? 'border-transparent text-[#cccccc] hover:bg-[#2d2d2d]'
-                                      : 'border-transparent hover:bg-primary/8',
+                                      ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                                      : 'text-text-main hover:bg-primary/6',
                                 )}
                               >
-                                {active && (
-                                  <span
-                                    className={cn(
-                                      'absolute left-1 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full',
-                                      darkMode ? 'bg-[#3b82f6]' : 'bg-primary',
-                                    )}
-                                  />
-                                )}
-                                <p
-                                  className={cn(
-                                    'truncate pl-2 text-xs font-bold',
-                                    darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                                  )}
-                                >
-                                  {item.title}
-                                </p>
-                                <p
-                                  className={cn(
-                                    'mt-1 truncate pl-2 text-[10px]',
-                                    darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                                  )}
-                                >
-                                  {datasetById.get(item.datasetId)?.name ?? `知识库 #${item.datasetId}`}
-                                </p>
+                                <span className="truncate">{item.title}</span>
                               </button>
                             );
                           })}
                         </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -748,16 +801,34 @@ export default function ChatsPage() {
             darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           )}
         >
-          <div className="min-w-0 flex-1">
-            <h1
-              className={cn(
-                'break-words text-xl leading-snug serif-heading',
-                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-              )}
-              title={conversation?.title ?? '新的对话'}
-            >
-              {conversation?.title ?? '新的对话'}
-            </h1>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            {leftPanelCollapsed && (
+              <button
+                type="button"
+                onClick={() => setLeftPanelCollapsed(false)}
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors',
+                  darkMode
+                    ? 'border-[#3c3c3c] text-[#858585] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                    : 'border-border-subtle text-text-main/45 hover:border-primary/45 hover:bg-primary/8 hover:text-text-main',
+                )}
+                title="展开对话列表"
+                aria-label="展开对话列表"
+              >
+                <PanelLeftOpen size={16} />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1
+                className={cn(
+                  'break-words text-xl leading-snug serif-heading',
+                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                )}
+                title={conversation?.title ?? '新的对话'}
+              >
+                {conversation?.title ?? '新的对话'}
+              </h1>
+            </div>
           </div>
           <button
             type="button"
