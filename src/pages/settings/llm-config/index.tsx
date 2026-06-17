@@ -25,15 +25,16 @@ const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [7, ['volcengine', 'volc', 'doubao', 'byte', 'bytedance']],
   [8, ['baichuan']],
   [9, ['minimax']],
-  [10, ['azure', 'azureopenai']],
-  [11, ['mistral']],
-  [12, ['cohere']],
-  [13, ['perplexity']],
-  [14, ['xai']],
-  [15, ['openrouter']],
-  [16, ['siliconflow']],
-  [17, ['stepfun']],
-  [18, ['hunyuan', 'tencentcloud', 'tencent']],
+  [10, ['mimo', 'xiaomi', 'xiaomimimo']],
+  [11, ['azure', 'azureopenai']],
+  [12, ['mistral']],
+  [13, ['cohere']],
+  [14, ['perplexity']],
+  [15, ['xai']],
+  [16, ['openrouter']],
+  [17, ['siliconflow']],
+  [18, ['stepfun']],
+  [19, ['hunyuan', 'tencentcloud', 'tencent']],
 ];
 
 const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
@@ -606,7 +607,9 @@ function EffectiveModelsPanel({
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
             const isOpen = openCapability === capability.value;
-            const selectedIcon = current ? getProviderIcon(current.providerType, current.providerName) : '';
+            const selectedIcon = current
+              ? getProviderIcon(current.providerType, current.providerName, current.modelName)
+              : '';
             return (
               <div
                 key={capability.value}
@@ -690,7 +693,7 @@ function EffectiveModelsPanel({
                   >
                     <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
                       {candidates.map((config) => {
-                        const optionIcon = getProviderIcon(config.providerType, config.providerName);
+                        const optionIcon = getProviderIcon(config.providerType, config.providerName, config.modelName);
                         return (
                           <button
                             type="button"
