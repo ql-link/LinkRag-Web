@@ -171,7 +171,7 @@ function FilesPage() {
         }}>
           <span>共 {filtered.length} 个文件</span>
           <span style={{ color: dark ? '#3C3C3C' : 'rgba(26,26,26,0.15)' }}>|</span>
-          <span>支持 md / markdown / pdf / docx</span>
+          <span>支持 md / pdf / docx / txt</span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

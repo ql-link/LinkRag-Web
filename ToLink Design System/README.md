@@ -1,5 +1,11 @@
 # ToLink / LinkRag Design System
 
+## Using this system
+
+- **Styles:** link `styles.css` (it `@import`s every token layer under `tokens/` plus the `.art-card` / `.frosted-panel` utilities). All theming is driven by CSS custom properties; add `class="dark"` to a container (or `<html>`) to switch to the VSCode-inspired dark theme.
+- **Components:** `Button`, `Badge`, and `Card` are importable React components — load `_ds_bundle.js` and read them off `window.ToLinkLinkRagDesignSystem_fa9960`. See each component's folder under `components/` for the `.d.ts` prop contract and a live thumbnail.
+- **Assets:** logos and LLM provider marks live in `assets/`; copy the ones you need into your artifact.
+
 ## Product Context
 
 **LinkRag** (branded as **ToLink Knowledge Workspace**) is an AI-powered knowledge management platform. Users upload documents (PDF, DOCX, Markdown), which are chunked, vector-indexed, and made searchable through a conversational RAG (Retrieval-Augmented Generation) interface. The product supports multiple LLM providers (OpenAI, Claude, Gemini, Deepseek, Qwen, etc.) and organizes knowledge into datasets.
@@ -215,7 +221,17 @@ Logo files:
 ```
 ├── README.md                  ← this file
 ├── SKILL.md                   ← agent skill manifest
-├── colors_and_type.css        ← all CSS custom properties + font faces + utility classes
+├── styles.css                 ← root stylesheet — @imports the token layers + global utilities
+├── tokens/
+│   ├── fonts.css              ← @font-face declarations
+│   ├── colors.css             ← color custom properties (light + .dark)
+│   ├── typography.css         ← font stacks + semantic type classes
+│   └── spacing.css            ← spacing scale, radii, shadows, motion
+│
+├── components/                ← importable React components (.jsx + .d.ts + live thumbnail)
+│   ├── Button/
+│   ├── Badge/
+│   └── Card/
 │
 ├── fonts/                     ← woff2 font files
 │   ├── PlayfairDisplay-*.woff2   (4 weights)
@@ -232,22 +248,11 @@ Logo files:
 │   ├── favicon.png / favicon-v2.png
 │   └── providers/             ← LLM provider SVG logos (13 files)
 │
-├── preview/                   ← Design System tab preview cards
-│   ├── colors-primary.html
-│   ├── colors-neutral.html
-│   ├── colors-semantic.html
-│   ├── colors-dark.html
-│   ├── type-serif-display.html
-│   ├── type-body-mono.html
-│   ├── type-scale.html
-│   ├── spacing-radii.html
-│   ├── spacing-shadows.html
-│   ├── comp-buttons.html
-│   ├── comp-cards.html
-│   ├── comp-inputs.html
-│   ├── comp-badges.html
-│   ├── comp-nav.html
-│   ├── comp-dialogs.html
+├── preview/                   ← Design System tab spec cards (@dsCard tagged)
+│   ├── colors-primary.html · colors-neutral.html · colors-semantic.html · colors-dark.html
+│   ├── type-serif-display.html · type-body-mono.html · type-scale.html
+│   ├── spacing-radii.html · spacing-shadows.html
+│   ├── comp-inputs.html · comp-nav.html · comp-dialogs.html
 │   └── brand-logos.html
 │
 └── ui_kits/
