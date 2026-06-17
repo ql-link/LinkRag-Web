@@ -50,11 +50,11 @@ interface CapabilityMeta {
 
 const CAPABILITIES: Array<CapabilityMeta & { value: LLMCapability }> = [
   { value: 'CHAT', label: '对话', hint: '对话' },
-  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量' },
-  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量' },
-  { value: 'RERANK', label: '重排', hint: '重排' },
   { value: 'VISION', label: '视觉', hint: '视觉' },
   { value: 'ASR', label: '语音识别', hint: '语音识别' },
+  { value: 'RERANK', label: '重排', hint: '重排' },
+  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量' },
+  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量' },
 ];
 
 const EFFECTIVE_MODEL_CAPABILITIES = CAPABILITIES;
