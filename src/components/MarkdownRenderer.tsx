@@ -33,6 +33,17 @@ const extractText = (children: React.ReactNode): string => {
   return '';
 };
 
+const getPlainTextChildren = (children: React.ReactNode): string | null => {
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children)) {
+    const parts = children.map(getPlainTextChildren);
+    return parts.every((part): part is string => part !== null) ? parts.join('') : null;
+  }
+  return null;
+};
+
+const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|`[^`\n]+?`|\[[^\]\n]+?\]\([^)]+?\))/;
+
 const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
 
 type CodeBlockFrameProps = {
@@ -252,6 +263,37 @@ const BlockquoteRenderer = ({
   );
 };
 
+function InlineMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ node: _node, children }) => <>{children}</>,
+        code: CodeRenderer as Components['code'],
+        a: ({ node: _node, href, className: linkClassName, ...props }) => (
+          <a
+            href={href}
+            target={isExternalHref(href) ? '_blank' : undefined}
+            rel={isExternalHref(href) ? 'noopener noreferrer' : undefined}
+            className={cn('underline-offset-4', linkClassName)}
+            {...props}
+          />
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+function TableCellContent({ children }: { children: React.ReactNode }) {
+  const plainText = getPlainTextChildren(children);
+  if (plainText && INLINE_MARKDOWN_PATTERN.test(plainText)) {
+    return <InlineMarkdown content={plainText} />;
+  }
+  return <>{children}</>;
+}
+
 function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data);
   if (entries.length === 0) return null;
@@ -292,20 +334,24 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
         <table className={cn('w-full border-collapse text-sm', tableClassName)} {...props} />
       </div>
     ),
-    th: ({ node: _node, className: thClassName, ...props }) => (
+    th: ({ node: _node, className: thClassName, children, ...props }) => (
       <th
         className={cn(
           'border-b border-border-subtle bg-black/5 px-3 py-2 text-left font-semibold text-text-main dark:bg-white/5',
           thClassName,
         )}
         {...props}
-      />
+      >
+        <TableCellContent>{children}</TableCellContent>
+      </th>
     ),
-    td: ({ node: _node, className: tdClassName, ...props }) => (
+    td: ({ node: _node, className: tdClassName, children, ...props }) => (
       <td
         className={cn('border-b border-border-subtle px-3 py-2 align-top text-text-main last:border-b-0', tdClassName)}
         {...props}
-      />
+      >
+        <TableCellContent>{children}</TableCellContent>
+      </td>
     ),
     a: ({ node: _node, href, className: linkClassName, ...props }) => (
       <a

@@ -16,8 +16,8 @@ const CJK_CHAR_CLASS = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\
 function normalizeInlineMarkdown(text: string): string {
   return text
     .replace(/\\n/g, '\n')
-    .replace(new RegExp(`([${CJK_CHAR_CLASS}])\\*\\*([^*\\n]+?)\\*\\*`, 'gu'), '$1<strong>$2</strong>')
-    .replace(new RegExp(`\\*\\*([^*\\n]+?)\\*\\*([${CJK_CHAR_CLASS}])`, 'gu'), '<strong>$1</strong>$2');
+    .replace(new RegExp(`([${CJK_CHAR_CLASS}])\\*\\*([^*\\n|]+?)\\*\\*`, 'gu'), '$1<strong>$2</strong>')
+    .replace(new RegExp(`\\*\\*([^*\\n|]+?)\\*\\*([${CJK_CHAR_CLASS}])`, 'gu'), '<strong>$1</strong>$2');
 }
 
 function normalizeMarkdownContent(content: string): string {
