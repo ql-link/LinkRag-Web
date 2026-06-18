@@ -140,7 +140,7 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 
   return (
     <div
-      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-white/50 p-4 dark:bg-[#1e1e1e]"
+      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-white/50 p-4 dark:bg-[#1e1e1e] [&_svg]:h-auto [&_svg]:max-w-none"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );

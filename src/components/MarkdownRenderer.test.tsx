@@ -66,6 +66,8 @@ describe('MarkdownRenderer', () => {
 
     expect(diagramBlock).toBeInstanceOf(HTMLDivElement);
     expect(diagramBlock?.closest('pre')).toBeNull();
+    expect(diagramBlock).toHaveClass('overflow-x-auto');
+    expect(diagramBlock).toHaveClass('[&_svg]:max-w-none');
   });
 
   it('falls back to a code block when mermaid syntax is invalid', async () => {
