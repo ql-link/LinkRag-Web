@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 @import './styles/fonts.css';
 @import './styles/animations.css';
 
@@ -264,6 +265,44 @@
   font-weight: 700;
   letter-spacing: -0.005em;
   line-height: 1.45;
+}
+
+/* ===== Markdown Content ===== */
+
+@layer components {
+  .markdown-body .contains-task-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .markdown-body .task-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .markdown-body .task-list-item > input[type='checkbox'] {
+    margin-top: 0.45em;
+    flex: 0 0 auto;
+  }
+
+  .markdown-body .footnotes {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--color-border-subtle);
+    padding-top: 1rem;
+    font-size: 0.875rem;
+    color: color-mix(in oklab, var(--color-text-main) 70%, transparent);
+  }
+
+  .markdown-body .data-footnote-backref {
+    margin-left: 0.25rem;
+    text-decoration: none;
+  }
+
+  .markdown-body svg {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 /* ===== Scrollbar ===== */
