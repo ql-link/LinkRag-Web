@@ -74,7 +74,8 @@ export function ProtectedLayout() {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
-  const isChatDetailPage = /^\/chats\/\d+$/.test(location.pathname);
+  const isChatRoute = location.pathname === RoutePaths.Chats || /^\/chats\/\d+$/.test(location.pathname);
+  const isHomePage = location.pathname === RoutePaths.Home;
   const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export function ProtectedLayout() {
       )}
     >
       {/* Mobile Header */}
-      {!isChatDetailPage && (
+      {!isChatRoute && (
         <header
           className={cn(
             'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
@@ -132,7 +133,7 @@ export function ProtectedLayout() {
 
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {mobileSidebarOpen && !isChatDetailPage && (
+        {mobileSidebarOpen && !isChatRoute && (
           <>
             <motion.button
               className="fixed inset-0 z-40 bg-black/40 lg:hidden"
@@ -172,7 +173,7 @@ export function ProtectedLayout() {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      {!isChatDetailPage && <Sidebar className="hidden lg:flex" />}
+      {!isChatRoute && <Sidebar className="hidden lg:flex" />}
 
       {/* Main Content */}
       {isMobile ? (
@@ -195,7 +196,7 @@ export function ProtectedLayout() {
       ) : (
         <>
           <Group orientation="horizontal" className="flex-1 min-w-0">
-            <Panel defaultSize={isChatDetailPage ? 100 : 80} minSize={50}>
+            <Panel defaultSize={isChatRoute ? 100 : 80} minSize={50}>
               <ErrorBoundary>
                 <AnimatePresence mode="sync" initial={false}>
                   <motion.div
@@ -212,14 +213,14 @@ export function ProtectedLayout() {
               </ErrorBoundary>
             </Panel>
           </Group>
-          {!isChatDetailPage && (
+          {!isChatRoute && !isHomePage && (
             <RightPanel collapsed={rightPanelCollapsed} onToggle={() => setRightPanelCollapsed((v) => !v)} />
           )}
         </>
       )}
 
       {/* Mobile Bottom Nav */}
-      {!isChatDetailPage && <MobileNav />}
+      {!isChatRoute && <MobileNav />}
     </div>
   );
 }

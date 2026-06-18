@@ -11,11 +11,41 @@ export interface MarkdownTocItem {
   level: number;
 }
 
+const CJK_CHAR_CLASS = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}';
+
+function normalizeInlineMarkdown(text: string): string {
+  return text
+    .replace(/\\n/g, '\n')
+    .replace(new RegExp(`([${CJK_CHAR_CLASS}])\\*\\*([^*\\n]+?)\\*\\*`, 'gu'), '$1<strong>$2</strong>')
+    .replace(new RegExp(`\\*\\*([^*\\n]+?)\\*\\*([${CJK_CHAR_CLASS}])`, 'gu'), '<strong>$1</strong>$2');
+}
+
+function normalizeMarkdownContent(content: string): string {
+  return content
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
+    .map((block) => {
+      if (block.startsWith('```') || block.startsWith('~~~')) return block;
+
+      return block
+        .split(/(`[^`\n]*`)/g)
+        .map((part) => (part.startsWith('`') ? part : normalizeInlineMarkdown(part)))
+        .join('');
+    })
+    .join('')
+    .replace(
+      new RegExp(
+        `(^|\\n)([ \\t]*(?![-*+]\\s+|\\d+\\.\\s+)[^\\n]*[${CJK_CHAR_CLASS}，。；：！？）】》」』])\\n([ \\t]*(?:[-*+]\\s+|\\d+\\.\\s+))`,
+        'gu',
+      ),
+      '$1$2\n\n$3',
+    );
+}
+
 export function parseMarkdownContent(markdown: string): ParsedMarkdown {
   const match = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(markdown);
   if (!match) {
     return {
-      content: markdown.trim(),
+      content: normalizeMarkdownContent(markdown.trim()),
       frontmatter: {},
     };
   }
@@ -31,7 +61,7 @@ export function parseMarkdownContent(markdown: string): ParsedMarkdown {
   }
 
   return {
-    content: markdown.slice(match[0].length).trim(),
+    content: normalizeMarkdownContent(markdown.slice(match[0].length).trim()),
     frontmatter,
   };
 }

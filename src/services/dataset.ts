@@ -65,7 +65,7 @@ export async function getRecentKnowledgeFiles(limit = 5): Promise<KnowledgeFileD
       const filesResult = await getKnowledgeFiles(dataset.id, 1, limit, {
         uploadStatus: 'UPLOAD_SUCCESS',
       });
-      return filesResult.items;
+      return enrichKnowledgeFilesWithParseResults(dataset.id, filesResult.items);
     }),
   );
 
