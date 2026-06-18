@@ -35,6 +35,10 @@
 
   --color-btn-primary: #7b6b5d;
   --color-btn-text: #ffffff;
+  --color-success: #22c55e;
+  --color-error: #d97373;
+  --color-info: #3b82f6;
+  --color-warning: #f59e0b;
   --color-state-success: #22c55e;
   --color-state-error: #d97373;
   --color-state-info: #3b82f6;

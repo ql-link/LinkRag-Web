@@ -1,77 +1,195 @@
 /* ===== Keyframe Animations ===== */
 
 @keyframes float-slow {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-14px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
 }
 
 @keyframes float-delay {
-  0%, 100% { transform: translateY(0px) translateX(0px); }
-  50% { transform: translateY(-10px) translateX(8px); }
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(8px);
+  }
 }
 
 @keyframes ribbonDrift {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -12px, 0); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
 }
 
 @keyframes datasetDropdownIn {
-  from { opacity: 0; transform: translateY(-6px) scaleY(0.97); }
-  to { opacity: 1; transform: translateY(0) scaleY(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
 }
 
 @keyframes demoFlow {
-  0% { transform: translateX(-18px) scaleX(0.08); opacity: 0; }
-  25% { opacity: 0.85; }
-  100% { transform: translateX(220px) scaleX(0.16); opacity: 0; }
+  0% {
+    transform: translateX(-18px) scaleX(0.08);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(220px) scaleX(0.16);
+    opacity: 0;
+  }
 }
 
 @keyframes demoPulse {
-  0%, 100% { transform: scale(0.92); opacity: 0.55; }
-  50% { transform: scale(1.16); opacity: 0.18; }
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.18;
+  }
 }
 
 @keyframes demoSpark {
-  0%, 100% { transform: scale(0.75) rotate(45deg); opacity: 0.28; }
-  50% { transform: scale(1.28) rotate(45deg); opacity: 0.88; }
+  0%,
+  100% {
+    transform: scale(0.75) rotate(45deg);
+    opacity: 0.28;
+  }
+  50% {
+    transform: scale(1.28) rotate(45deg);
+    opacity: 0.88;
+  }
 }
 
 @keyframes indexDashFlow {
-  0% { stroke-dashoffset: 36; }
-  100% { stroke-dashoffset: -36; }
+  0% {
+    stroke-dashoffset: 36;
+  }
+  100% {
+    stroke-dashoffset: -36;
+  }
 }
 
 @keyframes indexEsWrite {
-  0%, 100% { transform: translateX(0); opacity: 0.72; }
-  50% { transform: translateX(4px); opacity: 1; }
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateX(4px);
+    opacity: 1;
+  }
 }
 
 @keyframes uploadReveal {
-  0%, 24% { transform: translateX(14px) scale(0.96); opacity: 0; }
-  36% { transform: translateX(6px) scale(0.98); opacity: 0.85; }
-  58% { transform: translateX(0) scale(1); opacity: 1; }
-  82% { transform: translateX(0) scale(1); opacity: 1; }
-  100% { transform: translateX(14px) scale(0.96); opacity: 0; }
+  0%,
+  24% {
+    transform: translateX(14px) scale(0.96);
+    opacity: 0;
+  }
+  36% {
+    transform: translateX(6px) scale(0.98);
+    opacity: 0.85;
+  }
+  58% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  82% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(14px) scale(0.96);
+    opacity: 0;
+  }
+}
+
+@keyframes chatRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chatBlink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
 @keyframes multiNodePulse {
-  0%, 100% { transform: scale(1); opacity: 0.92; }
-  50% { transform: scale(1.06); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
 }
 
 @keyframes multiCoreBreathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.04); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
 }
 
 @keyframes multiCoreDot {
-  0%, 100% { transform: scale(0.86); opacity: 0.55; }
-  50% { transform: scale(1.22); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
 }
 
 @keyframes multiChannelActivate {
-  0%, 100% { transform: translateX(0) scale(1); }
-  50% { transform: translateX(4px) scale(1.025); }
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(4px) scale(1.025);
+  }
 }
 
 /* ===== Animation Utility Classes ===== */
@@ -86,6 +204,14 @@
 
 .welcome-ribbon {
   animation: ribbonDrift 16s ease-in-out infinite;
+}
+
+.chat-rise {
+  animation: chatRise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.chat-thinking-dot {
+  animation: chatBlink 1.2s ease-in-out infinite;
 }
 
 /* ===== Welcome Page Demo Styles ===== */
