@@ -127,66 +127,11 @@ type CodeRendererProps = ComponentPropsWithoutRef<'code'> & {
   node?: unknown;
 };
 
-const CodeRenderer = ({ inline, className, children, node: _node, ...props }: CodeRendererProps) => {
-  const [copied, setCopied] = useState(false);
-  const { darkMode } = useTheme();
-  const code = String(children).replace(/\n$/, '');
-  const languageMatch = /language-([\w-]+)/.exec(className || '');
-  const language = languageMatch?.[1] ?? '';
+const codeLanguagePattern = /language-([\w-]+)/;
 
-  if (!inline && language === 'mermaid') {
-    return <MermaidChart chart={code} darkMode={darkMode} />;
-  }
+const getCodeLanguage = (className?: string) => codeLanguagePattern.exec(className || '')?.[1] ?? '';
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (!inline && language) {
-    return (
-      <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
-        <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
-          <div className="flex items-center gap-2">
-            <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <FileCode2 size={15} strokeWidth={1.8} />
-            </span>
-            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
-              {language}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
-            title="复制代码"
-          >
-            {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-            {copied ? '已复制' : '复制'}
-          </button>
-        </div>
-        <SyntaxHighlighter
-          style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
-          language={language}
-          PreTag="div"
-          customStyle={{
-            margin: 0,
-            padding: '1.125rem 1rem',
-            background: 'transparent',
-            fontSize: '0.875rem',
-            lineHeight: '1.65',
-          }}
-          codeTagProps={{
-            style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
-          }}
-        >
-          {code}
-        </SyntaxHighlighter>
-      </div>
-    );
-  }
-
+const CodeRenderer = ({ className, children, node: _node, ...props }: CodeRendererProps) => {
   return (
     <code
       className={cn(
@@ -197,6 +142,96 @@ const CodeRenderer = ({ inline, className, children, node: _node, ...props }: Co
     >
       {children}
     </code>
+  );
+};
+
+type PreRendererProps = ComponentPropsWithoutRef<'pre'> & {
+  node?: unknown;
+};
+
+const getCodeElement = (children: React.ReactNode): React.ReactElement<CodeRendererProps> | null => {
+  const [firstChild] = React.Children.toArray(children);
+  return React.isValidElement<CodeRendererProps>(firstChild) ? firstChild : null;
+};
+
+const PreRenderer = ({ children, node: _node, ...props }: PreRendererProps) => {
+  const [copied, setCopied] = useState(false);
+  const { darkMode } = useTheme();
+  const codeElement = getCodeElement(children);
+
+  if (!codeElement) {
+    return <pre {...props}>{children}</pre>;
+  }
+
+  const code = codeElement ? extractText(codeElement.props.children).replace(/\n$/, '') : extractText(children);
+  const language = getCodeLanguage(codeElement?.props.className);
+
+  if (language === 'mermaid') {
+    return <MermaidChart chart={code} darkMode={darkMode} />;
+  }
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
+      <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
+        <div className="flex items-center gap-2">
+          <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileCode2 size={15} strokeWidth={1.8} />
+          </span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
+            {language || 'text'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
+          title="复制代码"
+        >
+          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
+        language={language || 'text'}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          padding: '1.125rem 1rem',
+          background: 'transparent',
+          fontSize: '0.875rem',
+          lineHeight: '1.65',
+        }}
+        codeTagProps={{
+          style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
+
+const BlockquoteRenderer = ({
+  node: _node,
+  className,
+  ...props
+}: ComponentPropsWithoutRef<'blockquote'> & { node?: unknown }) => {
+  return (
+    <blockquote
+      className={cn(
+        'not-prose my-8 rounded-r-lg border-l-2 border-primary bg-black/5 px-5 py-3 text-text-main dark:bg-white/5',
+        '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main',
+        className,
+      )}
+      {...props}
+    />
   );
 };
 
@@ -227,6 +262,8 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
 
   const components: Components = {
     code: CodeRenderer as Components['code'],
+    pre: PreRenderer as Components['pre'],
+    blockquote: BlockquoteRenderer as Components['blockquote'],
     h1: (props) => <HeadingRenderer level={1} getHeadingId={getHeadingId} {...props} />,
     h2: (props) => <HeadingRenderer level={2} getHeadingId={getHeadingId} {...props} />,
     h3: (props) => <HeadingRenderer level={3} getHeadingId={getHeadingId} {...props} />,
