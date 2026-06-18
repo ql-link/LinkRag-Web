@@ -1,15 +1,18 @@
 import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
+const mermaidMock = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  parse: vi.fn(async (): Promise<{ diagramType: string } | false> => ({ diagramType: 'flowchart-v2' })),
+  render: vi.fn(async () => ({
+    svg: '<svg data-testid="mermaid-svg" role="img"></svg>',
+  })),
+}));
+
 vi.mock('mermaid', () => ({
-  default: {
-    initialize: vi.fn(),
-    render: vi.fn(async () => ({
-      svg: '<svg data-testid="mermaid-svg" role="img"></svg>',
-    })),
-  },
+  default: mermaidMock,
 }));
 
 vi.mock('react-syntax-highlighter', () => ({
@@ -26,6 +29,13 @@ vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({
 }));
 
 describe('MarkdownRenderer', () => {
+  beforeEach(() => {
+    mermaidMock.initialize.mockClear();
+    mermaidMock.render.mockClear();
+    mermaidMock.parse.mockReset();
+    mermaidMock.parse.mockResolvedValue({ diagramType: 'flowchart-v2' });
+  });
+
   it('renders fenced code blocks in a custom block outside markdown pre wrappers', () => {
     render(<MarkdownRenderer content={'```ts\nconst value = 1;\n```'} />);
 
@@ -56,6 +66,16 @@ describe('MarkdownRenderer', () => {
 
     expect(diagramBlock).toBeInstanceOf(HTMLDivElement);
     expect(diagramBlock?.closest('pre')).toBeNull();
+  });
+
+  it('falls back to a code block when mermaid syntax is invalid', async () => {
+    mermaidMock.parse.mockResolvedValueOnce(false);
+
+    render(<MarkdownRenderer content={'```mermaid\nconst value = 1;\n```'} />);
+
+    expect(await screen.findByText('Mermaid 语法错误，已按代码块显示')).toBeInTheDocument();
+    expect(screen.getByTestId('syntax-highlighter')).toHaveTextContent('const value = 1;');
+    expect(screen.queryByTestId('mermaid-svg')).not.toBeInTheDocument();
   });
 
   it('renders blockquotes with the explicit quote block style', () => {

@@ -35,6 +35,69 @@ const extractText = (children: React.ReactNode): string => {
 
 const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
 
+type CodeBlockFrameProps = {
+  code: string;
+  language: string;
+  notice?: string;
+};
+
+const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
+  const [copied, setCopied] = useState(false);
+  const { darkMode } = useTheme();
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
+      <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
+        <div className="flex items-center gap-2">
+          <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileCode2 size={15} strokeWidth={1.8} />
+          </span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
+            {language || 'text'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
+          title="复制代码"
+        >
+          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+      {notice && (
+        <div className="border-b border-border-subtle bg-state-error/10 px-4 py-2 text-xs font-medium text-state-error">
+          {notice}
+        </div>
+      )}
+      <SyntaxHighlighter
+        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
+        language={language || 'text'}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          padding: '1.125rem 1rem',
+          background: 'transparent',
+          fontSize: '0.875rem',
+          lineHeight: '1.65',
+        }}
+        codeTagProps={{
+          style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
+
 const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean }) => {
   const [svgContent, setSvgContent] = useState('');
   const [error, setError] = useState('');
@@ -53,13 +116,17 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
     });
 
     mermaid
-      .render(renderId, chart)
+      .parse(chart, { suppressErrors: true })
+      .then((parseResult) => {
+        if (!parseResult) throw new Error('Invalid Mermaid syntax');
+        return mermaid.render(renderId, chart);
+      })
       .then(({ svg }) => {
         if (isMounted) setSvgContent(svg);
       })
       .catch((reason) => {
         console.error('Mermaid rendering failed', reason);
-        if (isMounted) setError('Mermaid 图表渲染失败');
+        if (isMounted) setError('Mermaid 语法错误，已按代码块显示');
       });
 
     return () => {
@@ -68,11 +135,7 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
   }, [chart, darkMode, renderId]);
 
   if (error) {
-    return (
-      <pre className="my-6 overflow-x-auto rounded-lg border border-state-error/30 bg-state-error/10 p-4 text-sm text-state-error">
-        <code>{error}</code>
-      </pre>
-    );
+    return <CodeBlockFrame code={chart} language="mermaid" notice={error} />;
   }
 
   return (
@@ -155,7 +218,6 @@ const getCodeElement = (children: React.ReactNode): React.ReactElement<CodeRende
 };
 
 const PreRenderer = ({ children, node: _node, ...props }: PreRendererProps) => {
-  const [copied, setCopied] = useState(false);
   const { darkMode } = useTheme();
   const codeElement = getCodeElement(children);
 
@@ -170,52 +232,7 @@ const PreRenderer = ({ children, node: _node, ...props }: PreRendererProps) => {
     return <MermaidChart chart={code} darkMode={darkMode} />;
   }
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
-      <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
-        <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <FileCode2 size={15} strokeWidth={1.8} />
-          </span>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
-            {language || 'text'}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
-          title="复制代码"
-        >
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-          {copied ? '已复制' : '复制'}
-        </button>
-      </div>
-      <SyntaxHighlighter
-        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
-        language={language || 'text'}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          padding: '1.125rem 1rem',
-          background: 'transparent',
-          fontSize: '0.875rem',
-          lineHeight: '1.65',
-        }}
-        codeTagProps={{
-          style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
-    </div>
-  );
+  return <CodeBlockFrame code={code} language={language || 'text'} />;
 };
 
 const BlockquoteRenderer = ({
