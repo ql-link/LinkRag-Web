@@ -11,6 +11,10 @@ export interface MarkdownTocItem {
   level: number;
 }
 
+export interface MarkdownHeading extends MarkdownTocItem {
+  line: number;
+}
+
 const CJK_CHAR_CLASS = '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}';
 
 function normalizeInlineMarkdown(text: string): string {
@@ -100,14 +104,13 @@ function stripInlineMarkdown(value: string): string {
     .trim();
 }
 
-export function extractMarkdownToc(markdown: string, levels: number[] = [2, 3]): MarkdownTocItem[] {
-  const { content } = parseMarkdownContent(markdown);
-  const toc: MarkdownTocItem[] = [];
+function collectMarkdownHeadings(content: string, levels: number[]): MarkdownHeading[] {
+  const headings: MarkdownHeading[] = [];
   const getSlug = createMarkdownSlugger();
   const lines = content.split(/\r?\n/);
   let fence: { marker: '`' | '~'; length: number } | null = null;
 
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const fenceMatch = line.match(/^ {0,3}(`{3,}|~{3,})/);
     if (fenceMatch) {
       const marker = fenceMatch[1][0] as '`' | '~';
@@ -119,26 +122,36 @@ export function extractMarkdownToc(markdown: string, levels: number[] = [2, 3]):
         fence = null;
       }
 
-      continue;
+      return;
     }
 
-    if (fence) continue;
+    if (fence) return;
 
     const headingMatch = line.match(/^ {0,3}(#{1,6})\s+(.+?)\s*$/);
-    if (!headingMatch) continue;
+    if (!headingMatch) return;
 
     const level = headingMatch[1].length;
-    if (!levels.includes(level)) continue;
+    if (!levels.includes(level)) return;
 
     const text = stripInlineMarkdown(headingMatch[2]);
-    if (!text) continue;
+    if (!text) return;
 
-    toc.push({
+    headings.push({
       id: getSlug(text),
       text,
       level,
+      line: index + 1,
     });
-  }
+  });
 
-  return toc;
+  return headings;
+}
+
+export function extractMarkdownHeadings(markdown: string, levels: number[] = [1, 2, 3, 4, 5, 6]): MarkdownHeading[] {
+  const { content } = parseMarkdownContent(markdown);
+  return collectMarkdownHeadings(content, levels);
+}
+
+export function extractMarkdownToc(markdown: string, levels: number[] = [2, 3]): MarkdownTocItem[] {
+  return extractMarkdownHeadings(markdown, levels).map(({ id, text, level }) => ({ id, text, level }));
 }

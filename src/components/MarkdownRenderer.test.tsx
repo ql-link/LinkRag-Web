@@ -89,6 +89,16 @@ describe('MarkdownRenderer', () => {
     expect(quote).toHaveClass('border-primary');
   });
 
+  it('renders deterministic heading ids that match markdown toc links', () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={'## 高速 Vibe Coding 先带来的不是效率问题，而是约束问题\n\n## 长期契约：docs/ 分层与机器同步'}
+      />,
+    );
+
+    expect(container.querySelector('h2')?.id).toBe('高速-vibe-coding-先带来的不是效率问题而是约束问题');
+  });
+
   it('renders bold text in markdown table cells', () => {
     render(<MarkdownRenderer content={'| Name |\n| --- |\n| **Bold value** |'} />);
 

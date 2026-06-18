@@ -10,7 +10,7 @@ import { Check, Copy, FileCode2 } from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { createMarkdownSlugger, parseMarkdownContent } from '@/lib/markdown';
+import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
 
 interface MarkdownRendererProps {
   content: string;
@@ -158,10 +158,18 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+type MarkdownNodeWithPosition = {
+  position?: {
+    start?: {
+      line?: number;
+    };
+  };
+};
+
 type HeadingRendererProps = ComponentPropsWithoutRef<'h1'> & {
   level: HeadingLevel;
-  getHeadingId: (text: string) => string;
-  node?: unknown;
+  getHeadingId: (text: string, node?: MarkdownNodeWithPosition) => string;
+  node?: MarkdownNodeWithPosition;
 };
 
 const headingSizeClasses: Record<HeadingLevel, string> = {
@@ -175,7 +183,7 @@ const headingSizeClasses: Record<HeadingLevel, string> = {
 
 const HeadingRenderer = ({ level, getHeadingId, children, className, node: _node, ...props }: HeadingRendererProps) => {
   const text = extractText(children);
-  const id = getHeadingId(text);
+  const id = getHeadingId(text, _node);
   const Tag = `h${level}` as React.ElementType<ComponentPropsWithoutRef<'h1'>>;
 
   return (
@@ -317,7 +325,14 @@ function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
 export function MarkdownRenderer({ content, className, showFrontmatter = true }: MarkdownRendererProps) {
   const { darkMode } = useTheme();
   const parsed = useMemo(() => parseMarkdownContent(content), [content]);
-  const getHeadingId = createMarkdownSlugger();
+  const headingIdByLine = useMemo(() => {
+    return new Map(extractMarkdownHeadings(parsed.content).map((heading) => [heading.line, heading.id]));
+  }, [parsed.content]);
+  const getHeadingId = (text: string, node?: MarkdownNodeWithPosition) => {
+    const line = node?.position?.start?.line;
+    if (line) return headingIdByLine.get(line) ?? slugifyMarkdownHeading(text);
+    return slugifyMarkdownHeading(text);
+  };
 
   const components: Components = {
     code: CodeRenderer as Components['code'],
