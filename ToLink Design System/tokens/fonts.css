@@ -1,45 +1,50 @@
-/* Elegant English Serif - Playfair Display */
+/* ============================================================
+   ToLink / LinkRag — @font-face declarations
+   Self-hosted woff2 in /fonts (paths relative to this file)
+   ============================================================ */
+
+/* ── Playfair Display — serif display (always italic in use) ── */
 @font-face {
   font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Regular.woff2') format('woff2');
+  src: url('../fonts/PlayfairDisplay-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Medium.woff2') format('woff2');
+  src: url('../fonts/PlayfairDisplay-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-SemiBold.woff2') format('woff2');
+  src: url('../fonts/PlayfairDisplay-SemiBold.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Playfair Display';
-  src: url('/fonts/PlayfairDisplay-Bold.woff2') format('woff2');
+  src: url('../fonts/PlayfairDisplay-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-/* Elegant Chinese Serif - Noto Serif SC */
+/* ── Noto Serif SC — primary body (bookish Chinese serif) ── */
 @font-face {
   font-family: 'Noto Serif SC';
-  src: url('/fonts/NotoSerifSC-Chinese.woff2') format('woff2');
+  src: url('../fonts/NotoSerifSC-Chinese.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF;
+  unicode-range: U+4E00-9FFF, U+3400-4DBF, U+20000-2A6DF, U+2A700-2B73F;
 }
 @font-face {
   font-family: 'Noto Serif SC';
-  src: url('/fonts/NotoSerifSC-Latin.woff2') format('woff2');
+  src: url('../fonts/NotoSerifSC-Latin.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -48,40 +53,33 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Handwriting accents - Caveat */
+/* ── Caveat — handwriting accents (sparse use) ── */
 @font-face {
   font-family: 'Caveat';
-  src: url('/fonts/Caveat-Regular.woff2') format('woff2');
+  src: url('../fonts/Caveat-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caveat';
-  src: url('/fonts/Caveat-Medium.woff2') format('woff2');
+  src: url('../fonts/Caveat-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caveat';
-  src: url('/fonts/Caveat-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Caveat';
-  src: url('/fonts/Caveat-Bold.woff2') format('woff2');
+  src: url('../fonts/Caveat-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-/* Decorative Chinese display - ZCOOL XiaoWei */
+/* ── ZCOOL XiaoWei — decorative Chinese display serif ── */
 @font-face {
   font-family: 'ZCOOL XiaoWei';
-  src: url('/fonts/ZCOOLXiaoWei-Chinese.woff2') format('woff2');
+  src: url('../fonts/ZCOOLXiaoWei-Chinese.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -89,17 +87,17 @@
 }
 @font-face {
   font-family: 'ZCOOL XiaoWei';
-  src: url('/fonts/ZCOOLXiaoWei-Latin.woff2') format('woff2');
+  src: url('../fonts/ZCOOLXiaoWei-Latin.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
   unicode-range: U+0000-00FF;
 }
 
-/* Soft Chinese body font - LXGW WenKai */
+/* ── LXGW WenKai — soft Chinese body (subset, welcome page) ── */
 @font-face {
   font-family: 'LXGW WenKai';
-  src: url('/fonts/LXGWWenKai-Regular.woff2') format('woff2');
+  src: url('../fonts/LXGWWenKai-Regular.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
