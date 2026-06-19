@@ -459,6 +459,7 @@ export default function ChatsPage() {
           query: content,
           datasetIds: [selectedDatasetId],
           configId: selectedModelConfigId,
+          conversationId: activeConversation.id,
           signal: controller.signal,
           onAnswerDelta: (text) => {
             setMessages((prev) =>
