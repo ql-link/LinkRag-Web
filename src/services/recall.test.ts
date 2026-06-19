@@ -41,7 +41,7 @@ function errorResponse(status: number, code: string, message = 'err'): Response 
 }
 
 const DONE_FRAME =
-  'event: recall_done\ndata: {"hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.92,"scores":{"bm25":8.7}}],"failed_sources":[]}\n\n';
+  'event: recall_done\ndata: {"hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.92,"scores":{"bm25":8.7},"content":"片段正文"}],"failed_sources":[]}\n\n';
 
 const SESSION = { token: 'tok-1', stream_url: 'https://py.example/api/v1/recall/stream' };
 
@@ -177,7 +177,7 @@ describe('recall - SSE 解析', () => {
       sseResponse([
         'event: answer_delta\ndata: {"text":"你好"}\n\n',
         'event: answer_delta\ndata: {"text":"世界"}\n\n',
-        'event: answer_done\ndata: {"answer":"你好世界","hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.9,"scores":{}}],"failed_sources":[]}\n\n',
+        'event: answer_done\ndata: {"answer":"你好世界","hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.9,"scores":{},"content":"片段正文"}],"failed_sources":[]}\n\n',
       ]),
     );
     const result = await recall({

@@ -373,6 +373,8 @@ export interface RecallHit {
   fused_score: number;
   /** 各召回路原始分；某路未命中该 chunk 时值为 null（如稀疏检索命中但 BM25 未命中）。 */
   scores: Record<string, number | null>;
+  /** chunk 正文，供展示召回片段；候选正文缺失时为空串。 */
+  content: string;
 }
 
 /**

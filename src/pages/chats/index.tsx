@@ -97,11 +97,12 @@ function recallErrorMessage(error: unknown): string {
 function hitsToCitations(hits: RecallHit[], files: KnowledgeFileDTO[]): Citation[] {
   return hits.map((hit) => {
     const file = files.find((item) => item.id === hit.doc_id);
+    const content = hit.content?.trim();
     return {
       id: hit.chunk_id,
       fileName: file?.originalFilename ?? `文档 #${hit.doc_id}`,
       score: Math.round(hit.fused_score * 100),
-      snippet: `命中 chunk ${hit.chunk_id}，来自知识库 #${hit.dataset_id}。当前召回接口暂未返回片段正文。`,
+      snippet: content || `命中 chunk ${hit.chunk_id}，来自知识库 #${hit.dataset_id}（该片段暂无可用正文）。`,
     };
   });
 }
