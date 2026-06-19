@@ -17,6 +17,7 @@ import {
 import { getConversations } from '@/services/chat';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useParseResultPolling } from '@/hooks/useParseResultPolling';
 import {
   KNOWLEDGE_FILE_ACCEPT,
   KNOWLEDGE_FILE_HINT,
@@ -150,7 +151,12 @@ export default function DatasetPage() {
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingDataset, setDeletingDataset] = useState(false);
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
-  const [parsingFileIds, setParsingFileIds] = useState<number[]>([]);
+  const [submittingParseFileIds, setSubmittingParseFileIds] = useState<number[]>([]);
+  const { addPollingFiles, removePollingFiles } = useParseResultPolling({
+    datasetId: dataset?.id ?? null,
+    files,
+    setFiles,
+  });
 
   const loadDataset = useCallback(
     async (showRefreshing = false) => {
@@ -232,9 +238,10 @@ export default function DatasetPage() {
 
     setUploading(true);
     try {
+      const shouldPollParse = parseAfterUpload;
       const uploaded = await uploadKnowledgeFile(dataset.id, file, parseAfterUpload);
       addToast('success', parseAfterUpload ? '文件已上传，解析任务已提交' : '文件已上传');
-      await pollUntilUploadSettled(uploaded.id, dataset.id);
+      await pollUntilUploadSettled(uploaded.id, dataset.id, shouldPollParse);
     } catch (error) {
       console.error('Failed to upload knowledge file:', error);
     } finally {
@@ -242,7 +249,7 @@ export default function DatasetPage() {
     }
   }
 
-  async function pollUntilUploadSettled(fileId: number, datasetId: number) {
+  async function pollUntilUploadSettled(fileId: number, datasetId: number, shouldPollParse: boolean) {
     const maxAttempts = 20;
     const intervalMs = 1000;
     for (let i = 0; i < maxAttempts; i++) {
@@ -250,7 +257,30 @@ export default function DatasetPage() {
       const target = filesResult.items.find((f) => f.id === fileId);
       if (target && target.uploadStatus !== 'UPLOADING') {
         const enrichedFiles = await enrichKnowledgeFilesWithParseResults(datasetId, filesResult.items);
-        setFiles(enrichedFiles);
+        const shouldStartParsePolling = shouldPollParse && target.uploadStatus === 'UPLOAD_SUCCESS';
+        const nextFiles = shouldStartParsePolling
+          ? enrichedFiles.map((item) => {
+              if (
+                item.id !== fileId ||
+                item.frontendStatus === 'parse_success' ||
+                item.frontendStatus === 'parse_failed'
+              ) {
+                return item;
+              }
+
+              return {
+                ...item,
+                frontendStatus: 'parsing' as const,
+                parseStatus: item.parseStatus ?? 'created',
+                parseFailureReason: null,
+              };
+            })
+          : enrichedFiles;
+        const nextTarget = nextFiles.find((item) => item.id === fileId);
+        setFiles(nextFiles);
+        if (nextTarget?.frontendStatus === 'parsing') {
+          addPollingFiles(fileId);
+        }
         return;
       }
       await new Promise((r) => setTimeout(r, intervalMs));
@@ -260,6 +290,7 @@ export default function DatasetPage() {
 
   async function handleDeleteFile(fileId: number) {
     if (!confirm('确定删除这个文件吗？')) return;
+    removePollingFiles(fileId);
     setDeletingFileIds((prev) => [...prev, fileId]);
     try {
       await deleteKnowledgeFile(fileId);
@@ -273,20 +304,22 @@ export default function DatasetPage() {
   }
 
   async function handleParseFile(fileId: number) {
-    setParsingFileIds((prev) => [...prev, fileId]);
+    setSubmittingParseFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     try {
       await createParseTask(fileId);
       setFiles((prev) =>
         prev.map((item) =>
-          item.id === fileId ? { ...item, frontendStatus: 'parsing', parseStatus: 'created' } : item,
+          item.id === fileId
+            ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
+            : item,
         ),
       );
+      addPollingFiles(fileId);
       addToast('success', '解析任务已提交');
-      await loadDataset(true);
     } catch (error) {
       console.error('Failed to create parse task:', error);
     } finally {
-      setParsingFileIds((prev) => prev.filter((item) => item !== fileId));
+      setSubmittingParseFileIds((prev) => prev.filter((item) => item !== fileId));
     }
   }
 
@@ -390,7 +423,13 @@ export default function DatasetPage() {
           >
             {deletingDataset ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
           </button>
-          <input ref={fileInputRef} type="file" accept={KNOWLEDGE_FILE_ACCEPT} className="hidden" onChange={handleUpload} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={KNOWLEDGE_FILE_ACCEPT}
+            className="hidden"
+            onChange={handleUpload}
+          />
         </div>
       </header>
 
@@ -476,7 +515,8 @@ export default function DatasetPage() {
               <p className={cn('mono-label px-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>暂无知识文件</p>
             ) : (
               files.map((file) => {
-                const parsing = parsingFileIds.includes(file.id);
+                const parseSubmitting = submittingParseFileIds.includes(file.id);
+                const parseInProgress = file.frontendStatus === 'parsing';
                 const deleting = deletingFileIds.includes(file.id);
                 const canParse = canSubmitParse(file);
                 const statusTone = getFileStatusTone(file);
@@ -519,7 +559,7 @@ export default function DatasetPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => void handleParseFile(file.id)}
-                        disabled={!canParse || parsing}
+                        disabled={!canParse || parseSubmitting || parseInProgress}
                         className={cn(
                           'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50',
                           darkMode
@@ -527,8 +567,12 @@ export default function DatasetPage() {
                             : 'bg-primary text-white hover:bg-primary/90',
                         )}
                       >
-                        {parsing ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                        {parsing ? '提交中' : '解析'}
+                        {parseSubmitting || parseInProgress ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Wand2 size={12} />
+                        )}
+                        {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
                       </button>
                       <button
                         onClick={() => void handleDeleteFile(file.id)}

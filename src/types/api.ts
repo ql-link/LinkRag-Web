@@ -243,15 +243,15 @@ export type FileParseFrontendStatus =
 export interface FileParseSubmitDTO {
   fileId: number;
   originalFilename: string;
-  frontendStatus: string;
+  frontendStatus: FileParseFrontendStatus;
 }
 
 export interface FileParseResultDTO {
   fileId: number;
   originalFilename: string;
   parsedFilename: string | null;
-  frontendStatus: string;
-  parseStatus: string | null;
+  frontendStatus: FileParseFrontendStatus;
+  parseStatus: KnowledgeParseStatus | null;
   failureReason: string | null;
 }
 
