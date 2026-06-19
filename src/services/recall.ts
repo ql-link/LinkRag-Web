@@ -180,6 +180,8 @@ export interface RecallOptions {
   datasetIds: number[];
   /** 必填：本次生成所用 CHAT 模型配置 id（用户在对话页选中的模型）。后端按 (user_id, config_id) 前置校验。 */
   configId: number;
+  /** 必填：本轮所属对话 id，作为对话轮次落库的挂载锚点；缺失后端 422、不进入召回生成。 */
+  conversationId: number;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
   /** 流式生成增量回调：每收到一帧 answer_delta 触发，参数为本帧增量文本。 */
@@ -197,16 +199,18 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + config_id + dataset_ids——任何未知字段 Python 直接 422。
+  // 请求体只允许 query + config_id + conversation_id + dataset_ids——任何未知字段 Python 直接 422。
   //
   // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
   // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
   // token 授权范围里「第一个」数据集或系统默认，生效配置可能与用户正在对话的数据集不符。
+  // conversation_id 是对话轮次落库的挂载锚点，缺失后端 422、不进入召回生成。
   // user_id 只取 session token claims，body 不传（多传也会被 Python 当未知字段 422）。
   // datasetIds 由 recall() 前置校验保证非空，这里恒定写入以让契约显式化。
-  const body: { query: string; config_id: number; dataset_ids: number[] } = {
+  const body: { query: string; config_id: number; conversation_id: number; dataset_ids: number[] } = {
     query: options.query,
     config_id: options.configId,
+    conversation_id: options.conversationId,
     dataset_ids: options.datasetIds,
   };
 

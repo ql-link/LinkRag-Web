@@ -41,7 +41,7 @@ function errorResponse(status: number, code: string, message = 'err'): Response 
 }
 
 const DONE_FRAME =
-  'event: recall_done\ndata: {"hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.92,"scores":{"bm25":8.7}}],"failed_sources":[]}\n\n';
+  'event: recall_done\ndata: {"hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.92,"scores":{"bm25":8.7},"content":"片段正文"}],"failed_sources":[]}\n\n';
 
 const SESSION = { token: 'tok-1', stream_url: 'https://py.example/api/v1/recall/stream' };
 
@@ -83,7 +83,7 @@ describe('createRecallSession', () => {
 describe('recall - 请求构造', () => {
   it('happy path 返回 recall_done payload', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
-    const result = await recall({ query: 'hello', configId: 77, datasetIds: [1] });
+    const result = await recall({ query: 'hello', configId: 77, conversationId: 1, datasetIds: [1] });
     expect(result.hits).toHaveLength(1);
     expect(result.hits[0].chunk_id).toBe('1001');
     expect(result.failed_sources).toEqual([]);
@@ -91,30 +91,30 @@ describe('recall - 请求构造', () => {
 
   it('签发 session 时显式带上 datasetIds', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
-    await recall({ query: 'hello', configId: 77, datasetIds: [1, 2] });
+    await recall({ query: 'hello', configId: 77, conversationId: 1, datasetIds: [1, 2] });
     expect(mockSessionPost).toHaveBeenCalledWith('/api/v1/recall/sessions', { datasetIds: [1, 2] }, expect.any(Object));
   });
 
   it('带 Authorization: Bearer 头直连 streamUrl', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
-    await recall({ query: 'hello', configId: 77, datasetIds: [1] });
+    await recall({ query: 'hello', configId: 77, conversationId: 1, datasetIds: [1] });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(SESSION.stream_url);
     expect(init.method).toBe('POST');
     expect(init.headers.Authorization).toBe('Bearer tok-1');
   });
 
-  it('stream 请求体含 query + config_id + dataset_ids，不泄漏未知字段', async () => {
+  it('stream 请求体含 query + config_id + conversation_id + dataset_ids，不泄漏未知字段', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
-    await recall({ query: 'hello', configId: 77, datasetIds: [1, 2] });
+    await recall({ query: 'hello', configId: 77, conversationId: 1, datasetIds: [1, 2] });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body).toEqual({ query: 'hello', config_id: 77, dataset_ids: [1, 2] });
+    expect(body).toEqual({ query: 'hello', config_id: 77, conversation_id: 1, dataset_ids: [1, 2] });
     expect('user_id' in body).toBe(false);
     expect('top_k' in body).toBe(false);
   });
 
   it('空白 query 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
-    await expect(recall({ query: '   ', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: '   ', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_INVALID_REQUEST',
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -122,7 +122,7 @@ describe('recall - 请求构造', () => {
   });
 
   it('空 datasetIds 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
-    await expect(recall({ query: 'hello', configId: 77, datasetIds: [] })).rejects.toMatchObject({
+    await expect(recall({ query: 'hello', configId: 77, conversationId: 1, datasetIds: [] })).rejects.toMatchObject({
       code: 'RECALL_INVALID_REQUEST',
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe('recall - 请求构造', () => {
 describe('recall - SSE 解析', () => {
   it('跨 chunk 分帧（边界被切开）', async () => {
     fetchMock.mockResolvedValue(sseResponse(['event: recall_done\nda', 'ta: {"hits":[],"failed_sources":[]}\n\n']));
-    const result = await recall({ query: 'q', configId: 77, datasetIds: [1] });
+    const result = await recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] });
     expect(result.hits).toEqual([]);
   });
 
@@ -142,7 +142,7 @@ describe('recall - SSE 解析', () => {
     fetchMock.mockResolvedValue(
       sseResponse([': keepalive\n\n', 'event: progress\ndata: {"stage":"bm25"}\n\n', DONE_FRAME]),
     );
-    await recall({ query: 'q', configId: 77, datasetIds: [1], onEvent });
+    await recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1], onEvent });
     expect(onEvent).toHaveBeenCalledWith({ event: 'progress', data: { stage: 'bm25' } });
   });
 
@@ -150,7 +150,7 @@ describe('recall - SSE 解析', () => {
     fetchMock.mockResolvedValue(
       sseResponse(['event: error\ndata: {"code":"RECALL_TIMEOUT","message":"recall timeout"}\n\n']),
     );
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_TIMEOUT',
       message: 'recall timeout',
     });
@@ -158,7 +158,7 @@ describe('recall - SSE 解析', () => {
 
   it('流意外结束（无终态）reject RECALL_INTERNAL_ERROR', async () => {
     fetchMock.mockResolvedValue(sseResponse(['event: progress\ndata: {}\n\n']));
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_INTERNAL_ERROR',
     });
   });
@@ -169,12 +169,13 @@ describe('recall - SSE 解析', () => {
       sseResponse([
         'event: answer_delta\ndata: {"text":"你好"}\n\n',
         'event: answer_delta\ndata: {"text":"世界"}\n\n',
-        'event: answer_done\ndata: {"answer":"你好世界","hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.9,"scores":{}}],"failed_sources":[]}\n\n',
+        'event: answer_done\ndata: {"answer":"你好世界","hits":[{"chunk_id":"1001","doc_id":10,"dataset_id":1,"fused_score":0.9,"scores":{},"content":"片段正文"}],"failed_sources":[]}\n\n',
       ]),
     );
     const result = await recall({
       query: 'q',
       configId: 77,
+      conversationId: 1,
       datasetIds: [1],
       onAnswerDelta: (t) => deltas.push(t),
     });
@@ -185,7 +186,7 @@ describe('recall - SSE 解析', () => {
 
   it('空命中 recall_done 作为终态返回（hits 空、无 answer）', async () => {
     fetchMock.mockResolvedValue(sseResponse(['event: recall_done\ndata: {"hits":[],"failed_sources":[]}\n\n']));
-    const result = await recall({ query: 'q', configId: 77, datasetIds: [1] });
+    const result = await recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] });
     expect(result.hits).toEqual([]);
     expect(result.answer).toBeUndefined();
   });
@@ -196,7 +197,7 @@ describe('recall - SSE 解析', () => {
         'event: error\ndata: {"code":"RECALL_MODEL_CONFIG_MISSING","message":"selected model is not configured or unavailable"}\n\n',
       ]),
     );
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_MODEL_CONFIG_MISSING',
     });
   });
@@ -208,7 +209,7 @@ describe('recall - SSE 解析', () => {
         'event: error\ndata: {"code":"RECALL_GENERATION_FAILED","message":"answer generation failed"}\n\n',
       ]),
     );
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_GENERATION_FAILED',
     });
   });
@@ -223,7 +224,7 @@ describe('recall - 握手前 HTTP 错误码映射', () => {
   ];
   it.each(cases)('HTTP %i → %s', async (status, code, expected) => {
     fetchMock.mockResolvedValue(errorResponse(status, code));
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: expected,
       httpStatus: status,
     });
@@ -231,7 +232,7 @@ describe('recall - 握手前 HTTP 错误码映射', () => {
 
   it('body 无法解析时按 HTTP 状态码回退', async () => {
     fetchMock.mockResolvedValue(new Response('not json', { status: 429 }));
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_RATE_LIMITED',
     });
   });
@@ -241,22 +242,22 @@ describe('recall - token 复用与 401 重申', () => {
   it('多次召回复用同一 session（只申请一次 token）', async () => {
     // 每次返回新 Response：ReadableStream 只能读一次
     fetchMock.mockImplementation(() => Promise.resolve(sseResponse([DONE_FRAME])));
-    await recall({ query: 'a', configId: 77, datasetIds: [1] });
-    await recall({ query: 'b', configId: 77, datasetIds: [1] });
+    await recall({ query: 'a', configId: 77, conversationId: 1, datasetIds: [1] });
+    await recall({ query: 'b', configId: 77, conversationId: 1, datasetIds: [1] });
     expect(mockSessionPost).toHaveBeenCalledTimes(1);
   });
 
   it('datasetIds 顺序不同但集合相同时仍复用同一 session', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(sseResponse([DONE_FRAME])));
-    await recall({ query: 'a', configId: 77, datasetIds: [1, 2] });
-    await recall({ query: 'b', configId: 77, datasetIds: [2, 1] });
+    await recall({ query: 'a', configId: 77, conversationId: 1, datasetIds: [1, 2] });
+    await recall({ query: 'b', configId: 77, conversationId: 1, datasetIds: [2, 1] });
     expect(mockSessionPost).toHaveBeenCalledTimes(1);
   });
 
   it('datasetIds 范围变化时重新签发 session', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(sseResponse([DONE_FRAME])));
-    await recall({ query: 'a', configId: 77, datasetIds: [1] });
-    await recall({ query: 'b', configId: 77, datasetIds: [2] });
+    await recall({ query: 'a', configId: 77, conversationId: 1, datasetIds: [1] });
+    await recall({ query: 'b', configId: 77, conversationId: 1, datasetIds: [2] });
     expect(mockSessionPost).toHaveBeenCalledTimes(2);
   });
 
@@ -268,7 +269,7 @@ describe('recall - token 复用与 401 重申', () => {
       .mockResolvedValueOnce(errorResponse(401, 'RECALL_SESSION_UNAUTHORIZED'))
       .mockResolvedValueOnce(sseResponse([DONE_FRAME]));
 
-    const result = await recall({ query: 'q', configId: 77, datasetIds: [1] });
+    const result = await recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] });
     expect(result.hits).toHaveLength(1);
     expect(mockSessionPost).toHaveBeenCalledTimes(2);
     // 重试用了新 token
@@ -277,7 +278,7 @@ describe('recall - token 复用与 401 重申', () => {
 
   it('重申后仍 401 则抛出', async () => {
     fetchMock.mockResolvedValue(errorResponse(401, 'RECALL_SESSION_UNAUTHORIZED'));
-    await expect(recall({ query: 'q', configId: 77, datasetIds: [1] })).rejects.toMatchObject({
+    await expect(recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_SESSION_UNAUTHORIZED',
     });
     expect(mockSessionPost).toHaveBeenCalledTimes(2);
@@ -295,7 +296,7 @@ describe('recall - 并发与 abort', () => {
         else init.signal?.addEventListener('abort', fail);
       });
     });
-    const promise = recall({ query: 'q', configId: 77, datasetIds: [1], signal: controller.signal });
+    const promise = recall({ query: 'q', configId: 77, conversationId: 1, datasetIds: [1], signal: controller.signal });
     controller.abort();
     await expect(promise).rejects.toMatchObject({ code: 'RECALL_ABORTED' });
   });
@@ -314,8 +315,8 @@ describe('recall - 并发与 abort', () => {
         if (fetchMock.mock.calls.length === 2) resolve(sseResponse([DONE_FRAME]));
       });
     });
-    const first = recall({ query: 'a', configId: 77, datasetIds: [1] });
-    const second = recall({ query: 'b', configId: 77, datasetIds: [1] });
+    const first = recall({ query: 'a', configId: 77, conversationId: 1, datasetIds: [1] });
+    const second = recall({ query: 'b', configId: 77, conversationId: 1, datasetIds: [1] });
     await expect(first).rejects.toMatchObject({ code: 'RECALL_ABORTED' });
     await expect(second).resolves.toMatchObject({ hits: expect.any(Array) });
     expect(aborted.length).toBe(1);
