@@ -261,6 +261,27 @@ export interface UsageSummaryDTO {
   promptTokens: number;
   completionTokens: number;
   averageLatencyMs: number;
+  successCalls: number;
+  failedCalls: number;
+  successRate: number; // 0~1，无调用为 0
+}
+
+export interface ModelUsageDTO {
+  providerType: string;
+  modelName: string;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface UsageTrendDTO {
+  currentTokens: number;
+  previousTokens: number;
+  currentCalls: number;
+  previousCalls: number;
+  tokenGrowthRate: number | null; // 0.18 = +18%；上一周期为 0 时为 null
+  callGrowthRate: number | null;
 }
 
 export interface DailyUsageDTO {

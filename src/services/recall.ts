@@ -180,7 +180,10 @@ export interface RecallOptions {
   datasetIds: number[];
   /** 必填：本次生成所用 CHAT 模型配置 id（用户在对话页选中的模型）。后端按 (user_id, config_id) 前置校验。 */
   configId: number;
-  /** 必填：本轮所属对话 id，作为对话轮次落库的挂载锚点；缺失后端 422、不进入召回生成。 */
+  /**
+   * 必填（LINK-181）：本轮问答归属的对话 id，来自 Java「创建对话」接口（POST /api/v1/chat/conversations 的 data.id）。
+   * 作为对话轮次落库的挂载锚点；Python /rag/stream 请求体 extra="forbid" 且该字段必填，缺失/拼错会直接 422。同一对话多轮复用同一个 id。
+   */
   conversationId: number;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
@@ -207,6 +210,9 @@ async function streamOnce(
   // conversation_id 是对话轮次落库的挂载锚点，缺失后端 422、不进入召回生成。
   // user_id 只取 session token claims，body 不传（多传也会被 Python 当未知字段 422）。
   // datasetIds 由 recall() 前置校验保证非空，这里恒定写入以让契约显式化。
+  //
+  // LINK-181：conversation_id 必填。Python 侧 extra="forbid" + 字段必填，缺失/拼错直接 422
+  // （映射为 RECALL_INVALID_REQUEST），不会进入问答流程。由 recall() 前置校验保证有值。
   const body: { query: string; config_id: number; conversation_id: number; dataset_ids: number[] } = {
     query: options.query,
     config_id: options.configId,
@@ -343,6 +349,11 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   if (!options.datasetIds || options.datasetIds.length === 0) {
     // Java 端 @NotEmpty 必拒，提前本地拦截避免一次必败的 400 请求。
     throw new RecallError('RECALL_INVALID_REQUEST', 'datasetIds 不能为空');
+  }
+  if (!Number.isInteger(options.conversationId) || options.conversationId <= 0) {
+    // LINK-181：Python /rag/stream conversation_id 必填，缺失/非法会被 422 拒绝。
+    // 提前本地拦截避免一次必败的请求，并避免静默失败。
+    throw new RecallError('RECALL_INVALID_REQUEST', 'conversationId 不能为空');
   }
 
   // 重连前先 abort 旧连接，释放并发名额。
