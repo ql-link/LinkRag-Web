@@ -22,6 +22,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { Breadcrumb } from '@/components/Breadcrumb';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
@@ -719,31 +720,16 @@ export default function ChatsPage() {
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
   return (
-    <div className={cn('flex h-full min-h-0', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
-      <main
-        className={cn(
-          'relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-[24px] border',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-        )}
-      >
+    <div className="flex h-full min-h-0">
+      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <header
           className={cn(
-            'flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-6',
+            'flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-8',
             darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           )}
         >
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="min-w-0 flex-1">
-              <h1
-                className={cn(
-                  'break-words text-xl leading-snug serif-heading',
-                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                )}
-                title={conversation?.title ?? '新的对话'}
-              >
-                {conversation?.title ?? '新的对话'}
-              </h1>
-            </div>
+          <div className="min-w-0 flex-1">
+            <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} darkMode={darkMode} />
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
@@ -1123,7 +1109,7 @@ export default function ChatsPage() {
           </div>
         )}
 
-        <div className="flex min-h-0 flex-1">
+        <div className={cn('flex min-h-0 flex-1', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
           <section className="flex min-w-0 flex-1 flex-col">
             <div ref={messageScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
               {loadingConversation ? (

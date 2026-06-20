@@ -486,15 +486,12 @@ export default function LLMPage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
-          <Breadcrumb
-            items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '模型配置' }]}
-            darkMode={darkMode}
-          />
+        <div>
+          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '模型配置' }]} darkMode={darkMode} />
         </div>
         <div className="flex items-center gap-2">
           <button

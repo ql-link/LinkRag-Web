@@ -152,13 +152,12 @@ export default function DatasetsPage() {
       {/* Header */}
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div>
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '知识库' }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>知识库</h2>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -217,7 +216,7 @@ export default function DatasetsPage() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
         {/* Stats Bar */}
         <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode ? 'text-[#858585]' : '')}>
           <span>共 {datasets.length} 个知识库</span>

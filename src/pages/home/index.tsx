@@ -16,6 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
+import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -286,32 +287,24 @@ export default function HomePage() {
 
   return (
     <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
-      <main
-        className={cn(
-          'flex min-w-0 flex-1 flex-col overflow-hidden rounded-[24px] border',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-        )}
-      >
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header
           className={cn(
-            'flex shrink-0 items-center justify-between gap-4 border-b px-5 py-4 sm:px-[30px] sm:py-5',
+            'flex min-h-16 shrink-0 items-center justify-between gap-4 border-b px-5 py-3 sm:px-8',
             darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           )}
         >
           <div className="min-w-0">
-            <p
-              className={cn(
-                'font-mono text-[10px] uppercase tracking-[0.14em]',
-                darkMode ? 'text-[#858585]' : 'text-text-main/50',
-              )}
-            >
-              首页
-            </p>
-            <h2 className={cn('mt-1 text-lg font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>概览</h2>
+            <Breadcrumb items={[{ label: '首页' }]} darkMode={darkMode} />
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-[30px] sm:py-7">
+        <div
+          className={cn(
+            'flex-1 overflow-y-auto px-5 py-6 sm:px-[30px] sm:py-7',
+            darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base',
+          )}
+        >
           <section className="mb-6">
             <h1
               className={cn(

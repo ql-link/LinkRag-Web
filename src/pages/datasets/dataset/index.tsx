@@ -326,11 +326,11 @@ export default function DatasetPage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 border-b',
+          'h-16 px-8 flex items-center justify-between shrink-0 border-b',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div className="min-w-0">
           <Breadcrumb
             items={[
               { label: '首页', path: Routes.Home },
@@ -339,9 +339,6 @@ export default function DatasetPage() {
             ]}
             darkMode={darkMode}
           />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            {dataset.name}
-          </h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -390,7 +387,13 @@ export default function DatasetPage() {
           >
             {deletingDataset ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
           </button>
-          <input ref={fileInputRef} type="file" accept={KNOWLEDGE_FILE_ACCEPT} className="hidden" onChange={handleUpload} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={KNOWLEDGE_FILE_ACCEPT}
+            className="hidden"
+            onChange={handleUpload}
+          />
         </div>
       </header>
 
@@ -428,7 +431,7 @@ export default function DatasetPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
         {activeTab === 'files' ? (
           <div className="space-y-3">
             <div

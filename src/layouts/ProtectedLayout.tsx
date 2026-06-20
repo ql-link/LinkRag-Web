@@ -176,7 +176,10 @@ export function ProtectedLayout() {
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
                 key={`${location.pathname}${location.search}`}
-                className="h-full min-w-0"
+                className={cn(
+                  'h-full min-w-0 overflow-hidden rounded-2xl border',
+                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                )}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -194,7 +197,10 @@ export function ProtectedLayout() {
               <AnimatePresence mode="sync" initial={false}>
                 <motion.div
                   key={`${location.pathname}${location.search}`}
-                  className="h-full min-w-0"
+                  className={cn(
+                    'h-full min-w-0 overflow-hidden rounded-[24px] border',
+                    darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                  )}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}

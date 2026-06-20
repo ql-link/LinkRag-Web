@@ -73,13 +73,12 @@ export default function UsagePage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div>
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>用量</h2>
         </div>
         <button
           onClick={loadData}
