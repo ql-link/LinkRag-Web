@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { TrendingUp } from 'lucide-react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getConversations } from '@/services/chat';
 import { getDatasets, getRecentKnowledgeFiles } from '@/services/dataset';
-import { getUsageLogs, getUsageSummary } from '@/services/llm';
-import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO, UsageLogDTO, UsageSummaryDTO } from '@/types/api';
+import { getUsageByModel, getUsageSummary, getUsageTrend } from '@/services/llm';
+import type {
+  ConversationDTO,
+  DatasetDTO,
+  KnowledgeFileDTO,
+  ModelUsageDTO,
+  UsageSummaryDTO,
+  UsageTrendDTO,
+} from '@/types/api';
 
 type ParseState = 'parsing' | 'done' | 'failed';
 
@@ -65,7 +72,8 @@ export function OverviewRightPanel({ className }: { className?: string }) {
   const [recentFiles, setRecentFiles] = useState<KnowledgeFileDTO[]>([]);
   const [recentChats, setRecentChats] = useState<ConversationDTO[]>([]);
   const [usageSummary, setUsageSummary] = useState<UsageSummaryDTO | null>(null);
-  const [usageLogs, setUsageLogs] = useState<UsageLogDTO[]>([]);
+  const [modelUsage, setModelUsage] = useState<ModelUsageDTO[]>([]);
+  const [usageTrend, setUsageTrend] = useState<UsageTrendDTO | null>(null);
   const [loading, setLoading] = useState({ overview: true, parse: true, usage: true, chats: true });
   const [errors, setErrors] = useState({ overview: '', parse: '', usage: '' });
 
@@ -108,11 +116,16 @@ export function OverviewRightPanel({ className }: { className?: string }) {
         if (active) setLoading((prev) => ({ ...prev, chats: false }));
       });
 
-    Promise.all([getUsageSummary(range.startDate, range.endDate), getUsageLogs(range.startDate, range.endDate, 1, 20)])
-      .then(([summary, logs]) => {
+    Promise.all([
+      getUsageSummary(range.startDate, range.endDate),
+      getUsageByModel(range.startDate, range.endDate),
+      getUsageTrend(range.startDate, range.endDate),
+    ])
+      .then(([summary, byModel, trend]) => {
         if (!active) return;
         setUsageSummary(summary);
-        setUsageLogs(logs.items || []);
+        setModelUsage(byModel || []);
+        setUsageTrend(trend);
         setLoading((prev) => ({ ...prev, usage: false }));
       })
       .catch((error) => {
@@ -147,16 +160,13 @@ export function OverviewRightPanel({ className }: { className?: string }) {
   }, [recentFiles]);
 
   const usageByModel = useMemo(() => {
-    const totals = new Map<string, number>();
-    usageLogs.forEach((log) =>
-      totals.set(log.modelName || 'unknown', (totals.get(log.modelName || 'unknown') || 0) + log.totalTokens),
-    );
-    const total = [...totals.values()].reduce((sum, item) => sum + item, 0) || 1;
-    return [...totals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name, tokens]) => ({ name, percent: Math.round((tokens / total) * 100) }));
-  }, [usageLogs]);
+    const total = modelUsage.reduce((sum, item) => sum + item.totalTokens, 0) || 1;
+    return modelUsage.slice(0, 3).map((item) => ({
+      key: `${item.providerType}/${item.modelName}`,
+      name: item.modelName || 'unknown',
+      percent: Math.round((item.totalTokens / total) * 100),
+    }));
+  }, [modelUsage]);
 
   const healthStats = useMemo(() => {
     const indexedChunks = recentFiles.filter((file) => parseFileStatus(file) === 'done').length * 24;
@@ -175,6 +185,26 @@ export function OverviewRightPanel({ className }: { className?: string }) {
   const tokenTotal = Math.max(inputTokens + outputTokens, 1);
   const inputPercent = Math.round((inputTokens / tokenTotal) * 100);
   const month = monthRange().month;
+
+  const tokenGrowthRate = usageTrend?.tokenGrowthRate ?? null;
+  const tokenTrend: { label: string; direction: 'up' | 'down' | 'none' } =
+    tokenGrowthRate === null
+      ? { label: '—', direction: 'none' }
+      : (() => {
+          const percent = Math.round(tokenGrowthRate * 100);
+          return {
+            label: `${percent >= 0 ? '+' : ''}${percent}%`,
+            direction: percent >= 0 ? 'up' : 'down',
+          };
+        })();
+  const trendBadgeClass =
+    tokenTrend.direction === 'up'
+      ? 'bg-[rgba(34,197,94,0.12)] text-[#3f7a5f]'
+      : tokenTrend.direction === 'down'
+        ? 'bg-[rgba(217,115,115,0.14)] text-[#b85a5a]'
+        : darkMode
+          ? 'bg-[#3c3c3c] text-[#858585]'
+          : 'bg-[var(--color-primary-light)] text-[#8a6a44]';
 
   return (
     <aside className={cn('flex w-[264px] shrink-0 flex-col gap-[14px]', className)}>
@@ -284,9 +314,15 @@ export function OverviewRightPanel({ className }: { className?: string }) {
               <div className={cn('text-[32px] font-bold leading-none', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
                 {formatCompactNumber(totalTokens)}
               </div>
-              <span className="inline-flex items-center gap-1 rounded-[7px] bg-[var(--color-primary-light)] px-2 py-1 text-[11px] font-semibold text-[#8a6a44]">
-                <TrendingUp size={12} />
-                +18%
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-[7px] px-2 py-1 text-[11px] font-semibold',
+                  trendBadgeClass,
+                )}
+              >
+                {tokenTrend.direction === 'up' && <TrendingUp size={12} />}
+                {tokenTrend.direction === 'down' && <TrendingDown size={12} />}
+                {tokenTrend.label}
               </span>
             </div>
             <div className={cn('h-[9px] overflow-hidden rounded-full', darkMode ? 'bg-[#3c3c3c]' : 'bg-text-main/10')}>
@@ -311,9 +347,11 @@ export function OverviewRightPanel({ className }: { className?: string }) {
               按模型
             </p>
             <div className="space-y-3">
-              {(usageByModel.length ? usageByModel : [{ name: '暂无记录', percent: 0 }]).map((model, index) => (
-                <ModelUsageRow key={model.name} darkMode={darkMode} model={model} index={index} />
-              ))}
+              {(usageByModel.length ? usageByModel : [{ key: 'empty', name: '暂无记录', percent: 0 }]).map(
+                (model, index) => (
+                  <ModelUsageRow key={model.key} darkMode={darkMode} model={model} index={index} />
+                ),
+              )}
             </div>
             <Link
               to={Routes.Usage}

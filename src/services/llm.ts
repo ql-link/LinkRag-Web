@@ -13,6 +13,8 @@ import type {
   UsageSummaryDTO,
   DailyUsageDTO,
   UsageLogDTO,
+  ModelUsageDTO,
+  UsageTrendDTO,
   PageResult,
 } from '@/types/api';
 
@@ -113,6 +115,20 @@ export async function getUsageSummary(startDate: string, endDate: string): Promi
 
 export async function getDailyUsage(startDate: string, endDate: string): Promise<DailyUsageDTO[]> {
   return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
+    startDate,
+    endDate,
+  });
+}
+
+export async function getUsageByModel(startDate: string, endDate: string): Promise<ModelUsageDTO[]> {
+  return apiClient.get<ModelUsageDTO[]>('/api/v1/llm/usage/by-model', {
+    startDate,
+    endDate,
+  });
+}
+
+export async function getUsageTrend(startDate: string, endDate: string): Promise<UsageTrendDTO> {
+  return apiClient.get<UsageTrendDTO>('/api/v1/llm/usage/trend', {
     startDate,
     endDate,
   });
