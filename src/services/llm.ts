@@ -11,6 +11,7 @@ import type {
   AddProviderModelRequest,
   CreatePresetRequest,
   UsageSummaryDTO,
+  UsageStage,
   DailyUsageDTO,
   UsageLogDTO,
   ModelUsageDTO,
@@ -106,17 +107,23 @@ export async function deleteAdminSystemPreset(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/system-presets/${id}`);
 }
 
-export async function getUsageSummary(startDate: string, endDate: string): Promise<UsageSummaryDTO> {
+export async function getUsageSummary(
+  startDate: string,
+  endDate: string,
+  stage?: UsageStage,
+): Promise<UsageSummaryDTO> {
   return apiClient.get<UsageSummaryDTO>('/api/v1/llm/usage/summary', {
     startDate,
     endDate,
+    ...(stage ? { stage } : {}),
   });
 }
 
-export async function getDailyUsage(startDate: string, endDate: string): Promise<DailyUsageDTO[]> {
+export async function getDailyUsage(startDate: string, endDate: string, stage?: UsageStage): Promise<DailyUsageDTO[]> {
   return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
     startDate,
     endDate,
+    ...(stage ? { stage } : {}),
   });
 }
 
@@ -139,10 +146,12 @@ export async function getUsageLogs(
   endDate: string,
   page = 1,
   pageSize = 20,
+  stage?: UsageStage,
 ): Promise<PageResult<UsageLogDTO>> {
   return apiClient.get<PageResult<UsageLogDTO>>('/api/v1/llm/usage/logs', {
     startDate,
     endDate,
+    ...(stage ? { stage } : {}),
     page,
     pageSize,
   });
