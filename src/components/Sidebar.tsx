@@ -81,7 +81,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
       {/* Logo */}
       <div
         className={cn(
-          'h-20 flex items-center overflow-hidden',
+          'h-16 flex items-center overflow-hidden',
           isCollapsed ? 'justify-center px-0' : 'px-6',
           darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           darkMode ? 'bg-[#1e1e1e]' : 'bg-white/50',
@@ -91,7 +91,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           <div
             className={cn(
               'rounded-lg flex items-center justify-center overflow-hidden',
-              isCollapsed ? 'h-11 w-11 p-1.5' : 'h-8 w-8 p-1',
+              isCollapsed ? 'h-9 w-9 p-1.5' : 'h-8 w-8 p-1',
             )}
           >
             <LinkRagMark darkMode={darkMode} />
@@ -111,7 +111,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         )}
       >
         {navItems.map(({ path, name, icon: Icon }) => {
-          const isActive = pathname === path;
+          const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
           return (
             <Link
               key={path}
@@ -155,7 +155,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                 <div
                   className={cn(
                     'absolute left-full ml-4 px-3 py-1 text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl',
-                    darkMode ? 'bg-[#2d2d2d] text-[#cccccc]' : 'bg-text-main text-white',
+                    darkMode ? 'bg-[#8A7662] text-white' : 'bg-[#7B6B5D] text-white',
                   )}
                 >
                   {name}
@@ -200,7 +200,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
             className={cn(
               'flex items-center rounded-2xl transition-colors',
               isCollapsed ? 'h-12 w-12 justify-center p-0' : 'w-full gap-3 px-2 py-3',
-              darkMode ? 'bg-[#2d2d2d] hover:bg-[#3c3c3c]' : 'bg-bg-base/30 hover:bg-primary/5',
+              darkMode ? 'hover:bg-[#2d2d2d]' : 'hover:bg-primary/5',
             )}
           >
             <div

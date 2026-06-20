@@ -395,7 +395,7 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
         'prose-li:text-text-main prose-ol:text-text-main prose-ul:text-text-main',
         'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
         'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
-        'prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
+        'prose-strong:font-extrabold prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
         'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-white/5',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&
