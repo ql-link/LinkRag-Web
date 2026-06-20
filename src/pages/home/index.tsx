@@ -286,121 +286,122 @@ export default function HomePage() {
           </div>
         </header>
 
-        <div
-          className={cn(
-            'min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-[30px] sm:py-7',
-            darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base',
-          )}
-        >
-          <section className="mb-5">
-            <h1
-              className={cn(
-                'mb-2 text-[23px] font-semibold leading-tight sm:text-[25px]',
-                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-              )}
-            >
-              {getGreeting()}，<span className="font-serif italic">{displayName}</span>
-            </h1>
-            <p className={cn('text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-              搜索文件、对话、知识库，或从最近内容继续。
-            </p>
-          </section>
-
-          <form
-            onSubmit={handleSubmit}
-            className={cn(
-              'mb-6 rounded-[18px] border px-4 pb-4 pt-4 sm:px-5',
-              darkMode ? 'border-[#4a4a4a] bg-[#1e1e1e]' : 'border-[var(--color-border-medium)] bg-bg-base',
-            )}
-          >
-            <div className={cn('flex items-center gap-3 sm:gap-4', !hasSearch && quickQuestions.length > 0 && 'mb-4')}>
-              <Search size={22} className="text-[#7B6B5D]" />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="搜索文件、对话、知识库，或输入一个问题..."
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+          <div className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:pb-16">
+            <section className="mb-8">
+              <h1
                 className={cn(
-                  'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-text-main/40 sm:text-[17px]',
-                  darkMode ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'text-text-main',
+                  'mb-2 text-[24px] font-semibold leading-tight sm:text-[27px]',
+                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
                 )}
-              />
-            </div>
-            {hasSearch && (
-              <div className={cn('mt-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                {searchLoading ? '正在准备文件索引...' : `搜索结果 ${resultCount} 个 · 回车可用这个问题新建对话`}
-              </div>
-            )}
-            {!hasSearch && quickQuestions.length > 0 && (
-              <div className="flex flex-wrap items-center gap-[9px]">
-                {quickQuestions.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => setSearchTerm(item.prompt)}
-                    className={cn(
-                      'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors',
-                      item.featured
-                        ? darkMode
-                          ? 'border-[#4a4a4a] bg-[#2d2d2d] text-[#d4d4d4]'
-                          : 'border-[#d6d6d6] bg-[#f2f2f2] text-[#1f1f1f]'
-                        : darkMode
-                          ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
-                          : 'border-border-subtle bg-white text-text-main/70',
-                      darkMode ? 'hover:border-[#d4d4d4]' : 'hover:border-[#1f1f1f]',
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </form>
+              >
+                {getGreeting()}，<span className="font-serif italic">{displayName}</span>
+              </h1>
+              <p className={cn('text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                搜索文件、对话、知识库，或从最近内容继续。
+              </p>
 
-          {hasSearch ? (
-            <SearchResults
-              darkMode={darkMode}
-              keyword={searchTerm.trim()}
-              loading={searchLoading}
-              results={searchResults}
-              resultCount={resultCount}
-              submitting={submitting}
-              onCreateQuestion={() => void createQuestionConversation()}
-            />
-          ) : (
-            <>
-              <StatsPanel
-                darkMode={darkMode}
-                datasetTotal={datasets.length}
-                conversationTotal={conversationTotal}
-                fileTotal={fileTotal}
-                tokenTotal={tokenTotal}
-              />
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <form
+                onSubmit={handleSubmit}
+                className={cn(
+                  'mt-7 rounded-[22px] border px-5 py-5 shadow-[0_14px_34px_-28px_rgba(26,26,26,0.45)] sm:px-6',
+                  darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-[rgba(31,31,31,0.11)] bg-white/55',
+                )}
+              >
                 <div
-                  className={cn(
-                    'rounded-[18px] border px-5 py-4 lg:px-6',
-                    darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
-                  )}
+                  className={cn('flex items-center gap-3 sm:gap-4', !hasSearch && quickQuestions.length > 0 && 'mb-4')}
                 >
-                  <RecentDatasetsList darkMode={darkMode} loading={loading} datasets={datasets} />
-                </div>
-                <div
-                  className={cn(
-                    'rounded-[18px] border px-5 py-4 lg:px-6',
-                    darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
-                  )}
-                >
-                  <RecentChatsList
-                    darkMode={darkMode}
-                    loading={loading}
-                    recentChats={recentChats}
-                    datasets={datasets}
-                    onOpenChat={(id) => navigate(`/chats/${id}`)}
+                  <Search size={23} className="shrink-0 text-[#7B6B5D]" />
+                  <input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="搜索文件、对话、知识库，或输入一个问题..."
+                    className={cn(
+                      'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-text-main/40 sm:text-[17px]',
+                      darkMode ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'text-text-main',
+                    )}
                   />
                 </div>
+                {hasSearch && (
+                  <div className={cn('mt-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+                    {searchLoading ? '正在准备文件索引...' : `搜索结果 ${resultCount} 个 · 回车可用这个问题新建对话`}
+                  </div>
+                )}
+                {!hasSearch && quickQuestions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-[9px]">
+                    {quickQuestions.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => setSearchTerm(item.prompt)}
+                        className={cn(
+                          'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors',
+                          item.featured
+                            ? darkMode
+                              ? 'border-[#4a4a4a] bg-[#2d2d2d] text-[#d4d4d4]'
+                              : 'border-[#d6d6d6] bg-[#f2f2f2] text-[#1f1f1f]'
+                            : darkMode
+                              ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
+                              : 'border-border-subtle bg-white text-text-main/70',
+                          darkMode ? 'hover:border-[#d4d4d4]' : 'hover:border-[#1f1f1f]',
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </form>
+            </section>
+
+            {hasSearch ? (
+              <div className="mx-auto max-w-[920px]">
+                <SearchResults
+                  darkMode={darkMode}
+                  keyword={searchTerm.trim()}
+                  loading={searchLoading}
+                  results={searchResults}
+                  resultCount={resultCount}
+                  submitting={submitting}
+                  onCreateQuestion={() => void createQuestionConversation()}
+                />
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <StatsPanel
+                  darkMode={darkMode}
+                  datasetTotal={datasets.length}
+                  conversationTotal={conversationTotal}
+                  fileTotal={fileTotal}
+                  tokenTotal={tokenTotal}
+                />
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div
+                    className={cn(
+                      'min-h-[260px] rounded-[20px] border px-5 py-4 shadow-[0_12px_28px_-24px_rgba(26,26,26,0.45)] lg:px-6',
+                      darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
+                    )}
+                  >
+                    <RecentDatasetsList darkMode={darkMode} loading={loading} datasets={datasets} />
+                  </div>
+                  <div
+                    className={cn(
+                      'min-h-[260px] rounded-[20px] border px-5 py-4 shadow-[0_12px_28px_-24px_rgba(26,26,26,0.45)] lg:px-6',
+                      darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
+                    )}
+                  >
+                    <RecentChatsList
+                      darkMode={darkMode}
+                      loading={loading}
+                      recentChats={recentChats}
+                      datasets={datasets}
+                      onOpenChat={(id) => navigate(`/chats/${id}`)}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>
@@ -428,17 +429,15 @@ function StatsPanel({
   ];
 
   return (
-    <section className="mb-8 grid grid-cols-2 gap-y-3 py-1 lg:grid-cols-4">
-      {stats.map(({ label, value, icon: Icon, iconClass }, index) => (
-        <div
-          key={label}
-          className={cn(
-            'flex items-center gap-3 px-1 py-2 sm:px-3',
-            index > 0 && 'lg:pl-6',
-            index % 2 === 1 && 'max-lg:pl-4',
-          )}
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-transparent">
+    <section
+      className={cn(
+        'mb-8 grid grid-cols-2 gap-x-4 gap-y-4 border-y py-4 lg:grid-cols-4',
+        darkMode ? 'border-[#333333]' : 'border-border-subtle/80',
+      )}
+    >
+      {stats.map(({ label, value, icon: Icon, iconClass }) => (
+        <div key={label} className="flex h-[68px] items-center gap-3 px-1 sm:px-2 lg:px-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center">
             <Icon size={18} className={iconClass} />
           </span>
           <span className="min-w-0">
