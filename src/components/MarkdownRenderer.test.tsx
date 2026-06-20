@@ -88,4 +88,42 @@ describe('MarkdownRenderer', () => {
     expect(quote).toHaveClass('not-prose');
     expect(quote).toHaveClass('border-primary');
   });
+
+  it('renders deterministic heading ids that match markdown toc links', () => {
+    const { container } = render(
+      <MarkdownRenderer
+        content={'## 高速 Vibe Coding 先带来的不是效率问题，而是约束问题\n\n## 长期契约：docs/ 分层与机器同步'}
+      />,
+    );
+
+    expect(container.querySelector('h2')?.id).toBe('高速-vibe-coding-先带来的不是效率问题而是约束问题');
+  });
+
+  it('renders bold text in markdown table cells', () => {
+    render(<MarkdownRenderer content={'| Name |\n| --- |\n| **Bold value** |'} />);
+
+    expect(screen.getByText('Bold value').tagName).toBe('STRONG');
+  });
+
+  it('renders inline markdown inside raw html table cells', () => {
+    render(<MarkdownRenderer content={'<table><tbody><tr><td>**Bold value**</td></tr></tbody></table>'} />);
+
+    expect(screen.getByText('Bold value').tagName).toBe('STRONG');
+    expect(screen.queryByText('**Bold value**')).not.toBeInTheDocument();
+  });
+
+  it('renders multiple bold spans in the same CJK table row without leaking markers', () => {
+    render(
+      <MarkdownRenderer
+        content={
+          '| 车道 | 走什么链 | 说明 |\n| --- | --- | --- |\n| **L1 快车道** | 实现 → 测试 → PR | 单文件 / 配置 / 文案 / 小修，**无契约变更**; 不需要 `state.yaml`、brief、acceptance |'
+        }
+      />,
+    );
+
+    expect(screen.getByText('L1 快车道').tagName).toBe('STRONG');
+    expect(screen.getByText('无契约变更').tagName).toBe('STRONG');
+    expect(screen.queryByText(/\*\*L1/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/变更\*\*/)).not.toBeInTheDocument();
+  });
 });

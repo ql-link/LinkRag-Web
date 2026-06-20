@@ -29,6 +29,22 @@ Body`);
     expect(parsed.content).toContain('中文**代码块**内容');
   });
 
+  it('does not normalize emphasis across markdown table cells', () => {
+    const parsed = parseMarkdownContent(
+      '| 车道 | 走什么链 | 说明 |\n| --- | --- | --- |\n| **L1 快车道** | 实现 → 测试 → PR | 单文件 / 配置 / 文案 / 小修，**无契约变更**; 不需要 `state.yaml` |',
+    );
+
+    expect(parsed.content).toContain('| **L1 快车道** |');
+    expect(parsed.content).toContain('小修，**无契约变更**;');
+    expect(parsed.content).not.toContain('<strong>L1 快车道** |');
+  });
+
+  it('keeps CJK-adjacent emphasis normalization within one table cell', () => {
+    const parsed = parseMarkdownContent('| 说明 |\n| --- |\n| 中文**重点**内容 |');
+
+    expect(parsed.content).toContain('| 中文<strong>重点</strong>内容 |');
+  });
+
   it('separates CJK paragraphs from following list markers', () => {
     const parsed = parseMarkdownContent(`说明：
 - 第一项
