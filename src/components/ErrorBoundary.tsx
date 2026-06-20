@@ -44,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors bg-text-main text-white hover:opacity-90 dark:bg-[#094771] dark:hover:bg-[#0a5280]"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors bg-[#7B6B5D] text-white hover:opacity-90 dark:bg-[#8A7662] dark:hover:bg-[#7B6B5D]"
           >
             <RotateCcw size={12} />
             重试

@@ -73,19 +73,20 @@ export default function UsagePage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div>
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>用量</h2>
         </div>
         <button
           onClick={loadData}
           className={cn(
-            'h-9 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-opacity',
-            darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+            'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors',
+            darkMode
+              ? 'bg-[#1f2937] text-[#c7dff8] hover:bg-[#26364d]'
+              : 'border border-[#d7d2ca] bg-white text-text-main hover:bg-gray-100',
           )}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -107,37 +108,37 @@ export default function UsagePage() {
               darkMode={darkMode}
               label="总调用"
               value={summary?.totalCalls ?? 0}
-              icon={<Activity size={16} />}
+              icon={<Activity size={16} className="text-[#4F7FA8]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="总 Token"
               value={summary?.totalTokens ?? 0}
-              icon={<Coins size={16} />}
+              icon={<Coins size={16} className="text-[#D97373]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="提示词 Token"
               value={summary?.promptTokens ?? 0}
-              icon={<ArrowUpRight size={16} />}
+              icon={<ArrowUpRight size={16} className="text-[#7B6B5D]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="成功率"
               value={`${((summary?.successRate ?? 0) * 100).toFixed(2)}%`}
-              icon={<CircleCheck size={16} />}
+              icon={<CircleCheck size={16} className="text-[#5E9B73]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="失败调用"
               value={summary?.failedCalls ?? 0}
-              icon={<CircleX size={16} />}
+              icon={<CircleX size={16} className="text-[#D97373]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="平均延迟"
               value={`${summary?.averageLatencyMs ?? 0} ms`}
-              icon={<Clock3 size={16} />}
+              icon={<Clock3 size={16} className="text-[#7B6B5D]" />}
             />
           </div>
 
@@ -327,7 +328,9 @@ function MetricCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className={cn('rounded-md p-2', darkMode ? 'bg-[#1e1e1e] text-[#3b82f6]' : 'bg-primary/10 text-primary')}>
+        <div
+          className={cn('rounded-md p-2', darkMode ? 'bg-transparent text-[#d4d4d4]' : 'bg-transparent text-[#1f1f1f]')}
+        >
           {icon}
         </div>
         <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>{label}</span>

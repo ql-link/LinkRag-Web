@@ -486,15 +486,12 @@ export default function LLMPage() {
     <div className="h-full flex flex-col">
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
-          <Breadcrumb
-            items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '模型配置' }]}
-            darkMode={darkMode}
-          />
+        <div>
+          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '模型配置' }]} darkMode={darkMode} />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -518,7 +515,7 @@ export default function LLMPage() {
             onClick={() => setProviderPickerOpen(true)}
             className={cn(
               'h-9 w-fit rounded-lg px-4 text-xs font-bold inline-flex items-center gap-2 transition-colors',
-              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
             )}
           >
             <Plus size={15} />
@@ -612,7 +609,7 @@ function EffectiveModelsPanel({
       if (!target) {
         return;
       }
-      if (!target.closest(`[data-capability="${openCapability}"]`)) {
+      if (!target.closest(`[data-model-selector="${openCapability}"]`)) {
         setOpenCapability(null);
       }
     };
@@ -644,7 +641,8 @@ function EffectiveModelsPanel({
               <div
                 key={capability.value}
                 className={cn(
-                  'relative flex h-full min-h-[146px] flex-col gap-3.5 overflow-visible rounded-2xl border p-4 shadow-sm hover:border-primary transition-all duration-300',
+                  'relative flex h-full min-h-[146px] flex-col gap-3.5 overflow-visible rounded-2xl border p-4 transition-all duration-300 hover:border-primary',
+                  surfaceShadowClassName(darkMode),
                   isOpen && 'z-20',
                   darkMode
                     ? 'border-[#3c3c3c]/60 bg-[#2d2d2d]'
@@ -685,6 +683,7 @@ function EffectiveModelsPanel({
 
                 <button
                   type="button"
+                  data-model-selector={capability.value}
                   disabled={candidates.length === 0}
                   onClick={() => setOpenCapability((prev) => (prev === capability.value ? null : capability.value))}
                   className={cn(
@@ -716,6 +715,7 @@ function EffectiveModelsPanel({
 
                 {isOpen && candidates.length > 0 ? (
                   <div
+                    data-model-selector={capability.value}
                     className={cn(
                       'absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border p-1.5 shadow-2xl backdrop-blur-md transition-all duration-300',
                       darkMode ? 'bg-[#252526]/95 border-[#3c3c3c]' : 'bg-white/95 border-border-subtle/75',
@@ -1077,13 +1077,7 @@ function ProviderPickerModal({
             </button>
           </div>
           <div className="relative mt-5">
-            <Search
-              size={15}
-              className={cn(
-                'absolute left-3 top-1/2 -translate-y-1/2',
-                darkMode ? 'text-[#858585]' : 'text-text-main/40',
-              )}
-            />
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4F7FA8]" />
             <input
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
@@ -1173,6 +1167,7 @@ function AvailableProviderCard({
       onClick={onSetup}
       className={cn(
         'group h-fit w-full rounded-xl border p-3.5 text-left transition-all duration-300',
+        surfaceShadowClassName(darkMode),
         darkMode
           ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-primary/50 hover:bg-[#232323]'
           : 'border-border-subtle bg-bg-base/55 hover:border-primary/35 hover:bg-white',
@@ -1210,8 +1205,8 @@ function AvailableProviderCard({
           className={cn(
             'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition-all duration-300',
             darkMode
-              ? 'bg-[#094771] text-white group-hover:bg-[#0a5280]'
-              : 'bg-text-main text-white group-hover:opacity-90',
+              ? 'bg-[#8A7662] text-white group-hover:bg-[#7B6B5D]'
+              : 'bg-[#7B6B5D] text-white group-hover:opacity-90',
           )}
         >
           <Plus size={13} />
@@ -1349,7 +1344,7 @@ function SetupProviderModal({
             disabled={submitting}
             className={cn(
               'h-9 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60',
-              darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
             )}
           >
             {submitting && <RefreshCw size={13} className="animate-spin" />}
@@ -1433,6 +1428,13 @@ function StateSwitch({
   );
 }
 
+const INSET_PROVIDER_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
+
+function shouldInsetProviderIcon(name: string, iconUrl: string) {
+  const token = normalizeProviderToken(`${name} ${iconUrl}`);
+  return INSET_PROVIDER_ICON_KEYS.some((key) => token.includes(key));
+}
+
 function ProviderIcon({
   iconUrl,
   name,
@@ -1445,22 +1447,22 @@ function ProviderIcon({
   size: 'sm' | 'md';
 }) {
   const className =
-    size === 'sm' ? 'h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8' : 'h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10';
+    size === 'sm' ? 'h-7 w-7 min-h-7 min-w-7 max-h-7 max-w-7' : 'h-9 w-9 min-h-9 min-w-9 max-h-9 max-w-9';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
+  const iconInsetClass = shouldInsetProviderIcon(name, iconUrl) ? (size === 'sm' ? 'p-1' : 'p-1.5') : 'p-0';
 
   if (iconUrl) {
     return (
       <div
         className={cn(
           className,
-          'overflow-hidden rounded-xl border shrink-0 transition-colors duration-300',
-          darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-white border-border-subtle/50',
+          'shrink-0 overflow-hidden rounded-xl border-0 bg-transparent transition-colors duration-300',
         )}
       >
         <img
           src={iconUrl}
           alt={name}
-          className={cn('block h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+          className={cn('block h-full w-full object-contain', iconInsetClass, darkMode && iconIsMonochrome && 'invert')}
         />
       </div>
     );
@@ -1470,11 +1472,10 @@ function ProviderIcon({
     <div
       className={cn(
         className,
-        'rounded-xl border flex items-center justify-center shrink-0 transition-colors duration-300',
-        darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-primary/5 border-primary/20',
+        'flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent transition-colors duration-300',
       )}
     >
-      <Box size={16} className={darkMode ? 'text-primary' : 'text-primary'} />
+      <Box size={16} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
     </div>
   );
 }
@@ -1540,6 +1541,11 @@ function SourcePill({ darkMode, preset, compact }: { darkMode?: boolean; preset:
 function panelClassName(darkMode?: boolean) {
   return cn(
     'rounded-2xl border backdrop-blur-sm transition-all duration-300',
-    darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle shadow-sm',
+    surfaceShadowClassName(darkMode),
+    darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white/50 border-border-subtle',
   );
+}
+
+function surfaceShadowClassName(darkMode?: boolean) {
+  return darkMode ? 'shadow-[0_10px_28px_rgba(0,0,0,0.18)]' : 'shadow-sm';
 }
