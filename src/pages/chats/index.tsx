@@ -97,11 +97,12 @@ function recallErrorMessage(error: unknown): string {
 function hitsToCitations(hits: RecallHit[], files: KnowledgeFileDTO[]): Citation[] {
   return hits.map((hit) => {
     const file = files.find((item) => item.id === hit.doc_id);
+    const content = hit.content?.trim();
     return {
       id: hit.chunk_id,
       fileName: file?.originalFilename ?? `文档 #${hit.doc_id}`,
       score: Math.round(hit.fused_score * 100),
-      snippet: `命中 chunk ${hit.chunk_id}，来自知识库 #${hit.dataset_id}。当前召回接口暂未返回片段正文。`,
+      snippet: content || `命中 chunk ${hit.chunk_id}，来自知识库 #${hit.dataset_id}（该片段暂无可用正文）。`,
     };
   });
 }
@@ -215,6 +216,8 @@ export default function ChatsPage() {
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
+  // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
+  const conversationsRef = useRef<ConversationDTO[]>([]);
 
   const [leftTab, setLeftTab] = useState<LeftTab>('history');
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
@@ -286,6 +289,12 @@ export default function ChatsPage() {
   }, []);
 
   useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  // 仅在会话 id 变化时加载一次会话/消息。不要依赖 conversations / chatModels，
+  // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
+  useEffect(() => {
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
@@ -300,7 +309,7 @@ export default function ChatsPage() {
       setLoadingConversation(true);
       try {
         const conv =
-          conversations.find((item) => item.id === activeConversationId) ??
+          conversationsRef.current.find((item) => item.id === activeConversationId) ??
           (await getConversations(1, 100)).items.find((item) => item.id === activeConversationId);
         if (!conv) {
           if (!cancelled) {
@@ -320,9 +329,6 @@ export default function ChatsPage() {
         setMessages(msgResult.items);
         setFiles(fileResult.items.sort((a, b) => b.id - a.id));
         setCitationsByMessageId({});
-        if (conv.lastConfigId && chatModels.some((model) => model.id === conv.lastConfigId)) {
-          setSelectedModelConfigId(conv.lastConfigId);
-        }
       } catch (error) {
         if (!cancelled) console.error('Failed to load conversation:', error);
       } finally {
@@ -333,7 +339,16 @@ export default function ChatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeConversationId, conversations, chatModels]);
+  }, [activeConversationId]);
+
+  // 模型预选独立于消息加载：会话与模型列表都就绪后，按会话的 lastConfigId 预选，
+  // 只设置模型、绝不触碰 messages，因此不会覆盖首轮消息。
+  useEffect(() => {
+    if (!conversation?.lastConfigId) return;
+    if (chatModels.some((model) => model.id === conversation.lastConfigId)) {
+      setSelectedModelConfigId(conversation.lastConfigId);
+    }
+  }, [conversation, chatModels]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
