@@ -111,7 +111,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         )}
       >
         {navItems.map(({ path, name, icon: Icon }) => {
-          const isActive = pathname === path;
+          const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
           return (
             <Link
               key={path}
