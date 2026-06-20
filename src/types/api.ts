@@ -266,6 +266,10 @@ export interface UsageSummaryDTO {
   successRate: number; // 0~1，无调用为 0
 }
 
+export type UsageStage = 'chat' | 'all' | 'parse' | 'recall';
+export type UsageOperation = 'embed' | 'rerank' | 'vision' | 'table' | 'generate' | (string & {});
+export type UsageStatus = 'success' | 'partial' | 'failed' | (string & {});
+
 export interface ModelUsageDTO {
   providerType: string;
   modelName: string;
@@ -294,14 +298,16 @@ export interface DailyUsageDTO {
 
 export interface UsageLogDTO {
   id: number;
-  configId: number;
+  configId: number | null;
   providerType: string;
   modelName: string;
+  stage: Exclude<UsageStage, 'all'> | (string & {});
+  operation: UsageOperation;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-  latencyMs: number;
-  status: string;
+  latencyMs: number | null;
+  status: UsageStatus;
   errorMessage: string | null;
   createdAt: string;
 }
