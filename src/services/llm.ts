@@ -9,7 +9,9 @@ import type {
   CreateProviderRequest,
   UpdateProviderRequest,
   AddProviderModelRequest,
+  UpdateProviderModelRequest,
   CreatePresetRequest,
+  UpdatePresetRequest,
   UsageSummaryDTO,
   UsageStage,
   DailyUsageDTO,
@@ -87,6 +89,26 @@ export async function addAdminProviderModel(providerId: number, data: AddProvide
   return apiClient.post<ProviderModel>(`/api/v1/admin/providers/${providerId}/models`, data);
 }
 
+export async function listAdminProviderModels(filters?: {
+  page?: number;
+  size?: number;
+  providerId?: number;
+  capability?: LLMCapability;
+  isActive?: boolean;
+}): Promise<PageResult<ProviderModel>> {
+  return apiClient.get<PageResult<ProviderModel>>('/api/v1/admin/provider-models', {
+    page: filters?.page ?? 1,
+    size: filters?.size ?? 100,
+    ...(filters?.providerId ? { providerId: filters.providerId } : {}),
+    ...(filters?.capability ? { capability: filters.capability } : {}),
+    ...(filters?.isActive === undefined ? {} : { isActive: filters.isActive }),
+  });
+}
+
+export async function updateAdminProviderModel(id: number, data: UpdateProviderModelRequest): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/provider-models/${id}`, data);
+}
+
 export async function deleteAdminProviderModel(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/provider-models/${id}`);
 }
@@ -101,6 +123,14 @@ export async function listAdminSystemPresets(): Promise<SystemPreset[]> {
 
 export async function createAdminSystemPreset(data: CreatePresetRequest): Promise<void> {
   await apiClient.post('/api/v1/admin/system-presets', data);
+}
+
+export async function updateAdminSystemPreset(id: number, data: UpdatePresetRequest): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/system-presets/${id}`, data);
+}
+
+export async function toggleAdminSystemPreset(id: number, isActive: boolean): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/system-presets/${id}/active?isActive=${encodeURIComponent(String(isActive))}`);
 }
 
 export async function deleteAdminSystemPreset(id: number): Promise<void> {

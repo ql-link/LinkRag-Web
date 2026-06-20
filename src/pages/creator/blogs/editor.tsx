@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Upload,
@@ -34,9 +34,12 @@ import { Routes as RoutePaths } from '@/routes';
 export default function CreatorBlogEditor() {
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new';
   const postId = isNew ? null : parseInt(id || '', 10);
+  const blogListPath = pathname.startsWith('/admin') ? RoutePaths.AdminBlogs : RoutePaths.CreatorBlogs;
+  const blogEditPath = pathname.startsWith('/admin') ? '/admin/blogs/edit' : '/creator/blogs/edit';
 
   const leftPaneRef = useRef<HTMLDivElement>(null);
   const rightPaneRef = useRef<HTMLDivElement>(null);
@@ -121,7 +124,7 @@ export default function CreatorBlogEditor() {
       // Refresh state or navigate
       if (isNew && finalTargetId) {
         isAutoSavingRef.current = true;
-        navigate(`/creator/blogs/edit/${finalTargetId}`, { replace: true });
+        navigate(`${blogEditPath}/${finalTargetId}`, { replace: true });
         await fetchPostDetail(finalTargetId, false);
       } else if (finalTargetId) {
         await fetchPostDetail(finalTargetId, false);
@@ -172,7 +175,7 @@ export default function CreatorBlogEditor() {
       }
 
       isAutoSavingRef.current = true;
-      navigate(`/creator/blogs/edit/${res.id}`, { replace: true });
+      navigate(`${blogEditPath}/${res.id}`, { replace: true });
       setFormData((prev) => ({ ...prev, title: tempTitle, slug: currentSlug }));
       setPostDetail(res);
       return res.id;
@@ -311,7 +314,7 @@ export default function CreatorBlogEditor() {
     try {
       setLoading(true);
       await deletePost(targetId);
-      navigate(RoutePaths.CreatorBlogs);
+      navigate(blogListPath);
     } catch (error) {
       console.error(error);
     } finally {
@@ -329,7 +332,7 @@ export default function CreatorBlogEditor() {
       >
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate(RoutePaths.CreatorBlogs)}
+            onClick={() => navigate(blogListPath)}
             className={cn(
               'flex h-8 w-8 items-center justify-center rounded-xl text-text-main/65 transition-colors hover:bg-primary/5 hover:text-primary',
             )}

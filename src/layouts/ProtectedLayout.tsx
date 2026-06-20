@@ -22,6 +22,7 @@ const FeedbackPage = lazy(() => import('@/pages/feedback'));
 const UsagePage = lazy(() => import('@/pages/usage'));
 const LLMPage = lazy(() => import('@/pages/settings/llm-config'));
 const ProfilePage = lazy(() => import('@/pages/settings/profile'));
+const AdminPage = lazy(() => import('@/pages/settings/admin'));
 
 function PageLoader() {
   const { darkMode } = useTheme();
@@ -41,6 +42,7 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith('/usage')) return '用量';
   if (pathname.startsWith('/settings/llm-config')) return '模型配置';
   if (pathname.startsWith('/settings/profile')) return '个人信息';
+  if (pathname.startsWith('/settings/admin')) return '后台管理';
   return 'LinkRag';
 }
 
@@ -72,6 +74,7 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
         <Route path={RoutePaths.Usage} element={<UsagePage />} />
         <Route path={RoutePaths.LLMPage} element={<LLMPage />} />
         <Route path={RoutePaths.ProfilePage} element={<ProfilePage />} />
+        <Route path={RoutePaths.AdminPage} element={<AdminPage />} />
         <Route path={RoutePaths.Welcome} element={<Navigate to={RoutePaths.Home} replace />} />
         <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
       </Routes>
