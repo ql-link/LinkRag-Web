@@ -707,7 +707,7 @@ export default function DatasetParseConfigPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
           <div className={cn('mono-label', darkMode && 'text-[#858585]')}>加载中...</div>
         </div>
       </div>
@@ -1288,13 +1288,8 @@ function ProviderIcon({ iconUrl, name, darkMode }: { iconUrl: string; name: stri
   }
 
   return (
-    <div
-      className={cn(
-        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
-        darkMode ? 'border-[#3c3c3c] bg-[#313131]' : 'border-primary/20 bg-white',
-      )}
-    >
-      <Box size={15} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent bg-transparent">
+      <Box size={15} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { useLocation, useNavigate, useParams } from 'react-router';
 import {
   ChevronDown,
+  Database,
   FileText,
   Files,
   Loader2,
@@ -263,13 +264,8 @@ function RecallEvidencePanel({
 function ThinkingBubble({ darkMode }: { darkMode?: boolean }) {
   return (
     <div className="chat-rise flex items-start gap-3">
-      <div
-        className={cn(
-          'mt-1 flex h-8 w-8 items-center justify-center rounded-xl border',
-          darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-primary/10',
-        )}
-      >
-        <Sparkles size={15} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-xl border border-transparent bg-transparent">
+        <Sparkles size={15} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
       </div>
       <div
         className={cn(
@@ -732,19 +728,6 @@ export default function ChatsPage() {
             <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} darkMode={darkMode} />
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={beginNewConversation}
-              className={cn(
-                'flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors',
-                darkMode
-                  ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#353535]'
-                  : 'bg-[#7B6B5D] text-white hover:bg-[#6b5d51]',
-              )}
-            >
-              <Plus size={14} />
-              新建对话
-            </button>
             {(['history', 'files'] as LeftTab[]).map((tab) => {
               const active = resourcePanelOpen && leftTab === tab;
               const label = tab === 'history' ? '历史' : `文件 ${files.length}`;
@@ -787,72 +770,80 @@ export default function ChatsPage() {
               )}
             >
               <Search size={14} />
-              {showEvidencePanel
-                ? '隐藏证据'
-                : recallLoading
-                  ? '证据召回中'
-                  : recallChunks.length > 0
-                    ? `证据 ${recallChunks.length}`
-                    : '召回片段'}
+              召回片段
             </button>
-            <div className="relative">
+            <div className="ml-1 flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => setKbOpen((value) => !value)}
+                onClick={beginNewConversation}
                 className={cn(
-                  'flex h-9 max-w-[280px] items-center gap-2 rounded-full border px-3 text-xs font-bold transition-colors',
-                  selectedDataset
-                    ? darkMode
-                      ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] hover:border-[#3b82f6]'
-                      : 'border-border-subtle bg-white text-text-main hover:border-primary'
-                    : darkMode
-                      ? 'border-[#3b82f6]/45 bg-[#3b82f6]/10 text-[#3b82f6]'
-                      : 'border-primary/50 bg-primary/12 text-primary',
+                  'flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors',
+                  darkMode
+                    ? 'bg-[#d4d4d4] text-[#1f1f1f] hover:bg-[#c7c7c7]'
+                    : 'bg-[#1f1f1f] text-white hover:bg-[#333333]',
                 )}
               >
-                <Files size={14} />
-                <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
-                <ChevronDown size={13} className={cn('transition-transform', kbOpen && 'rotate-180')} />
+                <Plus size={14} />
+                新建对话
               </button>
-              {kbOpen && (
-                <div
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setKbOpen((value) => !value)}
                   className={cn(
-                    'absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border p-2 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
-                    darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                    'flex h-9 max-w-[280px] items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors',
+                    darkMode
+                      ? 'border-[#d4d4d4] bg-[#d4d4d4] text-[#1f1f1f] hover:border-[#c7c7c7] hover:bg-[#c7c7c7]'
+                      : 'border-[#1f1f1f] bg-[#1f1f1f] text-white hover:border-[#333333] hover:bg-[#333333]',
                   )}
                 >
-                  {datasets.length === 0 ? (
-                    <p
-                      className={cn('px-3 py-5 text-center text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
-                    >
-                      暂无可选知识库
-                    </p>
-                  ) : (
-                    datasets.map((dataset) => (
-                      <button
-                        key={dataset.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDatasetId(dataset.id);
-                          setKbOpen(false);
-                        }}
+                  <Database size={14} />
+                  <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
+                  <ChevronDown size={13} className={cn('transition-transform', kbOpen && 'rotate-180')} />
+                </button>
+                {kbOpen && (
+                  <div
+                    className={cn(
+                      'absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border p-2 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
+                      darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                    )}
+                  >
+                    {datasets.length === 0 ? (
+                      <p
                         className={cn(
-                          'w-full rounded-xl px-3 py-2 text-left text-xs font-bold transition-colors',
-                          dataset.id === selectedDatasetId
-                            ? darkMode
-                              ? 'bg-[#2d2d2d] text-[#e0e0e0]'
-                              : 'bg-primary/10 text-text-main'
-                            : darkMode
-                              ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
-                              : 'text-text-main/70 hover:bg-primary/5',
+                          'px-3 py-5 text-center text-xs',
+                          darkMode ? 'text-[#858585]' : 'text-text-main/45',
                         )}
                       >
-                        {dataset.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
+                        暂无可选知识库
+                      </p>
+                    ) : (
+                      datasets.map((dataset) => (
+                        <button
+                          key={dataset.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDatasetId(dataset.id);
+                            setKbOpen(false);
+                          }}
+                          className={cn(
+                            'w-full rounded-xl px-3 py-2 text-left text-xs font-bold transition-colors',
+                            dataset.id === selectedDatasetId
+                              ? darkMode
+                                ? 'bg-[#2d2d2d] text-[#e0e0e0]'
+                                : 'bg-primary/10 text-text-main'
+                              : darkMode
+                                ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
+                                : 'text-text-main/70 hover:bg-primary/5',
+                          )}
+                        >
+                          {dataset.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -1167,13 +1158,8 @@ export default function ChatsPage() {
                       <ThinkingBubble key={message.id} darkMode={darkMode} />
                     ) : (
                       <div key={message.id} className="chat-rise flex items-start gap-3">
-                        <div
-                          className={cn(
-                            'mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border',
-                            darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-primary/10',
-                          )}
-                        >
-                          <Sparkles size={15} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-transparent bg-transparent">
+                          <Sparkles size={15} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
                         </div>
                         <div
                           className={cn(

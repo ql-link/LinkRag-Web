@@ -294,7 +294,7 @@ export default function DatasetPage() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
           <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
         </div>
       </div>
@@ -448,13 +448,8 @@ export default function DatasetPage() {
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={cn(
-                      'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
-                      darkMode ? 'bg-[#094771]/30' : 'bg-primary/10',
-                    )}
-                  >
-                    <Plus size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-transparent">
+                    <Plus size={18} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
                   </div>
                   <div className="min-w-0">
                     <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>上传文件</p>
@@ -495,13 +490,8 @@ export default function DatasetPage() {
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={cn(
-                          'w-9 h-9 rounded-lg flex items-center justify-center shrink-0',
-                          darkMode ? 'bg-[#3c3c3c]' : 'bg-primary/10',
-                        )}
-                      >
-                        <FileText size={16} className={darkMode ? 'text-[#858585]' : 'text-primary'} />
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-transparent">
+                        <FileText size={16} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
                       </div>
                       <div className="min-w-0">
                         <p className={cn('text-sm font-bold truncate', darkMode ? 'text-[#e0e0e0]' : '')}>

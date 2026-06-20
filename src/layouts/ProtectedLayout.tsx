@@ -44,6 +44,18 @@ function getPageTitle(pathname: string) {
   return 'LinkRag';
 }
 
+const pageMotion = {
+  initial: { opacity: 0, y: 14, scale: 0.997 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -10, scale: 0.997 },
+  transition: {
+    type: 'spring',
+    stiffness: 260,
+    damping: 30,
+    mass: 0.8,
+  } as const,
+};
+
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -180,10 +192,10 @@ export function ProtectedLayout() {
                   'h-full min-w-0 overflow-hidden rounded-2xl border',
                   darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                 )}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.16, ease: 'easeOut' }}
+                initial={pageMotion.initial}
+                animate={pageMotion.animate}
+                exit={pageMotion.exit}
+                transition={pageMotion.transition}
               >
                 <AppRoutesContent location={location} />
               </motion.div>
@@ -201,10 +213,10 @@ export function ProtectedLayout() {
                     'h-full min-w-0 overflow-hidden rounded-[24px] border',
                     darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                   )}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  initial={pageMotion.initial}
+                  animate={pageMotion.animate}
+                  exit={pageMotion.exit}
+                  transition={pageMotion.transition}
                 >
                   <AppRoutesContent location={location} />
                 </motion.div>

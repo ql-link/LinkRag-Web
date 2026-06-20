@@ -1468,10 +1468,10 @@ function ProviderIcon({
       className={cn(
         className,
         'rounded-xl border flex items-center justify-center shrink-0 transition-colors duration-300',
-        darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-primary/5 border-primary/20',
+        'bg-transparent border-transparent',
       )}
     >
-      <Box size={16} className={darkMode ? 'text-primary' : 'text-primary'} />
+      <Box size={16} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
     </div>
   );
 }

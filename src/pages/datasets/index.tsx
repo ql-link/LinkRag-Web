@@ -133,6 +133,8 @@ export default function DatasetsPage() {
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
     });
   const hasSearch = searchString.trim().length > 0;
+  const showInitialLoading = loading && datasets.length === 0;
+  const showBlockingError = Boolean(errorMessage) && datasets.length === 0;
 
   const formatDatasetTime = (value: string) => {
     if (!value) return '-';
@@ -223,17 +225,17 @@ export default function DatasetsPage() {
           {hasSearch && <span>筛选出 {filteredDatasets.length} 个</span>}
         </div>
 
-        {loading ? (
+        {showInitialLoading ? (
           <div
             className={cn(
               'h-56 flex flex-col items-center justify-center rounded-2xl',
               darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
             )}
           >
-            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
             <p className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>正在加载知识库</p>
           </div>
-        ) : errorMessage ? (
+        ) : showBlockingError ? (
           <div
             className={cn(
               'h-56 flex flex-col items-center justify-center rounded-2xl text-center',
@@ -280,7 +282,7 @@ export default function DatasetsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
+          <div className="grid grid-cols-3 auto-rows-[142px] gap-4">
             {filteredDatasets.map((dataset) => {
               const deleting = deletingDatasetIds.includes(dataset.id);
 
@@ -289,25 +291,20 @@ export default function DatasetsPage() {
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
                   className={cn(
-                    'rounded-2xl h-full p-5 transition-colors cursor-pointer group flex flex-col overflow-hidden',
+                    'rounded-2xl h-full p-4 transition-colors cursor-pointer group flex flex-col overflow-hidden',
                     darkMode
                       ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
                       : 'art-card hover:border-primary',
                   )}
                 >
-                  <div className="mb-3">
-                    <div
-                      className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center',
-                        darkMode ? 'bg-[#094771]/30' : 'bg-primary/20',
-                      )}
-                    >
-                      <Database size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                  <div className="mb-2">
+                    <div className="flex h-7 w-7 items-center justify-center bg-transparent">
+                      <Database size={16} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
                     </div>
                   </div>
                   <h3
                     className={cn(
-                      'font-bold text-sm uppercase tracking-wider mb-0.5 group-hover:text-[#3b82f6] transition-colors',
+                      'mb-0.5 truncate text-sm font-bold uppercase tracking-wider transition-colors group-hover:text-[#3b82f6]',
                       darkMode ? 'text-[#e0e0e0]' : '',
                     )}
                   >
@@ -316,7 +313,7 @@ export default function DatasetsPage() {
                   {dataset.description && (
                     <p
                       className={cn(
-                        'text-[11px] leading-4 line-clamp-2 mb-2 min-h-0',
+                        'mb-1 line-clamp-2 min-h-0 text-[11px] leading-4',
                         darkMode ? 'text-[#858585]' : 'text-text-main/60',
                       )}
                     >
@@ -368,8 +365,8 @@ export default function DatasetsPage() {
               className={cn(
                 'rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed',
                 darkMode
-                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]'
-                  : 'art-card border-dashed text-text-main/40 hover:text-primary hover:border-primary',
+                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#d4d4d4] hover:border-[#d4d4d4]'
+                  : 'art-card border-dashed text-text-main/40 hover:text-[#1f1f1f] hover:border-[#1f1f1f]',
               )}
             >
               <Plus size={24} className="mb-2" />

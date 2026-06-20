@@ -326,7 +326,9 @@ function MetricCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className={cn('rounded-md p-2', darkMode ? 'bg-[#1e1e1e] text-[#3b82f6]' : 'bg-primary/10 text-primary')}>
+        <div
+          className={cn('rounded-md p-2', darkMode ? 'bg-transparent text-[#d4d4d4]' : 'bg-transparent text-[#1f1f1f]')}
+        >
           {icon}
         </div>
         <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>{label}</span>
