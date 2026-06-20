@@ -40,11 +40,16 @@ import {
   KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
-import { getProviderIcon, isProviderIconMonochrome } from '@/lib/provider-icons';
+import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO, LLMConfigDTO, MessageDTO, RecallHit } from '@/types/api';
 
 type LeftTab = 'history' | 'files';
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
+
+type ChatRouteState = {
+  datasetId?: unknown;
+  initialQuestion?: unknown;
+};
 
 interface RecallChunk {
   id: string;
@@ -55,6 +60,11 @@ interface RecallChunk {
 
 interface SendOptions {
   onStarted?: () => void;
+}
+
+function parseRouteDatasetId(value: unknown) {
+  const datasetId = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(datasetId) && datasetId > 0 ? datasetId : null;
 }
 
 function formatTime(value: string) {
@@ -106,35 +116,47 @@ function hitsToRecallChunks(hits: RecallHit[], files: KnowledgeFileDTO[]): Recal
   });
 }
 
+const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
+
+function shouldInsetModelIcon(model: LLMConfigDTO | null | undefined, iconUrl: string) {
+  const token = normalizeProviderToken(`${model?.providerType ?? ''} ${model?.modelName ?? ''} ${iconUrl}`);
+  return INSET_MODEL_ICON_KEYS.some((key) => token.includes(key));
+}
+
 function ModelProviderIcon({
   model,
   darkMode,
   size = 'sm',
+  frameless = true,
 }: {
   model: LLMConfigDTO | null | undefined;
   darkMode?: boolean;
   size?: 'xs' | 'sm';
+  frameless?: boolean;
 }) {
   const iconUrl = model ? getProviderIcon(model.providerType, model.providerType, model.modelName) : '';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
   const sizeClass = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
+  const iconInsetClass = shouldInsetModelIcon(model, iconUrl) ? 'p-1' : frameless ? 'p-0' : 'p-0.5';
 
   return (
     <span
       className={cn(
         sizeClass,
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-lg border',
-        darkMode ? 'border-[#3c3c3c] bg-[#313131]' : 'border-border-subtle bg-white',
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-lg',
+        frameless
+          ? 'border-0 bg-transparent'
+          : cn('border', darkMode ? 'border-[#3c3c3c] bg-[#313131]' : 'border-border-subtle bg-white'),
       )}
     >
       {iconUrl ? (
         <img
           src={iconUrl}
           alt={model?.providerType ?? '模型'}
-          className={cn('block h-full w-full object-contain p-0.5', darkMode && iconIsMonochrome && 'invert')}
+          className={cn('block h-full w-full object-contain', iconInsetClass, darkMode && iconIsMonochrome && 'invert')}
         />
       ) : (
-        <MessageSquare size={size === 'xs' ? 12 : 14} className={darkMode ? 'text-[#858585]' : 'text-text-main/45'} />
+        <MessageSquare size={size === 'xs' ? 12 : 14} className="text-[#7B6B5D]" />
       )}
     </span>
   );
@@ -265,7 +287,7 @@ function ThinkingBubble({ darkMode }: { darkMode?: boolean }) {
   return (
     <div className="chat-rise flex items-start gap-3">
       <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-xl border border-transparent bg-transparent">
-        <Sparkles size={15} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
+        <Sparkles size={15} className="text-[#D97373]" />
       </div>
       <div
         className={cn(
@@ -297,6 +319,8 @@ export default function ChatsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const routeState = location.state as ChatRouteState | null;
+  const routeDatasetId = parseRouteDatasetId(routeState?.datasetId);
   const { darkMode } = useTheme();
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -304,6 +328,8 @@ export default function ChatsPage() {
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
+  const kbSelectorRef = useRef<HTMLDivElement | null>(null);
+  const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
 
@@ -322,7 +348,7 @@ export default function ChatsPage() {
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(() => routeDatasetId);
   const [chatModels, setChatModels] = useState<LLMConfigDTO[]>([]);
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
   const [kbOpen, setKbOpen] = useState(false);
@@ -335,10 +361,22 @@ export default function ChatsPage() {
   const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
 
   const activeConversationId = id ? Number(id) : null;
-  const routeInitialQuestion =
-    typeof (location.state as { initialQuestion?: unknown } | null)?.initialQuestion === 'string'
-      ? ((location.state as { initialQuestion: string }).initialQuestion.trim() ?? '')
-      : '';
+
+  useEffect(() => {
+    if (!kbOpen && !modelOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (kbSelectorRef.current?.contains(target)) return;
+      if (modelSelectorRef.current?.contains(target)) return;
+      setKbOpen(false);
+      setModelOpen(false);
+    }
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [kbOpen, modelOpen]);
+  const routeInitialQuestion = typeof routeState?.initialQuestion === 'string' ? routeState.initialQuestion.trim() : '';
   const storedInitialQuestion = activeConversationId
     ? (sessionStorage.getItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`)?.trim() ?? '')
     : '';
@@ -395,7 +433,7 @@ export default function ChatsPage() {
       setConversation(null);
       setMessages([]);
       setFiles([]);
-      setSelectedDatasetId(null);
+      setSelectedDatasetId(routeDatasetId);
       setRecallChunks([]);
       setRecallLoading(false);
       setRecallQuery('');
@@ -441,7 +479,7 @@ export default function ChatsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeConversationId]);
+  }, [activeConversationId, routeDatasetId]);
 
   // 模型预选独立于消息加载：会话与模型列表都就绪后，按会话的 lastConfigId 预选，
   // 只设置模型、绝不触碰 messages，因此不会覆盖首轮消息。
@@ -507,7 +545,7 @@ export default function ChatsPage() {
     setRecallLoading(false);
     setRecallQuery('');
     setEvidencePanelVisible(false);
-    navigate(Routes.Chats);
+    navigate(Routes.Chats, { state: null });
   };
 
   const handleSend = useCallback(
@@ -740,17 +778,21 @@ export default function ChatsPage() {
                     setResourcePanelOpen((open) => (leftTab === tab ? !open : true));
                   }}
                   className={cn(
-                    'flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors',
+                    'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
                     active
                       ? darkMode
-                        ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-[#3b82f6]'
-                        : 'border-primary bg-primary/10 text-text-main'
+                        ? 'border-[#8A7662] bg-[#8A7662]/14 text-[#e0e0e0]'
+                        : 'border-[#7B6B5D] bg-[#7B6B5D]/10 text-text-main'
                       : darkMode
-                        ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#3b82f6]'
-                        : 'border-border-subtle bg-white text-text-main/70 hover:border-primary',
+                        ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#8A7662]'
+                        : 'border-border-subtle bg-white text-text-main hover:border-[#7B6B5D]',
                   )}
                 >
-                  {tab === 'history' ? <MessageSquare size={14} /> : <Files size={14} />}
+                  {tab === 'history' ? (
+                    <MessageSquare size={14} className="text-[#7B6B5D]" />
+                  ) : (
+                    <Files size={14} className="text-[#5E9B73]" />
+                  )}
                   {label}
                 </button>
               );
@@ -759,17 +801,17 @@ export default function ChatsPage() {
               type="button"
               onClick={() => setEvidencePanelVisible((visible) => !visible)}
               className={cn(
-                'flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-all duration-200 ease-out active:scale-[0.98]',
+                'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-all duration-200 ease-out active:scale-[0.98]',
                 showEvidencePanel
                   ? darkMode
-                    ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-[#3b82f6]'
-                    : 'border-primary bg-primary/10 text-text-main'
+                    ? 'border-[#8A7662] bg-[#8A7662]/14 text-[#e0e0e0]'
+                    : 'border-[#7B6B5D] bg-[#7B6B5D]/10 text-text-main'
                   : darkMode
-                    ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#3b82f6]'
-                    : 'border-border-subtle bg-white text-text-main/70 hover:border-primary',
+                    ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#8A7662]'
+                    : 'border-border-subtle bg-white text-text-main hover:border-[#7B6B5D]',
               )}
             >
-              <Search size={14} />
+              <Search size={14} className="text-[#4F7FA8]" />
               召回片段
             </button>
             <div className="ml-1 flex shrink-0 items-center gap-2">
@@ -777,34 +819,34 @@ export default function ChatsPage() {
                 type="button"
                 onClick={beginNewConversation}
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors',
+                  'flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
                   darkMode
-                    ? 'bg-[#d4d4d4] text-[#1f1f1f] hover:bg-[#c7c7c7]'
-                    : 'bg-[#1f1f1f] text-white hover:bg-[#333333]',
+                    ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#7B6B5D] hover:text-[#e0e0e0]'
+                    : 'border-border-subtle bg-white text-text-main hover:border-[#7B6B5D]',
                 )}
               >
-                <Plus size={14} />
+                <Plus size={14} className="text-[#7B6B5D]" />
                 新建对话
               </button>
-              <div className="relative">
+              <div ref={kbSelectorRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setKbOpen((value) => !value)}
                   className={cn(
-                    'flex h-9 max-w-[280px] items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors',
+                    'flex h-9 max-w-[280px] items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
                     darkMode
-                      ? 'border-[#d4d4d4] bg-[#d4d4d4] text-[#1f1f1f] hover:border-[#c7c7c7] hover:bg-[#c7c7c7]'
-                      : 'border-[#1f1f1f] bg-[#1f1f1f] text-white hover:border-[#333333] hover:bg-[#333333]',
+                      ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-[#7B6B5D] hover:text-[#e0e0e0]'
+                      : 'border-border-subtle bg-white text-text-main hover:border-[#7B6B5D]',
                   )}
                 >
-                  <Database size={14} />
+                  <Database size={14} className="text-[#4F7FA8]" />
                   <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
                   <ChevronDown size={13} className={cn('transition-transform', kbOpen && 'rotate-180')} />
                 </button>
                 {kbOpen && (
                   <div
                     className={cn(
-                      'absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border p-2 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
+                      'popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border p-2 pr-1.5 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
                       darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                     )}
                   >
@@ -897,7 +939,7 @@ export default function ChatsPage() {
                         darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/45',
                       )}
                     >
-                      <Search size={13} className={darkMode ? 'text-[#858585]' : 'text-text-main/35'} />
+                      <Search size={13} className="text-[#4F7FA8]" />
                       <input
                         value={historySearch}
                         onChange={(e) => setHistorySearch(e.target.value)}
@@ -919,7 +961,7 @@ export default function ChatsPage() {
                         暂无历史对话
                       </p>
                     ) : (
-                      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                      <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
                         {historyGroup.items.map((item) => {
                           const active = conversation?.id === item.id || activeConversationId === item.id;
                           return (
@@ -974,7 +1016,7 @@ export default function ChatsPage() {
                           darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/45',
                         )}
                       >
-                        <Search size={13} className={darkMode ? 'text-[#858585]' : 'text-text-main/35'} />
+                        <Search size={13} className="text-[#4F7FA8]" />
                         <input
                           value={fileSearch}
                           onChange={(e) => setFileSearch(e.target.value)}
@@ -1001,8 +1043,8 @@ export default function ChatsPage() {
                               className={cn(
                                 'mt-3 rounded-xl px-3 py-2 text-xs font-bold transition-colors',
                                 darkMode
-                                  ? 'bg-[#3b82f6] text-white hover:bg-[#2563eb]'
-                                  : 'bg-primary text-white hover:bg-primary/90',
+                                  ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                                  : 'bg-[#7B6B5D] text-white hover:opacity-90',
                               )}
                             >
                               选择知识库
@@ -1010,7 +1052,7 @@ export default function ChatsPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                        <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
                           {filteredFiles.map((file) => (
                             <div
                               key={file.id}
@@ -1020,7 +1062,7 @@ export default function ChatsPage() {
                               )}
                             >
                               <div className="flex items-center gap-2">
-                                <FileText size={13} className={darkMode ? 'text-[#858585]' : 'text-text-main/40'} />
+                                <FileText size={13} className="text-[#5E9B73]" />
                                 <p
                                   className={cn(
                                     'truncate text-xs font-bold',
@@ -1159,7 +1201,7 @@ export default function ChatsPage() {
                     ) : (
                       <div key={message.id} className="chat-rise flex items-start gap-3">
                         <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-transparent bg-transparent">
-                          <Sparkles size={15} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
+                          <Sparkles size={15} className="text-[#D97373]" />
                         </div>
                         <div
                           className={cn(
@@ -1212,25 +1254,40 @@ export default function ChatsPage() {
                   darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/45',
                 )}
               >
-                <div className="relative shrink-0">
+                <textarea
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                  rows={1}
+                  disabled={sending}
+                  placeholder="输入提问，回车开始召回…"
+                  className={cn(
+                    'h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',
+                    darkMode
+                      ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]'
+                      : 'text-text-main placeholder:text-text-main/40',
+                  )}
+                />
+                <div ref={modelSelectorRef} className="relative shrink-0">
                   <button
                     type="button"
                     onClick={() => setModelOpen((value) => !value)}
                     className={cn(
-                      'flex h-9 max-w-[136px] items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors sm:max-w-[180px]',
+                      'flex h-10 max-w-[156px] items-center gap-2 rounded-md border px-3 text-xs font-bold transition-colors sm:max-w-[200px]',
                       darkMode
                         ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc]'
                         : 'border-border-subtle bg-white text-text-main/75',
                     )}
+                    title={selectedModel?.modelName ?? '选择模型'}
+                    aria-label={selectedModel?.modelName ?? '选择模型'}
                   >
-                    <ModelProviderIcon model={selectedModel} darkMode={darkMode} size="xs" />
-                    <span className="truncate">{selectedModel?.modelName ?? '选择模型'}</span>
-                    <ChevronDown size={13} className="shrink-0" />
+                    <ModelProviderIcon model={selectedModel} darkMode={darkMode} size="sm" frameless />
+                    <span className="min-w-0 truncate">{selectedModel?.modelName ?? '选择模型'}</span>
                   </button>
                   {modelOpen && (
                     <div
                       className={cn(
-                        'absolute bottom-full left-0 z-20 mb-2 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
+                        'popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-64 overflow-y-auto rounded-xl border p-2 pr-1.5 shadow-[0_12px_32px_rgba(26,26,26,.14)]',
                         darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                       )}
                     >
@@ -1260,27 +1317,15 @@ export default function ChatsPage() {
                     </div>
                   )}
                 </div>
-                <textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleComposerKeyDown}
-                  rows={1}
-                  disabled={sending}
-                  placeholder="输入提问，回车开始召回…"
-                  className={cn(
-                    'h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',
-                    darkMode
-                      ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                      : 'text-text-main placeholder:text-text-main/40',
-                  )}
-                />
                 <button
                   type="button"
                   onClick={() => void handleSend()}
                   disabled={sending || !inputValue.trim()}
                   className={cn(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-opacity disabled:cursor-not-allowed disabled:opacity-45',
-                    darkMode ? 'bg-[#0e0e0e] text-white' : 'bg-[#7B6B5D] text-white hover:opacity-90',
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-opacity disabled:cursor-not-allowed disabled:opacity-45',
+                    darkMode
+                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
                   )}
                 >
                   {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}

@@ -189,7 +189,7 @@ export function ProtectedLayout() {
               <motion.div
                 key={`${location.pathname}${location.search}`}
                 className={cn(
-                  'h-full min-w-0 overflow-hidden rounded-2xl border',
+                  'h-full min-w-0 overflow-hidden rounded-2xl border shadow-sm',
                   darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                 )}
                 initial={pageMotion.initial}
@@ -210,7 +210,7 @@ export function ProtectedLayout() {
                 <motion.div
                   key={`${location.pathname}${location.search}`}
                   className={cn(
-                    'h-full min-w-0 overflow-hidden rounded-[24px] border',
+                    'h-full min-w-0 overflow-hidden rounded-[24px] border shadow-sm',
                     darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                   )}
                   initial={pageMotion.initial}

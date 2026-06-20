@@ -90,10 +90,6 @@ function neutralIconText(darkMode: boolean) {
   return darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]';
 }
 
-function statsIconTone(darkMode: boolean) {
-  return darkMode ? 'bg-transparent text-[#d4d4d4]' : 'bg-transparent text-[#1f1f1f]';
-}
-
 export default function HomePage() {
   const { darkMode } = useTheme();
   const { user } = useAuth();
@@ -318,7 +314,7 @@ export default function HomePage() {
             )}
           >
             <div className={cn('flex items-center gap-3 sm:gap-4', !hasSearch && quickQuestions.length > 0 && 'mb-4')}>
-              <Search size={22} className={neutralIconText(darkMode)} />
+              <Search size={22} className="text-[#7B6B5D]" />
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
@@ -379,19 +375,19 @@ export default function HomePage() {
                 fileTotal={fileTotal}
                 tokenTotal={tokenTotal}
               />
-              <div
-                className={cn(
-                  'grid grid-cols-1 gap-6 rounded-[18px] border px-5 py-4 lg:grid-cols-2 lg:gap-0 lg:px-6',
-                  darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
-                )}
-              >
-                <div className="lg:pr-8">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div
+                  className={cn(
+                    'rounded-[18px] border px-5 py-4 lg:px-6',
+                    darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
+                  )}
+                >
                   <RecentDatasetsList darkMode={darkMode} loading={loading} datasets={datasets} />
                 </div>
                 <div
                   className={cn(
-                    'border-t pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0',
-                    darkMode ? 'border-[#333333]' : 'border-border-subtle',
+                    'rounded-[18px] border px-5 py-4 lg:px-6',
+                    darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
                   )}
                 >
                   <RecentChatsList
@@ -425,15 +421,15 @@ function StatsPanel({
   tokenTotal: number;
 }) {
   const stats = [
-    { label: '知识库', value: datasetTotal, icon: Database },
-    { label: '对话', value: conversationTotal, icon: MessageSquare },
-    { label: '文件', value: fileTotal, icon: FileText },
-    { label: `${USAGE_RANGE_DAYS}天 Token`, value: tokenTotal, icon: Bot },
+    { label: '知识库', value: datasetTotal, icon: Database, iconClass: 'text-[#4F7FA8]' },
+    { label: '对话', value: conversationTotal, icon: MessageSquare, iconClass: 'text-[#7B6B5D]' },
+    { label: '文件', value: fileTotal, icon: FileText, iconClass: 'text-[#5E9B73]' },
+    { label: `${USAGE_RANGE_DAYS}天 Token`, value: tokenTotal, icon: Bot, iconClass: 'text-[#D97373]' },
   ];
 
   return (
     <section className="mb-8 grid grid-cols-2 gap-y-3 py-1 lg:grid-cols-4">
-      {stats.map(({ label, value, icon: Icon }, index) => (
+      {stats.map(({ label, value, icon: Icon, iconClass }, index) => (
         <div
           key={label}
           className={cn(
@@ -442,13 +438,8 @@ function StatsPanel({
             index % 2 === 1 && 'max-lg:pl-4',
           )}
         >
-          <span
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]',
-              statsIconTone(darkMode),
-            )}
-          >
-            <Icon size={18} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-transparent">
+            <Icon size={18} className={iconClass} />
           </span>
           <span className="min-w-0">
             <span
@@ -510,6 +501,7 @@ function SearchResults({
                 key={file.id}
                 darkMode={darkMode}
                 icon={FileText}
+                iconClass="text-[#5E9B73]"
                 title={file.originalFilename}
                 meta={`${file.datasetName} · ${formatSize(file.fileSize)} · ${formatRelativeTime(file.updatedAt)}`}
                 to={`/datasets/${file.datasetId}?tab=files`}
@@ -524,6 +516,7 @@ function SearchResults({
                 key={chat.id}
                 darkMode={darkMode}
                 icon={MessageSquare}
+                iconClass="text-[#7B6B5D]"
                 title={chat.title || '未命名对话'}
                 meta={`${chat.lastModelName || '知识库问答'} · ${formatRelativeTime(chat.updatedAt)}`}
                 to={`/chats/${chat.id}`}
@@ -538,6 +531,7 @@ function SearchResults({
                 key={dataset.id}
                 darkMode={darkMode}
                 icon={Database}
+                iconClass="text-[#4F7FA8]"
                 title={dataset.name}
                 meta={`${dataset.description || '暂无描述'} · ${formatRelativeTime(dataset.updatedAt)}`}
                 to={`/datasets/${dataset.id}`}
@@ -569,7 +563,7 @@ function SearchResults({
             disabled={submitting}
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-xs font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
-              darkMode ? 'bg-[#d4d4d4] text-[#1f1f1f]' : 'bg-[#1f1f1f] text-white',
+              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
             )}
           >
             {submitting && <Loader2 size={14} className="animate-spin" />}
@@ -585,7 +579,7 @@ function SearchResults({
                 : 'border-border-subtle text-text-main/70 hover:border-[#1f1f1f]',
             )}
           >
-            <FileUp size={14} />
+            <FileUp size={14} className="text-[#5E9B73]" />
             上传文档
           </Link>
         </div>
@@ -627,6 +621,7 @@ function ResultGroup({
 function ResultLink({
   darkMode,
   icon: Icon,
+  iconClass,
   title,
   meta,
   to,
@@ -634,6 +629,7 @@ function ResultLink({
 }: {
   darkMode: boolean;
   icon: typeof FileText;
+  iconClass: string;
   title: string;
   meta: string;
   to: string;
@@ -652,7 +648,7 @@ function ResultLink({
       <span
         className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]', neutralIconTone(darkMode))}
       >
-        <Icon size={17} />
+        <Icon size={17} className={iconClass} />
       </span>
       <span className="min-w-0 flex-1">
         <span className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>

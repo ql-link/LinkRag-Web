@@ -155,7 +155,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                 <div
                   className={cn(
                     'absolute left-full ml-4 px-3 py-1 text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl',
-                    darkMode ? 'bg-[#2d2d2d] text-[#cccccc]' : 'bg-text-main text-white',
+                    darkMode ? 'bg-[#8A7662] text-white' : 'bg-[#7B6B5D] text-white',
                   )}
                 >
                   {name}

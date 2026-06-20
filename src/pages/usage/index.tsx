@@ -83,8 +83,10 @@ export default function UsagePage() {
         <button
           onClick={loadData}
           className={cn(
-            'h-9 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-opacity',
-            darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+            'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors',
+            darkMode
+              ? 'bg-[#1f2937] text-[#c7dff8] hover:bg-[#26364d]'
+              : 'border border-[#d7d2ca] bg-white text-text-main hover:bg-gray-100',
           )}
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -106,37 +108,37 @@ export default function UsagePage() {
               darkMode={darkMode}
               label="总调用"
               value={summary?.totalCalls ?? 0}
-              icon={<Activity size={16} />}
+              icon={<Activity size={16} className="text-[#4F7FA8]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="总 Token"
               value={summary?.totalTokens ?? 0}
-              icon={<Coins size={16} />}
+              icon={<Coins size={16} className="text-[#D97373]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="提示词 Token"
               value={summary?.promptTokens ?? 0}
-              icon={<ArrowUpRight size={16} />}
+              icon={<ArrowUpRight size={16} className="text-[#7B6B5D]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="成功率"
               value={`${((summary?.successRate ?? 0) * 100).toFixed(2)}%`}
-              icon={<CircleCheck size={16} />}
+              icon={<CircleCheck size={16} className="text-[#5E9B73]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="失败调用"
               value={summary?.failedCalls ?? 0}
-              icon={<CircleX size={16} />}
+              icon={<CircleX size={16} className="text-[#D97373]" />}
             />
             <MetricCard
               darkMode={darkMode}
               label="平均延迟"
               value={`${summary?.averageLatencyMs ?? 0} ms`}
-              icon={<Clock3 size={16} />}
+              icon={<Clock3 size={16} className="text-[#7B6B5D]" />}
             />
           </div>
 
