@@ -133,7 +133,7 @@ export default function BlogDetailPage() {
     >
       <header
         className={cn(
-          'sticky top-0 z-40 mx-auto flex max-w-7xl items-center justify-between border-b border-border-subtle bg-bg-base/80 px-1 py-4 backdrop-blur-md sm:px-2',
+          'sticky top-0 z-40 mx-auto flex max-w-7xl items-center justify-between border-b border-border-subtle bg-bg-base/80 px-1 py-4  sm:px-2',
         )}
       >
         <Link
@@ -211,7 +211,7 @@ export default function BlogDetailPage() {
         <button
           type="button"
           onClick={() => setShowTocMobile(true)}
-          className="fixed bottom-6 right-6 z-30 rounded-full border border-border-subtle bg-bg-base/80 p-3.5 text-text-main shadow-lg backdrop-blur-md transition-colors hover:border-primary hover:text-primary lg:hidden"
+          className="fixed bottom-6 right-6 z-30 rounded-full border border-border-subtle bg-bg-base/80 p-3.5 text-text-main   transition-colors hover:border-primary hover:text-primary lg:hidden"
           aria-label="打开目录"
         >
           <ListCollapse size={20} />
@@ -220,11 +220,9 @@ export default function BlogDetailPage() {
 
       {showTocMobile && (
         <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowTocMobile(false)} />
+          <div className="absolute inset-0 bg-black/40 " onClick={() => setShowTocMobile(false)} />
           <div
-            className={cn(
-              'relative flex h-full w-4/5 max-w-sm flex-col border-l border-border-subtle shadow-2xl bg-bg-base/95 backdrop-blur-md',
-            )}
+            className={cn('relative flex h-full w-4/5 max-w-sm flex-col border-l border-border-subtle  bg-bg-base/95 ')}
           >
             <div className="flex items-center justify-between border-b border-border-subtle p-5">
               <span className="mono-label">目录</span>

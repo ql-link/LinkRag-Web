@@ -182,7 +182,7 @@ export default function CreatorBlogsPage() {
             <div
               className={cn(
                 'overflow-hidden rounded-2xl border',
-                darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-white/55',
+                darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-surface-card',
               )}
             >
               {filteredPosts.map((post) => (
@@ -222,7 +222,7 @@ function BlogPostRow({
     <article
       className={cn(
         'group flex flex-col gap-4 border-b px-4 py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:px-5',
-        darkMode ? 'border-[#3c3c3c]/70 hover:bg-[#2d2d2d]/55' : 'border-border-subtle/70 hover:bg-white/70',
+        darkMode ? 'border-[#3c3c3c]/70 hover:bg-[#2d2d2d]/55' : 'border-border-subtle/70 hover:bg-surface-card',
       )}
     >
       <div className="min-w-0 flex-1">

@@ -235,8 +235,8 @@ export default function BlogsPage() {
                 className={cn(
                   'flex items-center gap-3 rounded-full border px-6 py-3.5 transition-all duration-300',
                   darkMode
-                    ? 'border-border-subtle bg-white/5 focus-within:border-primary focus-within:bg-white/10'
-                    : 'border-border-subtle bg-white/60 focus-within:border-primary focus-within:bg-white focus-within:shadow-sm',
+                    ? 'border-border-subtle bg-surface-card focus-within:border-primary focus-within:bg-surface-card'
+                    : 'border-border-subtle bg-surface-card focus-within:border-primary focus-within:bg-white focus-within:',
                 )}
               >
                 <Search size={18} className={darkMode ? 'text-[#666]' : 'text-text-main/40'} />

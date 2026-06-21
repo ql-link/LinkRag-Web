@@ -15,7 +15,7 @@ export default function Dashboard() {
       {/* 1. Left Sidebar: Independent flex child, NOT inside PanelGroup */}
       <aside
         className={cn(
-          'bg-white/80 backdrop-blur-md rounded-3xl border border-border-subtle flex flex-col overflow-hidden shadow-sm transition-all duration-300 shrink-0',
+          'bg-surface-card  rounded-3xl border border-border-subtle flex flex-col overflow-hidden  transition-all duration-300 shrink-0',
           sidebarCollapsed ? 'w-[72px]' : 'w-[220px]',
         )}
       >
@@ -35,7 +35,7 @@ export default function Dashboard() {
           <NavItem icon={Share2} label="知识图谱" collapsed={sidebarCollapsed} />
         </nav>
 
-        <div className="p-4 border-t border-border-subtle bg-white/50">
+        <div className="p-4 border-t border-border-subtle bg-surface-card">
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             className="w-full flex items-center justify-center py-2 hover:bg-primary/5 rounded-xl text-text-main/40 hover:text-primary transition-colors mb-2"
@@ -65,8 +65,8 @@ export default function Dashboard() {
       <Group orientation="horizontal" className="flex-1 min-w-0">
         {/* Center Column: AI Q&A */}
         <Panel defaultSize={65} minSize={40}>
-          <main className="h-full flex flex-col bg-white border border-border-subtle rounded-3xl shadow-sm overflow-hidden">
-            <header className="h-20 px-8 flex items-center justify-between border-b border-border-subtle bg-white/80 backdrop-blur-md">
+          <main className="h-full flex flex-col bg-white border border-border-subtle rounded-3xl  overflow-hidden">
+            <header className="h-20 px-8 flex items-center justify-between border-b border-border-subtle bg-surface-card ">
               <div className="flex flex-col">
                 <span className="mono-label text-primary">Active Intelligence</span>
                 <h2 className="text-xl serif-heading">Knowledge Synthesis</h2>
@@ -93,17 +93,17 @@ export default function Dashboard() {
 
         {/* Right Sidebar: Graph & Files */}
         <Panel defaultSize={35} minSize={25}>
-          <aside className="h-full flex flex-col bg-white/40 backdrop-blur-md border border-border-subtle rounded-3xl overflow-hidden relative group/sidebar">
+          <aside className="h-full flex flex-col bg-surface-card  border border-border-subtle rounded-3xl overflow-hidden relative group/sidebar">
             {/* Knowledge Graph Snapshot */}
             <div className="flex-1 min-h-0 flex flex-col">
-              <div className="p-6 pb-2 flex justify-between items-center bg-white/20 shrink-0">
+              <div className="p-6 pb-2 flex justify-between items-center bg-surface-card shrink-0">
                 <div className="mono-label">Spatial Intelligence Map</div>
                 <button className="text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
                   Expand
                 </button>
               </div>
               <div className="flex-1 p-4 pt-0 min-h-0">
-                <div className="h-full min-h-0 bg-white/50 border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+                <div className="h-full min-h-0 bg-surface-card border border-border-subtle rounded-2xl overflow-hidden ">
                   <KnowledgeGraph />
                 </div>
               </div>
@@ -111,7 +111,7 @@ export default function Dashboard() {
 
             {/* File Archive */}
             <div className="h-[40%] min-h-0 flex flex-col bg-bg-base/20 border-t border-border-subtle shrink-0">
-              <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-white/10 shrink-0">
+              <div className="p-6 border-b border-border-subtle flex justify-between items-center bg-surface-card shrink-0">
                 <div className="mono-label">Knowledge Vault</div>
                 <button className="text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
                   See Archive
@@ -124,7 +124,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Drag Overlay Prompt */}
-                <div className="absolute inset-0 bg-primary/5 backdrop-blur-[2px] opacity-0 group-hover/upload:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center border-t border-primary/20">
+                <div className="absolute inset-0 bg-primary/5 ] opacity-0 group-hover/upload:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center border-t border-primary/20">
                   <Upload size={20} className="text-primary mb-2 animate-bounce" />
                   <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-primary">
                     Drop to Ingest Documents
@@ -167,7 +167,7 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false }: NavIt
       className={cn(
         'flex items-center gap-3 px-4 py-3 transition-all duration-300 group relative rounded-2xl mx-1',
         active
-          ? 'bg-[#7B6B5D] text-white shadow-lg shadow-[#7B6B5D]/10'
+          ? 'bg-[#7B6B5D] text-white  -[#7B6B5D]/10'
           : 'text-text-main/50 hover:bg-primary/5 hover:text-text-main border border-transparent',
       )}
     >
@@ -179,7 +179,7 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false }: NavIt
       {active && !collapsed && <div className="absolute right-4 w-1 h-1 bg-primary rounded-full animate-pulse" />}
 
       {collapsed && (
-        <div className="absolute left-full ml-4 px-3 py-1 bg-[#7B6B5D] text-white text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl">
+        <div className="absolute left-full ml-4 px-3 py-1 bg-[#7B6B5D] text-white text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg ">
           {label}
         </div>
       )}

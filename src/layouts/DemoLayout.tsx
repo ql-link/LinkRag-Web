@@ -136,7 +136,7 @@ function Sidebar({ expanded, onToggle }: { expanded: boolean; onToggle: () => vo
       <div className="px-4 pt-4 pb-3 border-b border-accent-default/20">
         <div className="flex items-center justify-between mb-3">
           <NavLink to="/demo" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-accent-default flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-accent-default flex items-center justify-center ">
               <span className="text-white font-bold text-sm tracking-tight">L</span>
             </div>
             <span className="font-heading font-semibold text-base tracking-tight text-text-primary">LinkRag</span>
@@ -217,7 +217,7 @@ function Sidebar({ expanded, onToggle }: { expanded: boolean; onToggle: () => vo
                           to={`/demo/chat/${kb.id}/${conv.id}`}
                           className={`flex items-center gap-2 h-8 px-2 rounded-md text-xs transition-colors ${
                             convActive
-                              ? 'bg-bg-surface text-text-primary font-medium shadow-sm'
+                              ? 'bg-bg-surface text-text-primary font-medium '
                               : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
                           }`}
                         >

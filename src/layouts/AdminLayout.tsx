@@ -33,7 +33,7 @@ export function AdminLayout() {
     >
       <aside
         className={cn(
-          'hidden w-60 shrink-0 flex-col overflow-hidden rounded-[24px] border py-6 shadow-sm lg:flex',
+          'hidden w-60 shrink-0 flex-col overflow-hidden rounded-[24px] border py-6  lg:flex',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >
@@ -82,7 +82,7 @@ export function AdminLayout() {
                       isActive
                         ? darkMode
                           ? 'bg-[#2d2d2d] font-bold text-[#e0e0e0]'
-                          : 'bg-white/85 font-bold text-text-main shadow-sm'
+                          : 'bg-surface-card font-bold text-text-main '
                         : darkMode
                           ? 'font-semibold text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
                           : 'font-semibold text-text-main/65 hover:bg-primary/5 hover:text-text-main',
@@ -100,7 +100,7 @@ export function AdminLayout() {
 
       <main
         className={cn(
-          'min-w-0 flex-1 overflow-hidden rounded-[24px] border shadow-sm',
+          'min-w-0 flex-1 overflow-hidden rounded-[24px] border ',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >

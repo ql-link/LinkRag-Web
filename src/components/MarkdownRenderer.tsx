@@ -63,7 +63,7 @@ const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
   };
 
   return (
-    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-white/50 backdrop-blur-sm transition-colors dark:bg-[#2d2d2d]">
+    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-surface-card  transition-colors dark:bg-[#2d2d2d]">
       <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
         <div className="flex items-center gap-2">
           <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -151,7 +151,7 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 
   return (
     <div
-      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-white/50 p-4 dark:bg-[#1e1e1e] [&_svg]:h-auto [&_svg]:max-w-none"
+      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1e1e1e] [&_svg]:h-auto [&_svg]:max-w-none"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
@@ -217,7 +217,7 @@ const CodeRenderer = ({ className, children, node: _node, ...props }: CodeRender
   return (
     <code
       className={cn(
-        'rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] text-[#b42318] dark:bg-white/10 dark:text-[#ff7b72]',
+        'rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] text-[#b42318] dark:bg-surface-card dark:text-[#ff7b72]',
         className,
       )}
       {...props}
@@ -262,7 +262,7 @@ const BlockquoteRenderer = ({
   return (
     <blockquote
       className={cn(
-        'not-prose my-8 rounded-r-lg border-l-2 border-primary bg-black/5 px-5 py-3 text-text-main dark:bg-white/5',
+        'not-prose my-8 rounded-r-lg border-l-2 border-primary bg-black/5 px-5 py-3 text-text-main dark:bg-surface-card',
         '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main',
         className,
       )}
@@ -307,7 +307,7 @@ function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
   if (entries.length === 0) return null;
 
   return (
-    <div className="not-prose mb-10 mt-2 rounded-lg border border-border-subtle bg-white/35 p-4 dark:bg-white/5">
+    <div className="not-prose mb-10 mt-2 rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-surface-card">
       <dl className="grid gap-3 sm:grid-cols-[140px_1fr]">
         {entries.map(([key, value]) => (
           <React.Fragment key={key}>
@@ -352,7 +352,7 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
     th: ({ node: _node, className: thClassName, children, ...props }) => (
       <th
         className={cn(
-          'border-b border-border-subtle bg-black/5 px-3 py-2 text-left font-semibold text-text-main dark:bg-white/5',
+          'border-b border-border-subtle bg-black/5 px-3 py-2 text-left font-semibold text-text-main dark:bg-surface-card',
           thClassName,
         )}
         {...props}
@@ -378,7 +378,7 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
       />
     ),
     img: ({ node: _node, className: imageClassName, alt, ...props }) => (
-      <img className={cn('mx-auto rounded-lg shadow-sm', imageClassName)} alt={alt ?? ''} loading="lazy" {...props} />
+      <img className={cn('mx-auto rounded-lg ', imageClassName)} alt={alt ?? ''} loading="lazy" {...props} />
     ),
     input: ({ node: _node, className: inputClassName, ...props }) => (
       <input className={cn('mr-2 translate-y-[1px] accent-primary', inputClassName)} readOnly {...props} />
@@ -396,7 +396,7 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
         'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
         'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
         'prose-strong:font-extrabold prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
-        'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-white/5',
+        'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-surface-card',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&
           'prose-headings:text-[#f2f2f2] prose-p:text-[#cccccc] prose-li:text-[#cccccc] prose-strong:text-[#f2f2f2]',
