@@ -29,7 +29,7 @@ import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createConversation, getConversations, getMessages } from '@/services/chat';
+import { createConversation, getConversations, getMessages, toUiMessages } from '@/services/chat';
 import { getDatasets, getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
@@ -40,7 +40,14 @@ import {
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
-import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO, LLMConfigDTO, MessageDTO, RecallHit } from '@/types/api';
+import type {
+  ConversationDTO,
+  DatasetDTO,
+  KnowledgeFileDTO,
+  LLMConfigDTO,
+  RecallHit,
+  UiChatMessage,
+} from '@/types/api';
 
 type LeftTab = 'history' | 'files';
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
@@ -302,7 +309,7 @@ export default function ChatsPage() {
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
   const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
-  const [messages, setMessages] = useState<MessageDTO[]>([]);
+  const [messages, setMessages] = useState<UiChatMessage[]>([]);
   const [conversation, setConversation] = useState<ConversationDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingConversation, setLoadingConversation] = useState(false);
@@ -425,7 +432,7 @@ export default function ChatsPage() {
         if (cancelled) return;
         setConversation(conv);
         setSelectedDatasetId(conv.datasetId);
-        setMessages(msgResult.items);
+        setMessages(toUiMessages(msgResult.items));
         setFiles(fileResult.items.sort((a, b) => b.id - a.id));
         setRecallChunks([]);
         setRecallLoading(false);
@@ -481,7 +488,9 @@ export default function ChatsPage() {
   }, [messages, sending]);
 
   const filteredConversations = conversations
-    .filter((item) => item.title.toLowerCase().includes(historySearch.trim().toLowerCase()))
+    .filter((item) =>
+      ((item.title ?? '新对话').trim() || '新对话').toLowerCase().includes(historySearch.trim().toLowerCase()),
+    )
     .sort((a, b) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime());
   const filteredFiles = files.filter((file) =>
     file.originalFilename.toLowerCase().includes(fileSearch.trim().toLowerCase()),
@@ -544,25 +553,21 @@ export default function ChatsPage() {
         return false;
       }
 
-      const userMsg: MessageDTO = {
-        id: Date.now(),
+      const userMsg: UiChatMessage = {
+        id: `${Date.now()}:user`,
         conversationId: activeConversation.id,
         role: 'user',
         content,
-        configId: null,
-        modelName: null,
-        tokenCount: null,
         createdAt: new Date().toISOString(),
       };
-      const assistantId = Date.now() + 1;
-      const assistantMsg: MessageDTO = {
+      const assistantId = `${Date.now() + 1}:assistant`;
+      const assistantMsg: UiChatMessage = {
         id: assistantId,
         conversationId: activeConversation.id,
         role: 'assistant',
         content: '',
         configId: selectedModelConfigId,
         modelName: selectedModel?.modelName ?? null,
-        tokenCount: null,
         createdAt: new Date().toISOString(),
       };
 
@@ -587,7 +592,7 @@ export default function ChatsPage() {
           signal: controller.signal,
           onAnswerDelta: (text) => {
             setMessages((prev) =>
-              prev.map((msg) => (msg.id === assistantId ? { ...msg, content: msg.content + text } : msg)),
+              prev.map((msg) => (msg.id === assistantId ? { ...msg, content: `${msg.content ?? ''}${text}` } : msg)),
             );
           },
         });
@@ -857,7 +862,7 @@ export default function ChatsPage() {
                             )}
                           >
                             <span className="block truncate text-xs font-semibold text-ink">
-                              {item.title || '未命名对话'}
+                              {(item.title ?? '新对话').trim() || '新对话'}
                             </span>
                             <span className="mt-1 block truncate text-[10px] text-muted">
                               {datasetById.get(item.datasetId)?.name ?? `知识库 #${item.datasetId}`} ·{' '}
@@ -1000,10 +1005,10 @@ export default function ChatsPage() {
                   message.role === 'user' ? (
                     <div key={message.id} className="chat-rise flex justify-end">
                       <div className="max-w-[88%] rounded-[18px_18px_4px_18px] bg-surface-cream-strong px-4 py-3 text-sm leading-relaxed text-ink">
-                        {message.content}
+                        {message.content ?? ''}
                       </div>
                     </div>
-                  ) : message.content.trim() === '' ? (
+                  ) : (message.content ?? '').trim() === '' ? (
                     <ThinkingBubble key={message.id} />
                   ) : (
                     <div key={message.id} className="chat-rise flex items-start gap-3">
@@ -1012,7 +1017,7 @@ export default function ChatsPage() {
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
                         <MarkdownRenderer
-                          content={message.content}
+                          content={message.content ?? ''}
                           className={cn(
                             'text-base leading-8 text-text-main',
                             '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-3',

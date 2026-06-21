@@ -480,7 +480,9 @@ export default function DatasetPage() {
                       className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-hairline bg-bg-card-solid px-4 py-3 transition-colors hover:border-primary/30"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">{conversation.title}</p>
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {(conversation.title ?? '新对话').trim() || '新对话'}
+                        </p>
                         <p className="mono-label mt-1 text-[10px] text-muted">
                           更新于 {formatTime(conversation.updatedAt)}
                         </p>
