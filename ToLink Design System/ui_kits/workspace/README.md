@@ -29,4 +29,4 @@ Open `index.html` to view the full interactive prototype. Click sidebar items to
 
 ## Design Tokens
 
-All visual tokens come from `../../colors_and_type.css` at the project root.
+All visual tokens come from `../../styles.css` at the project root (which `@import`s the `tokens/` layers).

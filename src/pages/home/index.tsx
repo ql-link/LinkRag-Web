@@ -1,19 +1,23 @@
-import { useEffect, useState } from 'react';
-import { ArrowRight, DatabaseZap, FileUp, MessageSquarePlus, MessagesSquare } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, Cpu, Database, FileUp, Loader2, Plus, Search, Send } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
-import { Breadcrumb } from '@/components/Breadcrumb';
+import { OverviewRightPanel } from '@/components/OverviewRightPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getConversations } from '@/services/chat';
-import { getRecentKnowledgeFiles } from '@/services/dataset';
-import type { ConversationDTO, KnowledgeFileDTO } from '@/types/api';
+import { useToast } from '@/contexts/ToastContext';
+import { createConversation, getConversations } from '@/services/chat';
+import { getDatasets, getRecentKnowledgeFiles } from '@/services/dataset';
+import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 
-const quickActions = [
-  { id: 'upload', path: Routes.Datasets, icon: FileUp, title: '上传文档', desc: '进入知识库后添加文件' },
-  { id: 'qa', path: Routes.Chats, icon: MessagesSquare, title: '知识问答', desc: '基于引用片段生成回答' },
-  { id: 'datasets', path: Routes.Datasets, icon: DatabaseZap, title: '管理知识库', desc: '维护数据集与索引状态' },
+const presetQuestions = ['RAG 索引怎么配置', '帮我找最近的产品决策'];
+const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
+
+const actionItems = [
+  { id: 'upload', label: '上传文档', to: Routes.Datasets, state: { openUpload: true }, icon: FileUp },
+  { id: 'datasets', label: '管理知识库', to: Routes.Datasets, icon: Database },
+  { id: 'llm', label: 'LLM 配置', to: Routes.LLMPage, icon: Cpu },
 ];
 
 function getGreeting() {
@@ -39,275 +43,378 @@ function formatRelativeTime(value: string) {
   return new Date(time).toLocaleDateString('zh-CN');
 }
 
+function datasetName(datasets: DatasetDTO[], id: number) {
+  return datasets.find((dataset) => dataset.id === id)?.name ?? `知识库 #${id}`;
+}
+
 export default function HomePage() {
   const { darkMode } = useTheme();
   const { user } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
+  const scopeRef = useRef<HTMLDivElement>(null);
   const displayName = user?.nickname || user?.username || '当前用户';
+
+  const [question, setQuestion] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scopeDatasetId, setScopeDatasetId] = useState<number | 'all'>('all');
+  const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
   const [recentFiles, setRecentFiles] = useState<KnowledgeFileDTO[]>([]);
-  const [recentFilesLoading, setRecentFilesLoading] = useState(true);
-  const [recentFilesError, setRecentFilesError] = useState('');
   const [recentChats, setRecentChats] = useState<ConversationDTO[]>([]);
+  const [chatsLoading, setChatsLoading] = useState(true);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (scopeRef.current && !scopeRef.current.contains(event.target as Node)) setScopeOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, []);
 
   useEffect(() => {
     let active = true;
-    setRecentFilesLoading(true);
-    setRecentFilesError('');
 
-    getRecentKnowledgeFiles(5)
+    getDatasets(1, 100)
+      .then((result) => {
+        if (!active) return;
+        const items = result.items.filter((dataset) => dataset.status !== 'DELETED');
+        setDatasets(items);
+        setScopeDatasetId(items[0]?.id ?? 'all');
+      })
+      .catch((error) => {
+        console.error('Failed to load datasets:', error);
+      });
+
+    getRecentKnowledgeFiles(8)
       .then((files) => {
-        if (active) setRecentFiles(files);
+        if (!active) return;
+        setRecentFiles(files);
       })
       .catch((error) => {
         console.error('Failed to load recent files:', error);
-        if (active) {
-          setRecentFiles([]);
-          setRecentFilesError('文档加载失败');
-        }
-      })
-      .finally(() => {
-        if (active) setRecentFilesLoading(false);
       });
 
-    getConversations(1, 5)
+    getConversations(1, 4)
       .then((result) => {
         if (active) setRecentChats(result.items);
       })
-      .catch((error) => {
-        console.error('Failed to load recent conversations:', error);
+      .catch((error) => console.error('Failed to load recent conversations:', error))
+      .finally(() => {
+        if (active) setChatsLoading(false);
       });
+
     return () => {
       active = false;
     };
   }, []);
 
+  const scopeLabel = scopeDatasetId === 'all' ? '全部知识库' : datasetName(datasets, scopeDatasetId);
+  const recentFile = recentFiles[0];
+  const quickQuestions = useMemo(() => {
+    const items: Array<{ label: string; prompt: string; featured?: boolean }> = [];
+    if (recentFile) {
+      items.push({
+        label: '总结最近上传的文档',
+        prompt: `请总结最近上传的文档「${recentFile.originalFilename}」，提炼关键结论和待办。`,
+        featured: true,
+      });
+    }
+    presetQuestions.forEach((label) => items.push({ label, prompt: label }));
+    return items.slice(0, 4);
+  }, [recentFile]);
+
+  const submitQuestion = async (value = question) => {
+    const content = value.trim();
+    if (!content || submitting) return;
+    const targetDatasetId = scopeDatasetId === 'all' ? datasets[0]?.id : scopeDatasetId;
+    if (!targetDatasetId) {
+      addToast('error', '请先创建或选择一个知识库');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const title = content.length > 28 ? `${content.slice(0, 28)}...` : content;
+      const conversation = await createConversation({ title, datasetId: targetDatasetId });
+      sessionStorage.setItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${conversation.id}`, content);
+      navigate(`/chats/${conversation.id}`, { state: { initialQuestion: content } });
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitQuestion();
+  };
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <header
+    <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+      <main
         className={cn(
-          'h-16 px-4 sm:h-20 sm:px-8 flex items-center shrink-0 backdrop-blur-md border rounded-2xl sm:rounded-3xl',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle',
+          'flex min-w-0 flex-1 flex-col overflow-hidden rounded-[24px] border',
+          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >
-        <div className="flex flex-col gap-1">
-          <Breadcrumb items={[{ label: '首页', path: Routes.Home }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl font-semibold tracking-tight', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            概览
-          </h2>
-        </div>
-      </header>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24 pt-5 sm:px-8 sm:pb-8 sm:pt-8">
-        {/* Greeting */}
-        <div className="mb-6 sm:mb-8">
-          <h1
-            className={cn(
-              'text-xl font-semibold tracking-tight mb-2 sm:text-2xl',
-              darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-            )}
-          >
-            {getGreeting()}，<span className="font-serif italic tracking-tight">{displayName}</span>
-          </h1>
-          <p className={cn('text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
-            选择一个入口，继续处理文档、知识库或对话任务。
-          </p>
-        </div>
-
-        {/* Quick Actions */}
-        <section className="mb-6 sm:mb-8">
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Link
-              to={Routes.Chats}
-              state={{ openCreate: true }}
+        <header
+          className={cn(
+            'flex shrink-0 items-center justify-between gap-4 border-b px-[30px] py-5',
+            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+          )}
+        >
+          <div className="min-w-0">
+            <p
               className={cn(
-                'group cursor-pointer rounded-2xl border p-4 sm:p-5 transition-all duration-300',
-                darkMode
-                  ? 'bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]'
-                  : 'bg-white border-border-subtle hover:border-primary hover:shadow-lg',
+                'font-mono text-[10px] uppercase tracking-[0.14em]',
+                darkMode ? 'text-[#858585]' : 'text-text-main/50',
               )}
             >
-              <div className="mb-4 flex items-start justify-between">
-                <div
-                  className={cn(
-                    'w-11 h-11 rounded-xl flex items-center justify-center transition-colors',
-                    darkMode
-                      ? 'bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20'
-                      : 'bg-primary/10 text-primary group-hover:bg-primary/20',
-                  )}
-                >
-                  <MessageSquarePlus size={21} strokeWidth={1.8} />
-                </div>
-                <ArrowRight
-                  size={16}
-                  className={cn(
-                    'mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100',
-                    darkMode ? 'text-[#3b82f6]' : 'text-primary',
-                  )}
-                />
-              </div>
-              <h4 className={cn('font-semibold text-sm tracking-tight mb-1', darkMode ? 'text-[#e0e0e0]' : '')}>
-                快速会话
-              </h4>
-              <p className={cn('text-xs leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
-                直接新建一个对话，马上开始问答
-              </p>
-            </Link>
-            {quickActions.map(({ id, path, icon: Icon, title, desc }) => (
-              <Link
-                key={id}
-                to={path}
-                className={cn(
-                  'group cursor-pointer rounded-2xl border p-4 sm:p-5 transition-all duration-300',
-                  darkMode
-                    ? 'bg-[#2d2d2d] border-[#3c3c3c] hover:border-[#3b82f6]'
-                    : 'bg-white border-border-subtle hover:border-primary hover:shadow-lg',
-                )}
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <div
-                    className={cn(
-                      'w-11 h-11 rounded-xl flex items-center justify-center transition-colors',
-                      darkMode
-                        ? 'bg-[#3b82f6]/10 text-[#3b82f6] group-hover:bg-[#3b82f6]/20'
-                        : 'bg-primary/10 text-primary group-hover:bg-primary/20',
-                    )}
-                  >
-                    <Icon size={21} strokeWidth={1.8} />
-                  </div>
-                  <ArrowRight
-                    size={16}
-                    className={cn(
-                      'mt-1 opacity-0 transition-all group-hover:translate-x-1 group-hover:opacity-100',
-                      darkMode ? 'text-[#3b82f6]' : 'text-primary',
-                    )}
-                  />
-                </div>
-                <h4 className={cn('font-semibold text-sm tracking-tight mb-1', darkMode ? 'text-[#e0e0e0]' : '')}>
-                  {title}
-                </h4>
-                <p className={cn('text-xs leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>{desc}</p>
-              </Link>
-            ))}
+              首页
+            </p>
+            <h2 className={cn('mt-1 text-lg font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>概览</h2>
           </div>
-        </section>
-
-        {/* Recent Section */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
-          {/* Recent Files */}
-          <section
-            className={cn(
-              'rounded-2xl p-4 sm:p-5',
-              darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'bg-white border-border-subtle',
-            )}
+          <Link
+            to={Routes.Chats}
+            state={{ openCreate: true }}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[var(--color-btn-primary)] px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3
-                className={cn(
-                  'text-xs font-bold uppercase tracking-wider',
-                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                )}
-              >
-                最近文档
-              </h3>
-              <Link
-                to={Routes.Datasets}
-                className={cn(
-                  'text-[9px] font-bold uppercase tracking-widest hover:text-[#3b82f6] transition-colors',
-                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                )}
-              >
-                查看知识库
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {recentFilesLoading ? (
-                <p className={cn('text-xs py-2', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>正在加载文档</p>
-              ) : recentFilesError ? (
-                <p className={cn('text-xs py-2', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                  {recentFilesError}
-                </p>
-              ) : recentFiles.length === 0 ? (
-                <p className={cn('text-xs py-2', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>暂无文档</p>
-              ) : (
-                recentFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    onClick={() => navigate(`/datasets/${file.datasetId}`)}
-                    className={cn(
-                      'flex items-center justify-between py-2 cursor-pointer transition-colors',
-                      darkMode
-                        ? 'border-[#3c3c3c] border-b last:border-0 hover:text-[#3b82f6]'
-                        : 'border-b border-border-subtle last:border-0 hover:text-primary',
-                    )}
-                  >
-                    <span className={cn('text-xs font-medium truncate pr-2', darkMode ? 'text-[#e0e0e0]' : '')}>
-                      {file.originalFilename}
-                    </span>
-                    <span className={cn('mono-label text-[10px] shrink-0', darkMode ? 'text-[#858585]' : '')}>
-                      {formatRelativeTime(file.createdAt)}
-                    </span>
-                  </div>
-                ))
+            <Plus size={15} />
+            新建对话
+          </Link>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-[30px] py-7">
+          <section className="mb-[26px]">
+            <h1
+              className={cn(
+                'mb-2 text-[26px] font-semibold leading-tight tracking-[-0.02em]',
+                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
               )}
-            </div>
+            >
+              {getGreeting()}，<span className="font-serif italic tracking-[-0.03em]">{displayName}</span>
+            </h1>
+            <p className={cn('text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+              直接提问，或挑一段对话继续。
+            </p>
           </section>
 
-          {/* Recent Chats */}
-          <section
+          <form
+            onSubmit={handleSubmit}
             className={cn(
-              'rounded-2xl p-4 sm:p-5',
-              darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'bg-white border-border-subtle',
+              'mb-5 rounded-[20px] border px-5 pb-[18px] pt-5',
+              darkMode ? 'border-[#4a4a4a] bg-[#1e1e1e]' : 'border-[var(--color-border-medium)] bg-bg-base',
             )}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center gap-4">
+              <Search size={24} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+              <input
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="向你的全部知识库提问，或搜索文档..."
+                className={cn(
+                  'min-w-0 flex-1 bg-transparent text-[17px] outline-none placeholder:text-text-main/40',
+                  darkMode ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'text-text-main',
+                )}
+              />
+              <button
+                type="submit"
+                disabled={submitting || !question.trim()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--color-btn-primary)] text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+                aria-label="提交问题"
+              >
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-[9px]">
+              <div ref={scopeRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setScopeOpen((value) => !value)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors hover:border-primary',
+                    darkMode
+                      ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
+                      : 'border-border-subtle bg-white text-text-main/70',
+                  )}
+                >
+                  <Database size={13} />
+                  <span className="max-w-[170px] truncate">{scopeLabel}</span>
+                  <ChevronDown size={13} />
+                </button>
+                {scopeOpen && (
+                  <div
+                    className={cn(
+                      'absolute left-0 top-full z-20 mt-2 max-h-64 w-[240px] origin-top overflow-y-auto rounded-xl border p-1 shadow-xl animate-[datasetDropdownIn_140ms_ease-out]',
+                      darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScopeDatasetId('all');
+                        setScopeOpen(false);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs hover:bg-primary/10"
+                    >
+                      全部知识库
+                      {scopeDatasetId === 'all' && <Check size={14} />}
+                    </button>
+                    {datasets.map((dataset) => (
+                      <button
+                        key={dataset.id}
+                        type="button"
+                        onClick={() => {
+                          setScopeDatasetId(dataset.id);
+                          setScopeOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs hover:bg-primary/10"
+                      >
+                        <span className="truncate">{dataset.name}</span>
+                        {scopeDatasetId === dataset.id && <Check size={14} className="shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {quickQuestions.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => setQuestion(item.prompt)}
+                  className={cn(
+                    'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors hover:border-primary',
+                    item.featured
+                      ? 'border-[var(--color-primary-mid)] bg-[var(--color-primary-light)] text-[#8a6a44]'
+                      : darkMode
+                        ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
+                        : 'border-border-subtle bg-white text-text-main/70',
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </form>
+
+          <section className="mb-[34px] flex gap-2.5">
+            {actionItems.map(({ id, label, to, state, icon: Icon }) => (
+              <Link
+                key={id}
+                to={to}
+                state={state}
+                className={cn(
+                  'flex flex-1 items-center gap-2.5 rounded-[13px] border px-[15px] py-[13px] text-[13px] font-medium transition-all hover:-translate-y-px hover:border-primary hover:shadow-[0_6px_18px_-8px_rgba(26,26,26,0.18)]',
+                  darkMode
+                    ? 'border-[#3c3c3c] bg-[#252526] text-[#e0e0e0]'
+                    : 'border-border-subtle bg-white text-text-main',
+                )}
+              >
+                <Icon size={17} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                {label}
+              </Link>
+            ))}
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center justify-between">
               <h3
                 className={cn(
-                  'text-xs font-bold uppercase tracking-wider',
+                  'font-mono text-[10px] uppercase tracking-[0.12em]',
                   darkMode ? 'text-[#858585]' : 'text-text-main/50',
                 )}
               >
-                最近对话
+                继续对话
               </h3>
               <Link
                 to={Routes.Chats}
                 className={cn(
-                  'text-[9px] font-bold uppercase tracking-widest hover:text-[#3b82f6] transition-colors',
+                  'font-mono text-[10px] uppercase tracking-[0.12em] transition-colors hover:text-primary',
                   darkMode ? 'text-[#858585]' : 'text-text-main/50',
                 )}
               >
                 查看全部
               </Link>
             </div>
-            <div className="space-y-2">
-              {recentChats.length === 0 ? (
-                <p className={cn('text-xs py-2', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>暂无对话</p>
-              ) : (
-                recentChats.map((chat) => (
-                  <div
+            {chatsLoading ? (
+              <div className="grid grid-cols-2 gap-3">
+                {[0, 1, 2, 3].map((item) => (
+                  <SkeletonCard key={item} darkMode={darkMode} />
+                ))}
+              </div>
+            ) : recentChats.length === 0 ? (
+              <div
+                className={cn(
+                  'rounded-[15px] border border-dashed px-5 py-10 text-center text-sm',
+                  darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
+                )}
+              >
+                还没有对话
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {recentChats.map((chat) => (
+                  <button
                     key={chat.id}
+                    type="button"
                     onClick={() => navigate(`/chats/${chat.id}`)}
                     className={cn(
-                      'flex items-center justify-between py-2 cursor-pointer transition-colors',
-                      darkMode
-                        ? 'border-[#3c3c3c] border-b last:border-0 hover:text-[#3b82f6]'
-                        : 'border-b border-border-subtle last:border-0 hover:text-primary',
+                      'group rounded-[15px] border p-[17px] text-left transition-all duration-300 hover:-translate-y-px hover:border-primary hover:shadow-[0_6px_18px_-8px_rgba(26,26,26,0.18)]',
+                      darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
                     )}
                   >
-                    <span className={cn('text-xs font-medium truncate pr-2', darkMode ? 'text-[#e0e0e0]' : '')}>
-                      {chat.title}
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <h4
+                        className={cn(
+                          'min-w-0 truncate text-sm font-semibold',
+                          darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                        )}
+                      >
+                        {chat.title || '未命名对话'}
+                      </h4>
+                      <span
+                        className={cn(
+                          'shrink-0 font-mono text-[10px]',
+                          darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                        )}
+                      >
+                        {formatRelativeTime(chat.updatedAt)}
+                      </span>
+                    </div>
+                    <p
+                      className={cn(
+                        'mb-4 line-clamp-2 min-h-9 text-xs leading-[18px]',
+                        darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                      )}
+                    >
+                      {chat.lastModelName ? `最近使用 ${chat.lastModelName} 生成回答` : '继续查看这段知识库问答。'}
+                    </p>
+                    <span className="inline-flex max-w-full rounded-[7px] bg-[var(--color-primary-light)] px-[9px] py-[3px] text-[11px] font-medium text-[#8a6a44]">
+                      <span className="truncate">{datasetName(datasets, chat.datasetId)}</span>
                     </span>
-                    <span className={cn('mono-label text-[10px] shrink-0', darkMode ? 'text-[#858585]' : '')}>
-                      {formatRelativeTime(chat.updatedAt)}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
         </div>
-      </div>
+      </main>
+
+      <OverviewRightPanel className="hidden xl:flex" />
     </div>
+  );
+}
+
+function SkeletonCard({ darkMode }: { darkMode: boolean }) {
+  return (
+    <div
+      className={cn(
+        'h-[138px] animate-pulse rounded-[15px] border',
+        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base/60',
+      )}
+    />
   );
 }

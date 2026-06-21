@@ -36,7 +36,7 @@ export interface LLMConfigDTO {
   id: number;
   providerType: string;
   modelName: string;
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   apiKeyMasked: string;
   apiBaseUrl: string | null;
   isActive: boolean;
@@ -46,17 +46,18 @@ export interface LLMConfigDTO {
   updatedAt: string;
 }
 
-export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'OCR' | 'VISION' | 'RERANK' | 'ASR';
+export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'SPARSE_EMBEDDING' | 'RERANK' | 'VISION' | 'ASR';
+export type LLMCapabilityValue = LLMCapability | 'OCR' | (string & {});
 
 export interface ModelCapabilityDetailDTO {
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   protocol: string;
   apiBaseUrl: string;
 }
 
 export interface ModelCapabilityDTO {
   modelName: string;
-  capabilities: Array<LLMCapability | ModelCapabilityDetailDTO>;
+  capabilities: Array<LLMCapabilityValue | ModelCapabilityDetailDTO>;
 }
 
 export interface ProviderModelDTO {
@@ -80,7 +81,7 @@ export interface ProviderModel {
   id: number;
   providerId: number;
   modelName: string;
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -90,7 +91,7 @@ export interface SystemPreset {
   id: number;
   providerId: number;
   modelName: string;
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   apiKey: string;
   isActive: boolean;
   createdAt: string;
@@ -172,6 +173,8 @@ export interface DatasetParsePdfConfig {
   pdf_parser_backend?: PdfParserBackend | null;
 }
 
+export type RecallSource = 'bm25' | 'sparse' | 'dense';
+
 export interface DatasetParseRecallConfig {
   recall_result_limit?: number | null;
   recall_context_token_budget?: number | null;
@@ -179,6 +182,9 @@ export interface DatasetParseRecallConfig {
   sparse_score_threshold?: number | null;
   dense_top_k?: number | null;
   dense_score_threshold?: number | null;
+  recall_enabled_sources?: RecallSource[] | null;
+  rerank_top_n?: number | null;
+  recall_strict?: boolean | null;
 }
 
 export interface DatasetParseConfigDTO {

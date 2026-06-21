@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Upload, Image as ImageIcon, CheckCircle, Globe, Lock, Trash, Copy, FileText, Save, LayoutTemplate } from 'lucide-react';
+import {
+  ArrowLeft,
+  Upload,
+  Image as ImageIcon,
+  CheckCircle,
+  Globe,
+  Lock,
+  Trash,
+  Copy,
+  FileText,
+  Save,
+  LayoutTemplate,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
@@ -74,7 +86,7 @@ export default function CreatorBlogEditor() {
 
   const handleSaveAll = async () => {
     if (!formData.title) {
-      alert("文章标题不能为空");
+      alert('文章标题不能为空');
       return;
     }
     try {
@@ -82,7 +94,10 @@ export default function CreatorBlogEditor() {
 
       let currentSlug = formData.slug;
       if (!currentSlug) {
-        const base = formData.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/(^-|-$)/g, '');
+        const base = formData.title
+          .toLowerCase()
+          .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+          .replace(/(^-|-$)/g, '');
         currentSlug = base ? `${base}-${Date.now().toString(36).slice(-4)}` : `post-${Date.now().toString(36)}`;
       }
 
@@ -112,10 +127,10 @@ export default function CreatorBlogEditor() {
         await fetchPostDetail(finalTargetId, false);
       }
 
-      alert("保存成功！");
+      alert('保存成功！');
     } catch (e) {
       console.error(e);
-      alert("保存失败，请查看控制台");
+      alert('保存失败，请查看控制台');
     } finally {
       setLoading(false);
     }
@@ -140,27 +155,30 @@ export default function CreatorBlogEditor() {
       const tempTitle = formData.title || '无标题草稿';
       let currentSlug = formData.slug;
       if (!currentSlug) {
-        const base = tempTitle.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/(^-|-$)/g, '');
+        const base = tempTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+          .replace(/(^-|-$)/g, '');
         currentSlug = base ? `${base}-${Date.now().toString(36).slice(-4)}` : `post-${Date.now().toString(36)}`;
       }
-      
+
       const submitData = { ...formData, title: tempTitle, slug: currentSlug };
       const res = await createDraft(submitData);
-      
+
       // Save markdown immediately to prevent data loss
       if (markdownText) {
         const file = new File([markdownText], 'content.md', { type: 'text/markdown' });
         await uploadContentMarkdown(res.id, file);
       }
-      
+
       isAutoSavingRef.current = true;
       navigate(`/creator/blogs/edit/${res.id}`, { replace: true });
-      setFormData(prev => ({ ...prev, title: tempTitle, slug: currentSlug }));
+      setFormData((prev) => ({ ...prev, title: tempTitle, slug: currentSlug }));
       setPostDetail(res);
       return res.id;
     } catch (e) {
       console.error(e);
-      alert("自动创建草稿失败，请先手动填写标题并保存。");
+      alert('自动创建草稿失败，请先手动填写标题并保存。');
       return null;
     } finally {
       setLoading(false);
@@ -170,7 +188,7 @@ export default function CreatorBlogEditor() {
   const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     let targetId = postDetail?.id || postId;
     if (!targetId) {
       targetId = await autoCreateDraft();
@@ -302,52 +320,51 @@ export default function CreatorBlogEditor() {
   };
 
   return (
-    <div className={cn(
-      'h-screen flex flex-col font-sans overflow-hidden',
-      darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-white text-text-main'
-    )}>
+    <div className={cn('h-screen flex flex-col font-sans overflow-hidden', 'bg-bg-base text-text-main')}>
       {/* Top Navbar */}
-      <header className={cn(
-        'shrink-0 flex h-14 items-center justify-between border-b px-6 shadow-sm z-20 transition-colors',
-        darkMode ? 'border-[#333] bg-[#1a1a1a]' : 'border-border-subtle bg-gray-50'
-      )}>
+      <header
+        className={cn(
+          'shrink-0 flex h-16 items-center justify-between border-b border-border-subtle bg-bg-base/90 px-6 backdrop-blur-md z-20 transition-colors',
+        )}
+      >
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(RoutePaths.CreatorBlogs)}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#e0e0e0]' : 'hover:bg-gray-200 text-text-main'
+              'flex h-8 w-8 items-center justify-center rounded-xl text-text-main/65 transition-colors hover:bg-primary/5 hover:text-primary',
             )}
             title="返回文章列表"
           >
             <ArrowLeft size={16} />
           </button>
           <div className="flex items-center gap-2">
-            <LayoutTemplate size={16} className="opacity-50" />
-            <h1 className="text-sm font-bold opacity-80">
-              {isNew ? '撰写新文章' : '编辑文章'}
-            </h1>
+            <LayoutTemplate size={16} className="text-primary" />
+            <h1 className="mono-label text-text-main/70">{isNew ? '撰写新文章' : '编辑文章'}</h1>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <label
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all cursor-pointer',
-              darkMode ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'
+              'flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
             )}
             title="导入本地 .md 文件"
           >
             <Upload size={14} />
             导入文档
-            <input type="file" accept=".md,.markdown" className="hidden" onChange={handleImportMarkdown} disabled={loading} />
+            <input
+              type="file"
+              accept=".md,.markdown"
+              className="hidden"
+              onChange={handleImportMarkdown}
+              disabled={loading}
+            />
           </label>
 
           <button
             onClick={() => setShowCoverModal(true)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all',
-              darkMode ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'
+              'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
             )}
             title="设置文章封面"
           >
@@ -358,8 +375,7 @@ export default function CreatorBlogEditor() {
           <button
             onClick={() => setShowImagesModal(true)}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all',
-              darkMode ? 'bg-white/10 hover:bg-white/20' : 'bg-black/5 hover:bg-black/10'
+              'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
             )}
             title="管理文章插图"
           >
@@ -371,8 +387,7 @@ export default function CreatorBlogEditor() {
             onClick={handleSaveAll}
             disabled={loading || !formData.title}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition-all disabled:opacity-50',
-              darkMode ? 'bg-[#3b82f6]/20 text-[#3b82f6] hover:bg-[#3b82f6]/30' : 'bg-primary/10 text-primary hover:bg-primary/20'
+              'flex items-center gap-1.5 rounded-xl border border-border-subtle px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-50',
             )}
           >
             <Save size={14} />
@@ -381,12 +396,14 @@ export default function CreatorBlogEditor() {
 
           {postDetail && (
             <div className="flex items-center gap-3 border-l pl-4 border-black/10 dark:border-white/10">
-              <span className={cn(
-                "flex items-center gap-1.5 px-2 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider",
-                postDetail.status === 'PUBLISHED' 
-                  ? (darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700')
-                  : (darkMode ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-100 text-yellow-700')
-              )}>
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 px-2 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider',
+                  postDetail.status === 'PUBLISHED'
+                    ? 'border border-green-500/20 text-green-600 dark:text-green-400'
+                    : 'border border-yellow-500/25 text-yellow-700 dark:text-yellow-400',
+                )}
+              >
                 {postDetail.status === 'PUBLISHED' ? <Globe size={10} /> : <Lock size={10} />}
                 {postDetail.status === 'PUBLISHED' ? '已发布' : '草稿'}
               </span>
@@ -394,10 +411,10 @@ export default function CreatorBlogEditor() {
                 onClick={handlePublishToggle}
                 disabled={loading || !postDetail.contentObjectKey}
                 className={cn(
-                  'rounded-lg px-4 py-1.5 text-xs font-bold text-white transition-all disabled:opacity-50',
+                  'rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-all disabled:opacity-50',
                   postDetail.status === 'PUBLISHED'
                     ? 'bg-yellow-500 hover:bg-yellow-600'
-                    : 'bg-green-600 hover:bg-green-500'
+                    : 'bg-green-600 hover:bg-green-500',
                 )}
               >
                 {postDetail.status === 'PUBLISHED' ? '下架文章' : '发布文章'}
@@ -409,17 +426,15 @@ export default function CreatorBlogEditor() {
 
       {/* Main Split Layout */}
       <div className="flex-1 flex overflow-hidden">
-        
         {/* Left Column: Editor & Settings */}
-        <div 
+        <div
           ref={leftPaneRef}
           onScroll={handleScrollLeft}
           className={cn(
-          "w-1/2 flex flex-col border-r overflow-y-auto transition-colors custom-scrollbar scroll-smooth",
-          darkMode ? "border-[#333] bg-[#1e1e1e]" : "border-border-subtle bg-white"
-        )}>
+            'w-1/2 flex flex-col border-r border-border-subtle overflow-y-auto transition-colors custom-scrollbar scroll-smooth bg-bg-base',
+          )}
+        >
           <div className="flex flex-col p-8 md:p-12 max-w-[800px] mx-auto w-full">
-            
             {/* Meta Data Inputs */}
             <div className="mb-8 space-y-4">
               <input
@@ -427,7 +442,7 @@ export default function CreatorBlogEditor() {
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className={cn(
                   'w-full text-3xl font-extrabold bg-transparent outline-none placeholder-opacity-40 transition-colors',
-                  darkMode ? 'placeholder-[#888]' : 'placeholder-[#bbb]'
+                  'placeholder:text-text-main/30',
                 )}
                 placeholder="在此输入文章标题..."
               />
@@ -437,7 +452,7 @@ export default function CreatorBlogEditor() {
                 rows={2}
                 className={cn(
                   'w-full text-sm bg-transparent outline-none resize-none opacity-80 leading-relaxed placeholder-opacity-40',
-                  darkMode ? 'placeholder-[#888]' : 'placeholder-[#bbb]'
+                  'placeholder:text-text-main/35',
                 )}
                 placeholder="撰写一小段简介，吸引读者阅读 (选填)..."
               />
@@ -451,10 +466,10 @@ export default function CreatorBlogEditor() {
                   <span>Markdown 正文</span>
                 </div>
               </div>
-              <textarea 
+              <textarea
                 className={cn(
-                  "flex-1 w-full bg-transparent outline-none resize-none font-mono text-[14px] leading-relaxed",
-                  darkMode ? 'text-[#cccccc]' : 'text-[#333333]'
+                  'flex-1 w-full bg-transparent outline-none resize-none font-mono text-[14px] leading-relaxed',
+                  'text-text-main',
                 )}
                 placeholder="使用 Markdown 语法尽情创作..."
                 value={markdownText}
@@ -465,74 +480,98 @@ export default function CreatorBlogEditor() {
         </div>
 
         {/* Right Column: Live Preview */}
-        <div 
+        <div
           ref={rightPaneRef}
           onScroll={handleScrollRight}
-          className={cn(
-          "w-1/2 overflow-y-auto transition-colors toc-scrollbar relative scroll-smooth",
-          darkMode ? "bg-[#151515]" : "bg-bg-base"
-        )}>
+          className={cn('w-1/2 overflow-y-auto transition-colors toc-scrollbar relative scroll-smooth bg-bg-base')}
+        >
           <div className="absolute inset-0 max-w-[800px] mx-auto p-12">
-             <article>
-                {/* Live Preview Header */}
-                <h1 className={cn('text-3xl font-bold leading-tight md:text-4xl lg:text-5xl tracking-tight', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                  {formData.title || <span className="opacity-20 italic">标题预览区</span>}
-                </h1>
-                {formData.summary && (
-                  <p className="mt-4 text-sm opacity-60 leading-relaxed border-l-4 border-primary pl-4 py-1 bg-black/5 dark:bg-white/5">
-                    {formData.summary}
-                  </p>
+            <article>
+              {/* Live Preview Header */}
+              <h1 className="serif-heading text-3xl leading-tight text-text-main md:text-4xl lg:text-5xl">
+                {formData.title || <span className="opacity-20 italic">标题预览区</span>}
+              </h1>
+              {formData.summary && (
+                <p className="mt-4 border-l border-primary py-1 pl-4 text-sm leading-relaxed text-text-main/60">
+                  {formData.summary}
+                </p>
+              )}
+
+              <hr className="my-10 border-border-subtle" />
+
+              {/* Live Markdown Render */}
+              <div>
+                {markdownText ? (
+                  <MarkdownRenderer content={markdownText} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                    <ImageIcon size={48} className="mb-4" />
+                    <p className="font-bold tracking-widest uppercase">Live Preview Area</p>
+                  </div>
                 )}
-
-                <hr className="my-10 border-black/10 dark:border-white/10" />
-
-                {/* Live Markdown Render */}
-                <div>
-                  {markdownText ? (
-                    <MarkdownRenderer content={markdownText} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                      <ImageIcon size={48} className="mb-4" />
-                      <p className="font-bold tracking-widest uppercase">Live Preview Area</p>
-                    </div>
-                  )}
-                </div>
-             </article>
+              </div>
+            </article>
           </div>
         </div>
-
       </div>
 
       {/* Cover Modal */}
       {showCoverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 xl:p-0">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCoverModal(false)} />
-          <div className={cn(
-            "relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col",
-            darkMode ? "bg-[#1e1e1e]" : "bg-white"
-          )}>
+          <div
+            className={cn(
+              'relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col',
+              darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
+            )}
+          >
             <div className="flex items-center justify-between p-6 border-b border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <ImageIcon size={18} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
+                <ImageIcon size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
                 <h2 className="text-lg font-bold">文章封面</h2>
               </div>
-              <button onClick={() => setShowCoverModal(false)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <button
+                onClick={() => setShowCoverModal(false)}
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
-            
+
             <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
-              <label className={cn(
-                'group relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300 cursor-pointer', 
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#3b82f6]' : 'border-black/10 bg-gray-50 hover:border-primary'
-              )}>
-                <input type="file" accept="image/png, image/jpeg, image/gif, image/webp" className="hidden" onChange={handleUploadCover} disabled={loading} />
-                {postDetail?.coverAssetId && assets.find(a => a.id === postDetail.coverAssetId)?.publicUrl ? (
+              <label
+                className={cn(
+                  'group relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300 cursor-pointer',
+                  darkMode
+                    ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#3b82f6]'
+                    : 'border-black/10 bg-gray-50 hover:border-primary',
+                )}
+              >
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/gif, image/webp"
+                  className="hidden"
+                  onChange={handleUploadCover}
+                  disabled={loading}
+                />
+                {postDetail?.coverAssetId && assets.find((a) => a.id === postDetail.coverAssetId)?.publicUrl ? (
                   <div className="absolute inset-0 rounded-xl overflow-hidden p-1 group/cover">
-                    <img 
-                      src={assets.find(a => a.id === postDetail.coverAssetId)?.publicUrl} 
-                      className="w-full h-full object-cover rounded-lg" 
-                      alt="Cover" 
+                    <img
+                      src={assets.find((a) => a.id === postDetail.coverAssetId)?.publicUrl}
+                      className="w-full h-full object-cover rounded-lg"
+                      alt="Cover"
                     />
                     <div className="absolute inset-1 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm flex-col gap-2">
                       <Upload size={24} className="text-white" />
@@ -549,7 +588,13 @@ export default function CreatorBlogEditor() {
                   </div>
                 ) : (
                   <>
-                    <ImageIcon size={32} className={cn('mb-3 transition-transform group-hover:scale-110', darkMode ? 'text-[#858585]' : 'text-text-main/40')} />
+                    <ImageIcon
+                      size={32}
+                      className={cn(
+                        'mb-3 transition-transform group-hover:scale-110',
+                        darkMode ? 'text-[#858585]' : 'text-text-main/40',
+                      )}
+                    />
                     <p className="text-sm font-bold">点击上传封面图</p>
                     <p className="text-xs opacity-50 mt-2">推荐尺寸 1200x630 (JPEG, PNG, WebP)</p>
                   </>
@@ -575,64 +620,117 @@ export default function CreatorBlogEditor() {
       {showImagesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 xl:p-0">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowImagesModal(false)} />
-          <div className={cn(
-            "relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]",
-            darkMode ? "bg-[#1e1e1e]" : "bg-white"
-          )}>
+          <div
+            className={cn(
+              'relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]',
+              darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
+            )}
+          >
             <div className="flex items-center justify-between p-6 border-b border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <ImageIcon size={18} className={darkMode ? "text-[#3b82f6]" : "text-primary"} />
+                <ImageIcon size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
                 <h2 className="text-lg font-bold">文章内插图</h2>
               </div>
-              <button onClick={() => setShowImagesModal(false)} className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <button
+                onClick={() => setShowImagesModal(false)}
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
               </button>
             </div>
-            
+
             <div className="p-6 md:p-8 flex-1 flex flex-col min-h-[300px]">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs opacity-60">图片上传后点击复制，即可粘贴至正文</p>
-                <label className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border shadow-sm",
-                  darkMode ? 'bg-[#3b82f6] border-[#3b82f6] text-white hover:bg-[#2563eb]' : 'bg-primary border-primary text-white hover:bg-primary/90'
-                )}>
-                  <input type="file" accept="image/png, image/jpeg, image/gif, image/webp" className="hidden" onChange={handleUploadContentImage} disabled={loading} />
+                <label
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border shadow-sm',
+                    darkMode
+                      ? 'bg-[#3b82f6] border-[#3b82f6] text-white hover:bg-[#2563eb]'
+                      : 'bg-primary border-primary text-white hover:bg-primary/90',
+                  )}
+                >
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/gif, image/webp"
+                    className="hidden"
+                    onChange={handleUploadContentImage}
+                    disabled={loading}
+                  />
                   <Upload size={14} />
                   上传新图片
                 </label>
               </div>
-              
-              {assets.filter(a => a.assetType === 'CONTENT_IMAGE').length === 0 ? (
-                <div className={cn(
-                  "flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed py-12",
-                  darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/50' : 'border-black/10 bg-gray-50/50'
-                )}>
+
+              {assets.filter((a) => a.assetType === 'CONTENT_IMAGE').length === 0 ? (
+                <div
+                  className={cn(
+                    'flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed py-12',
+                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/50' : 'border-black/10 bg-gray-50/50',
+                  )}
+                >
                   <ImageIcon size={24} className="opacity-20 mb-2" />
                   <span className="text-xs font-bold opacity-40 uppercase tracking-widest">还没有插图，快去上传吧</span>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
-                  {assets.filter(a => a.assetType === 'CONTENT_IMAGE').map((asset) => (
-                    <div key={asset.id} className={cn(
-                        'group flex items-center justify-between gap-3 rounded-xl border p-2.5 transition-colors',
-                        darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#444]' : 'border-border-subtle bg-gray-50 hover:border-black/20',
-                      )}>
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-black/5 border border-black/5 dark:border-white/5">
-                        <img src={asset.publicUrl} alt={asset.originalFilename} className="h-full w-full object-cover" />
+                  {assets
+                    .filter((a) => a.assetType === 'CONTENT_IMAGE')
+                    .map((asset) => (
+                      <div
+                        key={asset.id}
+                        className={cn(
+                          'group flex items-center justify-between gap-3 rounded-xl border p-2.5 transition-colors',
+                          darkMode
+                            ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#444]'
+                            : 'border-border-subtle bg-gray-50 hover:border-black/20',
+                        )}
+                      >
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-black/5 border border-black/5 dark:border-white/5">
+                          <img
+                            src={asset.publicUrl}
+                            alt={asset.originalFilename}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold truncate">{asset.originalFilename}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => copyToClipboard(`![${asset.originalFilename}](${asset.publicUrl})`)}
+                            className={cn(
+                              'flex items-center gap-1 px-2.5 py-1.5 rounded-md transition-colors text-xs font-bold',
+                              darkMode
+                                ? 'bg-[#333] hover:bg-[#3b82f6] hover:text-white'
+                                : 'bg-white border hover:bg-primary hover:text-white hover:border-primary',
+                            )}
+                            title="复制 Markdown 代码"
+                          >
+                            <Copy size={12} /> 复制代码
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            className="p-1.5 rounded-md text-red-500 transition-colors hover:bg-red-500/10"
+                            title="删除"
+                          >
+                            <Trash size={14} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold truncate">{asset.originalFilename}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => copyToClipboard(`![${asset.originalFilename}](${asset.publicUrl})`)} className={cn('flex items-center gap-1 px-2.5 py-1.5 rounded-md transition-colors text-xs font-bold', darkMode ? 'bg-[#333] hover:bg-[#3b82f6] hover:text-white' : 'bg-white border hover:bg-primary hover:text-white hover:border-primary')} title="复制 Markdown 代码">
-                          <Copy size={12} /> 复制代码
-                        </button>
-                        <button onClick={() => handleDeleteAsset(asset.id)} className="p-1.5 rounded-md text-red-500 transition-colors hover:bg-red-500/10" title="删除">
-                          <Trash size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>

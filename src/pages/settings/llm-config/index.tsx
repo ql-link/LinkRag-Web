@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Box, ChevronDown, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
@@ -11,62 +12,13 @@ import {
   setupLLMProvider,
   toggleLLMModel,
 } from '@/services/llm';
-import type { LLMCapability, LLMConfigDTO, ModelCapabilityDTO, ProviderModelDTO } from '@/types/api';
-
-function normalizeProviderToken(value: string) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
-  Object.entries(
-    import.meta.glob('/icons/providers/*.svg', {
-      eager: true,
-      query: '?url',
-    }) as Record<string, string | { default: string }>,
-  ).map(([path, iconModule]) => {
-    const iconUrl = typeof iconModule === 'string' ? iconModule : iconModule.default;
-    const filename = normalizeProviderToken(path.split('/').pop()!.replace('.svg', ''));
-    return [filename, iconUrl];
-  }),
-);
-
-const PROVIDER_ICON_ALIASES: Record<string, string> = {
-  openai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  openaiapi:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  openaiapicompatible:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  jiekouai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai')],
-  fishaudio:
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio')],
-  togetherai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('together-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('together')],
-  perplexity:
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity')],
-  tongyiqianwen:
-    PROVIDER_ICON_URLS[normalizeProviderToken('tongyi-qianwen')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  tencentcloud: PROVIDER_ICON_URLS[normalizeProviderToken('tencent-cloud')],
-  baiduyiyan:
-    PROVIDER_ICON_URLS[normalizeProviderToken('spark')] || PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  xunfeispark: PROVIDER_ICON_URLS[normalizeProviderToken('spark')],
-  tencenthunyuan: PROVIDER_ICON_URLS[normalizeProviderToken('hunyuan')],
-  giteeai: PROVIDER_ICON_URLS[normalizeProviderToken('gitee-ai')],
-  novitaai: PROVIDER_ICON_URLS[normalizeProviderToken('novita-ai')],
-  localai: PROVIDER_ICON_URLS[normalizeProviderToken('local-ai')],
-  zhipuai: PROVIDER_ICON_URLS[normalizeProviderToken('zhipu')],
-};
-
-const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
+import type {
+  LLMCapability,
+  LLMCapabilityValue,
+  LLMConfigDTO,
+  ModelCapabilityDTO,
+  ProviderModelDTO,
+} from '@/types/api';
 
 const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [0, ['openai', 'openaiapi', 'openaiapicompatible']],
@@ -79,30 +31,34 @@ const PROVIDER_PRIORITY: Array<[number, string[]]> = [
   [7, ['volcengine', 'volc', 'doubao', 'byte', 'bytedance']],
   [8, ['baichuan']],
   [9, ['minimax']],
-  [10, ['azure', 'azureopenai']],
-  [11, ['mistral']],
-  [12, ['cohere']],
-  [13, ['perplexity']],
-  [14, ['xai']],
-  [15, ['openrouter']],
-  [16, ['siliconflow']],
-  [17, ['stepfun']],
-  [18, ['hunyuan', 'tencentcloud', 'tencent']],
+  [10, ['mimo', 'xiaomi', 'xiaomimimo']],
+  [11, ['azure', 'azureopenai']],
+  [12, ['mistral']],
+  [13, ['cohere']],
+  [14, ['perplexity']],
+  [15, ['xai']],
+  [16, ['openrouter']],
+  [17, ['siliconflow']],
+  [18, ['stepfun']],
+  [19, ['hunyuan', 'tencentcloud', 'tencent']],
 ];
 
-const CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
+interface CapabilityMeta {
+  value: LLMCapabilityValue;
+  label: string;
+  hint: string;
+}
+
+const CAPABILITIES: Array<CapabilityMeta & { value: LLMCapability }> = [
   { value: 'CHAT', label: '对话', hint: '对话' },
-  { value: 'EMBEDDING', label: '向量', hint: '向量' },
-  { value: 'OCR', label: '识别', hint: '识别' },
   { value: 'VISION', label: '视觉', hint: '视觉' },
-  { value: 'RERANK', label: '重排', hint: '重排' },
   { value: 'ASR', label: '语音识别', hint: '语音识别' },
+  { value: 'RERANK', label: '重排', hint: '重排' },
+  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量' },
+  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量' },
 ];
 
-const EFFECTIVE_MODEL_CAPABILITIES: Array<{ value: LLMCapability; label: string; hint: string }> = [
-  ...CAPABILITIES.filter((capability) => capability.value !== 'OCR'),
-  { value: 'OCR', label: 'OCR', hint: 'OCR' },
-];
+const EFFECTIVE_MODEL_CAPABILITIES = CAPABILITIES;
 
 interface ConfigView extends LLMConfigDTO {
   providerName: string;
@@ -130,7 +86,19 @@ interface SetupTarget {
 
 type ModelSourceFilter = 'preset' | 'self';
 
-function getCapabilityMeta(capability: LLMCapability) {
+function isSupportedCapability(capability: LLMCapabilityValue): capability is LLMCapability {
+  return CAPABILITIES.some((item) => item.value === capability);
+}
+
+function getCapabilityMeta(capability: LLMCapabilityValue): CapabilityMeta {
+  if (capability === 'OCR') {
+    return {
+      value: capability,
+      label: 'OCR（废弃）',
+      hint: 'OCR',
+    };
+  }
+
   return (
     CAPABILITIES.find((item) => item.value === capability) || {
       value: capability,
@@ -140,30 +108,18 @@ function getCapabilityMeta(capability: LLMCapability) {
   );
 }
 
-function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
-  const matchedAlias = keys
-    .map((key) => PROVIDER_ICON_ALIASES[key])
-    .find((iconUrl) => typeof iconUrl === 'string' && iconUrl.length > 0);
-  if (matchedAlias) {
-    return matchedAlias;
+function capabilitySort(a: LLMCapabilityValue, b: LLMCapabilityValue) {
+  const aIndex = CAPABILITIES.findIndex((item) => item.value === a);
+  const bIndex = CAPABILITIES.findIndex((item) => item.value === b);
+  const aRank = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+  const bRank = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+  if (aRank !== bRank) {
+    return aRank - bRank;
   }
-
-  const matchedKey = keys.find((key) =>
-    PROVIDER_ICON_PREFIXES.some((iconKey) => key.includes(iconKey) || iconKey.includes(key)),
-  );
-  if (!matchedKey) {
-    return '';
-  }
-  const iconKey = PROVIDER_ICON_PREFIXES.find((item) => matchedKey.includes(item) || item.includes(matchedKey));
-  return iconKey ? PROVIDER_ICON_URLS[iconKey] : '';
+  return a.localeCompare(b);
 }
 
-function capabilitySort(a: LLMCapability, b: LLMCapability) {
-  return CAPABILITIES.findIndex((item) => item.value === a) - CAPABILITIES.findIndex((item) => item.value === b);
-}
-
-function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapability {
+function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapabilityValue {
   return typeof capability === 'string' ? capability : capability.capability;
 }
 
@@ -257,7 +213,7 @@ export default function LLMPage() {
   const defaultByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView>();
     viewConfigs.forEach((config) => {
-      if (config.isDefault && config.isActive) {
+      if (config.isDefault && config.isActive && isSupportedCapability(config.capability)) {
         map.set(config.capability, config);
       }
     });
@@ -267,11 +223,11 @@ export default function LLMPage() {
   const candidatesByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView[]>();
     CAPABILITIES.forEach((capability) => map.set(capability.value, []));
-    viewConfigs
-      .filter((config) => config.isActive)
-      .forEach((config) => {
+    viewConfigs.forEach((config) => {
+      if (config.isActive && isSupportedCapability(config.capability)) {
         map.get(config.capability)?.push(config);
-      });
+      }
+    });
     map.forEach((items) => {
       items.sort((a, b) => {
         if (a.isSystemPreset !== b.isSystemPreset) {
@@ -382,7 +338,9 @@ export default function LLMPage() {
       .filter((provider) => {
         if (filterSet.size > 0) {
           const hit = provider.models.some((model) =>
-            getModelCapabilityValues(model).some((capability) => filterSet.has(capability)),
+            getModelCapabilityValues(model).some(
+              (capability) => isSupportedCapability(capability) && filterSet.has(capability),
+            ),
           );
           if (!hit) {
             return false;
@@ -679,7 +637,9 @@ function EffectiveModelsPanel({
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
             const isOpen = openCapability === capability.value;
-            const selectedIcon = current ? getProviderIcon(current.providerType, current.providerName) : '';
+            const selectedIcon = current
+              ? getProviderIcon(current.providerType, current.providerName, current.modelName)
+              : '';
             return (
               <div
                 key={capability.value}
@@ -763,7 +723,7 @@ function EffectiveModelsPanel({
                   >
                     <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
                       {candidates.map((config) => {
-                        const optionIcon = getProviderIcon(config.providerType, config.providerName);
+                        const optionIcon = getProviderIcon(config.providerType, config.providerName, config.modelName);
                         return (
                           <button
                             type="button"
@@ -912,7 +872,7 @@ function ProviderConfigCard({
   const iconUrl = getProviderIcon(group.providerType, group.providerName);
   const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
   const presetCount = group.configs.length - selfCount;
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <article
@@ -1170,7 +1130,7 @@ function ProviderPickerModal({
               没有匹配的厂商
             </div>
           ) : (
-            <div className="grid gap-2.5 p-4 min-h-[260px] sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-2.5 p-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
               {providers.map((provider) => {
                 const configured = configuredProviderTypes.has(provider.providerType);
                 return (
@@ -1212,13 +1172,13 @@ function AvailableProviderCard({
       type="button"
       onClick={onSetup}
       className={cn(
-        'group w-full rounded-xl border p-3.5 text-left transition-all duration-300',
+        'group h-fit w-full rounded-xl border p-3.5 text-left transition-all duration-300',
         darkMode
           ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-primary/50 hover:bg-[#232323]'
           : 'border-border-subtle bg-bg-base/55 hover:border-primary/35 hover:bg-white',
       )}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex min-h-8 items-center gap-2.5">
         <ProviderIcon iconUrl={iconUrl} name={provider.providerName} darkMode={darkMode} size="sm" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -1484,19 +1444,25 @@ function ProviderIcon({
   darkMode?: boolean;
   size: 'sm' | 'md';
 }) {
-  const className = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  const className =
+    size === 'sm' ? 'h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8' : 'h-10 w-10 min-h-10 min-w-10 max-h-10 max-w-10';
+  const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
 
   if (iconUrl) {
     return (
-      <img
-        src={iconUrl}
-        alt={name}
+      <div
         className={cn(
           className,
-          'rounded-xl border object-contain shrink-0 p-1 transition-colors duration-300',
+          'overflow-hidden rounded-xl border shrink-0 transition-colors duration-300',
           darkMode ? 'bg-[#313131] border-[#3c3c3c]' : 'bg-white border-border-subtle/50',
         )}
-      />
+      >
+        <img
+          src={iconUrl}
+          alt={name}
+          className={cn('block h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+        />
+      </div>
     );
   }
 
@@ -1518,7 +1484,7 @@ function CapabilityBadge({
   compact,
   label,
 }: {
-  capability: LLMCapability;
+  capability: LLMCapabilityValue;
   compact?: boolean;
   label?: string;
 }) {

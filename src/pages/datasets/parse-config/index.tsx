@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Box,
+  Check,
   FileText,
   Layers3,
   Loader2,
@@ -15,14 +16,22 @@ import {
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getProviderIcon, isProviderIconMonochrome } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMProviders } from '@/services/llm';
-import type { DatasetDTO, DatasetParseConfigDTO, LLMConfigDTO, PdfParserBackend, ProviderModelDTO } from '@/types/api';
+import type {
+  DatasetDTO,
+  DatasetParseConfigDTO,
+  LLMConfigDTO,
+  PdfParserBackend,
+  ProviderModelDTO,
+  RecallSource,
+} from '@/types/api';
 
 type SegmentValue = string | null;
-type ParamType = 'toggle' | 'number' | 'slider' | 'segment' | 'display';
+type ParamType = 'toggle' | 'number' | 'slider' | 'segment' | 'multiselect' | 'display';
 type ParamKey =
   | 'heading_break_level'
   | 'min_candidate_chunk_tokens'
@@ -36,6 +45,9 @@ type ParamKey =
   | 'sparse_score_threshold'
   | 'dense_top_k'
   | 'dense_score_threshold'
+  | 'recall_enabled_sources'
+  | 'rerank_top_n'
+  | 'recall_strict'
   | 'table_model'
   | 'vision_model';
 
@@ -54,6 +66,9 @@ type ParseConfigValues = {
   sparse_score_threshold: number | null;
   dense_top_k: number | null;
   dense_score_threshold: number | null;
+  recall_enabled_sources: RecallSource[];
+  rerank_top_n: number | null;
+  recall_strict: boolean;
 };
 
 type DefaultModels = {
@@ -80,6 +95,7 @@ interface ParamSpec {
   integer?: boolean;
   options?: Array<{ label: string; value: SegmentValue }>;
   displaySub?: string;
+  span?: 'full';
 }
 
 interface ParamGroup {
@@ -108,7 +124,18 @@ const DEFAULT_VALUES: ParseConfigValues = {
   sparse_score_threshold: 0,
   dense_top_k: 10,
   dense_score_threshold: 0,
+  recall_enabled_sources: ['bm25', 'sparse', 'dense'],
+  rerank_top_n: 8,
+  recall_strict: false,
 };
+
+const RECALL_SOURCE_OPTIONS: Array<{ label: string; value: RecallSource }> = [
+  { label: 'BM25', value: 'bm25' },
+  { label: 'Sparse', value: 'sparse' },
+  { label: 'Dense', value: 'dense' },
+];
+
+const ALLOWED_RECALL_SOURCES = new Set<RecallSource>(RECALL_SOURCE_OPTIONS.map((option) => option.value));
 
 const GROUPS: ParamGroup[] = [
   {
@@ -230,13 +257,42 @@ const GROUPS: ParamGroup[] = [
     id: 'recall',
     name: '召回检索',
     en: 'Recall',
-    note: '控制稀疏 / 稠密召回数量、阈值与上下文预算',
-    count: 6,
+    note: '控制召回路、重排条数、容错模式与上下文预算',
+    count: 9,
     colorClass: 'bg-[#7B6B5D]',
     tintClass: 'bg-[#7B6B5D]/10',
     icon: Search,
     columns: 'double',
     params: [
+      {
+        key: 'recall_enabled_sources',
+        type: 'multiselect',
+        label: '启用召回路',
+        envKey: 'RECALL_ENABLED_SOURCES',
+        options: RECALL_SOURCE_OPTIONS,
+        description: '启用哪几条召回路参与检索与融合；可留空，实际生效范围受系统已装配召回路限制。',
+        showDescription: true,
+        span: 'full',
+      },
+      {
+        key: 'rerank_top_n',
+        type: 'number',
+        label: '重排候选条数',
+        envKey: 'RERANK_TOP_N',
+        min: 1,
+        step: 1,
+        integer: true,
+        description: '重排后返回的候选条数上限，需为正整数。',
+        showDescription: true,
+      },
+      {
+        key: 'recall_strict',
+        type: 'toggle',
+        label: '严格容错模式',
+        envKey: 'RECALL_STRICT',
+        description: '开启后任一召回路失败即整体报错；关闭则允许单路失败降级。',
+        showDescription: true,
+      },
       {
         key: 'recall_result_limit',
         type: 'slider',
@@ -311,80 +367,6 @@ const GROUPS: ParamGroup[] = [
 const DISPLAY_MODEL_FALLBACK = '未配置默认模型';
 const LEAVE_MESSAGE = '解析配置有未保存改动，确定离开吗？';
 
-function normalizeProviderToken(value: string) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
-  Object.entries(
-    import.meta.glob('/icons/providers/*.svg', {
-      eager: true,
-      query: '?url',
-    }) as Record<string, string | { default: string }>,
-  ).map(([path, iconModule]) => {
-    const iconUrl = typeof iconModule === 'string' ? iconModule : iconModule.default;
-    const filename = normalizeProviderToken(path.split('/').pop()!.replace('.svg', ''));
-    return [filename, iconUrl];
-  }),
-);
-
-const PROVIDER_ICON_ALIASES: Record<string, string> = {
-  openai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  ai302: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  '302ai': PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  aiproxy: PROVIDER_ICON_URLS[normalizeProviderToken('ai302')],
-  openaiapi:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  openaiapicompatible:
-    PROVIDER_ICON_URLS[normalizeProviderToken('openai-api')] || PROVIDER_ICON_URLS[normalizeProviderToken('openai')],
-  jiekouai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('jiekouai')],
-  fishaudio:
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('fish-audio')],
-  togetherai:
-    PROVIDER_ICON_URLS[normalizeProviderToken('together-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('together')],
-  perplexity:
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity-bright')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('perplexity')],
-  tongyiqianwen:
-    PROVIDER_ICON_URLS[normalizeProviderToken('tongyi-qianwen')] ||
-    PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  tencentcloud: PROVIDER_ICON_URLS[normalizeProviderToken('tencent-cloud')],
-  baiduyiyan:
-    PROVIDER_ICON_URLS[normalizeProviderToken('spark')] || PROVIDER_ICON_URLS[normalizeProviderToken('wenxinyiyan')],
-  xunfeispark: PROVIDER_ICON_URLS[normalizeProviderToken('spark')],
-  tencenthunyuan: PROVIDER_ICON_URLS[normalizeProviderToken('hunyuan')],
-  giteeai: PROVIDER_ICON_URLS[normalizeProviderToken('gitee-ai')],
-  novitaai: PROVIDER_ICON_URLS[normalizeProviderToken('novita-ai')],
-  localai: PROVIDER_ICON_URLS[normalizeProviderToken('local-ai')],
-  zhipuai: PROVIDER_ICON_URLS[normalizeProviderToken('zhipu')],
-};
-
-const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
-
-function getProviderIcon(providerType: string, providerName?: string) {
-  const keys = [providerType, providerName || ''].map(normalizeProviderToken);
-  const matchedAlias = keys
-    .map((key) => PROVIDER_ICON_ALIASES[key])
-    .find((iconUrl) => typeof iconUrl === 'string' && iconUrl.length > 0);
-  if (matchedAlias) {
-    return matchedAlias;
-  }
-
-  const matchedKey = keys.find((key) =>
-    PROVIDER_ICON_PREFIXES.some((iconKey) => key.includes(iconKey) || iconKey.includes(key)),
-  );
-  if (!matchedKey) {
-    return '';
-  }
-  const iconKey = PROVIDER_ICON_PREFIXES.find((item) => matchedKey.includes(item) || item.includes(matchedKey));
-  return iconKey ? PROVIDER_ICON_URLS[iconKey] : '';
-}
-
 function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDTO[]): DefaultModelInfo {
   const provider = providers.find((item) => item.providerType === config.providerType);
   return {
@@ -400,6 +382,15 @@ function readNumber(raw: unknown, fallback: number | null) {
 
 function readBoolean(raw: unknown, fallback: boolean) {
   return typeof raw === 'boolean' ? raw : fallback;
+}
+
+function isRecallSource(raw: string): raw is RecallSource {
+  return ALLOWED_RECALL_SOURCES.has(raw as RecallSource);
+}
+
+function readRecallSources(raw: unknown, fallback: RecallSource[]) {
+  if (!Array.isArray(raw)) return fallback;
+  return raw.filter((item): item is RecallSource => typeof item === 'string' && isRecallSource(item));
 }
 
 function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
@@ -433,6 +424,9 @@ function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
     sparse_score_threshold: readNumber(recall.sparse_score_threshold, DEFAULT_VALUES.sparse_score_threshold),
     dense_top_k: readNumber(recall.dense_top_k, DEFAULT_VALUES.dense_top_k),
     dense_score_threshold: readNumber(recall.dense_score_threshold, DEFAULT_VALUES.dense_score_threshold),
+    recall_enabled_sources: readRecallSources(recall.recall_enabled_sources, DEFAULT_VALUES.recall_enabled_sources),
+    rerank_top_n: readNumber(recall.rerank_top_n, DEFAULT_VALUES.rerank_top_n),
+    recall_strict: readBoolean(recall.recall_strict, DEFAULT_VALUES.recall_strict),
   };
 }
 
@@ -457,6 +451,9 @@ function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
       sparse_score_threshold: values.sparse_score_threshold,
       dense_top_k: values.dense_top_k,
       dense_score_threshold: values.dense_score_threshold,
+      recall_enabled_sources: values.recall_enabled_sources,
+      rerank_top_n: values.rerank_top_n,
+      recall_strict: values.recall_strict,
     },
   };
 }
@@ -986,6 +983,7 @@ function ConfigGroup({
             values={values}
             error={isEditableKey(param.key) ? errors[param.key] : undefined}
             disabled={disabled || isDisabled(param, values)}
+            spanFull={param.span === 'full'}
             displayModel={
               param.key === 'table_model'
                 ? displayModels.chat
@@ -1007,6 +1005,7 @@ function ParamField({
   values,
   error,
   disabled,
+  spanFull,
   displayModel,
   darkMode,
   onChange,
@@ -1015,6 +1014,7 @@ function ParamField({
   values: ParseConfigValues;
   error?: string;
   disabled: boolean;
+  spanFull: boolean;
   displayModel?: DefaultModelInfo | null;
   darkMode: boolean;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
@@ -1024,6 +1024,7 @@ function ParamField({
   const numericValue = typeof rawValue === 'number' ? rawValue : null;
   const booleanValue = typeof rawValue === 'boolean' ? rawValue : false;
   const segmentValue = typeof rawValue === 'string' || rawValue === null ? rawValue : null;
+  const arrayValue = Array.isArray(rawValue) ? rawValue : [];
 
   function handleNumberChange(event: ChangeEvent<HTMLInputElement>) {
     if (!editableKey) return;
@@ -1031,9 +1032,20 @@ function ParamField({
     onChange(editableKey, next as ParseConfigValues[EditableParamKey]);
   }
 
+  function handleMultiSelectChange(source: RecallSource) {
+    if (!editableKey) return;
+    const next = arrayValue.includes(source) ? arrayValue.filter((item) => item !== source) : [...arrayValue, source];
+    onChange(editableKey, next as ParseConfigValues[EditableParamKey]);
+  }
+
   return (
     <div
-      className={cn('flex min-w-0 flex-col gap-2.5', disabled && 'pointer-events-none opacity-40')}
+      className={cn(
+        'flex min-w-0 flex-col gap-2.5',
+        spanFull && 'xl:col-span-2',
+        param.type === 'multiselect' && ['gap-3 border-b pb-5', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle'],
+        disabled && 'pointer-events-none opacity-40',
+      )}
       title={[param.envKey, param.description].filter(Boolean).join(' · ')}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1094,6 +1106,16 @@ function ParamField({
               {numericValue === null ? '-' : formatValue(numericValue)}
             </span>
           )}
+          {param.type === 'multiselect' && (
+            <span
+              className={cn(
+                'rounded-lg px-2.5 py-1 font-mono text-[12px] font-semibold',
+                darkMode ? 'bg-[#094771]/40 text-[#cccccc]' : 'bg-primary/15 text-text-main/70',
+              )}
+            >
+              {arrayValue.length}/{param.options?.length ?? 0}
+            </span>
+          )}
         </div>
       </div>
 
@@ -1145,6 +1167,53 @@ function ParamField({
         </div>
       )}
 
+      {param.type === 'multiselect' && editableKey && (
+        <div
+          className={cn(
+            'grid grid-cols-1 gap-2 rounded-xl p-1 sm:grid-cols-3',
+            darkMode ? 'bg-[#1e1e1e]' : 'bg-text-main/5',
+          )}
+        >
+          {param.options?.map((option) => {
+            if (typeof option.value !== 'string' || !isRecallSource(option.value)) return null;
+
+            const source = option.value;
+            const active = arrayValue.includes(source);
+            return (
+              <button
+                key={source}
+                type="button"
+                onClick={() => handleMultiSelectChange(source)}
+                aria-pressed={active}
+                className={cn(
+                  'rounded-lg border px-2 py-1.5 text-center transition-colors',
+                  active
+                    ? darkMode
+                      ? 'border-[#3b82f6]/45 bg-[#094771]/55 text-[#e0e0e0]'
+                      : 'border-primary/35 bg-white text-text-main shadow-sm'
+                    : darkMode
+                      ? 'border-transparent text-[#858585] hover:bg-[#2d2d2d]/70'
+                      : 'border-transparent text-text-main/50 hover:bg-white/70',
+                )}
+              >
+                <span className="flex items-center justify-center gap-1 text-xs font-semibold">
+                  <Check size={11} className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-0')} />
+                  {option.label}
+                </span>
+                <span
+                  className={cn(
+                    'mt-0.5 block font-mono text-[9px] uppercase',
+                    darkMode ? 'text-[#858585]' : 'text-text-main/35',
+                  )}
+                >
+                  {source}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {param.type === 'display' && (
         <ReadonlyModelField model={displayModel} hint={param.displaySub} darkMode={darkMode} />
       )}
@@ -1174,7 +1243,7 @@ function ReadonlyModelField({
   hint?: string;
   darkMode: boolean;
 }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName) : '';
+  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName) : '';
 
   return (
     <div className={cn('rounded-xl px-3 py-3', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base/40')}>
@@ -1199,16 +1268,22 @@ function ReadonlyModelField({
 }
 
 function ProviderIcon({ iconUrl, name, darkMode }: { iconUrl: string; name: string; darkMode: boolean }) {
+  const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
+
   if (iconUrl) {
     return (
-      <img
-        src={iconUrl}
-        alt={name}
+      <div
         className={cn(
-          'h-8 w-8 shrink-0 rounded-lg border object-contain p-1',
+          'h-8 w-8 shrink-0 rounded-lg border',
           darkMode ? 'border-[#3c3c3c] bg-[#313131]' : 'border-border-subtle/60 bg-white',
         )}
-      />
+      >
+        <img
+          src={iconUrl}
+          alt={name}
+          className={cn('h-full w-full object-contain p-1', darkMode && iconIsMonochrome && 'invert')}
+        />
+      </div>
     );
   }
 
