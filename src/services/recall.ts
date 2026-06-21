@@ -182,7 +182,7 @@ export interface RecallOptions {
   configId: number;
   /**
    * 必填（LINK-181）：本轮问答归属的对话 id，来自 Java「创建对话」接口（POST /api/v1/chat/conversations 的 data.id）。
-   * Python /rag/stream 请求体 extra="forbid" 且该字段必填，缺失/拼错会直接 422。同一对话多轮复用同一个 id。
+   * 作为对话轮次落库的挂载锚点；Python /rag/stream 请求体 extra="forbid" 且该字段必填，缺失/拼错会直接 422。同一对话多轮复用同一个 id。
    */
   conversationId: number;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
@@ -202,21 +202,22 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + config_id + dataset_ids——任何未知字段 Python 直接 422。
+  // 请求体只允许 query + config_id + conversation_id + dataset_ids——任何未知字段 Python 直接 422。
   //
   // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
   // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
   // token 授权范围里「第一个」数据集或系统默认，生效配置可能与用户正在对话的数据集不符。
+  // conversation_id 是对话轮次落库的挂载锚点，缺失后端 422、不进入召回生成。
   // user_id 只取 session token claims，body 不传（多传也会被 Python 当未知字段 422）。
   // datasetIds 由 recall() 前置校验保证非空，这里恒定写入以让契约显式化。
   //
   // LINK-181：conversation_id 必填。Python 侧 extra="forbid" + 字段必填，缺失/拼错直接 422
   // （映射为 RECALL_INVALID_REQUEST），不会进入问答流程。由 recall() 前置校验保证有值。
-  const body: { query: string; config_id: number; dataset_ids: number[]; conversation_id: number } = {
+  const body: { query: string; config_id: number; conversation_id: number; dataset_ids: number[] } = {
     query: options.query,
     config_id: options.configId,
-    dataset_ids: options.datasetIds,
     conversation_id: options.conversationId,
+    dataset_ids: options.datasetIds,
   };
 
   let resp: Response;

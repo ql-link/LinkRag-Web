@@ -11,8 +11,11 @@ import type {
   AddProviderModelRequest,
   CreatePresetRequest,
   UsageSummaryDTO,
+  UsageStage,
   DailyUsageDTO,
   UsageLogDTO,
+  ModelUsageDTO,
+  UsageTrendDTO,
   PageResult,
 } from '@/types/api';
 
@@ -104,15 +107,35 @@ export async function deleteAdminSystemPreset(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/system-presets/${id}`);
 }
 
-export async function getUsageSummary(startDate: string, endDate: string): Promise<UsageSummaryDTO> {
+export async function getUsageSummary(
+  startDate: string,
+  endDate: string,
+  stage?: UsageStage,
+): Promise<UsageSummaryDTO> {
   return apiClient.get<UsageSummaryDTO>('/api/v1/llm/usage/summary', {
+    startDate,
+    endDate,
+    ...(stage ? { stage } : {}),
+  });
+}
+
+export async function getDailyUsage(startDate: string, endDate: string, stage?: UsageStage): Promise<DailyUsageDTO[]> {
+  return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
+    startDate,
+    endDate,
+    ...(stage ? { stage } : {}),
+  });
+}
+
+export async function getUsageByModel(startDate: string, endDate: string): Promise<ModelUsageDTO[]> {
+  return apiClient.get<ModelUsageDTO[]>('/api/v1/llm/usage/by-model', {
     startDate,
     endDate,
   });
 }
 
-export async function getDailyUsage(startDate: string, endDate: string): Promise<DailyUsageDTO[]> {
-  return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
+export async function getUsageTrend(startDate: string, endDate: string): Promise<UsageTrendDTO> {
+  return apiClient.get<UsageTrendDTO>('/api/v1/llm/usage/trend', {
     startDate,
     endDate,
   });
@@ -123,10 +146,12 @@ export async function getUsageLogs(
   endDate: string,
   page = 1,
   pageSize = 20,
+  stage?: UsageStage,
 ): Promise<PageResult<UsageLogDTO>> {
   return apiClient.get<PageResult<UsageLogDTO>>('/api/v1/llm/usage/logs', {
     startDate,
     endDate,
+    ...(stage ? { stage } : {}),
     page,
     pageSize,
   });

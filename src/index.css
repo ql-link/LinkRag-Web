@@ -321,6 +321,15 @@
   @apply bg-gray-600 rounded-full;
 }
 
+.popover-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.popover-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ===== Form Controls ===== */
 
 .parse-config-range {
@@ -328,18 +337,27 @@
   background: transparent;
   --range-fill: var(--color-primary);
   --range-track: #d1d5db;
+  --range-tick: rgba(255, 255, 255, 0.92);
+  --range-ticks:
+    radial-gradient(circle, var(--range-tick) 1.6px, transparent 1.8px) 0% 50% / 4px 6px no-repeat,
+    radial-gradient(circle, var(--range-tick) 1.6px, transparent 1.8px) 25% 50% / 4px 6px no-repeat,
+    radial-gradient(circle, var(--range-tick) 1.6px, transparent 1.8px) 50% 50% / 4px 6px no-repeat,
+    radial-gradient(circle, var(--range-tick) 1.6px, transparent 1.8px) 75% 50% / 4px 6px no-repeat,
+    radial-gradient(circle, var(--range-tick) 1.6px, transparent 1.8px) 100% 50% / 4px 6px no-repeat;
 }
 
 .parse-config-range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 9999px;
-  background: linear-gradient(
-    to right,
-    var(--range-fill) 0%,
-    var(--range-fill) var(--range-progress, 0%),
-    var(--range-track) var(--range-progress, 0%),
-    var(--range-track) 100%
-  );
+  background:
+    var(--range-ticks),
+    linear-gradient(
+      to right,
+      var(--range-fill) 0%,
+      var(--range-fill) var(--range-progress, 0%),
+      var(--range-track) var(--range-progress, 0%),
+      var(--range-track) 100%
+    );
 }
 
 .parse-config-range::-webkit-slider-thumb {
@@ -355,13 +373,13 @@
 .parse-config-range::-moz-range-track {
   height: 6px;
   border-radius: 9999px;
-  background: var(--range-track);
+  background: var(--range-ticks), var(--range-track);
 }
 
 .parse-config-range::-moz-range-progress {
   height: 6px;
   border-radius: 9999px;
-  background: var(--range-fill);
+  background: var(--range-ticks), var(--range-fill);
 }
 
 .parse-config-range::-moz-range-thumb {

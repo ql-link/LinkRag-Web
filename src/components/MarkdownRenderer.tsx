@@ -10,7 +10,7 @@ import { Check, Copy, FileCode2 } from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { createMarkdownSlugger, parseMarkdownContent } from '@/lib/markdown';
+import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
 
 interface MarkdownRendererProps {
   content: string;
@@ -32,6 +32,17 @@ const extractText = (children: React.ReactNode): string => {
   if (React.isValidElement<{ children?: React.ReactNode }>(children)) return extractText(children.props.children);
   return '';
 };
+
+const getPlainTextChildren = (children: React.ReactNode): string | null => {
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children)) {
+    const parts = children.map(getPlainTextChildren);
+    return parts.every((part): part is string => part !== null) ? parts.join('') : null;
+  }
+  return null;
+};
+
+const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|`[^`\n]+?`|\[[^\]\n]+?\]\([^)]+?\))/;
 
 const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
 
@@ -147,10 +158,18 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+type MarkdownNodeWithPosition = {
+  position?: {
+    start?: {
+      line?: number;
+    };
+  };
+};
+
 type HeadingRendererProps = ComponentPropsWithoutRef<'h1'> & {
   level: HeadingLevel;
-  getHeadingId: (text: string) => string;
-  node?: unknown;
+  getHeadingId: (text: string, node?: MarkdownNodeWithPosition) => string;
+  node?: MarkdownNodeWithPosition;
 };
 
 const headingSizeClasses: Record<HeadingLevel, string> = {
@@ -164,7 +183,7 @@ const headingSizeClasses: Record<HeadingLevel, string> = {
 
 const HeadingRenderer = ({ level, getHeadingId, children, className, node: _node, ...props }: HeadingRendererProps) => {
   const text = extractText(children);
-  const id = getHeadingId(text);
+  const id = getHeadingId(text, _node);
   const Tag = `h${level}` as React.ElementType<ComponentPropsWithoutRef<'h1'>>;
 
   return (
@@ -252,6 +271,37 @@ const BlockquoteRenderer = ({
   );
 };
 
+function InlineMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ node: _node, children }) => <>{children}</>,
+        code: CodeRenderer as Components['code'],
+        a: ({ node: _node, href, className: linkClassName, ...props }) => (
+          <a
+            href={href}
+            target={isExternalHref(href) ? '_blank' : undefined}
+            rel={isExternalHref(href) ? 'noopener noreferrer' : undefined}
+            className={cn('underline-offset-4', linkClassName)}
+            {...props}
+          />
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
+function TableCellContent({ children }: { children: React.ReactNode }) {
+  const plainText = getPlainTextChildren(children);
+  if (plainText && INLINE_MARKDOWN_PATTERN.test(plainText)) {
+    return <InlineMarkdown content={plainText} />;
+  }
+  return <>{children}</>;
+}
+
 function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
   const entries = Object.entries(data);
   if (entries.length === 0) return null;
@@ -275,7 +325,14 @@ function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
 export function MarkdownRenderer({ content, className, showFrontmatter = true }: MarkdownRendererProps) {
   const { darkMode } = useTheme();
   const parsed = useMemo(() => parseMarkdownContent(content), [content]);
-  const getHeadingId = createMarkdownSlugger();
+  const headingIdByLine = useMemo(() => {
+    return new Map(extractMarkdownHeadings(parsed.content).map((heading) => [heading.line, heading.id]));
+  }, [parsed.content]);
+  const getHeadingId = (text: string, node?: MarkdownNodeWithPosition) => {
+    const line = node?.position?.start?.line;
+    if (line) return headingIdByLine.get(line) ?? slugifyMarkdownHeading(text);
+    return slugifyMarkdownHeading(text);
+  };
 
   const components: Components = {
     code: CodeRenderer as Components['code'],
@@ -292,20 +349,24 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
         <table className={cn('w-full border-collapse text-sm', tableClassName)} {...props} />
       </div>
     ),
-    th: ({ node: _node, className: thClassName, ...props }) => (
+    th: ({ node: _node, className: thClassName, children, ...props }) => (
       <th
         className={cn(
           'border-b border-border-subtle bg-black/5 px-3 py-2 text-left font-semibold text-text-main dark:bg-white/5',
           thClassName,
         )}
         {...props}
-      />
+      >
+        <TableCellContent>{children}</TableCellContent>
+      </th>
     ),
-    td: ({ node: _node, className: tdClassName, ...props }) => (
+    td: ({ node: _node, className: tdClassName, children, ...props }) => (
       <td
         className={cn('border-b border-border-subtle px-3 py-2 align-top text-text-main last:border-b-0', tdClassName)}
         {...props}
-      />
+      >
+        <TableCellContent>{children}</TableCellContent>
+      </td>
     ),
     a: ({ node: _node, href, className: linkClassName, ...props }) => (
       <a
@@ -334,7 +395,7 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
         'prose-li:text-text-main prose-ol:text-text-main prose-ul:text-text-main',
         'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
         'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
-        'prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
+        'prose-strong:font-extrabold prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
         'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-white/5',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&

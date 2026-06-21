@@ -229,8 +229,8 @@ export default function ProfilePage() {
                   className={cn(
                     'absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors',
                     darkMode
-                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
-                      : 'bg-text-main text-white hover:opacity-90',
+                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
                     avatarLoading && 'pointer-events-none opacity-70',
                   )}
                 >
@@ -317,7 +317,7 @@ export default function ProfilePage() {
                 disabled={submitLoading}
                 className={cn(
                   'flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-opacity',
-                  darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
                   submitLoading && 'opacity-70',
                 )}
               >

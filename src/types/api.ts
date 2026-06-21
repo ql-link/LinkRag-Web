@@ -261,6 +261,31 @@ export interface UsageSummaryDTO {
   promptTokens: number;
   completionTokens: number;
   averageLatencyMs: number;
+  successCalls: number;
+  failedCalls: number;
+  successRate: number; // 0~1，无调用为 0
+}
+
+export type UsageStage = 'chat' | 'all' | 'parse' | 'recall';
+export type UsageOperation = 'embed' | 'rerank' | 'vision' | 'table' | 'generate' | (string & {});
+export type UsageStatus = 'success' | 'partial' | 'failed' | (string & {});
+
+export interface ModelUsageDTO {
+  providerType: string;
+  modelName: string;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface UsageTrendDTO {
+  currentTokens: number;
+  previousTokens: number;
+  currentCalls: number;
+  previousCalls: number;
+  tokenGrowthRate: number | null; // 0.18 = +18%；上一周期为 0 时为 null
+  callGrowthRate: number | null;
 }
 
 export interface DailyUsageDTO {
@@ -273,14 +298,16 @@ export interface DailyUsageDTO {
 
 export interface UsageLogDTO {
   id: number;
-  configId: number;
+  configId: number | null;
   providerType: string;
   modelName: string;
+  stage: Exclude<UsageStage, 'all'> | (string & {});
+  operation: UsageOperation;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
-  latencyMs: number;
-  status: string;
+  latencyMs: number | null;
+  status: UsageStatus;
   errorMessage: string | null;
   createdAt: string;
 }
@@ -365,7 +392,7 @@ export interface RecallSessionDTO {
   expiresIn?: number;
 }
 
-/** 召回命中项（仅含 chunk_id + 元信息，不含正文，正文需另行反查）。 */
+/** 召回命中项（chunk_id + 元信息 + 正文）。 */
 export interface RecallHit {
   chunk_id: string;
   doc_id: number;
@@ -373,6 +400,8 @@ export interface RecallHit {
   fused_score: number;
   /** 各召回路原始分；某路未命中该 chunk 时值为 null（如稀疏检索命中但 BM25 未命中）。 */
   scores: Record<string, number | null>;
+  /** chunk 正文，供展示召回片段；候选正文缺失时为空串。 */
+  content: string;
 }
 
 /**

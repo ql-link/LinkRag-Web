@@ -22,21 +22,24 @@ export function Breadcrumb({ items, darkMode: darkModeProp }: BreadcrumbProps) {
     <nav className="flex items-center gap-2">
       {items.map((item, index) => (
         <div key={index} className="flex items-center gap-2">
-          {index > 0 && (
-            <ChevronRight size={12} className={cn("text-text-main/30", darkMode && "text-gray-500")} />
-          )}
+          {index > 0 && <ChevronRight size={14} className={cn('text-text-main/30', darkMode && 'text-gray-500')} />}
           {item.path ? (
             <Link
               to={item.path}
               className={cn(
-                "mono-label transition-colors hover:text-primary",
-                darkMode ? "text-gray-400 hover:text-primary" : "text-text-main/50"
+                'font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors hover:text-primary',
+                darkMode ? 'text-gray-400 hover:text-primary' : 'text-text-main/50',
               )}
             >
               {item.label}
             </Link>
           ) : (
-            <span className={cn("mono-label", darkMode ? "text-gray-300" : "text-text-main/70")}>
+            <span
+              className={cn(
+                'font-mono text-xs font-bold uppercase tracking-[0.14em]',
+                darkMode ? 'text-gray-300' : 'text-text-main/70',
+              )}
+            >
               {item.label}
             </span>
           )}

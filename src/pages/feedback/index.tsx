@@ -542,7 +542,7 @@ export default function FeedbackPage() {
                 type="submit"
                 className={cn(
                   'flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold uppercase tracking-[0.24em] transition-opacity',
-                  darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
                 )}
               >
                 提交反馈
