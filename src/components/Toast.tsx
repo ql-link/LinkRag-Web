@@ -22,12 +22,14 @@ function Toast({ toast, onClose }: ToastProps) {
   }, [toast.id, onClose]);
 
   return (
-    <div className={cn(
-      "flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg animate-slide-in",
-      toast.type === 'error' && "bg-red-500 text-white",
-      toast.type === 'success' && "bg-green-500 text-white",
-      toast.type === 'info' && "bg-blue-500 text-white",
-    )}>
+    <div
+      className={cn(
+        'flex items-center gap-3 px-4 py-3 rounded-xl  animate-slide-in',
+        toast.type === 'error' && 'bg-red-500 text-white',
+        toast.type === 'success' && 'bg-green-500 text-white',
+        toast.type === 'info' && 'bg-blue-500 text-white',
+      )}
+    >
       <AlertCircle size={16} />
       <span className="text-sm font-medium">{toast.message}</span>
       <button onClick={() => onClose(toast.id)} className="ml-2 hover:opacity-80">
@@ -54,6 +56,7 @@ export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 

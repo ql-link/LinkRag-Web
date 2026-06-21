@@ -73,7 +73,7 @@ export default function FeedbackPage() {
     <div className={cn('min-h-screen', darkMode ? 'bg-[#151515] text-[#cccccc]' : 'bg-bg-base text-text-main')}>
       <header
         className={cn(
-          'sticky top-0 z-20 border-b px-6 py-2.5 backdrop-blur-md lg:px-10',
+          'sticky top-0 z-20 border-b px-6 py-2.5  lg:px-10',
           darkMode ? 'border-[#282828] bg-[#151515]/92' : 'border-border-subtle bg-bg-base/86',
         )}
       >
@@ -84,7 +84,7 @@ export default function FeedbackPage() {
               <div
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-xl border',
-                  darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-white/70',
+                  darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-surface-card',
                 )}
               >
                 <MessageSquareText size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
@@ -109,8 +109,8 @@ export default function FeedbackPage() {
             className={cn(
               'group hidden items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all sm:inline-flex',
               darkMode
-                ? 'border-[#3a3a3a] bg-[linear-gradient(135deg,#202020,#262626)] text-[#d7d7d7] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#4a4a4a] hover:text-[#f1f1f1] hover:shadow-[0_6px_18px_rgba(0,0,0,0.26)]'
-                : 'border-border-subtle bg-[linear-gradient(135deg,#ffffff,#f5f2ee)] text-text-main shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] hover:border-text-main/20 hover:shadow-[0_6px_18px_rgba(42,33,24,0.08)]',
+                ? 'border-[#3a3a3a] bg-[linear-gradient(135deg,#202020,#262626)] text-[#d7d7d7] (255,255,255,0.04)] hover:border-[#4a4a4a] hover:text-[#f1f1f1] hover:(0,0,0,0.26)]'
+                : 'border-border-subtle bg-[linear-gradient(135deg,#ffffff,#f5f2ee)] text-text-main (255,255,255,0.8)] hover:border-text-main/20 hover:(42,33,24,0.08)]',
             )}
           >
             <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -131,7 +131,7 @@ export default function FeedbackPage() {
             <div
               className={cn(
                 'rounded-2xl border px-6 py-8 text-center',
-                darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-white/70',
+                darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-surface-card',
               )}
             >
               <div
@@ -190,7 +190,7 @@ export default function FeedbackPage() {
                         'flex h-12 w-full items-center justify-between rounded-xl px-4.5 text-sm outline-none transition-colors',
                         darkMode
                           ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] hover:border-[#444] focus:border-cyan-300/55'
-                          : 'border border-border-subtle bg-white/78 text-text-main shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
+                          : 'border border-border-subtle bg-surface-card text-text-main (255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
                       )}
                     >
                       <span>{type}</span>
@@ -206,10 +206,10 @@ export default function FeedbackPage() {
                     {openDropdown === 'type' && (
                       <div
                         className={cn(
-                          'absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border backdrop-blur-md',
+                          'absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border ',
                           darkMode
-                            ? 'border-[#3a3a3a] bg-[#1f1f1f]/98 shadow-[0_16px_40px_rgba(0,0,0,0.35)]'
-                            : 'border-border-subtle bg-white/96 shadow-[0_16px_40px_rgba(42,33,24,0.12)]',
+                            ? 'border-[#3a3a3a] bg-[#1f1f1f]/98 (0,0,0,0.35)]'
+                            : 'border-border-subtle bg-surface-card (42,33,24,0.12)]',
                         )}
                       >
                         {feedbackTypes.map((item) => {
@@ -269,7 +269,7 @@ export default function FeedbackPage() {
                         'flex h-12 w-full items-center justify-between rounded-xl px-4.5 text-sm outline-none transition-colors',
                         darkMode
                           ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] hover:border-[#444] focus:border-cyan-300/55'
-                          : 'border border-border-subtle bg-white/78 text-text-main shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
+                          : 'border border-border-subtle bg-surface-card text-text-main (255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
                       )}
                     >
                       <span>{priority}</span>
@@ -285,10 +285,10 @@ export default function FeedbackPage() {
                     {openDropdown === 'priority' && (
                       <div
                         className={cn(
-                          'absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border backdrop-blur-md',
+                          'absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border ',
                           darkMode
-                            ? 'border-[#3a3a3a] bg-[#1f1f1f]/98 shadow-[0_16px_40px_rgba(0,0,0,0.35)]'
-                            : 'border-border-subtle bg-white/96 shadow-[0_16px_40px_rgba(42,33,24,0.12)]',
+                            ? 'border-[#3a3a3a] bg-[#1f1f1f]/98 (0,0,0,0.35)]'
+                            : 'border-border-subtle bg-surface-card (42,33,24,0.12)]',
                         )}
                       >
                         {priorityOptions.map((item) => {
@@ -348,7 +348,7 @@ export default function FeedbackPage() {
                       'h-12 w-full rounded-xl px-4.5 text-sm outline-none transition-colors focus:border-primary/60',
                       darkMode
                         ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-cyan-300/55'
-                        : 'border border-border-subtle bg-white/78 placeholder:text-text-main/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]',
+                        : 'border border-border-subtle bg-surface-card placeholder:text-text-main/30 (255,255,255,0.72)]',
                     )}
                   />
                 </label>
@@ -370,7 +370,7 @@ export default function FeedbackPage() {
                       'h-12 w-full rounded-xl px-4.5 text-sm outline-none transition-colors focus:border-primary/60',
                       darkMode
                         ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-cyan-300/55'
-                        : 'border border-border-subtle bg-white/78 placeholder:text-text-main/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]',
+                        : 'border border-border-subtle bg-surface-card placeholder:text-text-main/30 (255,255,255,0.72)]',
                     )}
                   />
                 </label>
@@ -396,7 +396,7 @@ export default function FeedbackPage() {
                     'relative overflow-hidden rounded-2xl border transition-colors focus-within:border-primary/60',
                     darkMode
                       ? 'border-[#303030] bg-[#202020] focus-within:border-cyan-300/55'
-                      : 'border-border-subtle bg-white/78 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]',
+                      : 'border-border-subtle bg-surface-card (255,255,255,0.72)]',
                     draggingAttachment && (darkMode ? 'border-cyan-300/60' : 'border-primary/60'),
                   )}
                 >

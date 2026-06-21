@@ -31,7 +31,7 @@ type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
 const githubProjectUrl =
   (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
 const darkModeLogoStyle = {
-  filter: 'saturate(1.05) brightness(1.55) contrast(0.95) drop-shadow(0 0 1px rgba(255,255,255,0.45))',
+  filter: 'saturate(1.05) brightness(1.55) contrast(0.95) drop-(0 0 1px rgba(255,255,255,0.45))',
 };
 
 const scrollSections = [{ id: 'knowledge', label: '功能' }];
@@ -238,9 +238,7 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[470px] overflow-hidden rounded-[34px] border p-6',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
-          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 /25' : 'border-border-subtle bg-surface-card  ',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -261,8 +259,8 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
               className={cn(
                 'absolute left-[55%] top-[46%] flex h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 flex-col rounded-[34px] border p-7',
                 darkMode
-                  ? 'border-[#3c3c3c] bg-[#1e1e1e] shadow-[0_0_30px_rgba(197,134,192,0.08)]'
-                  : 'border-border-subtle bg-white/86 shadow-[0_16px_40px_rgba(212,163,115,0.14)]',
+                  ? 'border-[#3c3c3c] bg-[#1e1e1e] (197,134,192,0.08)]'
+                  : 'border-border-subtle bg-surface-card (212,163,115,0.14)]',
                 stage === 'parsing' ? 'ring-1 ring-primary/20' : '',
               )}
             >
@@ -279,7 +277,7 @@ function UploadChunkDemo({ darkMode }: { darkMode?: boolean }) {
               <div
                 className={cn(
                   'mt-4 flex-1 rounded-[28px] border border-dashed transition-colors',
-                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
                   stage === 'uploading' ? 'border-primary/50' : '',
                 )}
               >
@@ -434,9 +432,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
-          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 /25' : 'border-border-subtle bg-surface-card  ',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -543,7 +539,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div
               className={cn(
                 'relative h-[74px] overflow-hidden rounded-2xl border',
-                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
               )}
             >
               <div
@@ -565,8 +561,8 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                     'absolute rounded-full',
                     point.near
                       ? darkMode
-                        ? 'bg-[#3b82f6] shadow-[0_0_16px_rgba(197,134,192,0.45)]'
-                        : 'bg-primary shadow-[0_0_16px_rgba(212,163,115,0.5)]'
+                        ? 'bg-[#3b82f6] (197,134,192,0.45)]'
+                        : 'bg-primary (212,163,115,0.5)]'
                       : darkMode
                         ? 'bg-[#5a5a5a]'
                         : 'bg-text-main/18',
@@ -612,7 +608,7 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div
               className={cn(
                 'rounded-2xl border px-2.5 py-2 font-mono text-[8px] leading-[1.8]',
-                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/72',
+                darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
               )}
             >
               {esJsonLines.map((line, index) => (
@@ -674,9 +670,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
-          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 /25' : 'border-border-subtle bg-surface-card  ',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -793,7 +787,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
             <div
               className={cn(
                 'multi-core absolute left-[238px] top-[162px] flex h-[150px] w-[150px] items-center justify-center rounded-full border-[3px]',
-                darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74',
+                darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-surface-card',
               )}
             >
               <div
@@ -837,7 +831,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
                   key={channel.label}
                   className={cn(
                     'multi-channel-card absolute left-[458px] flex h-[88px] w-[280px] items-center gap-5 rounded-[20px] border px-7',
-                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-white/62',
+                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/88' : 'border-border-subtle bg-surface-card',
                   )}
                   style={{ top: channel.y, animationDelay: `${0.7 + index * 0.3}s` }}
                 >
@@ -864,7 +858,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
           variants={fadeUpItem}
           className={cn(
             'w-[174px] justify-self-start rounded-2xl border px-3 py-3',
-            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/82' : 'border-border-subtle bg-white/58',
+            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/82' : 'border-border-subtle bg-surface-card',
           )}
         >
           <div className="mb-2.5 flex items-center justify-between gap-2">
@@ -932,7 +926,7 @@ function StreamingAnswer({ darkMode }: { darkMode?: boolean }) {
         'h-[86px] overflow-hidden rounded-2xl border px-3 py-2.5 text-[11px] leading-5',
         darkMode
           ? 'border-[#3c3c3c] bg-[#252526] text-[#d9d9d9]'
-          : 'border-border-subtle bg-white/72 text-text-main/68',
+          : 'border-border-subtle bg-surface-card text-text-main/68',
       )}
     >
       <p>
@@ -959,9 +953,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
       animate="show"
       className={cn(
         'relative min-h-[430px] overflow-hidden rounded-[34px] border p-6',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#252526]/88 shadow-black/25'
-          : 'border-border-subtle bg-white/62 shadow-sm backdrop-blur-sm',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/88 /25' : 'border-border-subtle bg-surface-card  ',
       )}
     >
       <div className="absolute inset-0 welcome-demo-grid opacity-55" />
@@ -1027,7 +1019,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
                   key={chunk.title}
                   className={cn(
                     'rounded-2xl border px-3 py-2.5',
-                    darkMode ? 'border-[#3c3c3c] bg-[#252526]/82' : 'border-border-subtle bg-white/70',
+                    darkMode ? 'border-[#3c3c3c] bg-[#252526]/82' : 'border-border-subtle bg-surface-card',
                   )}
                   animate={{ opacity: [0.76, 1, 0.76] }}
                   transition={{ duration: 2.6, repeat: Infinity, delay: index * 0.22, ease: 'easeInOut' }}
@@ -1079,7 +1071,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
             variants={fadeUpItem}
             className={cn(
               'multi-core absolute left-[238px] top-[119px] flex h-[120px] w-[120px] items-center justify-center rounded-full border-[3px]',
-              darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-white/74',
+              darkMode ? 'border-[#3b82f6]/38 bg-[#1e1e1e]/92' : 'border-primary/38 bg-surface-card',
             )}
           >
             <div
@@ -1138,7 +1130,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
                     'rounded-xl border px-2 py-1.5 text-center text-[10px]',
                     darkMode
                       ? 'border-[#3c3c3c] bg-[#252526] text-[#858585]'
-                      : 'border-border-subtle bg-white/60 text-text-main/45',
+                      : 'border-border-subtle bg-surface-card text-text-main/45',
                   )}
                   animate={{ opacity: [0.54, 1, 0.54], y: [0, -2, 0] }}
                   transition={{ duration: 2.4, repeat: Infinity, delay: index * 0.18, ease: 'easeInOut' }}
@@ -1451,15 +1443,15 @@ export default function WelcomePage() {
             >
               <div
                 className={cn(
-                  'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 backdrop-blur-xl transition-all duration-300',
-                  headerCompact ? 'py-2 shadow-md' : 'py-3 shadow-lg',
+                  'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4  transition-all duration-300',
+                  headerCompact ? 'py-2 ' : 'py-3 ',
                   darkMode
                     ? headerCompact
-                      ? 'bg-[#252526]/98 border border-[#454545] shadow-black/30'
-                      : 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
+                      ? 'bg-[#252526]/98 border border-[#454545] /30'
+                      : 'bg-[#252526]/95 border border-[#3c3c3c] /25'
                     : headerCompact
-                      ? 'bg-white/96 border border-white shadow-text-main/12'
-                      : 'bg-white/92 border border-white/90 shadow-text-main/10',
+                      ? 'bg-surface-card border border-white /12'
+                      : 'bg-surface-card border border-white/90 /10',
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -1617,7 +1609,7 @@ export default function WelcomePage() {
               whileTap={{ scale: 0.98 }}
               onClick={() => scrollToLogin('login')}
               className={cn(
-                'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] transition-opacity shadow-sm',
+                'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] transition-opacity ',
                 darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
               )}
             >
@@ -1636,7 +1628,7 @@ export default function WelcomePage() {
                 'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em]',
                 darkMode
                   ? 'bg-[#2d2d2d] text-[#e0e0e0] border border-[#3c3c3c]'
-                  : 'bg-white/70 text-text-main border border-border-subtle',
+                  : 'bg-surface-card text-text-main border border-border-subtle',
               )}
             >
               查看功能
@@ -1757,10 +1749,8 @@ export default function WelcomePage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
               className={cn(
-                'rounded-[34px] p-7 shadow-xl lg:p-8 card-glow',
-                darkMode
-                  ? 'bg-[#252526] border border-[#3c3c3c]'
-                  : 'bg-white/84 backdrop-blur-sm border border-white/85',
+                'rounded-[34px] p-7  lg:p-8 card-glow',
+                darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-surface-card  border border-white/85',
               )}
             >
               <div className="mb-6">
@@ -1818,7 +1808,7 @@ export default function WelcomePage() {
                     mode === 'login'
                       ? darkMode
                         ? 'bg-[#2d2d2d] text-[#f0f0f0]'
-                        : 'bg-white text-text-main shadow-sm'
+                        : 'bg-white text-text-main '
                       : darkMode
                         ? 'text-[#858585] hover:text-[#cccccc]'
                         : 'text-text-main/50 hover:text-text-main',
@@ -1838,7 +1828,7 @@ export default function WelcomePage() {
                     mode === 'register'
                       ? darkMode
                         ? 'bg-[#2d2d2d] text-[#f0f0f0]'
-                        : 'bg-white text-text-main shadow-sm'
+                        : 'bg-white text-text-main '
                       : darkMode
                         ? 'text-[#858585] hover:text-[#cccccc]'
                         : 'text-text-main/50 hover:text-text-main',

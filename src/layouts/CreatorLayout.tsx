@@ -16,6 +16,7 @@ function PageLoader() {
 
 export function CreatorLayout() {
   const navigate = useNavigate();
+  const { darkMode } = useTheme();
 
   const menuItems = [
     {
@@ -29,25 +30,44 @@ export function CreatorLayout() {
   ];
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-bg-base font-sans text-text-main">
-      {/* Top Navbar */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-base/90 px-6 backdrop-blur-md">
+    <div
+      className={cn(
+        'flex h-screen w-full flex-col gap-2 overflow-hidden p-2 font-sans lg:gap-4 lg:p-4',
+        darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
+      )}
+    >
+      <header
+        className={cn(
+          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-4  sm:h-16 sm:px-5',
+          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
+        )}
+      >
         <div className="flex items-center gap-6">
           <button
-            onClick={() => navigate(RoutePaths.Blogs)}
-            className="flex items-center gap-2 text-sm font-semibold text-text-main/70 transition-colors hover:text-primary"
+            onClick={() => navigate(RoutePaths.AdminPage)}
+            className={cn(
+              'flex items-center gap-2 text-xs font-bold transition-colors sm:text-sm',
+              darkMode ? 'text-[#cccccc] hover:text-[#e0e0e0]' : 'text-text-main/70 hover:text-primary',
+            )}
           >
             <ArrowLeft size={16} />
-            返回 LinkRag
+            返回后台管理
           </button>
-          <div className="h-4 w-px bg-border-subtle" />
-          <h1 className="mono-label text-text-main/70">Creator Studio</h1>
+          <div className={cn('hidden h-4 w-px sm:block', darkMode ? 'bg-[#3c3c3c]' : 'bg-border-subtle')} />
+          <h1 className={cn('mono-label hidden sm:block', darkMode ? 'text-[#858585]' : 'text-text-main/60')}>
+            Creator Studio
+          </h1>
         </div>
 
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/creator/blogs/edit/new')}
-            className="flex items-center gap-2 rounded-xl border border-border-subtle px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-main/70 transition-colors hover:border-primary hover:bg-primary/5 hover:text-text-main"
+            className={cn(
+              'flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors sm:px-4',
+              darkMode
+                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-primary/50 hover:text-[#e0e0e0]'
+                : 'border-border-subtle bg-white text-text-main/70 hover:border-primary hover:bg-primary/5 hover:text-text-main',
+            )}
           >
             <PenSquare size={14} />
             写文章
@@ -55,13 +75,21 @@ export function CreatorLayout() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="flex w-64 shrink-0 flex-col border-r border-border-subtle py-6">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 overflow-hidden rounded-[24px] border ',
+          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+        )}
+      >
+        <aside
+          className={cn(
+            'hidden w-60 shrink-0 flex-col border-r py-6 lg:flex',
+            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
+          )}
+        >
           {menuItems.map((group, idx) => (
             <div key={idx} className="mb-6 px-4">
-              <h3 className="mono-label mb-3 px-3">{group.group}</h3>
+              <h3 className={cn('mono-label mb-3 px-3', darkMode && 'text-[#858585]')}>{group.group}</h3>
               <nav className="flex flex-col gap-1">
                 {group.items.map((item, itemIdx) =>
                   item.disabled ? (
@@ -69,6 +97,7 @@ export function CreatorLayout() {
                       key={itemIdx}
                       className={cn(
                         'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm opacity-35 transition-all cursor-not-allowed',
+                        darkMode && 'text-[#cccccc]',
                       )}
                     >
                       {item.icon}
@@ -83,8 +112,12 @@ export function CreatorLayout() {
                         cn(
                           'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
                           isActive
-                            ? 'bg-primary/10 font-bold text-primary'
-                            : 'font-semibold text-text-main/65 hover:bg-primary/5 hover:text-text-main',
+                            ? darkMode
+                              ? 'bg-[#2d2d2d] font-bold text-[#e0e0e0]'
+                              : 'bg-primary/10 font-bold text-primary'
+                            : darkMode
+                              ? 'font-semibold text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
+                              : 'font-semibold text-text-main/65 hover:bg-primary/5 hover:text-text-main',
                         )
                       }
                     >
@@ -98,9 +131,8 @@ export function CreatorLayout() {
           ))}
         </aside>
 
-        {/* Content */}
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-5xl p-6 lg:p-8">
+        <main className={cn('min-w-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+          <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>

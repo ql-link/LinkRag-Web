@@ -71,6 +71,7 @@ export interface SystemProvider {
   providerType: string;
   providerName: string;
   apiBaseUrl: string;
+  defaultProtocol: LLMProtocol;
   isActive: boolean;
   priority: number;
   createdAt: string;
@@ -82,6 +83,8 @@ export interface ProviderModel {
   providerId: number;
   modelName: string;
   capability: LLMCapabilityValue;
+  protocol: LLMProtocol;
+  apiBaseUrl: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -90,18 +93,24 @@ export interface ProviderModel {
 export interface SystemPreset {
   id: number;
   providerId: number;
+  providerType: string;
   modelName: string;
   capability: LLMCapabilityValue;
+  protocol: LLMProtocol;
+  apiBaseUrl: string;
   apiKey: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
+export type LLMProtocol = 'openai' | 'anthropic' | 'google' | 'jina' | 'dashscope';
+
 export interface CreateProviderRequest {
   providerType: string;
   providerName: string;
   apiBaseUrl: string;
+  defaultProtocol: LLMProtocol;
   isActive: boolean;
   priority: number;
 }
@@ -109,6 +118,7 @@ export interface CreateProviderRequest {
 export interface UpdateProviderRequest {
   providerName?: string;
   apiBaseUrl?: string;
+  defaultProtocol?: LLMProtocol;
   isActive?: boolean;
   priority?: number;
 }
@@ -116,6 +126,16 @@ export interface UpdateProviderRequest {
 export interface AddProviderModelRequest {
   modelName: string;
   capability: LLMCapability;
+  protocol: LLMProtocol;
+  apiBaseUrl: string;
+}
+
+export interface UpdateProviderModelRequest {
+  modelName?: string;
+  capability?: LLMCapability;
+  protocol?: LLMProtocol;
+  apiBaseUrl?: string;
+  isActive?: boolean;
 }
 
 export interface CreatePresetRequest {
@@ -123,6 +143,14 @@ export interface CreatePresetRequest {
   modelName: string;
   capability: LLMCapability;
   apiKey: string;
+}
+
+export interface UpdatePresetRequest {
+  providerId?: number;
+  modelName?: string;
+  capability?: LLMCapability;
+  apiKey?: string;
+  isActive?: boolean;
 }
 
 export interface ConversationDTO {
@@ -243,15 +271,15 @@ export type FileParseFrontendStatus =
 export interface FileParseSubmitDTO {
   fileId: number;
   originalFilename: string;
-  frontendStatus: string;
+  frontendStatus: FileParseFrontendStatus;
 }
 
 export interface FileParseResultDTO {
   fileId: number;
   originalFilename: string;
   parsedFilename: string | null;
-  frontendStatus: string;
-  parseStatus: string | null;
+  frontendStatus: FileParseFrontendStatus;
+  parseStatus: KnowledgeParseStatus | null;
   failureReason: string | null;
 }
 

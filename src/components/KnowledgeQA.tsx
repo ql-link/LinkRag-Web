@@ -14,7 +14,7 @@ const INITIAL_MESSAGES: Message[] = [
 
 export const KnowledgeQA: React.FC = () => {
   return (
-    <div className="flex flex-col h-full bg-white rounded-3xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full bg-white rounded-3xl overflow-hidden ">
       <div className="flex-1 overflow-y-auto px-12 py-10 space-y-12">
         <div className="flex justify-center">
           <div className="mono-label px-4 py-2 border border-border-subtle inline-block rounded-full">

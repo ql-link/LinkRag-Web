@@ -11,12 +11,10 @@
 
 /* ── Global utility surfaces ── */
 
-/* Translucent frosted card — the signature surface treatment */
+/* Translucent frosted card — the signature surface treatment (now solid editorial) */
 .art-card {
-  background: var(--color-bg-card);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
   border-radius: var(--radius-lg);
 }
 
@@ -24,12 +22,10 @@
   border: 1px solid var(--color-border-subtle);
 }
 
-/* Heavier frosted glass — sidebar, headers, right panel */
+/* Heavier frosted glass — sidebar, headers, right panel (now solid editorial) */
 .frosted-panel {
-  background: var(--color-bg-frosted);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
 }
 
 /* ── Thin scrollbar (4px, faint thumb) ── */

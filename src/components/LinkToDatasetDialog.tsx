@@ -38,15 +38,10 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 " onClick={onClose} />
 
       {/* Dialog */}
-      <div
-        className={cn(
-          'relative w-[480px] rounded-2xl shadow-2xl overflow-hidden',
-          'bg-white border border-border-subtle',
-        )}
-      >
+      <div className={cn('relative w-[480px] rounded-2xl  overflow-hidden', 'bg-white border border-border-subtle')}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
           <div>

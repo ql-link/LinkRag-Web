@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Upload,
@@ -34,9 +34,12 @@ import { Routes as RoutePaths } from '@/routes';
 export default function CreatorBlogEditor() {
   const { darkMode } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new';
   const postId = isNew ? null : parseInt(id || '', 10);
+  const blogListPath = pathname.startsWith('/admin') ? RoutePaths.AdminBlogs : RoutePaths.CreatorBlogs;
+  const blogEditPath = pathname.startsWith('/admin') ? '/admin/blogs/edit' : '/creator/blogs/edit';
 
   const leftPaneRef = useRef<HTMLDivElement>(null);
   const rightPaneRef = useRef<HTMLDivElement>(null);
@@ -121,7 +124,7 @@ export default function CreatorBlogEditor() {
       // Refresh state or navigate
       if (isNew && finalTargetId) {
         isAutoSavingRef.current = true;
-        navigate(`/creator/blogs/edit/${finalTargetId}`, { replace: true });
+        navigate(`${blogEditPath}/${finalTargetId}`, { replace: true });
         await fetchPostDetail(finalTargetId, false);
       } else if (finalTargetId) {
         await fetchPostDetail(finalTargetId, false);
@@ -172,7 +175,7 @@ export default function CreatorBlogEditor() {
       }
 
       isAutoSavingRef.current = true;
-      navigate(`/creator/blogs/edit/${res.id}`, { replace: true });
+      navigate(`${blogEditPath}/${res.id}`, { replace: true });
       setFormData((prev) => ({ ...prev, title: tempTitle, slug: currentSlug }));
       setPostDetail(res);
       return res.id;
@@ -311,7 +314,7 @@ export default function CreatorBlogEditor() {
     try {
       setLoading(true);
       await deletePost(targetId);
-      navigate(RoutePaths.CreatorBlogs);
+      navigate(blogListPath);
     } catch (error) {
       console.error(error);
     } finally {
@@ -324,12 +327,12 @@ export default function CreatorBlogEditor() {
       {/* Top Navbar */}
       <header
         className={cn(
-          'shrink-0 flex h-16 items-center justify-between border-b border-border-subtle bg-bg-base/90 px-6 backdrop-blur-md z-20 transition-colors',
+          'shrink-0 flex h-16 items-center justify-between border-b border-border-subtle bg-bg-base/90 px-6  z-20 transition-colors',
         )}
       >
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate(RoutePaths.CreatorBlogs)}
+            onClick={() => navigate(blogListPath)}
             className={cn(
               'flex h-8 w-8 items-center justify-center rounded-xl text-text-main/65 transition-colors hover:bg-primary/5 hover:text-primary',
             )}
@@ -518,10 +521,10 @@ export default function CreatorBlogEditor() {
       {/* Cover Modal */}
       {showCoverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 xl:p-0">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCoverModal(false)} />
+          <div className="absolute inset-0 bg-black/50 " onClick={() => setShowCoverModal(false)} />
           <div
             className={cn(
-              'relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col',
+              'relative w-full max-w-md rounded-2xl  overflow-hidden flex flex-col',
               darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
             )}
           >
@@ -532,7 +535,7 @@ export default function CreatorBlogEditor() {
               </div>
               <button
                 onClick={() => setShowCoverModal(false)}
-                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-surface-card transition-colors"
               >
                 <svg
                   width="20"
@@ -573,14 +576,14 @@ export default function CreatorBlogEditor() {
                       className="w-full h-full object-cover rounded-lg"
                       alt="Cover"
                     />
-                    <div className="absolute inset-1 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm flex-col gap-2">
+                    <div className="absolute inset-1 bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center rounded-lg  flex-col gap-2">
                       <Upload size={24} className="text-white" />
                       <span className="text-xs font-bold text-white">点击重新上传替换</span>
                     </div>
                   </div>
                 ) : postDetail?.coverAssetId ? (
                   <div className="absolute inset-0 rounded-xl overflow-hidden p-1">
-                    <div className="w-full h-full bg-black/5 dark:bg-white/5 rounded-lg flex items-center justify-center flex-col gap-2">
+                    <div className="w-full h-full bg-black/5 dark:bg-surface-card rounded-lg flex items-center justify-center flex-col gap-2">
                       <CheckCircle size={32} className="text-green-500" />
                       <span className="text-sm font-bold text-green-500">已成功设置封面</span>
                       <span className="text-xs opacity-50 mt-1 hover:underline">点击重新上传替换</span>
@@ -619,10 +622,10 @@ export default function CreatorBlogEditor() {
       {/* Images Modal */}
       {showImagesModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 xl:p-0">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowImagesModal(false)} />
+          <div className="absolute inset-0 bg-black/50 " onClick={() => setShowImagesModal(false)} />
           <div
             className={cn(
-              'relative w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]',
+              'relative w-full max-w-lg rounded-2xl  overflow-hidden flex flex-col max-h-[85vh]',
               darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
             )}
           >
@@ -633,7 +636,7 @@ export default function CreatorBlogEditor() {
               </div>
               <button
                 onClick={() => setShowImagesModal(false)}
-                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-surface-card transition-colors"
               >
                 <svg
                   width="20"
@@ -656,7 +659,7 @@ export default function CreatorBlogEditor() {
                 <p className="text-xs opacity-60">图片上传后点击复制，即可粘贴至正文</p>
                 <label
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border shadow-sm',
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border ',
                     darkMode
                       ? 'bg-[#3b82f6] border-[#3b82f6] text-white hover:bg-[#2563eb]'
                       : 'bg-primary border-primary text-white hover:bg-primary/90',

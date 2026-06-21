@@ -107,6 +107,44 @@ export async function getParseResults(datasetId: number, fileIds: number[]): Pro
   });
 }
 
+export function mergeKnowledgeFilesWithParseResults<TFile extends KnowledgeFileDTO>(
+  files: TFile[],
+  results: FileParseResultDTO[],
+): TFile[] {
+  if (files.length === 0 || results.length === 0) return files;
+
+  const resultMap = new Map(results.map((result) => [result.fileId, result]));
+  let changed = false;
+
+  const nextFiles = files.map((file) => {
+    const result = resultMap.get(file.id);
+    if (!result) return file;
+
+    const nextFile = {
+      ...file,
+      frontendStatus: result.frontendStatus,
+      parsedFilename: result.parsedFilename,
+      parseStatus: result.parseStatus,
+      parseFailureReason: result.failureReason,
+    };
+
+    const fileChanged =
+      file.frontendStatus !== nextFile.frontendStatus ||
+      file.parsedFilename !== nextFile.parsedFilename ||
+      file.parseStatus !== nextFile.parseStatus ||
+      file.parseFailureReason !== nextFile.parseFailureReason;
+
+    if (fileChanged) {
+      changed = true;
+      return nextFile;
+    }
+
+    return file;
+  });
+
+  return changed ? nextFiles : files;
+}
+
 export async function enrichKnowledgeFilesWithParseResults(
   datasetId: number,
   files: KnowledgeFileDTO[],
@@ -117,18 +155,5 @@ export async function enrichKnowledgeFilesWithParseResults(
     datasetId,
     files.map((file) => file.id),
   );
-  const resultMap = new Map(results.map((result) => [result.fileId, result]));
-
-  return files.map((file) => {
-    const result = resultMap.get(file.id);
-    if (!result) return file;
-
-    return {
-      ...file,
-      frontendStatus: result.frontendStatus as KnowledgeFileDTO['frontendStatus'],
-      parsedFilename: result.parsedFilename,
-      parseStatus: result.parseStatus as KnowledgeFileDTO['parseStatus'],
-      parseFailureReason: result.failureReason,
-    };
-  });
+  return mergeKnowledgeFilesWithParseResults(files, results);
 }
