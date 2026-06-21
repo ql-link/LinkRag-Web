@@ -132,6 +132,21 @@ function hitsToRecallChunks(hits: RecallHit[], files: KnowledgeFileDTO[]): Recal
 }
 
 const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
+const DEFAULT_CONVERSATION_TITLE = '新对话';
+
+function normalizeTitleFingerprint(value: string | null | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/(?:\.{1,3}|…+)$/u, '')
+    .replace(/\s+/gu, '');
+}
+
+function isLikelyFirstQuestionTitle(title: string | null | undefined, question: string) {
+  const titleFingerprint = normalizeTitleFingerprint(title);
+  const questionFingerprint = normalizeTitleFingerprint(question);
+  return titleFingerprint.length > 0 && questionFingerprint.startsWith(titleFingerprint);
+}
 
 function shouldInsetModelIcon(model: LLMConfigDTO | null | undefined, iconUrl: string) {
   const token = normalizeProviderToken(`${model?.providerType ?? ''} ${model?.modelName ?? ''} ${iconUrl}`);
@@ -278,6 +293,8 @@ export default function ChatsPage() {
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
+  const pendingTitlePromptsRef = useRef<Map<number, string>>(new Map());
+  const titleRefreshTimeoutsRef = useRef<number[]>([]);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
@@ -332,7 +349,11 @@ export default function ChatsPage() {
   const selectedModel = selectedModelConfigId ? chatModels.find((model) => model.id === selectedModelConfigId) : null;
 
   useEffect(() => {
-    return () => recallAbortRef.current?.abort();
+    return () => {
+      recallAbortRef.current?.abort();
+      titleRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      titleRefreshTimeoutsRef.current = [];
+    };
   }, []);
 
   useEffect(() => {
@@ -386,6 +407,73 @@ export default function ChatsPage() {
     conversationsRef.current = conversations;
     setCachedConversations(user?.id, conversations);
   }, [conversations, user?.id]);
+
+  const maskPendingQuestionTitles = useCallback((items: ConversationDTO[]) => {
+    const previousById = new Map(conversationsRef.current.map((item) => [item.id, item]));
+
+    return items.map((item) => {
+      const pendingQuestion = pendingTitlePromptsRef.current.get(item.id);
+      if (!pendingQuestion) return item;
+
+      if (normalizeTitleFingerprint(item.title) === normalizeTitleFingerprint(DEFAULT_CONVERSATION_TITLE)) {
+        return item;
+      }
+
+      if (isLikelyFirstQuestionTitle(item.title, pendingQuestion)) {
+        return {
+          ...item,
+          title: previousById.get(item.id)?.title ?? DEFAULT_CONVERSATION_TITLE,
+        };
+      }
+
+      pendingTitlePromptsRef.current.delete(item.id);
+      return item;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!conversation) return;
+    const refreshed = conversations.find((item) => item.id === conversation.id);
+    if (refreshed && refreshed.title !== conversation.title) {
+      setConversation(refreshed);
+    }
+  }, [conversation, conversations]);
+
+  const refreshConversations = useCallback(
+    async (conversationIdToSync: number | null = activeConversationId) => {
+      try {
+        const result = await getConversations(1, 100);
+        const visibleItems = maskPendingQuestionTitles(result.items);
+        setConversations(visibleItems);
+        const refreshedConversation = conversationIdToSync
+          ? visibleItems.find((item) => item.id === conversationIdToSync)
+          : null;
+        if (refreshedConversation) {
+          setConversation((prev) => (prev?.id === refreshedConversation.id ? refreshedConversation : prev));
+        }
+      } catch (error) {
+        console.error('Failed to refresh conversations:', error);
+      }
+    },
+    [activeConversationId, maskPendingQuestionTitles],
+  );
+
+  const scheduleTitleRefresh = useCallback(
+    (conversationId: number) => {
+      titleRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      titleRefreshTimeoutsRef.current = [];
+
+      void refreshConversations(conversationId);
+      titleRefreshTimeoutsRef.current = [1000, 2500, 5000, 8000].map((delay) => {
+        const timeoutId = window.setTimeout(() => {
+          titleRefreshTimeoutsRef.current = titleRefreshTimeoutsRef.current.filter((id) => id !== timeoutId);
+          void refreshConversations(conversationId);
+        }, delay);
+        return timeoutId;
+      });
+    },
+    [refreshConversations],
+  );
 
   // 仅在会话 id 变化时加载一次会话/消息。不要依赖 conversations / chatModels，
   // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
@@ -510,6 +598,7 @@ export default function ChatsPage() {
     async (overrideContent?: string, options?: SendOptions) => {
       const content = (overrideContent ?? inputValue).trim();
       if (!content || sending) return false;
+      const isFirstTurn = messages.length === 0;
       if (!selectedDatasetId) {
         setKbOpen(true);
         return false;
@@ -524,7 +613,6 @@ export default function ChatsPage() {
       try {
         if (!activeConversation) {
           activeConversation = await createConversation({
-            title: content.slice(0, 28) || '新的对话',
             datasetId: selectedDatasetId,
             lastConfigId: selectedModelConfigId,
           });
@@ -586,6 +674,10 @@ export default function ChatsPage() {
             prev.map((msg) => (msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg)),
           );
         }
+        if (isFirstTurn) {
+          pendingTitlePromptsRef.current.set(activeConversation.id, content);
+          scheduleTitleRefresh(activeConversation.id);
+        }
       } catch (error) {
         if (!isRecallAborted(error)) {
           const message = recallErrorMessage(error);
@@ -603,6 +695,8 @@ export default function ChatsPage() {
       conversation,
       files,
       inputValue,
+      messages.length,
+      scheduleTitleRefresh,
       selectedDatasetId,
       selectedModel?.modelName,
       selectedModelConfigId,
