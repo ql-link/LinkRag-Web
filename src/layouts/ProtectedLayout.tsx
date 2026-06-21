@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ChatWorkspaceContext, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
+import { clearConversationsCache } from '@/lib/conversationsCache';
 import { Routes as RoutePaths } from '@/routes';
 import { MobileNav } from './MobileNav';
 
@@ -73,6 +75,14 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
   );
 }
 
+function ChatWorkspaceProvider({ children }: { children: ReactNode }) {
+  const [snapshot, setSnapshot] = useState<ChatWorkspaceSnapshot | null>(null);
+  const value = useMemo(() => ({ snapshot, publish: setSnapshot }), [snapshot]);
+  // 登录态结束（本 Provider 仅在已登录的 ProtectedLayout 内渲染）时清空会话缓存，避免跨用户串号。
+  useEffect(() => () => clearConversationsCache(), []);
+  return <ChatWorkspaceContext.Provider value={value}>{children}</ChatWorkspaceContext.Provider>;
+}
+
 export function ProtectedLayout() {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -83,77 +93,83 @@ export function ProtectedLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="relative flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base font-sans text-text-main lg:flex-row">
-      {/* Mobile Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-3 lg:hidden">
-        <button
-          onClick={() => setMobileSidebarOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-primary/8"
-          aria-label="打开导航栏"
-        >
-          <Menu size={18} />
-        </button>
-        <p className="text-sm font-medium tracking-wide text-text-main">{pageTitle}</p>
-        <span className="h-9 w-9" aria-hidden />
-      </header>
+    <ChatWorkspaceProvider>
+      <div className="relative flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base font-sans text-text-main lg:flex-row">
+        {/* Mobile Header */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-3 lg:hidden">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-primary/8"
+            aria-label="打开导航栏"
+          >
+            <Menu size={18} />
+          </button>
+          <p className="text-sm font-medium tracking-wide text-text-main">{pageTitle}</p>
+          <span className="h-9 w-9" aria-hidden />
+        </header>
 
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {mobileSidebarOpen && (
-          <>
-            <motion.button
-              className="fixed inset-0 z-40 bg-ink/30 lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileSidebarOpen(false)}
-              aria-label="关闭导航遮罩"
-            />
-            <motion.div
-              className="fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] lg:hidden"
-              initial={{ x: -24, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -24, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <div className="absolute right-3 top-4 z-10">
-                <button
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-card text-text-secondary"
-                  aria-label="关闭导航栏"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <Sidebar onNavigate={() => setMobileSidebarOpen(false)} allowCollapse={false} className="h-full w-full" />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <>
+              <motion.button
+                className="fixed inset-0 z-40 bg-ink/30 lg:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-label="关闭导航遮罩"
+              />
+              <motion.div
+                className="fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] lg:hidden"
+                initial={{ x: -24, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -24, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                <div className="absolute right-3 top-4 z-10">
+                  <button
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-card text-text-secondary"
+                    aria-label="关闭导航栏"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <Sidebar
+                  onNavigate={() => setMobileSidebarOpen(false)}
+                  allowCollapse={false}
+                  className="h-full w-full"
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
-      {/* Desktop Sidebar */}
-      <Sidebar className="hidden lg:flex" />
+        {/* Desktop Sidebar */}
+        <Sidebar className="hidden lg:flex" />
 
-      {/* Main Content — sits directly on the canvas, no floating card */}
-      <main className="min-h-0 flex-1 overflow-hidden">
-        <ErrorBoundary>
-          <AnimatePresence mode="sync" initial={false}>
-            <motion.div
-              key={`${location.pathname}${location.search}`}
-              className="h-full min-w-0 overflow-hidden"
-              initial={pageMotion.initial}
-              animate={pageMotion.animate}
-              exit={pageMotion.exit}
-              transition={pageMotion.transition}
-            >
-              <AppRoutesContent location={location} />
-            </motion.div>
-          </AnimatePresence>
-        </ErrorBoundary>
-      </main>
+        {/* Main Content — sits directly on the canvas, no floating card */}
+        <main className="min-h-0 flex-1 overflow-hidden">
+          <ErrorBoundary>
+            <AnimatePresence mode="sync" initial={false}>
+              <motion.div
+                key={`${location.pathname}${location.search}`}
+                className="h-full min-w-0 overflow-hidden"
+                initial={pageMotion.initial}
+                animate={pageMotion.animate}
+                exit={pageMotion.exit}
+                transition={pageMotion.transition}
+              >
+                <AppRoutesContent location={location} />
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
+        </main>
 
-      {/* Mobile Bottom Nav */}
-      <MobileNav />
-    </div>
+        {/* Mobile Bottom Nav */}
+        <MobileNav />
+      </div>
+    </ChatWorkspaceProvider>
   );
 }

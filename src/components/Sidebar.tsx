@@ -15,7 +15,9 @@ import { Routes } from '@/routes';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 import { LinkRagMark } from '@/components/LinkRagMark';
+import { ChatWorkspacePanel } from '@/components/ChatWorkspacePanel';
 
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
@@ -54,10 +56,13 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const chatWorkspace = useChatWorkspaceSnapshot();
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
   const userInitial = getUserInitial(user);
   const isCollapsed = forceCollapsed || collapsed;
+  const isChatRoute = pathname === Routes.Chats || pathname.startsWith(`${Routes.Chats}/`);
+  const showChatPanel = isChatRoute && !isCollapsed;
 
   async function handleLogout() {
     try {
@@ -89,7 +94,13 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
       </div>
 
       {/* Nav */}
-      <nav className={cn('flex-1 space-y-1 overflow-y-auto overflow-x-hidden py-4', isCollapsed ? 'px-2' : 'px-3')}>
+      <nav
+        className={cn(
+          'space-y-1 overflow-x-hidden py-4',
+          isCollapsed ? 'px-2' : 'px-3',
+          showChatPanel ? 'shrink-0' : 'flex-1 overflow-y-auto',
+        )}
+      >
         {navItems.map(({ path, name, icon: Icon }) => {
           const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
           return (
@@ -117,6 +128,13 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           );
         })}
       </nav>
+
+      {/* Chat workspace — history & files, merged into the global sidebar on the chat route */}
+      {showChatPanel && (
+        <div className="min-h-0 flex-1 border-t border-border-subtle">
+          <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />
+        </div>
+      )}
 
       {/* Footer — user menu */}
       <div className={cn('shrink-0 border-t border-border-subtle', isCollapsed ? 'px-2 py-3' : 'p-3')}>
