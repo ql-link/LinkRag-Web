@@ -15,9 +15,21 @@ const BlogsPage = lazy(() => import('@/pages/blogs'));
 const BlogDetailPage = lazy(() => import('@/pages/blogs/BlogDetail'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
 
-const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then(m => ({ default: m.CreatorLayout })));
+const AdminLayout = lazy(() => import('@/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })));
+const AdminModelsPage = lazy(() => import('@/pages/admin/models'));
+const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => ({ default: m.CreatorLayout })));
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
+
+function isProtectedAppPath(pathname: string) {
+  return (
+    pathname.startsWith(RoutePaths.Home) ||
+    pathname.startsWith(RoutePaths.Datasets) ||
+    pathname.startsWith(RoutePaths.Chats) ||
+    pathname.startsWith(RoutePaths.Usage) ||
+    pathname.startsWith(RoutePaths.Settings)
+  );
+}
 
 function AppContent() {
   const { addToast } = useToast();
@@ -30,16 +42,19 @@ function AppContent() {
   }, [addToast]);
 
   const loadingView = (
-    <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}>
+    <div
+      className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}
+    >
       <div className="text-sm uppercase tracking-[0.3em]">Loading LinkRag...</div>
     </div>
   );
+  const shellKey = user && isProtectedAppPath(location.pathname) ? 'protected-app' : location.pathname;
 
   return (
     <Suspense fallback={loadingView}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={location.pathname}
+          key={shellKey}
           className="min-h-screen"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -51,10 +66,16 @@ function AppContent() {
             <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
             <Route path={RoutePaths.BlogDetail} element={<BlogDetailPage />} />
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
-            
+
             {/* Creator Routes */}
             {user && (
               <>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<Navigate to="/admin/blogs" replace />} />
+                  <Route path="blogs" element={<CreatorBlogsPage />} />
+                  <Route path="models" element={<AdminModelsPage />} />
+                </Route>
+                <Route path="/admin/blogs/edit/:id" element={<CreatorBlogEditor />} />
                 <Route path="/creator" element={<CreatorLayout />}>
                   <Route index element={<Navigate to="/creator/blogs" replace />} />
                   <Route path="blogs" element={<CreatorBlogsPage />} />
@@ -66,11 +87,7 @@ function AppContent() {
             <Route
               path="*"
               element={
-                loading
-                  ? loadingView
-                  : user
-                    ? <ProtectedLayout />
-                    : <Navigate to={RoutePaths.Welcome} replace />
+                loading ? loadingView : user ? <ProtectedLayout /> : <Navigate to={RoutePaths.Welcome} replace />
               }
             />
           </Routes>

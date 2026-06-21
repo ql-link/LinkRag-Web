@@ -8,7 +8,6 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Routes as RoutePaths } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { RightPanel } from './RightPanel';
 import { MobileNav } from './MobileNav';
 
 // Lazy-loaded page components for code splitting
@@ -23,6 +22,7 @@ const FeedbackPage = lazy(() => import('@/pages/feedback'));
 const UsagePage = lazy(() => import('@/pages/usage'));
 const LLMPage = lazy(() => import('@/pages/settings/llm-config'));
 const ProfilePage = lazy(() => import('@/pages/settings/profile'));
+const AdminPage = lazy(() => import('@/pages/settings/admin'));
 
 function PageLoader() {
   const { darkMode } = useTheme();
@@ -42,8 +42,21 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith('/usage')) return '用量';
   if (pathname.startsWith('/settings/llm-config')) return '模型配置';
   if (pathname.startsWith('/settings/profile')) return '个人信息';
+  if (pathname.startsWith('/settings/admin')) return '后台管理';
   return 'LinkRag';
 }
+
+const pageMotion = {
+  initial: { opacity: 0, y: 14, scale: 0.997 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -10, scale: 0.997 },
+  transition: {
+    type: 'spring',
+    stiffness: 260,
+    damping: 30,
+    mass: 0.8,
+  } as const,
+};
 
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
@@ -61,6 +74,7 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
         <Route path={RoutePaths.Usage} element={<UsagePage />} />
         <Route path={RoutePaths.LLMPage} element={<LLMPage />} />
         <Route path={RoutePaths.ProfilePage} element={<ProfilePage />} />
+        <Route path={RoutePaths.AdminPage} element={<AdminPage />} />
         <Route path={RoutePaths.Welcome} element={<Navigate to={RoutePaths.Home} replace />} />
         <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
       </Routes>
@@ -71,11 +85,8 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
 export function ProtectedLayout() {
   const location = useLocation();
   const { darkMode, toggleTheme } = useTheme();
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
-  const isChatRoute = location.pathname === RoutePaths.Chats || /^\/chats\/\d+$/.test(location.pathname);
-  const isHomePage = location.pathname === RoutePaths.Home;
   const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
@@ -96,44 +107,42 @@ export function ProtectedLayout() {
       )}
     >
       {/* Mobile Header */}
-      {!isChatRoute && (
-        <header
+      <header
+        className={cn(
+          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
+          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
+        )}
+      >
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
           className={cn(
-            'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
-            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
+            'flex h-9 w-9 items-center justify-center rounded-lg',
+            darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main/70 hover:bg-primary/5',
           )}
+          aria-label="打开导航栏"
         >
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-lg',
-              darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main/70 hover:bg-primary/5',
-            )}
-            aria-label="打开导航栏"
-          >
-            <Menu size={18} />
-          </button>
-          <p className={cn('text-sm font-semibold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            {pageTitle}
-          </p>
-          <button
-            onClick={toggleTheme}
-            className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wider',
-              darkMode
-                ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
-                : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
-            )}
-            aria-label="切换主题"
-          >
-            {darkMode ? '浅' : '深'}
-          </button>
-        </header>
-      )}
+          <Menu size={18} />
+        </button>
+        <p className={cn('text-sm font-semibold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          {pageTitle}
+        </p>
+        <button
+          onClick={toggleTheme}
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wider',
+            darkMode
+              ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
+              : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
+          )}
+          aria-label="切换主题"
+        >
+          {darkMode ? '浅' : '深'}
+        </button>
+      </header>
 
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {mobileSidebarOpen && !isChatRoute && (
+        {mobileSidebarOpen && (
           <>
             <motion.button
               className="fixed inset-0 z-40 bg-black/40 lg:hidden"
@@ -173,7 +182,7 @@ export function ProtectedLayout() {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      {!isChatRoute && <Sidebar className="hidden lg:flex" />}
+      <Sidebar className="hidden lg:flex" />
 
       {/* Main Content */}
       {isMobile ? (
@@ -182,11 +191,14 @@ export function ProtectedLayout() {
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
                 key={`${location.pathname}${location.search}`}
-                className="h-full min-w-0"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className={cn(
+                  'h-full min-w-0 overflow-hidden rounded-2xl border shadow-sm',
+                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                )}
+                initial={pageMotion.initial}
+                animate={pageMotion.animate}
+                exit={pageMotion.exit}
+                transition={pageMotion.transition}
               >
                 <AppRoutesContent location={location} />
               </motion.div>
@@ -194,33 +206,31 @@ export function ProtectedLayout() {
           </ErrorBoundary>
         </main>
       ) : (
-        <>
-          <Group orientation="horizontal" className="flex-1 min-w-0">
-            <Panel defaultSize={isChatRoute ? 100 : 80} minSize={50}>
-              <ErrorBoundary>
-                <AnimatePresence mode="sync" initial={false}>
-                  <motion.div
-                    key={`${location.pathname}${location.search}`}
-                    className="h-full min-w-0"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.16, ease: 'easeOut' }}
-                  >
-                    <AppRoutesContent location={location} />
-                  </motion.div>
-                </AnimatePresence>
-              </ErrorBoundary>
-            </Panel>
-          </Group>
-          {!isChatRoute && !isHomePage && (
-            <RightPanel collapsed={rightPanelCollapsed} onToggle={() => setRightPanelCollapsed((v) => !v)} />
-          )}
-        </>
+        <Group orientation="horizontal" className="flex-1 min-w-0">
+          <Panel defaultSize={100} minSize={50}>
+            <ErrorBoundary>
+              <AnimatePresence mode="sync" initial={false}>
+                <motion.div
+                  key={`${location.pathname}${location.search}`}
+                  className={cn(
+                    'h-full min-w-0 overflow-hidden rounded-[24px] border shadow-sm',
+                    darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+                  )}
+                  initial={pageMotion.initial}
+                  animate={pageMotion.animate}
+                  exit={pageMotion.exit}
+                  transition={pageMotion.transition}
+                >
+                  <AppRoutesContent location={location} />
+                </motion.div>
+              </AnimatePresence>
+            </ErrorBoundary>
+          </Panel>
+        </Group>
       )}
 
       {/* Mobile Bottom Nav */}
-      {!isChatRoute && <MobileNav />}
+      <MobileNav />
     </div>
   );
 }

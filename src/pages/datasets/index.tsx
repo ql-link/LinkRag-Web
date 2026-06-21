@@ -1,6 +1,18 @@
 import { useState, useEffect, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertCircle, Database, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, X, ArrowUpDown } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowUpDown,
+  Database,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -133,6 +145,8 @@ export default function DatasetsPage() {
       return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
     });
   const hasSearch = searchString.trim().length > 0;
+  const showInitialLoading = loading && datasets.length === 0;
+  const showBlockingError = Boolean(errorMessage) && datasets.length === 0;
 
   const formatDatasetTime = (value: string) => {
     if (!value) return '-';
@@ -152,30 +166,23 @@ export default function DatasetsPage() {
       {/* Header */}
       <header
         className={cn(
-          'h-20 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
+          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
           darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
         )}
       >
-        <div className="flex flex-col gap-1">
+        <div>
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '知识库' }]} darkMode={darkMode} />
-          <h2 className={cn('text-xl serif-heading', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>知识库</h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <Search
-              size={14}
-              className={cn(
-                'absolute left-3 top-1/2 -translate-y-1/2',
-                darkMode ? 'text-[#858585]' : 'text-text-main/30',
-              )}
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4F7FA8]" />
             <input
               type="text"
               placeholder="搜索知识库..."
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
               className={cn(
-                'w-48 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-[#3b82f6]',
+                'h-9 w-48 rounded-lg border pl-9 pr-4 text-xs focus:outline-none focus:border-[#7B6B5D]',
                 darkMode
                   ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
                   : 'bg-bg-base/50 border-border-subtle',
@@ -184,7 +191,7 @@ export default function DatasetsPage() {
           </div>
           <div
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-xl border',
+              'flex h-9 items-center gap-2 rounded-lg border px-3',
               darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
             )}
           >
@@ -205,36 +212,39 @@ export default function DatasetsPage() {
             onClick={() => void loadDatasets()}
             disabled={loading}
             className={cn(
-              'p-2 rounded-xl transition-colors',
-              darkMode ? 'hover:bg-[#2d2d2d] text-[#858585]' : 'hover:bg-gray-100 text-text-main/40',
+              'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed',
+              darkMode
+                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
+                : 'border-border-subtle bg-white text-text-main hover:bg-gray-100',
               loading && 'opacity-60',
             )}
             title="刷新知识库"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            刷新
           </button>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
         {/* Stats Bar */}
         <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode ? 'text-[#858585]' : '')}>
           <span>共 {datasets.length} 个知识库</span>
           {hasSearch && <span>筛选出 {filteredDatasets.length} 个</span>}
         </div>
 
-        {loading ? (
+        {showInitialLoading ? (
           <div
             className={cn(
               'h-56 flex flex-col items-center justify-center rounded-2xl',
               darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
             )}
           >
-            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#3b82f6]' : 'text-primary')} />
+            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
             <p className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>正在加载知识库</p>
           </div>
-        ) : errorMessage ? (
+        ) : showBlockingError ? (
           <div
             className={cn(
               'h-56 flex flex-col items-center justify-center rounded-2xl text-center',
@@ -247,7 +257,7 @@ export default function DatasetsPage() {
               onClick={() => void loadDatasets()}
               className={cn(
                 'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
-                darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
               )}
             >
               重试
@@ -260,7 +270,7 @@ export default function DatasetsPage() {
               darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
             )}
           >
-            <Database size={30} className={cn('mb-3', darkMode ? 'text-[#6b6b6b]' : 'text-text-main/20')} />
+            <Database size={30} className="mb-3 text-[#4F7FA8]" />
             <p className={cn('text-sm font-bold mb-2', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
               {hasSearch ? '没有匹配的知识库' : '还没有知识库'}
             </p>
@@ -272,7 +282,7 @@ export default function DatasetsPage() {
                 onClick={() => setCreateDialogOpen(true)}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
-                  darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
                 )}
               >
                 <Plus size={14} />
@@ -281,7 +291,7 @@ export default function DatasetsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 auto-rows-[180px] gap-4">
+          <div className="grid grid-cols-3 auto-rows-[142px] gap-4">
             {filteredDatasets.map((dataset) => {
               const deleting = deletingDatasetIds.includes(dataset.id);
 
@@ -290,25 +300,20 @@ export default function DatasetsPage() {
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
                   className={cn(
-                    'rounded-2xl h-full p-5 transition-colors cursor-pointer group flex flex-col overflow-hidden',
+                    'rounded-2xl h-full p-4 transition-colors cursor-pointer group flex flex-col overflow-hidden',
                     darkMode
                       ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
                       : 'art-card hover:border-primary',
                   )}
                 >
-                  <div className="mb-3">
-                    <div
-                      className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center',
-                        darkMode ? 'bg-[#094771]/30' : 'bg-primary/20',
-                      )}
-                    >
-                      <Database size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                  <div className="mb-2">
+                    <div className="flex h-7 w-7 items-center justify-center bg-transparent">
+                      <Database size={16} className="text-[#4F7FA8]" />
                     </div>
                   </div>
                   <h3
                     className={cn(
-                      'font-bold text-sm uppercase tracking-wider mb-0.5 group-hover:text-[#3b82f6] transition-colors',
+                      'mb-0.5 truncate text-sm font-bold uppercase tracking-wider transition-colors group-hover:text-[#3b82f6]',
                       darkMode ? 'text-[#e0e0e0]' : '',
                     )}
                   >
@@ -317,7 +322,7 @@ export default function DatasetsPage() {
                   {dataset.description && (
                     <p
                       className={cn(
-                        'text-[11px] leading-4 line-clamp-2 mb-2 min-h-0',
+                        'mb-1 line-clamp-2 min-h-0 text-[11px] leading-4',
                         darkMode ? 'text-[#858585]' : 'text-text-main/60',
                       )}
                     >
@@ -345,6 +350,21 @@ export default function DatasetsPage() {
                         <Pencil size={14} />
                       </button>
                       <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(`/datasets/${dataset.id}/parse-config`);
+                        }}
+                        className={cn(
+                          'p-2 rounded-xl transition-colors',
+                          darkMode
+                            ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#cccccc]'
+                            : 'text-text-main/35 hover:bg-gray-100 hover:text-text-main',
+                        )}
+                        title="解析配置"
+                      >
+                        <Settings size={14} className="text-[#7B6B5D]" />
+                      </button>
+                      <button
                         onClick={(event) => void handleDeleteDataset(dataset, event)}
                         disabled={deleting}
                         className={cn(
@@ -369,8 +389,8 @@ export default function DatasetsPage() {
               className={cn(
                 'rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed',
                 darkMode
-                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#3b82f6] hover:border-[#3b82f6]'
-                  : 'art-card border-dashed text-text-main/40 hover:text-primary hover:border-primary',
+                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#d4d4d4] hover:border-[#d4d4d4]'
+                  : 'art-card border-dashed text-text-main/40 hover:text-[#1f1f1f] hover:border-[#1f1f1f]',
               )}
             >
               <Plus size={24} className="mb-2" />
@@ -475,8 +495,8 @@ export default function DatasetsPage() {
                   className={cn(
                     'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
                     darkMode
-                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
-                      : 'bg-text-main text-white hover:opacity-90',
+                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
                   )}
                 >
                   {creating ? '创建中' : '创建'}
@@ -587,8 +607,8 @@ export default function DatasetsPage() {
                   className={cn(
                     'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
                     darkMode
-                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
-                      : 'bg-text-main text-white hover:opacity-90',
+                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
                   )}
                 >
                   {updating ? '保存中' : '保存'}

@@ -196,7 +196,7 @@ export default function BlogsPage() {
 
         {isAdmin && (
           <Link
-            to={Routes.CreatorBlogs}
+            to={Routes.AdminBlogs}
             className={cn(
               'group flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-300',
               darkMode

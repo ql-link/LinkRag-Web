@@ -62,7 +62,7 @@ export default function BlogDetailPage() {
 
   const toc = useMemo(() => {
     if (!post?.contentMarkdown) return [];
-    return extractMarkdownToc(post.contentMarkdown);
+    return extractMarkdownToc(post.contentMarkdown, [2]);
   }, [post]);
 
   useEffect(() => {
@@ -96,8 +96,8 @@ export default function BlogDetailPage() {
     const el = document.getElementById(id);
     if (!el) return;
 
-    const y = el.getBoundingClientRect().top + window.scrollY - 96;
-    window.scrollTo({ top: y, behavior: 'smooth' });
+    el.scrollIntoView({ block: 'start' });
+    window.history.pushState(null, '', `#${encodeURIComponent(id)}`);
     setActiveId(id);
     setShowTocMobile(false);
   };
@@ -133,7 +133,7 @@ export default function BlogDetailPage() {
     >
       <header
         className={cn(
-          'sticky top-0 z-40 mx-auto flex max-w-6xl items-center justify-between border-b border-border-subtle px-1 py-4 backdrop-blur-md sm:px-2 bg-bg-base/80',
+          'sticky top-0 z-40 mx-auto flex max-w-7xl items-center justify-between border-b border-border-subtle bg-bg-base/80 px-1 py-4 backdrop-blur-md sm:px-2',
         )}
       >
         <Link
@@ -149,28 +149,30 @@ export default function BlogDetailPage() {
 
       <div
         className={cn(
-          'mx-auto grid max-w-6xl gap-6 pb-20 pt-6',
+          'mx-auto grid max-w-7xl gap-8 pb-20 pt-6 lg:pt-8',
           toc.length > 0
-            ? 'xl:grid-cols-[260px_minmax(0,760px)_1fr]'
-            : 'xl:grid-cols-[minmax(0,760px)] xl:justify-center',
+            ? 'lg:grid-cols-[240px_minmax(0,760px)_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,800px)_minmax(0,1fr)]'
+            : 'lg:grid-cols-[minmax(0,800px)] lg:justify-center',
         )}
       >
         {toc.length > 0 && (
-          <aside className="hidden xl:block">
-            <div className="sticky top-28 pr-4">
-              <div className="mono-label mb-4">On this page</div>
-              <nav className="flex flex-col gap-1 border-l border-border-subtle">
+          <aside className="hidden lg:block">
+            <div className="sticky top-36 pr-2">
+              <nav
+                aria-label="文章目录"
+                className="max-h-[calc(100vh-160px)] overflow-y-auto border-l border-border-subtle py-1"
+              >
                 {toc.map((item) => (
                   <a
                     key={item.id}
                     href={`#${item.id}`}
                     onClick={(event) => handleScrollTo(event, item.id)}
                     className={cn(
-                      'line-clamp-2 border-l -ml-px px-4 py-1.5 text-sm leading-relaxed transition-all duration-300 font-sans',
-                      item.level === 3 && 'pl-7 text-xs',
+                      '-ml-px block cursor-pointer border-l px-4 py-2 text-sm leading-relaxed transition-colors duration-200',
+                      'line-clamp-2 rounded-r-lg',
                       activeId === item.id
-                        ? 'border-primary font-semibold text-primary'
-                        : 'border-transparent text-text-main/50 hover:text-text-main',
+                        ? 'border-transparent text-text-main/55'
+                        : 'border-transparent text-text-main/55 hover:bg-black/[0.03] hover:text-text-main dark:hover:bg-white/[0.04]',
                     )}
                   >
                     {item.text}
@@ -181,7 +183,7 @@ export default function BlogDetailPage() {
           </aside>
         )}
 
-        <main className={cn('mx-auto w-full max-w-[760px] min-w-0', toc.length > 0 && 'xl:col-start-2 xl:mx-0')}>
+        <main className={cn('mx-auto w-full max-w-[800px] min-w-0', toc.length > 0 && 'lg:col-start-2 lg:mx-0')}>
           <article className="min-w-0">
             <div className="mb-10 border-b border-border-subtle pb-8">
               <div className="mono-label mb-5">Published Article</div>
@@ -209,7 +211,7 @@ export default function BlogDetailPage() {
         <button
           type="button"
           onClick={() => setShowTocMobile(true)}
-          className="fixed bottom-6 right-6 z-30 rounded-full border border-border-subtle bg-bg-base/80 p-3.5 text-text-main shadow-lg backdrop-blur-md transition-colors hover:border-primary hover:text-primary xl:hidden"
+          className="fixed bottom-6 right-6 z-30 rounded-full border border-border-subtle bg-bg-base/80 p-3.5 text-text-main shadow-lg backdrop-blur-md transition-colors hover:border-primary hover:text-primary lg:hidden"
           aria-label="打开目录"
         >
           <ListCollapse size={20} />
@@ -217,7 +219,7 @@ export default function BlogDetailPage() {
       )}
 
       {showTocMobile && (
-        <div className="fixed inset-0 z-50 flex justify-end xl:hidden">
+        <div className="fixed inset-0 z-50 flex justify-end lg:hidden">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowTocMobile(false)} />
           <div
             className={cn(
@@ -242,10 +244,9 @@ export default function BlogDetailPage() {
                   href={`#${item.id}`}
                   onClick={(event) => handleScrollTo(event, item.id)}
                   className={cn(
-                    'rounded-xl px-3 py-2 text-sm leading-relaxed transition-colors',
-                    item.level === 3 && 'pl-6 text-xs',
+                    'cursor-pointer rounded-xl px-3 py-2 text-sm leading-relaxed transition-colors',
                     activeId === item.id
-                      ? 'bg-primary/10 font-semibold text-primary'
+                      ? 'text-text-main/60'
                       : 'text-text-main/60 hover:bg-primary/5 hover:text-text-main',
                   )}
                 >

@@ -7,11 +7,11 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Settings,
   User,
   LogOut,
   Cpu,
   BarChart3,
+  ShieldCheck,
 } from 'lucide-react';
 import { Routes } from '@/routes';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -27,6 +27,10 @@ const navItems = [
   { path: Routes.LLMPage, name: '模型配置', icon: Cpu },
   { path: Routes.Usage, name: '用量', icon: BarChart3 },
 ];
+
+function getUserInitial(user: ReturnType<typeof useAuth>['user']) {
+  return user?.nickname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '';
+}
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -56,6 +60,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
 
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
+  const userInitial = getUserInitial(user);
   const isCollapsed = forceCollapsed || collapsed;
 
   async function handleLogout() {
@@ -81,7 +86,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
       {/* Logo */}
       <div
         className={cn(
-          'h-20 flex items-center overflow-hidden',
+          'h-16 flex items-center overflow-hidden',
           isCollapsed ? 'justify-center px-0' : 'px-6',
           darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
           darkMode ? 'bg-[#1e1e1e]' : 'bg-white/50',
@@ -91,7 +96,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           <div
             className={cn(
               'rounded-lg flex items-center justify-center overflow-hidden',
-              isCollapsed ? 'h-11 w-11 p-1.5' : 'h-8 w-8 p-1',
+              isCollapsed ? 'h-9 w-9 p-1.5' : 'h-8 w-8 p-1',
             )}
           >
             <LinkRagMark darkMode={darkMode} />
@@ -111,7 +116,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         )}
       >
         {navItems.map(({ path, name, icon: Icon }) => {
-          const isActive = pathname === path;
+          const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
           return (
             <Link
               key={path}
@@ -155,7 +160,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                 <div
                   className={cn(
                     'absolute left-full ml-4 px-3 py-1 text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg shadow-xl',
-                    darkMode ? 'bg-[#2d2d2d] text-[#cccccc]' : 'bg-text-main text-white',
+                    darkMode ? 'bg-[#8A7662] text-white' : 'bg-[#7B6B5D] text-white',
                   )}
                 >
                   {name}
@@ -200,17 +205,30 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
             className={cn(
               'flex items-center rounded-2xl transition-colors',
               isCollapsed ? 'h-12 w-12 justify-center p-0' : 'w-full gap-3 px-2 py-3',
-              darkMode ? 'bg-[#2d2d2d] hover:bg-[#3c3c3c]' : 'bg-bg-base/30 hover:bg-primary/5',
+              darkMode ? 'hover:bg-[#2d2d2d]' : 'hover:bg-primary/5',
             )}
           >
-            <div
-              className={cn(
-                'w-8 h-8 rounded-full shrink-0 flex items-center justify-center',
-                darkMode ? 'bg-[#3c3c3c] border-[#4c4c4c]' : 'border-text-main/10 bg-primary/20',
-              )}
-            >
-              <User size={14} className={darkMode ? 'text-[#e0e0e0]' : 'text-text-main/60'} />
-            </div>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt="用户头像"
+                className={cn(
+                  'h-8 w-8 shrink-0 rounded-full border object-cover',
+                  darkMode ? 'border-[#4c4c4c]' : 'border-text-main/10',
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
+                  darkMode
+                    ? 'border-[#4c4c4c] bg-[#3c3c3c] text-[#e0e0e0]'
+                    : 'border-text-main/10 bg-primary/20 text-primary',
+                )}
+              >
+                {userInitial || <User size={14} className={darkMode ? 'text-[#e0e0e0]' : 'text-text-main/60'} />}
+              </div>
+            )}
             {!isCollapsed && (
               <div className="flex-1 min-w-0 text-left">
                 <p
@@ -257,17 +275,24 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                   <User size={14} />
                   <span className="text-xs font-medium">个人信息</span>
                 </button>
-                <button
-                  className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2 transition-colors',
-                    darkMode
-                      ? 'text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
-                      : 'text-text-main/70 hover:bg-primary/5 hover:text-text-main',
-                  )}
-                >
-                  <Settings size={14} />
-                  <span className="text-xs font-medium">设置</span>
-                </button>
+                {user?.role === 'ADMIN' && (
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onNavigate?.();
+                      navigate(Routes.AdminBlogs);
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2 transition-colors',
+                      darkMode
+                        ? 'text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                        : 'text-text-main/70 hover:bg-primary/5 hover:text-text-main',
+                    )}
+                  >
+                    <ShieldCheck size={14} />
+                    <span className="text-xs font-medium">后台管理</span>
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className={cn(

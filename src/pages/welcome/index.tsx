@@ -1559,8 +1559,8 @@ export default function WelcomePage() {
                     className={cn(
                       'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-opacity',
                       darkMode
-                        ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
-                        : 'bg-text-main text-white hover:opacity-90',
+                        ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                        : 'bg-[#7B6B5D] text-white hover:opacity-90',
                     )}
                   >
                     注册
@@ -1618,7 +1618,7 @@ export default function WelcomePage() {
               onClick={() => scrollToLogin('login')}
               className={cn(
                 'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] transition-opacity shadow-sm',
-                darkMode ? 'bg-[#094771] text-white hover:bg-[#0a5280]' : 'bg-text-main text-white hover:opacity-90',
+                darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
               )}
             >
               开始使用
@@ -2004,8 +2004,8 @@ export default function WelcomePage() {
                   className={cn(
                     'mt-2 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold uppercase tracking-[0.24em] transition-opacity',
                     darkMode
-                      ? 'bg-[#094771] text-white hover:bg-[#0a5280]'
-                      : 'bg-text-main text-white hover:opacity-90',
+                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
+                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
                     submitting && 'opacity-70',
                   )}
                 >

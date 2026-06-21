@@ -9,10 +9,15 @@ import type {
   CreateProviderRequest,
   UpdateProviderRequest,
   AddProviderModelRequest,
+  UpdateProviderModelRequest,
   CreatePresetRequest,
+  UpdatePresetRequest,
   UsageSummaryDTO,
+  UsageStage,
   DailyUsageDTO,
   UsageLogDTO,
+  ModelUsageDTO,
+  UsageTrendDTO,
   PageResult,
 } from '@/types/api';
 
@@ -84,6 +89,26 @@ export async function addAdminProviderModel(providerId: number, data: AddProvide
   return apiClient.post<ProviderModel>(`/api/v1/admin/providers/${providerId}/models`, data);
 }
 
+export async function listAdminProviderModels(filters?: {
+  page?: number;
+  size?: number;
+  providerId?: number;
+  capability?: LLMCapability;
+  isActive?: boolean;
+}): Promise<PageResult<ProviderModel>> {
+  return apiClient.get<PageResult<ProviderModel>>('/api/v1/admin/provider-models', {
+    page: filters?.page ?? 1,
+    size: filters?.size ?? 100,
+    ...(filters?.providerId ? { providerId: filters.providerId } : {}),
+    ...(filters?.capability ? { capability: filters.capability } : {}),
+    ...(filters?.isActive === undefined ? {} : { isActive: filters.isActive }),
+  });
+}
+
+export async function updateAdminProviderModel(id: number, data: UpdateProviderModelRequest): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/provider-models/${id}`, data);
+}
+
 export async function deleteAdminProviderModel(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/provider-models/${id}`);
 }
@@ -100,19 +125,47 @@ export async function createAdminSystemPreset(data: CreatePresetRequest): Promis
   await apiClient.post('/api/v1/admin/system-presets', data);
 }
 
+export async function updateAdminSystemPreset(id: number, data: UpdatePresetRequest): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/system-presets/${id}`, data);
+}
+
+export async function toggleAdminSystemPreset(id: number, isActive: boolean): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/system-presets/${id}/active?isActive=${encodeURIComponent(String(isActive))}`);
+}
+
 export async function deleteAdminSystemPreset(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/system-presets/${id}`);
 }
 
-export async function getUsageSummary(startDate: string, endDate: string): Promise<UsageSummaryDTO> {
+export async function getUsageSummary(
+  startDate: string,
+  endDate: string,
+  stage?: UsageStage,
+): Promise<UsageSummaryDTO> {
   return apiClient.get<UsageSummaryDTO>('/api/v1/llm/usage/summary', {
+    startDate,
+    endDate,
+    ...(stage ? { stage } : {}),
+  });
+}
+
+export async function getDailyUsage(startDate: string, endDate: string, stage?: UsageStage): Promise<DailyUsageDTO[]> {
+  return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
+    startDate,
+    endDate,
+    ...(stage ? { stage } : {}),
+  });
+}
+
+export async function getUsageByModel(startDate: string, endDate: string): Promise<ModelUsageDTO[]> {
+  return apiClient.get<ModelUsageDTO[]>('/api/v1/llm/usage/by-model', {
     startDate,
     endDate,
   });
 }
 
-export async function getDailyUsage(startDate: string, endDate: string): Promise<DailyUsageDTO[]> {
-  return apiClient.get<DailyUsageDTO[]>('/api/v1/llm/usage/daily', {
+export async function getUsageTrend(startDate: string, endDate: string): Promise<UsageTrendDTO> {
+  return apiClient.get<UsageTrendDTO>('/api/v1/llm/usage/trend', {
     startDate,
     endDate,
   });
@@ -123,10 +176,12 @@ export async function getUsageLogs(
   endDate: string,
   page = 1,
   pageSize = 20,
+  stage?: UsageStage,
 ): Promise<PageResult<UsageLogDTO>> {
   return apiClient.get<PageResult<UsageLogDTO>>('/api/v1/llm/usage/logs', {
     startDate,
     endDate,
+    ...(stage ? { stage } : {}),
     page,
     pageSize,
   });
