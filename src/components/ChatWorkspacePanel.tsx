@@ -60,7 +60,7 @@ export function ChatWorkspacePanel({
                     active ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
                   )}
                 >
-                  {item.title || '未命名对话'}
+                  {(item.title ?? '新对话').trim() || '新对话'}
                 </button>
                 <button
                   type="button"
