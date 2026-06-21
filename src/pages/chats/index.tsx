@@ -29,7 +29,7 @@ import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createConversation, getConversations, getMessages, toUiMessages } from '@/services/chat';
+import { createConversation, getConversations, getMessages, deleteConversation, toUiMessages } from '@/services/chat';
 import { getDatasets, getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
@@ -39,6 +39,8 @@ import {
   KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
+import { usePublishChatWorkspace, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
+import { getCachedConversations, setCachedConversations } from '@/lib/conversationsCache';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import type {
   ConversationDTO,
@@ -49,7 +51,6 @@ import type {
   UiChatMessage,
 } from '@/types/api';
 
-type LeftTab = 'history' | 'files';
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 
 type ChatRouteState = {
@@ -62,6 +63,10 @@ interface RecallChunk {
   fileName: string;
   score: number;
   snippet: string;
+}
+
+interface LocalMessage extends UiChatMessage {
+  recallChunks?: RecallChunk[];
 }
 
 interface SendOptions {
@@ -150,85 +155,56 @@ function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null 
   );
 }
 
-function RecallEvidencePanel({
-  recallQuery,
-  recallLoading,
-  recallChunks,
-  onHide,
-  compact = false,
-}: {
-  recallQuery: string;
-  recallLoading: boolean;
-  recallChunks: RecallChunk[];
-  onHide: () => void;
-  compact?: boolean;
-}) {
+function InlineEvidenceAccordion({ chunks }: { chunks: RecallChunk[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!chunks || chunks.length === 0) return null;
+
   return (
-    <aside
-      className={cn(
-        'flex min-h-0 flex-col overflow-hidden bg-surface-soft',
-        compact
-          ? 'mx-4 mb-3 max-h-60 rounded-2xl border border-hairline sm:mx-6'
-          : 'h-full w-full border-l border-hairline',
-      )}
-      aria-label="召回证据"
-    >
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-ink">召回证据</h2>
-          <p className="mt-0.5 text-[11px] text-muted">
-            {recallLoading ? '正在检索知识片段' : `${recallChunks.length} 个片段`}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onHide}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
-          aria-label="隐藏召回证据"
-        >
-          <X size={16} />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-        {recallQuery && (
-          <div className="rounded-xl border border-hairline bg-canvas px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-soft">本轮问题</p>
-            <p className="mt-1 line-clamp-2 text-xs text-body">{recallQuery}</p>
-          </div>
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          'flex h-8 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors',
+          expanded
+            ? 'border-primary/40 bg-primary/10 text-ink'
+            : 'border-hairline bg-canvas text-text-secondary hover:border-primary/30 hover:text-ink',
         )}
-        {recallLoading ? (
-          <div className="flex min-h-28 flex-col items-center justify-center gap-3 text-muted">
-            <Loader2 size={18} className="animate-spin" />
-            <p className="text-xs">正在召回知识片段...</p>
-          </div>
-        ) : recallChunks.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-hairline px-4 py-8 text-center text-xs text-muted">
-            发送问题后，这里会展示本轮召回到的片段。
-          </div>
-        ) : (
-          recallChunks.map((chunk, index) => (
-            <div key={`${chunk.id}-${index}`} className="rounded-xl border border-hairline bg-canvas px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
+      >
+        <Search size={13} className={cn(expanded ? 'text-primary' : 'text-muted')} />
+        {chunks.length} 个召回片段
+        <ChevronDown size={13} className={cn('text-muted transition-transform', expanded && 'rotate-180')} />
+      </button>
+
+      {expanded && (
+        <div className="mt-3 flex snap-x gap-3 overflow-x-auto pb-2">
+          {chunks.map((chunk, index) => (
+            <div
+              key={`${chunk.id}-${index}`}
+              className="flex max-h-[260px] w-72 shrink-0 snap-start flex-col rounded-xl border border-hairline bg-surface-soft p-3"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-3">
                 <p className="min-w-0 truncate text-xs font-semibold text-ink">{chunk.fileName}</p>
                 <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                   {chunk.score}%
                 </span>
               </div>
-              <p className="mt-1 truncate text-[10px] text-muted-soft">chunk {chunk.id}</p>
-              <MarkdownRenderer
-                content={chunk.snippet}
-                className={cn(
-                  compact ? 'line-clamp-3' : 'line-clamp-6',
-                  'mt-2 text-xs leading-relaxed text-body',
-                  '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-0',
-                  '[&_strong]:font-bold',
-                )}
-              />
+              <p className="mt-1 shrink-0 truncate text-[10px] text-muted-soft">chunk {chunk.id}</p>
+              <div className="mt-2 min-h-0 flex-1 overflow-y-auto popover-scrollbar pr-1">
+                <MarkdownRenderer
+                  content={chunk.snippet}
+                  className={cn(
+                    'text-[11px] leading-relaxed text-body',
+                    '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2',
+                    '[&_strong]:font-bold [&_table]:text-[11px] [&_th]:p-1 [&_td]:p-1',
+                  )}
+                />
+              </div>
             </div>
-          ))
-        )}
-      </div>
-    </aside>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -293,6 +269,7 @@ export default function ChatsPage() {
   const routeDatasetId = parseRouteDatasetId(routeState?.datasetId);
   const { user } = useAuth();
   const { addToast } = useToast();
+  const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
@@ -302,19 +279,18 @@ export default function ChatsPage() {
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
 
-  const [leftTab, setLeftTab] = useState<LeftTab>('history');
-  const [resourcePanelOpen, setResourcePanelOpen] = useState(false);
-  const [historySearch, setHistorySearch] = useState('');
-  const [fileSearch, setFileSearch] = useState('');
-  const [conversations, setConversations] = useState<ConversationDTO[]>([]);
+  const [conversations, setConversations] = useState<ConversationDTO[]>(() => getCachedConversations(user?.id) ?? []);
   const [datasets, setDatasets] = useState<DatasetDTO[]>([]);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
-  const [messages, setMessages] = useState<UiChatMessage[]>([]);
+  const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [conversation, setConversation] = useState<ConversationDTO | null>(null);
-  const [loading, setLoading] = useState(true);
+  // 会话历史的加载态与数据集/模型分离：有缓存时初始即为 false，避免无谓的转圈
+  const [loadingHistory, setLoadingHistory] = useState(() => getCachedConversations(user?.id) === null);
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [filesPanelOpen, setFilesPanelOpen] = useState(false);
+  const [fileSearch, setFileSearch] = useState('');
   const [dragging, setDragging] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(() => routeDatasetId);
@@ -323,10 +299,6 @@ export default function ChatsPage() {
   const [kbOpen, setKbOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [recallChunks, setRecallChunks] = useState<RecallChunk[]>([]);
-  const [recallLoading, setRecallLoading] = useState(false);
-  const [recallQuery, setRecallQuery] = useState('');
-  const [evidencePanelVisible, setEvidencePanelVisible] = useState(false);
   const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
 
   const activeConversationId = id ? Number(id) : null;
@@ -354,23 +326,35 @@ export default function ChatsPage() {
   const datasetById = useMemo(() => new Map(datasets.map((dataset) => [dataset.id, dataset])), [datasets]);
   const selectedDataset = selectedDatasetId ? datasetById.get(selectedDatasetId) : null;
   const selectedModel = selectedModelConfigId ? chatModels.find((model) => model.id === selectedModelConfigId) : null;
-  const showEvidencePanel = evidencePanelVisible;
 
   useEffect(() => {
     return () => recallAbortRef.current?.abort();
   }, []);
 
   useEffect(() => {
-    const loadInitial = async () => {
-      setLoading(true);
+    let cancelled = false;
+
+    // 会话历史独立加载：一返回就渲染，不被较慢的数据集/模型接口阻塞侧栏列表
+    const loadHistory = async () => {
       try {
-        const [convResult, dsResult, modelResult, defaultChatModel] = await Promise.all([
-          getConversations(1, 100),
+        const convResult = await getConversations(1, 100);
+        if (!cancelled) setConversations(convResult.items);
+      } catch (error) {
+        if (!cancelled) console.error('Failed to load conversations:', error);
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    };
+
+    // 数据集与模型配置：仅影响主区域（知识库/模型选择），与历史列表互不阻塞
+    const loadWorkspace = async () => {
+      try {
+        const [dsResult, modelResult, defaultChatModel] = await Promise.all([
           getDatasets(1, 100),
           getLLMConfigs({ capability: 'CHAT', isActive: true }),
           getDefaultLLMConfig('CHAT').catch(() => null),
         ]);
-        setConversations(convResult.items);
+        if (cancelled) return;
         setDatasets(dsResult.items);
         const chatModelItems =
           defaultChatModel && !modelResult.some((model) => model.id === defaultChatModel.id)
@@ -383,17 +367,21 @@ export default function ChatsPage() {
           chatModelItems[0];
         setSelectedModelConfigId(defaultModel?.id ?? null);
       } catch (error) {
-        console.error('Failed to load chat workspace:', error);
-      } finally {
-        setLoading(false);
+        if (!cancelled) console.error('Failed to load chat workspace:', error);
       }
     };
-    void loadInitial();
+
+    void loadHistory();
+    void loadWorkspace();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     conversationsRef.current = conversations;
-  }, [conversations]);
+    setCachedConversations(user?.id, conversations);
+  }, [conversations, user?.id]);
 
   // 仅在会话 id 变化时加载一次会话/消息。不要依赖 conversations / chatModels，
   // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
@@ -401,12 +389,7 @@ export default function ChatsPage() {
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
-      setFiles([]);
       setSelectedDatasetId(routeDatasetId);
-      setRecallChunks([]);
-      setRecallLoading(false);
-      setRecallQuery('');
-      setEvidencePanelVisible(false);
       return;
     }
 
@@ -434,10 +417,6 @@ export default function ChatsPage() {
         setSelectedDatasetId(conv.datasetId);
         setMessages(toUiMessages(msgResult.items));
         setFiles(fileResult.items.sort((a, b) => b.id - a.id));
-        setRecallChunks([]);
-        setRecallLoading(false);
-        setRecallQuery('');
-        setEvidencePanelVisible(false);
       } catch (error) {
         if (!cancelled) console.error('Failed to load conversation:', error);
       } finally {
@@ -487,16 +466,6 @@ export default function ChatsPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
-  const filteredConversations = conversations
-    .filter((item) =>
-      ((item.title ?? '新对话').trim() || '新对话').toLowerCase().includes(historySearch.trim().toLowerCase()),
-    )
-    .sort((a, b) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime());
-  const filteredFiles = files.filter((file) =>
-    file.originalFilename.toLowerCase().includes(fileSearch.trim().toLowerCase()),
-  );
-  const historyGroup = { label: '对话', items: filteredConversations };
-
   useEffect(() => {
     if (!activeConversationId || !initialQuestion) return;
     const sendKey = `${activeConversationId}:${initialQuestion}`;
@@ -505,19 +474,33 @@ export default function ChatsPage() {
     setInputValue(initialQuestion);
   }, [activeConversationId, initialQuestion]);
 
-  const beginNewConversation = () => {
+  const beginNewConversation = useCallback(() => {
     recallAbortRef.current?.abort();
     setConversation(null);
     setMessages([]);
     setFiles([]);
     setSelectedDatasetId(null);
     setInputValue('');
-    setRecallChunks([]);
-    setRecallLoading(false);
-    setRecallQuery('');
-    setEvidencePanelVisible(false);
     navigate(Routes.Chats, { state: null });
-  };
+  }, [navigate]);
+
+  const handleDeleteConversation = useCallback(
+    async (id: number) => {
+      if (!window.confirm('确定要删除此对话吗？')) return;
+      try {
+        await deleteConversation(id);
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        if (activeConversationId === id) {
+          beginNewConversation();
+        }
+        addToast('success', '对话已删除');
+      } catch (err) {
+        console.error('Failed to delete conversation:', err);
+        addToast('error', '删除失败');
+      }
+    },
+    [activeConversationId, addToast, beginNewConversation],
+  );
 
   const handleSend = useCallback(
     async (overrideContent?: string, options?: SendOptions) => {
@@ -574,10 +557,6 @@ export default function ChatsPage() {
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setInputValue('');
       setSending(true);
-      setRecallQuery(content);
-      setRecallChunks([]);
-      setRecallLoading(true);
-      setEvidencePanelVisible(true);
       recallAbortRef.current?.abort();
       const controller = new AbortController();
       recallAbortRef.current = controller;
@@ -596,7 +575,8 @@ export default function ChatsPage() {
             );
           },
         });
-        setRecallChunks(hitsToRecallChunks(result.hits, files));
+        const chunks = hitsToRecallChunks(result.hits, files);
+        setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? { ...msg, recallChunks: chunks } : msg)));
         if (!result.answer && result.hits.length === 0) {
           setMessages((prev) =>
             prev.map((msg) => (msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg)),
@@ -610,7 +590,6 @@ export default function ChatsPage() {
         }
       } finally {
         if (recallAbortRef.current === controller) recallAbortRef.current = null;
-        setRecallLoading(false);
         setSending(false);
       }
       return true;
@@ -683,7 +662,7 @@ export default function ChatsPage() {
   const promptSelectDatasetForUpload = () => {
     addToast('error', '请先选择知识库后再上传文件');
     setKbOpen(true);
-    setResourcePanelOpen(false);
+    setFilesPanelOpen(false);
     setDragging(false);
   };
 
@@ -718,103 +697,101 @@ export default function ChatsPage() {
     if (file) await handleFileUpload(file);
   };
 
+  const filteredFiles = files.filter((file) =>
+    file.originalFilename.toLowerCase().includes(fileSearch.trim().toLowerCase()),
+  );
+
+  // 将「最近对话」历史发布给全局侧栏（ChatWorkspacePanel 渲染），保持本页为数据归属方。
+  useEffect(() => {
+    if (!publishChatWorkspace) return;
+    const snapshot: ChatWorkspaceSnapshot = {
+      conversations,
+      activeConversationId,
+      // 仅在确无数据且仍在拉取时显示加载态；有缓存/已加载数据时后台静默刷新
+      loadingConversations: loadingHistory && conversations.length === 0,
+      onDeleteConversation: handleDeleteConversation,
+    };
+    publishChatWorkspace(snapshot);
+    // 不在卸载时发布 null：/chats 与 /chats/:id 是不同的 lazy 组件，
+    // 且外层 AnimatePresence(mode="sync") 切换时新旧实例会短暂并存，
+    // 旧实例卸载的清理会把新实例刚发布的快照清空，导致侧栏一直转圈。
+    // 侧栏面板仅在对话路由显示，离开时本就不渲染，保留上次快照无害（且避免闪烁），
+    // 登出时由 ChatWorkspaceProvider 卸载兜底清理。
+  }, [publishChatWorkspace, conversations, activeConversationId, loadingHistory, handleDeleteConversation]);
+
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-canvas">
-      <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-8">
-        <div className="min-w-0 flex-1">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-canvas">
+      <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} />
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {(['history', 'files'] as LeftTab[]).map((tab) => {
-            const active = resourcePanelOpen && leftTab === tab;
-            const label = tab === 'history' ? '历史' : `文件 ${files.length}`;
-            return (
-              <HeaderButton
-                key={tab}
-                active={active}
-                icon={tab === 'history' ? MessageSquare : Files}
-                onClick={() => {
-                  setLeftTab(tab);
-                  setResourcePanelOpen((open) => (leftTab === tab ? !open : true));
-                }}
-              >
-                {label}
-              </HeaderButton>
-            );
-          })}
-          <HeaderButton
-            active={showEvidencePanel}
-            icon={Search}
-            onClick={() => setEvidencePanelVisible((visible) => !visible)}
-          >
-            召回片段
+        <div className="flex shrink-0 items-center gap-2">
+          <HeaderButton icon={Plus} onClick={beginNewConversation}>
+            新建对话
           </HeaderButton>
-          <div className="ml-1 flex shrink-0 items-center gap-2">
-            <HeaderButton icon={Plus} onClick={beginNewConversation}>
-              新建对话
-            </HeaderButton>
-            <div ref={kbSelectorRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setKbOpen((value) => !value)}
-                className="flex h-9 max-w-[280px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
-              >
-                <Database size={14} className="text-muted" />
-                <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
-                <ChevronDown size={13} className={cn('transition-transform', kbOpen && 'rotate-180')} />
-              </button>
-              {kbOpen && (
-                <div className="popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
-                  {datasets.length === 0 ? (
-                    <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                  ) : (
-                    datasets.map((dataset) => (
-                      <button
-                        key={dataset.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDatasetId(dataset.id);
-                          setKbOpen(false);
-                        }}
-                        className={cn(
-                          'w-full rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors',
-                          dataset.id === selectedDatasetId
-                            ? 'bg-primary/10 text-ink'
-                            : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
-                        )}
-                      >
-                        {dataset.name}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+          <HeaderButton active={filesPanelOpen} icon={Files} onClick={() => setFilesPanelOpen((open) => !open)}>
+            文件 {files.length}
+          </HeaderButton>
+          <div ref={kbSelectorRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setKbOpen((value) => !value)}
+              className="flex h-9 max-w-[280px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+            >
+              <Database size={14} className="text-muted" />
+              <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
+              <ChevronDown size={13} className={cn('transition-transform', kbOpen && 'rotate-180')} />
+            </button>
+            {kbOpen && (
+              <div className="popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
+                {datasets.length === 0 ? (
+                  <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
+                ) : (
+                  datasets.map((dataset) => (
+                    <button
+                      key={dataset.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDatasetId(dataset.id);
+                        setKbOpen(false);
+                      }}
+                      className={cn(
+                        'w-full rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors',
+                        dataset.id === selectedDatasetId
+                          ? 'bg-primary/10 text-ink'
+                          : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                      )}
+                    >
+                      {dataset.name}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {resourcePanelOpen && (
-        <div className="fixed inset-0 z-50 bg-transparent" onMouseDown={() => setResourcePanelOpen(false)}>
+      {/* 知识库文件：沿用原方案，右上角浮层 */}
+      {filesPanelOpen && (
+        <div className="fixed inset-0 z-50 bg-transparent" onMouseDown={() => setFilesPanelOpen(false)}>
           <section
-            className="absolute right-6 top-[92px] flex h-[min(420px,calc(100vh-116px))] w-[min(420px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas (--)] lg:right-8"
+            className="absolute right-6 top-[92px] flex h-[min(420px,calc(100vh-116px))] w-[min(420px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas lg:right-8"
             onMouseDown={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label={leftTab === 'history' ? '对话历史' : '知识库文件'}
+            aria-label="知识库文件"
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-5 py-4">
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-ink">{leftTab === 'history' ? '对话历史' : '知识库文件'}</h2>
-                <p className="mt-1 text-[11px] text-muted">
-                  {leftTab === 'history' ? '搜索并切换最近的对话。' : '查看当前知识库文件，或上传新文件。'}
-                </p>
+                <h2 className="text-sm font-semibold text-ink">知识库文件</h2>
+                <p className="mt-1 text-[11px] text-muted">查看当前知识库文件，或上传新文件。</p>
               </div>
               <button
                 type="button"
-                onClick={() => setResourcePanelOpen(false)}
+                onClick={() => setFilesPanelOpen(false)}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
                 aria-label="关闭弹窗"
               >
@@ -822,153 +799,97 @@ export default function ChatsPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1 p-4">
-              {leftTab === 'history' ? (
-                <div className="flex h-full min-h-0 flex-col gap-3">
+              <div className="flex h-full min-h-0 flex-col gap-3">
+                <div className="flex min-h-0 flex-1 flex-col gap-3">
                   <div className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-surface-soft px-3">
                     <Search size={13} className="text-muted" />
                     <input
-                      value={historySearch}
-                      onChange={(e) => setHistorySearch(e.target.value)}
-                      placeholder="搜索对话..."
+                      value={fileSearch}
+                      onChange={(e) => setFileSearch(e.target.value)}
+                      placeholder="搜索文件..."
                       className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
                     />
                   </div>
-                  {loading ? (
+                  {loadingFiles ? (
                     <div className="flex h-24 items-center justify-center text-muted">
                       <Loader2 size={16} className="animate-spin" />
                     </div>
-                  ) : historyGroup.items.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-hairline px-4 py-6 text-center text-xs text-muted">
-                      暂无历史对话
-                    </p>
+                  ) : filteredFiles.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-hairline px-4 py-5 text-center text-xs text-muted">
+                      <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
+                      {!selectedDatasetId && (
+                        <button
+                          type="button"
+                          onClick={promptSelectDatasetForUpload}
+                          className="mt-3 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-active"
+                        >
+                          选择知识库
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
-                      {historyGroup.items.map((item) => {
-                        const active = conversation?.id === item.id || activeConversationId === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              setResourcePanelOpen(false);
-                              navigate(`/chats/${item.id}`);
-                            }}
-                            title={datasetById.get(item.datasetId)?.name ?? `知识库 #${item.datasetId}`}
-                            className={cn(
-                              'w-full rounded-xl border px-3 py-2.5 text-left transition-colors',
-                              active
-                                ? 'border-primary/50 bg-primary/8'
-                                : 'border-hairline bg-canvas hover:border-primary/30',
-                            )}
-                          >
-                            <span className="block truncate text-xs font-semibold text-ink">
-                              {(item.title ?? '新对话').trim() || '新对话'}
-                            </span>
-                            <span className="mt-1 block truncate text-[10px] text-muted">
-                              {datasetById.get(item.datasetId)?.name ?? `知识库 #${item.datasetId}`} ·{' '}
-                              {formatTime(item.updatedAt)}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {filteredFiles.map((file) => (
+                        <div key={file.id} className="rounded-xl border border-hairline bg-canvas px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <FileText size={13} className="text-muted" />
+                            <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
+                          </div>
+                          <p className="mt-1 text-[10px] text-muted">
+                            {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex h-full min-h-0 flex-col gap-3">
-                  <div className="flex min-h-0 flex-1 flex-col gap-3">
-                    <div className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-surface-soft px-3">
-                      <Search size={13} className="text-muted" />
-                      <input
-                        value={fileSearch}
-                        onChange={(e) => setFileSearch(e.target.value)}
-                        placeholder="搜索文件..."
-                        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
-                      />
-                    </div>
-                    {loadingFiles ? (
-                      <div className="flex h-24 items-center justify-center text-muted">
-                        <Loader2 size={16} className="animate-spin" />
-                      </div>
-                    ) : filteredFiles.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-hairline px-4 py-5 text-center text-xs text-muted">
-                        <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
-                        {!selectedDatasetId && (
-                          <button
-                            type="button"
-                            onClick={promptSelectDatasetForUpload}
-                            className="mt-3 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-active"
-                          >
-                            选择知识库
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
-                        {filteredFiles.map((file) => (
-                          <div key={file.id} className="rounded-xl border border-hairline bg-canvas px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <FileText size={13} className="text-muted" />
-                              <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
-                            </div>
-                            <p className="mt-1 text-[10px] text-muted">
-                              {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                <div
+                  onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                    event.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setDragging(false);
+                  }}
+                  onDrop={async (event) => {
+                    event.preventDefault();
+                    const file = event.dataTransfer.files?.[0];
+                    if (file) await handleFileUpload(file);
+                  }}
+                  onClick={() => {
+                    if (uploading) return;
+                    if (!selectedDatasetId) {
+                      promptSelectDatasetForUpload();
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
+                  className={cn(
+                    'flex shrink-0 cursor-pointer items-center gap-3 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors',
+                    dragging ? 'border-primary bg-primary/8' : 'border-hairline bg-surface-soft',
+                  )}
+                >
+                  <Upload size={16} className="shrink-0 text-muted" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-body">{uploading ? '上传中...' : '拖拽或点击上传'}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-muted">{KNOWLEDGE_FILE_HINT || 'MD / DOCX / PDF'}</p>
                   </div>
-                  <div
-                    onDragOver={(event: DragEvent<HTMLDivElement>) => {
-                      event.preventDefault();
-                      setDragging(true);
-                    }}
-                    onDragLeave={(event) => {
-                      event.preventDefault();
-                      setDragging(false);
-                    }}
-                    onDrop={async (event) => {
-                      event.preventDefault();
-                      const file = event.dataTransfer.files?.[0];
-                      if (file) await handleFileUpload(file);
-                    }}
-                    onClick={() => {
-                      if (uploading) return;
-                      if (!selectedDatasetId) {
-                        promptSelectDatasetForUpload();
-                        return;
-                      }
-                      fileInputRef.current?.click();
-                    }}
-                    className={cn(
-                      'flex shrink-0 cursor-pointer items-center gap-3 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors',
-                      dragging ? 'border-primary bg-primary/8' : 'border-hairline bg-surface-soft',
-                    )}
-                  >
-                    <Upload size={16} className="shrink-0 text-muted" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-body">{uploading ? '上传中...' : '拖拽或点击上传'}</p>
-                      <p className="mt-0.5 truncate text-[10px] text-muted">
-                        {KNOWLEDGE_FILE_HINT || 'MD / DOCX / PDF'}
-                      </p>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={KNOWLEDGE_FILE_ACCEPT}
-                      className="hidden"
-                      onChange={onFileInputChange}
-                    />
-                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={KNOWLEDGE_FILE_ACCEPT}
+                    className="hidden"
+                    onChange={onFileInputChange}
+                  />
                 </div>
-              )}
+              </div>
             </div>
           </section>
         </div>
       )}
 
-      {/* Body: single clean message column; evidence is a slide-over drawer */}
+      {/* Body: single clean message column */}
       <div className="relative flex min-h-0 flex-1">
         <section className="flex min-w-0 flex-1 flex-col">
           <div ref={messageScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
@@ -1016,6 +937,9 @@ export default function ChatsPage() {
                         <Sparkles size={15} className="text-primary" />
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
+                        {message.recallChunks && message.recallChunks.length > 0 && (
+                          <InlineEvidenceAccordion chunks={message.recallChunks} />
+                        )}
                         <MarkdownRenderer
                           content={message.content ?? ''}
                           className={cn(
@@ -1033,22 +957,6 @@ export default function ChatsPage() {
                 {sending && messages[messages.length - 1]?.role === 'user' && <ThinkingBubble />}
               </div>
             )}
-          </div>
-
-          {/* Mobile evidence — inline collapsible */}
-          <div
-            className={cn(
-              'overflow-hidden transition-[max-height,opacity] duration-300 ease-out lg:hidden',
-              showEvidencePanel ? 'max-h-72 opacity-100' : 'pointer-events-none max-h-0 opacity-0',
-            )}
-          >
-            <RecallEvidencePanel
-              compact
-              recallQuery={recallQuery}
-              recallLoading={recallLoading}
-              recallChunks={recallChunks}
-              onHide={() => setEvidencePanelVisible(false)}
-            />
           </div>
 
           <div className="shrink-0 px-4 pb-6 pt-3 sm:px-6 sm:pb-8">
@@ -1108,21 +1016,6 @@ export default function ChatsPage() {
             </div>
           </div>
         </section>
-
-        {/* Desktop evidence — slide-over drawer (does not split the column) */}
-        <div
-          className={cn(
-            'absolute inset-y-0 right-0 z-20 hidden w-[360px] transform (--)] transition-transform duration-300 ease-out lg:block',
-            showEvidencePanel ? 'translate-x-0' : 'pointer-events-none translate-x-full',
-          )}
-        >
-          <RecallEvidencePanel
-            recallQuery={recallQuery}
-            recallLoading={recallLoading}
-            recallChunks={recallChunks}
-            onHide={() => setEvidencePanelVisible(false)}
-          />
-        </div>
       </div>
     </div>
   );
