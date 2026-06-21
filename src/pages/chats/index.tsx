@@ -12,7 +12,6 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import {
   ChevronDown,
   Database,
-  FileText,
   Files,
   Loader2,
   MessageSquare,
@@ -24,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,10 @@ function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function normalizeFilename(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function recallErrorMessage(error: unknown): string {
@@ -682,20 +686,51 @@ export default function ChatsPage() {
     setDragging(false);
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (fileList: FileList | File[]) => {
+    const selectedFiles = Array.from(fileList);
+    if (selectedFiles.length === 0) return;
+
     if (!selectedDatasetId) {
       promptSelectDatasetForUpload();
       return;
     }
-    if (!isSupportedKnowledgeFile(file)) {
+    const unsupportedFiles = selectedFiles.filter((file) => !isSupportedKnowledgeFile(file));
+    if (unsupportedFiles.length > 0) {
       addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
       setDragging(false);
       return;
     }
+
+    const existingFilenames = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
+    const incomingFilenames = new Set<string>();
+    const uploadableFiles = selectedFiles.filter((file) => {
+      const filename = normalizeFilename(file.name);
+      if (existingFilenames.has(filename) || incomingFilenames.has(filename)) {
+        return false;
+      }
+      incomingFilenames.add(filename);
+      return true;
+    });
+    const skippedCount = selectedFiles.length - uploadableFiles.length;
+
+    if (uploadableFiles.length === 0) {
+      addToast('error', '选择的文件已存在，无需重复上传');
+      setDragging(false);
+      return;
+    }
+
     setUploading(true);
     try {
-      await uploadKnowledgeFile(selectedDatasetId, file, false);
-      addToast('success', '文件上传成功');
+      await Promise.all(uploadableFiles.map((file) => uploadKnowledgeFile(selectedDatasetId, file, false)));
+      addToast(
+        'success',
+        [
+          uploadableFiles.length > 1 ? `${uploadableFiles.length} 个文件上传成功` : '文件上传成功',
+          skippedCount > 0 ? `已跳过 ${skippedCount} 个重复文件` : '',
+        ]
+          .filter(Boolean)
+          .join('，'),
+      );
       const result = await getKnowledgeFiles(selectedDatasetId, 1, 100);
       setFiles(result.items.sort((a, b) => b.id - a.id));
     } catch (error) {
@@ -708,9 +743,9 @@ export default function ChatsPage() {
   };
 
   const onFileInputChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const fileList = event.target.files;
     event.target.value = '';
-    if (file) await handleFileUpload(file);
+    if (fileList) await handleFileUpload(fileList);
   };
 
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
@@ -901,9 +936,12 @@ export default function ChatsPage() {
                     ) : (
                       <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
                         {filteredFiles.map((file) => (
-                          <div key={file.id} className="rounded-xl border border-hairline bg-canvas px-3 py-2.5">
+                          <div
+                            key={file.id}
+                            className="group/file rounded-xl border border-hairline bg-canvas px-3 py-2.5"
+                          >
                             <div className="flex items-center gap-2">
-                              <FileText size={13} className="text-muted" />
+                              <KnowledgeFileIcon suffix={file.fileSuffix} compact />
                               <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
                             </div>
                             <p className="mt-1 text-[10px] text-muted">
@@ -925,8 +963,8 @@ export default function ChatsPage() {
                     }}
                     onDrop={async (event) => {
                       event.preventDefault();
-                      const file = event.dataTransfer.files?.[0];
-                      if (file) await handleFileUpload(file);
+                      const fileList = event.dataTransfer.files;
+                      if (fileList.length > 0) await handleFileUpload(fileList);
                     }}
                     onClick={() => {
                       if (uploading) return;
@@ -951,6 +989,7 @@ export default function ChatsPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
+                      multiple
                       accept={KNOWLEDGE_FILE_ACCEPT}
                       className="hidden"
                       onChange={onFileInputChange}

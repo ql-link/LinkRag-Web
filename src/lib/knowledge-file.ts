@@ -1,8 +1,9 @@
-export const KNOWLEDGE_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx'] as const;
+export const KNOWLEDGE_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'html', 'htm'] as const;
+export const KNOWLEDGE_FILE_DISPLAY_SUFFIXES = ['Markdown', 'PDF', 'DOCX', 'HTML'] as const;
 
 export const KNOWLEDGE_FILE_ACCEPT = KNOWLEDGE_FILE_SUFFIXES.map((suffix) => `.${suffix}`).join(',');
-export const KNOWLEDGE_FILE_HINT = `支持 ${KNOWLEDGE_FILE_SUFFIXES.join(' / ')}`;
-export const KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE = `当前仅支持上传 ${KNOWLEDGE_FILE_SUFFIXES.join(' / ')} 文件`;
+export const KNOWLEDGE_FILE_HINT = `支持 ${KNOWLEDGE_FILE_DISPLAY_SUFFIXES.join(' / ')}`;
+export const KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE = `当前仅支持上传 ${KNOWLEDGE_FILE_DISPLAY_SUFFIXES.join(' / ')} 文件`;
 
 export function getKnowledgeFileSuffix(filename: string): string {
   const normalized = filename.trim();
