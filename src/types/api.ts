@@ -447,6 +447,21 @@ export interface RecallHit {
   content: string;
 }
 
+export interface ChunkDetailDTO {
+  chunkId: string;
+  documentId?: number | string | null;
+  fileName?: string | null;
+  content: string;
+  score?: number | null;
+}
+
+export interface RecallChunk {
+  id: string;
+  fileName: string;
+  score: number | null;
+  snippet: string;
+}
+
 /**
  * 终态 data：answer_done（生成完成）或 recall_done（空命中不生成）。
  * hits 已按 fused_score 降序。
