@@ -214,7 +214,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
               'mt-2 flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/5 hover:text-ink',
-              collapsed ? 'mx-auto h-11 w-11 p-0' : 'w-full py-2',
+              collapsed ? 'mx-auto h-11 w-11 p-0' : 'w-fit px-3 py-2',
             )}
             aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
           >

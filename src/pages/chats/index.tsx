@@ -13,9 +13,9 @@ import {
   ChevronDown,
   Database,
   Files,
+  Info,
   Loader2,
   MessageSquare,
-  Plus,
   Search,
   Send,
   Sparkles,
@@ -223,6 +223,47 @@ function InlineEvidenceAccordion({ chunks }: { chunks: RecallChunk[] }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function MessageStatusNotice({ status }: { status?: string | null }) {
+  if (status === 'failed') {
+    return (
+      <div className="mb-3 flex w-fit items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+        <Info size={13} />
+        回答生成失败
+      </div>
+    );
+  }
+
+  if (status === 'partial') {
+    return (
+      <div className="mb-3 flex w-fit items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+        <Info size={13} />
+        回答不完整
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function ChunkReferenceList({ references }: { references?: string[] | null }) {
+  const items = (references ?? []).filter((item) => item.trim().length > 0);
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      {items.map((reference, index) => (
+        <span
+          key={`${reference}-${index}`}
+          className="max-w-full truncate rounded-full border border-hairline bg-surface-soft px-2.5 py-1 text-[11px] font-medium text-muted"
+          title={reference}
+        >
+          chunk {reference}
+        </span>
+      ))}
     </div>
   );
 }
@@ -838,6 +879,7 @@ export default function ChatsPage() {
       activeConversationId,
       // 仅在确无数据且仍在拉取时显示加载态；有缓存/已加载数据时后台静默刷新
       loadingConversations: loadingHistory && conversations.length === 0,
+      onBeginNewConversation: beginNewConversation,
       onDeleteConversation: handleDeleteConversation,
     };
     publishChatWorkspace(snapshot);
@@ -846,7 +888,14 @@ export default function ChatsPage() {
     // 旧实例卸载的清理会把新实例刚发布的快照清空，导致侧栏一直转圈。
     // 侧栏面板仅在对话路由显示，离开时本就不渲染，保留上次快照无害（且避免闪烁），
     // 登出时由 ChatWorkspaceProvider 卸载兜底清理。
-  }, [publishChatWorkspace, conversations, activeConversationId, loadingHistory, handleDeleteConversation]);
+  }, [
+    publishChatWorkspace,
+    conversations,
+    activeConversationId,
+    loadingHistory,
+    beginNewConversation,
+    handleDeleteConversation,
+  ]);
 
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
@@ -857,9 +906,6 @@ export default function ChatsPage() {
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <HeaderButton icon={Plus} onClick={beginNewConversation}>
-            新建对话
-          </HeaderButton>
           <HeaderButton active={filesPanelOpen} icon={Files} onClick={() => setFilesPanelOpen((open) => !open)}>
             文件 {files.length}
           </HeaderButton>
@@ -1070,6 +1116,7 @@ export default function ChatsPage() {
                         <Sparkles size={15} className="text-primary" />
                       </div>
                       <div className="min-w-0 flex-1 pt-0.5">
+                        <MessageStatusNotice status={message.status} />
                         {message.recallChunks && message.recallChunks.length > 0 && (
                           <InlineEvidenceAccordion chunks={message.recallChunks} />
                         )}
@@ -1083,6 +1130,7 @@ export default function ChatsPage() {
                             '[&_pre]:my-3 [&_blockquote]:my-3',
                           )}
                         />
+                        {!message.recallChunks && <ChunkReferenceList references={message.references} />}
                       </div>
                     </div>
                   ),
