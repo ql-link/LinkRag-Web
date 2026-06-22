@@ -81,7 +81,7 @@ export default function DemoHome() {
         {/* Featured KB — spans 2 columns, salmon top border, larger */}
         <button
           onClick={() => navigate(`/demo/chat/${featured.id}`)}
-          className="group w-full text-left mb-6 bg-bg-surface border border-border-default rounded-xl overflow-hidden hover:border-accent-default/30 hover:shadow-card transition-all duration-150"
+          className="group w-full text-left mb-6 bg-bg-surface border border-border-default rounded-xl overflow-hidden hover:border-accent-default/30 hover: transition-all duration-150"
         >
           <div className="h-1 bg-accent-default" />
           <div className="p-6 flex items-start gap-5">
@@ -123,7 +123,7 @@ export default function DemoHome() {
             <button
               key={kb.id}
               onClick={() => navigate(`/demo/chat/${kb.id}`)}
-              className="group text-left bg-bg-surface border border-border-default rounded-xl p-5 hover:border-accent-default/30 hover:shadow-card transition-all duration-150 flex flex-col"
+              className="group text-left bg-bg-surface border border-border-default rounded-xl p-5 hover:border-accent-default/30 hover: transition-all duration-150 flex flex-col"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-9 h-9 rounded-lg bg-bg-overlay flex items-center justify-center">

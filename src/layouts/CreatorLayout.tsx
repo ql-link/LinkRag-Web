@@ -38,8 +38,8 @@ export function CreatorLayout() {
     >
       <header
         className={cn(
-          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-4 backdrop-blur-md sm:h-16 sm:px-5',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
+          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-4  sm:h-16 sm:px-5',
+          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
         )}
       >
         <div className="flex items-center gap-6">
@@ -77,14 +77,14 @@ export function CreatorLayout() {
 
       <div
         className={cn(
-          'flex min-h-0 flex-1 overflow-hidden rounded-[24px] border shadow-sm',
+          'flex min-h-0 flex-1 overflow-hidden rounded-[24px] border ',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >
         <aside
           className={cn(
             'hidden w-60 shrink-0 flex-col border-r py-6 lg:flex',
-            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/50',
+            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-surface-card',
           )}
         >
           {menuItems.map((group, idx) => (

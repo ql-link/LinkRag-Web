@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router';
 import { Database, Home, MessageSquare, User } from 'lucide-react';
 import { Routes as RoutePaths } from '@/routes';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/contexts/ThemeContext';
 
 type MobileTabItem = {
   path: string;
@@ -30,18 +29,12 @@ function isTabActive(pathname: string, item: MobileTabItem) {
 }
 
 export function MobileNav() {
-  const { darkMode } = useTheme();
   const { pathname } = useLocation();
   const bottomBarStyle: CSSProperties = { paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' };
 
   return (
     <nav
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t px-2 pt-2 lg:hidden',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#1e1e1e]/95 backdrop-blur-md'
-          : 'border-border-subtle bg-white/95 backdrop-blur-md',
-      )}
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-border-subtle bg-canvas/95 px-2 pt-2  lg:hidden"
       style={bottomBarStyle}
     >
       {mobileTabItems.map((item) => {
@@ -52,17 +45,11 @@ export function MobileNav() {
             key={item.path}
             to={item.path}
             className={cn(
-              'flex flex-col items-center justify-center rounded-xl py-2 text-[10px] font-bold uppercase tracking-wider transition-colors',
-              active
-                ? darkMode
-                  ? 'bg-[#2d2d2d] text-[#f0f0f0]'
-                  : 'bg-primary/10 text-primary'
-                : darkMode
-                  ? 'text-[#858585]'
-                  : 'text-text-main/55',
+              'flex flex-col items-center justify-center rounded-lg py-2 text-[11px] font-medium transition-colors',
+              active ? 'bg-primary/10 text-primary' : 'text-text-tertiary',
             )}
           >
-            <Icon size={16} />
+            <Icon size={18} />
             <span className="mt-1">{item.label}</span>
           </Link>
         );

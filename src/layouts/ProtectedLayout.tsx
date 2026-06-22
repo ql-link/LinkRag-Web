@@ -1,13 +1,12 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
-import { Group, Panel } from 'react-resizable-panels';
 import { AnimatePresence, motion } from 'motion/react';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ChatWorkspaceContext, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
+import { clearConversationsCache } from '@/lib/conversationsCache';
 import { Routes as RoutePaths } from '@/routes';
-import { cn } from '@/lib/utils';
-import { useTheme } from '@/contexts/ThemeContext';
 import { MobileNav } from './MobileNav';
 
 // Lazy-loaded page components for code splitting
@@ -25,9 +24,8 @@ const ProfilePage = lazy(() => import('@/pages/settings/profile'));
 const AdminPage = lazy(() => import('@/pages/settings/admin'));
 
 function PageLoader() {
-  const { darkMode } = useTheme();
   return (
-    <div className={cn('flex h-full items-center justify-center', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+    <div className="flex h-full items-center justify-center text-text-tertiary">
       <span className="text-xs uppercase tracking-[0.2em]">加载中...</span>
     </div>
   );
@@ -47,15 +45,10 @@ function getPageTitle(pathname: string) {
 }
 
 const pageMotion = {
-  initial: { opacity: 0, y: 14, scale: 0.997 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -10, scale: 0.997 },
-  transition: {
-    type: 'spring',
-    stiffness: 260,
-    damping: 30,
-    mass: 0.8,
-  } as const,
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+  transition: { duration: 0.22, ease: 'easeOut' } as const,
 };
 
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
@@ -82,119 +75,87 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
   );
 }
 
+function ChatWorkspaceProvider({ children }: { children: ReactNode }) {
+  const [snapshot, setSnapshot] = useState<ChatWorkspaceSnapshot | null>(null);
+  const value = useMemo(() => ({ snapshot, publish: setSnapshot }), [snapshot]);
+  // 登录态结束（本 Provider 仅在已登录的 ProtectedLayout 内渲染）时清空会话缓存，避免跨用户串号。
+  useEffect(() => () => clearConversationsCache(), []);
+  return <ChatWorkspaceContext.Provider value={value}>{children}</ChatWorkspaceContext.Provider>;
+}
+
 export function ProtectedLayout() {
   const location = useLocation();
-  const { darkMode, toggleTheme } = useTheme();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const pageTitle = getPageTitle(location.pathname);
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 1024);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
   return (
-    <div
-      className={cn(
-        'relative flex h-screen min-h-0 flex-col gap-2 overflow-hidden p-2 font-sans lg:flex-row lg:gap-4 lg:p-4',
-        darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
-      )}
-    >
-      {/* Mobile Header */}
-      <header
-        className={cn(
-          'flex h-14 shrink-0 items-center justify-between rounded-2xl border px-3 backdrop-blur-md lg:hidden',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
-        )}
-      >
-        <button
-          onClick={() => setMobileSidebarOpen(true)}
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg',
-            darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main/70 hover:bg-primary/5',
-          )}
-          aria-label="打开导航栏"
-        >
-          <Menu size={18} />
-        </button>
-        <p className={cn('text-sm font-semibold tracking-wide', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-          {pageTitle}
-        </p>
-        <button
-          onClick={toggleTheme}
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-bold uppercase tracking-wider',
-            darkMode
-              ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
-              : 'text-text-main/50 hover:bg-primary/5 hover:text-primary',
-          )}
-          aria-label="切换主题"
-        >
-          {darkMode ? '浅' : '深'}
-        </button>
-      </header>
+    <ChatWorkspaceProvider>
+      <div className="relative flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base font-sans text-text-main lg:flex-row">
+        {/* Mobile Header */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-3 lg:hidden">
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-primary/8"
+            aria-label="打开导航栏"
+          >
+            <Menu size={18} />
+          </button>
+          <p className="text-sm font-medium tracking-wide text-text-main">{pageTitle}</p>
+          <span className="h-9 w-9" aria-hidden />
+        </header>
 
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {mobileSidebarOpen && (
-          <>
-            <motion.button
-              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileSidebarOpen(false)}
-              aria-label="关闭导航遮罩"
-            />
-            <motion.div
-              className="fixed inset-y-0 left-0 z-50 w-[min(84vw,320px)] p-3 lg:hidden"
-              initial={{ x: -28, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -28, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-            >
-              <div className="absolute right-5 top-5 z-10">
-                <button
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-lg',
-                    darkMode ? 'bg-[#2d2d2d] text-[#cccccc]' : 'bg-white/90 text-text-main/70',
-                  )}
-                  aria-label="关闭导航栏"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <Sidebar
-                onNavigate={() => setMobileSidebarOpen(false)}
-                allowCollapse={false}
-                className="h-full w-full rounded-2xl"
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <>
+              <motion.button
+                className="fixed inset-0 z-40 bg-ink/30 lg:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileSidebarOpen(false)}
+                aria-label="关闭导航遮罩"
               />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <motion.div
+                className="fixed inset-y-0 left-0 z-50 w-[min(82vw,300px)] lg:hidden"
+                initial={{ x: -24, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -24, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+              >
+                <div className="absolute right-3 top-4 z-10">
+                  <button
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-card text-text-secondary"
+                    aria-label="关闭导航栏"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                <Sidebar
+                  onNavigate={() => setMobileSidebarOpen(false)}
+                  allowCollapse={false}
+                  className="h-full w-full"
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
-      {/* Desktop Sidebar */}
-      <Sidebar className="hidden lg:flex" />
+        {/* Desktop Sidebar */}
+        <Sidebar className="hidden lg:flex" />
 
-      {/* Main Content */}
-      {isMobile ? (
-        <main className="flex-1 min-h-0 overflow-hidden rounded-2xl">
+        {/* Main Content — sits directly on the canvas, no floating card */}
+        <main className="min-h-0 flex-1 overflow-hidden">
           <ErrorBoundary>
             <AnimatePresence mode="sync" initial={false}>
               <motion.div
                 key={`${location.pathname}${location.search}`}
-                className={cn(
-                  'h-full min-w-0 overflow-hidden rounded-2xl border shadow-sm',
-                  darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-                )}
+                className="h-full min-w-0 overflow-hidden"
                 initial={pageMotion.initial}
                 animate={pageMotion.animate}
                 exit={pageMotion.exit}
@@ -205,32 +166,10 @@ export function ProtectedLayout() {
             </AnimatePresence>
           </ErrorBoundary>
         </main>
-      ) : (
-        <Group orientation="horizontal" className="flex-1 min-w-0">
-          <Panel defaultSize={100} minSize={50}>
-            <ErrorBoundary>
-              <AnimatePresence mode="sync" initial={false}>
-                <motion.div
-                  key={`${location.pathname}${location.search}`}
-                  className={cn(
-                    'h-full min-w-0 overflow-hidden rounded-[24px] border shadow-sm',
-                    darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-                  )}
-                  initial={pageMotion.initial}
-                  animate={pageMotion.animate}
-                  exit={pageMotion.exit}
-                  transition={pageMotion.transition}
-                >
-                  <AppRoutesContent location={location} />
-                </motion.div>
-              </AnimatePresence>
-            </ErrorBoundary>
-          </Panel>
-        </Group>
-      )}
 
-      {/* Mobile Bottom Nav */}
-      <MobileNav />
-    </div>
+        {/* Mobile Bottom Nav */}
+        <MobileNav />
+      </div>
+    </ChatWorkspaceProvider>
   );
 }

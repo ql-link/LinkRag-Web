@@ -398,7 +398,7 @@ export default function AdminModelsPage() {
               'mb-5 rounded-2xl border px-4 py-3 text-xs leading-6',
               darkMode
                 ? 'border-[#3c3c3c] bg-[#252526]/62 text-[#a8a8a8]'
-                : 'border-border-subtle bg-white/55 text-text-main/60',
+                : 'border-border-subtle bg-surface-card text-text-main/60',
             )}
           >
             <span className={cn('font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>厂商</span>
@@ -587,7 +587,7 @@ function MetricCard({
     <div
       className={cn(
         'rounded-2xl border px-4 py-3',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-white/55',
+        darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-surface-card',
       )}
     >
       <p className={cn('text-[11px] font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>{label}</p>
@@ -639,7 +639,7 @@ function SmallBadge({ darkMode, children }: { darkMode: boolean; children: React
     <span
       className={cn(
         'inline-flex rounded-lg border px-2 py-0.5 text-[10px] font-bold',
-        darkMode ? 'border-[#3c3c3c] text-[#cccccc]' : 'border-border-subtle bg-white/60 text-text-main/65',
+        darkMode ? 'border-[#3c3c3c] text-[#cccccc]' : 'border-border-subtle bg-surface-card text-text-main/65',
       )}
     >
       {children}
@@ -705,7 +705,7 @@ function ProviderTable({
             'rounded-2xl border p-4 transition-colors',
             darkMode
               ? 'border-[#3c3c3c] bg-[#252526]/62 hover:bg-[#2d2d2d]/65'
-              : 'border-border-subtle bg-white/55 hover:bg-white/80',
+              : 'border-border-subtle bg-surface-card hover:bg-surface-card',
           )}
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -827,7 +827,7 @@ function ModelTable({
             key={providerId}
             className={cn(
               'overflow-hidden rounded-2xl border',
-              darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-white/55',
+              darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-surface-card',
             )}
           >
             <button
@@ -835,7 +835,7 @@ function ModelTable({
               onClick={() => toggleProvider(providerId)}
               className={cn(
                 'flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors',
-                darkMode ? 'hover:bg-[#2d2d2d]/65' : 'hover:bg-white/70',
+                darkMode ? 'hover:bg-[#2d2d2d]/65' : 'hover:bg-surface-card',
               )}
             >
               <span className="flex min-w-0 items-center gap-3">
@@ -886,7 +886,7 @@ function ModelTable({
                       'flex flex-col gap-4 border-b px-4 py-4 last:border-b-0 xl:flex-row xl:items-start xl:justify-between',
                       darkMode
                         ? 'border-[#3c3c3c]/70 hover:bg-[#2d2d2d]/45'
-                        : 'border-border-subtle/70 hover:bg-white/70',
+                        : 'border-border-subtle/70 hover:bg-surface-card',
                     )}
                   >
                     <div className="min-w-0 xl:pl-[52px]">
@@ -966,7 +966,7 @@ function PresetTable({
               'rounded-2xl border p-4 transition-colors',
               darkMode
                 ? 'border-[#3c3c3c] bg-[#252526]/62 hover:bg-[#2d2d2d]/65'
-                : 'border-border-subtle bg-white/55 hover:bg-white/80',
+                : 'border-border-subtle bg-surface-card hover:bg-surface-card',
             )}
           >
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1042,10 +1042,10 @@ function DialogShell({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <button className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-label="关闭弹窗" />
+      <button className="absolute inset-0 bg-black/50 " onClick={onClose} aria-label="关闭弹窗" />
       <section
         className={cn(
-          'relative max-h-[90vh] w-full max-w-[560px] overflow-hidden rounded-2xl border shadow-2xl',
+          'relative max-h-[90vh] w-full max-w-[560px] overflow-hidden rounded-2xl border ',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >

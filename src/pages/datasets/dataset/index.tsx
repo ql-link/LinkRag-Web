@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { AlertCircle, FileText, Loader2, MessageSquare, RefreshCw, Settings, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, RefreshCw, Settings, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { Routes } from '@/routes';
 import { useToast } from '@/contexts/ToastContext';
 import {
@@ -13,13 +14,11 @@ import {
   getKnowledgeFiles,
   uploadKnowledgeFile,
 } from '@/services/dataset';
-import { getConversations } from '@/services/chat';
+import { deleteConversation, getConversations } from '@/services/chat';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useParseResultPolling } from '@/hooks/useParseResultPolling';
 import {
   KNOWLEDGE_FILE_ACCEPT,
-  KNOWLEDGE_FILE_HINT,
   KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
@@ -37,34 +36,71 @@ function formatTime(value: string) {
   return Number.isNaN(time.getTime()) ? value : time.toLocaleString('zh-CN');
 }
 
-function getFileStatusLabel(file: KnowledgeFileDTO) {
-  if (file.frontendStatus === 'upload_failed' || file.failureReason) {
-    return '上传失败';
-  }
-  if (file.frontendStatus === 'parse_waiting') return '待解析';
-  if (file.frontendStatus === 'parsing') return '解析中';
-  if (file.frontendStatus === 'parse_success') return '解析完成';
-  if (file.frontendStatus === 'parse_failed') return '解析失败';
-  if (file.parseStatus) {
-    return file.parseStatus;
-  }
-  if (file.uploadStatus === 'UPLOAD_SUCCESS') return '上传成功';
-  if (file.uploadStatus === 'UPLOAD_FAILED') return '上传失败';
-  return '上传中';
+function normalizeFilename(value: string) {
+  return value.trim().toLowerCase();
 }
 
-function getFileStatusTone(file: KnowledgeFileDTO) {
+type FileStatusVariant = 'empty' | 'queued' | 'parsing' | 'done' | 'failed';
+
+const fileStatusMeta: Record<FileStatusVariant, { label: string; className: string; dotClassName: string }> = {
+  empty: {
+    label: '未上传',
+    className: 'border-[#8e8b8238] bg-[#8e8b8218] text-[#6b6860]',
+    dotClassName: 'bg-[#a8a49a]',
+  },
+  queued: {
+    label: '排队中',
+    className: 'border-[#5b7fb840] bg-[#5b7fb81f] text-[#3f5c8c]',
+    dotClassName: 'bg-[#5b7fb8]',
+  },
+  parsing: {
+    label: '解析中',
+    className: 'border-[#d4901f45] bg-[#e8a55a24] text-[#9a6b18]',
+    dotClassName: 'animate-pulse bg-[#d4901f]',
+  },
+  done: {
+    label: '已完成',
+    className: 'border-[#5db87240] bg-[#5db8721f] text-[#3f8a55]',
+    dotClassName: 'bg-[#5db872]',
+  },
+  failed: {
+    label: '失败',
+    className: 'border-[#c6454540] bg-[#c645451c] text-[#a83838]',
+    dotClassName: 'bg-[#c64545]',
+  },
+};
+
+function getFileStatusVariant(file: KnowledgeFileDTO): FileStatusVariant {
   if (
     file.frontendStatus === 'upload_failed' ||
     file.frontendStatus === 'parse_failed' ||
     file.failureReason ||
     file.parseFailureReason
   ) {
-    return 'text-red-500';
+    return 'failed';
   }
-  if (file.frontendStatus === 'parsing') return 'text-blue-500';
-  if (file.frontendStatus === 'parse_success') return 'text-emerald-500';
-  return '';
+  if (file.frontendStatus === 'parsing') return 'parsing';
+  if (file.frontendStatus === 'parse_success') return 'done';
+  if (file.frontendStatus === 'parse_waiting' || file.uploadStatus === 'UPLOAD_SUCCESS' || file.parseStatus) {
+    return 'queued';
+  }
+  if (file.uploadStatus === 'UPLOAD_FAILED') return 'failed';
+  return 'empty';
+}
+
+function FileStatusPill({ file }: { file: KnowledgeFileDTO }) {
+  const meta = fileStatusMeta[getFileStatusVariant(file)];
+  return (
+    <span
+      className={cn(
+        'inline-flex h-7 w-[92px] shrink-0 items-center gap-[7px] rounded-full border px-3.5 text-[13px] font-semibold leading-none transition-transform duration-200 ease-out',
+        meta.className,
+      )}
+    >
+      <span className={cn('h-2 w-2 shrink-0 rounded-full', meta.dotClassName)} />
+      {meta.label}
+    </span>
+  );
 }
 
 function canSubmitParse(file: KnowledgeFileDTO) {
@@ -77,11 +113,9 @@ function canSubmitParse(file: KnowledgeFileDTO) {
 }
 
 function ParseAfterUploadSwitch({
-  darkMode,
   checked,
   onToggle,
 }: {
-  darkMode?: boolean;
   checked: boolean;
   onToggle: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
@@ -94,36 +128,23 @@ function ParseAfterUploadSwitch({
       <span
         className={cn(
           'relative h-5 w-9 rounded-full border transition-colors',
-          checked
-            ? darkMode
-              ? 'border-[#3b82f6]/45 bg-[#3b82f6]/18'
-              : 'border-primary/35 bg-primary/18'
-            : darkMode
-              ? 'border-[#3c3c3c] bg-[#2d2d2d]'
-              : 'border-border-subtle bg-bg-base',
+          checked ? 'border-primary/40 bg-primary/10' : 'border-hairline bg-surface-soft',
         )}
       >
         <span
           className={cn(
             'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
             checked ? 'translate-x-4' : 'translate-x-0',
-            checked ? (darkMode ? 'bg-[#3b82f6]' : 'bg-primary') : darkMode ? 'bg-[#858585]' : 'bg-text-main/35',
+            checked ? 'bg-primary' : 'bg-muted',
           )}
         />
       </span>
-      <span
-        className={cn(
-          checked ? (darkMode ? 'text-[#3b82f6]' : 'text-primary') : darkMode ? 'text-[#cccccc]' : 'text-text-main/70',
-        )}
-      >
-        上传后立即解析
-      </span>
+      <span className={cn(checked ? 'text-primary' : 'text-text-secondary')}>上传后立即解析</span>
     </button>
   );
 }
 
 export default function DatasetPage() {
-  const { darkMode } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -139,8 +160,10 @@ export default function DatasetPage() {
     searchParams.get('tab') === 'conversations' ? 'conversations' : 'files',
   );
   const [uploading, setUploading] = useState(false);
+  const [choosingFiles, setChoosingFiles] = useState(false);
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
+  const [deletingConversationIds, setDeletingConversationIds] = useState<number[]>([]);
   const [submittingParseFileIds, setSubmittingParseFileIds] = useState<number[]>([]);
   const { addPollingFiles, removePollingFiles } = useParseResultPolling({
     datasetId: dataset?.id ?? null,
@@ -200,23 +223,72 @@ export default function DatasetPage() {
     }
   }, [id, loadDataset]);
 
+  useEffect(() => {
+    if (!choosingFiles) return;
+
+    function handleWindowFocus() {
+      window.setTimeout(() => setChoosingFiles(false), 180);
+    }
+
+    window.addEventListener('focus', handleWindowFocus, { once: true });
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [choosingFiles]);
+
+  function openFilePicker() {
+    if (uploading) return;
+    if (!fileInputRef.current) return;
+    setChoosingFiles(true);
+    fileInputRef.current?.click();
+  }
+
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const selectedFiles = Array.from(event.target.files ?? []);
     event.target.value = '';
-    if (!file || !dataset) {
+    setChoosingFiles(false);
+    if (selectedFiles.length === 0 || !dataset) {
       return;
     }
-    if (!isSupportedKnowledgeFile(file)) {
+    if (selectedFiles.some((file) => !isSupportedKnowledgeFile(file))) {
       addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      return;
+    }
+
+    const existingFilenames = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
+    const incomingFilenames = new Set<string>();
+    const uploadableFiles = selectedFiles.filter((file) => {
+      const filename = normalizeFilename(file.name);
+      if (existingFilenames.has(filename) || incomingFilenames.has(filename)) {
+        return false;
+      }
+      incomingFilenames.add(filename);
+      return true;
+    });
+    const skippedCount = selectedFiles.length - uploadableFiles.length;
+
+    if (uploadableFiles.length === 0) {
+      addToast('error', '选择的文件已存在，无需重复上传');
       return;
     }
 
     setUploading(true);
     try {
       const shouldPollParse = parseAfterUpload;
-      const uploaded = await uploadKnowledgeFile(dataset.id, file, parseAfterUpload);
-      addToast('success', parseAfterUpload ? '文件已上传，解析任务已提交' : '文件已上传');
-      await pollUntilUploadSettled(uploaded.id, dataset.id, shouldPollParse);
+      const uploadedFiles = [];
+      for (const file of uploadableFiles) {
+        uploadedFiles.push(await uploadKnowledgeFile(dataset.id, file, parseAfterUpload));
+      }
+      addToast(
+        'success',
+        [
+          parseAfterUpload
+            ? `${uploadableFiles.length} 个文件已上传，解析任务已提交`
+            : `${uploadableFiles.length} 个文件已上传`,
+          skippedCount > 0 ? `已跳过 ${skippedCount} 个重复文件` : '',
+        ]
+          .filter(Boolean)
+          .join('，'),
+      );
+      await Promise.all(uploadedFiles.map((file) => pollUntilUploadSettled(file.id, dataset.id, shouldPollParse)));
     } catch (error) {
       console.error('Failed to upload knowledge file:', error);
     } finally {
@@ -278,6 +350,21 @@ export default function DatasetPage() {
     }
   }
 
+  async function handleDeleteConversation(conversationId: number) {
+    if (!confirm('确定删除这个对话吗？')) return;
+    setDeletingConversationIds((prev) => [...prev, conversationId]);
+    try {
+      await deleteConversation(conversationId);
+      setConversations((prev) => prev.filter((item) => item.id !== conversationId));
+      addToast('success', '对话已删除');
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+      addToast('error', '对话删除失败，请稍后重试');
+    } finally {
+      setDeletingConversationIds((prev) => prev.filter((item) => item !== conversationId));
+    }
+  }
+
   async function handleParseFile(fileId: number) {
     setSubmittingParseFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     try {
@@ -302,8 +389,8 @@ export default function DatasetPage() {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="flex flex-col items-center">
-          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
-          <div className={cn('mono-label', darkMode ? 'text-[#858585]' : '')}>加载中...</div>
+          <Loader2 size={24} className="mb-3 animate-spin text-ink" />
+          <div className="mono-label text-muted">加载中...</div>
         </div>
       </div>
     );
@@ -312,17 +399,12 @@ export default function DatasetPage() {
   if (!dataset) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
-        <AlertCircle size={30} className="mb-3 text-red-500" />
-        <p className={cn('text-lg mb-2', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>数据集不可用</p>
-        <p className={cn('text-sm mb-4', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-          {errorMessage || '数据集不存在或无权访问'}
-        </p>
+        <AlertCircle size={30} className="mb-3 text-error" />
+        <p className="text-lg mb-2 text-ink">数据集不可用</p>
+        <p className="text-sm mb-4 text-muted">{errorMessage || '数据集不存在或无权访问'}</p>
         <button
           onClick={() => navigate(Routes.Datasets)}
-          className={cn(
-            'px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider',
-            darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-          )}
+          className="px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
         >
           返回数据集列表
         </button>
@@ -332,12 +414,7 @@ export default function DatasetPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header
-        className={cn(
-          'flex h-16 shrink-0 items-center justify-between border-b px-8 backdrop-blur-md',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
-        )}
-      >
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-8">
         <div className="min-w-0">
           <Breadcrumb
             items={[
@@ -345,40 +422,40 @@ export default function DatasetPage() {
               { label: '知识库', path: Routes.Datasets },
               { label: dataset.name },
             ]}
-            darkMode={darkMode}
           />
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg px-4 text-xs font-bold transition-opacity hover:opacity-90',
-              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-            )}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary-active hover:shadow-sm active:translate-y-0 active:scale-[0.98]"
           >
-            <Settings size={14} className="text-[#4F7FA8]" />
+            <Settings size={14} />
             解析配置
           </button>
           <button
-            onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
-                : 'border-border-subtle bg-white text-text-main hover:border-[#1f1f1f]',
-            )}
+            onClick={openFilePicker}
+            disabled={uploading || choosingFiles}
+            className="group inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none"
           >
-            <MessageSquare size={14} className="text-[#7B6B5D]" />
+            {uploading || choosingFiles ? (
+              <Loader2 size={14} className="animate-spin text-muted" />
+            ) : (
+              <Upload size={14} className="text-muted transition-transform duration-200 group-hover:scale-105" />
+            )}
+            {uploading ? '上传中' : choosingFiles ? '选择中' : '上传文件'}
+          </button>
+          <button
+            onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98]"
+          >
+            <MessageSquare size={14} className="text-muted" />
             新建对话
           </button>
           <button
             onClick={() => void loadDataset(true)}
             disabled={refreshing}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
-                : 'border-border-subtle bg-white text-text-main hover:bg-gray-100',
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none',
               refreshing && 'opacity-60',
             )}
             title="刷新知识库"
@@ -389,6 +466,7 @@ export default function DatasetPage() {
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept={KNOWLEDGE_FILE_ACCEPT}
             className="hidden"
             onChange={handleUpload}
@@ -396,86 +474,47 @@ export default function DatasetPage() {
         </div>
       </header>
 
-      <main className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
-        <section
-          className={cn(
-            'overflow-hidden rounded-[18px] border shadow-sm',
-            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/55',
-          )}
-        >
-          <div
-            className={cn(
-              'flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between',
-              darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-            )}
-          >
+      <main className="flex-1 overflow-y-auto p-8 bg-canvas">
+        <section className="overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+          <div className="flex flex-col gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               {[
                 { key: 'files' as const, label: '知识文件', count: files.length },
-                { key: 'conversations' as const, label: '关联对话', count: conversations.length },
+                { key: 'conversations' as const, label: '历史对话', count: conversations.length },
               ].map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
-                    'inline-flex h-9 items-center rounded-md px-3 text-xs font-semibold transition-colors',
+                    'relative inline-flex h-9 items-center overflow-hidden rounded-lg px-3 text-xs font-semibold transition-all duration-200 ease-out active:scale-[0.98]',
                     activeTab === tab.key
-                      ? darkMode
-                        ? 'bg-[#8A7662] text-white'
-                        : 'bg-[#7B6B5D] text-white'
-                      : darkMode
-                        ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
-                        : 'text-text-main/55 hover:bg-bg-base hover:text-text-main',
+                      ? 'bg-primary/10 text-ink shadow-[inset_0_0_0_1px_rgba(212,163,115,0.12)]'
+                      : 'text-muted hover:-translate-y-0.5 hover:bg-surface-soft hover:text-ink',
                   )}
                 >
-                  {tab.label}
-                  <span className="ml-1.5 opacity-70">{tab.count}</span>
+                  <span className="relative z-10">{tab.label}</span>
+                  <span className="relative z-10 ml-1.5 opacity-70">{tab.count}</span>
                 </button>
               ))}
             </div>
+            {activeTab === 'files' && (
+              <ParseAfterUploadSwitch
+                checked={parseAfterUpload}
+                onToggle={(event) => {
+                  event.stopPropagation();
+                  setParseAfterUpload((prev) => !prev);
+                }}
+              />
+            )}
           </div>
 
           <div className="p-5">
             {activeTab === 'files' ? (
-              <div className="space-y-3">
-                <div
-                  onClick={() => {
-                    if (!uploading) {
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                  className={cn(
-                    'flex cursor-pointer flex-col gap-3 rounded-[14px] border border-dashed px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between',
-                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/45' : 'border-border-subtle bg-bg-base/45',
-                    uploading && 'cursor-wait opacity-70',
-                  )}
-                >
-                  <div className="min-w-0">
-                    <p className={cn('text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                      文件上传
-                    </p>
-                    <p className={cn('mono-label mt-1 truncate', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                      {KNOWLEDGE_FILE_HINT}
-                    </p>
-                  </div>
-                  <ParseAfterUploadSwitch
-                    darkMode={darkMode}
-                    checked={parseAfterUpload}
-                    onToggle={(event) => {
-                      event.stopPropagation();
-                      setParseAfterUpload((prev) => !prev);
-                    }}
-                  />
-                </div>
+              <div key="files" className="space-y-3 [animation:datasetTabIn_240ms_ease-out]">
                 {files.length === 0 ? (
-                  <div
-                    className={cn(
-                      'rounded-[14px] border border-dashed px-5 py-10 text-center text-sm',
-                      darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
-                    )}
-                  >
-                    暂无知识文件
+                  <div className="rounded-xl border border-dashed border-hairline px-5 py-10 text-center text-sm text-muted transition-colors duration-200 hover:border-primary/25 hover:bg-surface-soft/60">
+                    暂无知识文件，点击顶部上传文件添加内容。
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -484,61 +523,40 @@ export default function DatasetPage() {
                       const parseInProgress = file.frontendStatus === 'parsing';
                       const deleting = deletingFileIds.includes(file.id);
                       const canParse = canSubmitParse(file);
-                      const statusTone = getFileStatusTone(file);
 
                       return (
                         <div
                           key={file.id}
-                          className={cn(
-                            'flex items-center justify-between gap-4 rounded-[14px] border px-4 py-3 transition-colors',
-                            darkMode
-                              ? 'border-[#3c3c3c] bg-[#1f1f1f] hover:border-[#4a4a4a]'
-                              : 'border-border-subtle bg-white hover:border-[#1f1f1f]',
-                          )}
+                          className="group/file flex items-center justify-between gap-4 rounded-xl px-3 py-3 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface-soft/70"
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <FileText size={17} className="text-[#5E9B73]" />
+                            <KnowledgeFileIcon suffix={file.fileSuffix} />
                             <div className="min-w-0">
-                              <p className={cn('truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : '')}>
-                                {file.originalFilename}
-                              </p>
-                              <p
-                                className={cn(
-                                  'mono-label mt-1 text-[10px]',
-                                  darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                                )}
-                              >
+                              <p className="truncate text-sm font-semibold text-ink">{file.originalFilename}</p>
+                              <p className="mono-label mt-1 text-[10px] text-muted">
                                 {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} · 上传于{' '}
                                 {formatTime(file.createdAt)}
                               </p>
                               {(file.failureReason || file.parseFailureReason) && (
-                                <p className="mt-1 text-xs text-red-500">
+                                <p className="mt-1 text-xs text-error">
                                   {file.failureReason || file.parseFailureReason}
                                 </p>
                               )}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
-                            <span className={cn('mono-label text-[10px]', statusTone)}>{getFileStatusLabel(file)}</span>
+                            <FileStatusPill file={file} />
                             <button
                               onClick={() => void handleParseFile(file.id)}
                               disabled={!canParse || parseSubmitting || parseInProgress}
-                              className={cn(
-                                'inline-flex h-8 items-center rounded-md px-3 text-xs font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
-                                darkMode ? 'bg-[#8A7662] text-white' : 'bg-[#7B6B5D] text-white',
-                              )}
+                              className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-all duration-200 ease-out hover:bg-primary-active hover:shadow-sm active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none"
                             >
                               {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
                             </button>
                             <button
                               onClick={() => void handleDeleteFile(file.id)}
                               disabled={deleting}
-                              className={cn(
-                                'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                                darkMode
-                                  ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-red-400'
-                                  : 'text-text-main/45 hover:bg-red-50 hover:text-red-500',
-                              )}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
                             </button>
@@ -550,53 +568,52 @@ export default function DatasetPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div key="conversations" className="space-y-2 [animation:datasetTabIn_240ms_ease-out]">
                 {conversations.length === 0 ? (
-                  <div
-                    className={cn(
-                      'rounded-[14px] border border-dashed px-5 py-10 text-center text-sm',
-                      darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
-                    )}
-                  >
-                    暂无关联对话，可从当前知识库新建对话。
+                  <div className="rounded-xl border border-dashed border-hairline px-5 py-10 text-center text-sm text-muted transition-colors duration-200 hover:border-primary/25 hover:bg-surface-soft/60">
+                    暂无历史对话，可点击顶部新建对话。
                   </div>
                 ) : (
-                  conversations.map((conversation) => (
-                    <div
-                      key={conversation.id}
-                      onClick={() => navigate(`/chats/${conversation.id}`)}
-                      className={cn(
-                        'flex cursor-pointer items-center justify-between gap-4 rounded-[14px] border px-4 py-3 transition-colors',
-                        darkMode
-                          ? 'border-[#3c3c3c] bg-[#1f1f1f] hover:border-[#4a4a4a]'
-                          : 'border-border-subtle bg-white hover:border-[#1f1f1f]',
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <p className={cn('truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : '')}>
-                          {conversation.title}
-                        </p>
-                        <p
-                          className={cn(
-                            'mono-label mt-1 text-[10px]',
-                            darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                  conversations.map((conversation) => {
+                    const deleting = deletingConversationIds.includes(conversation.id);
+
+                    return (
+                      <div
+                        key={conversation.id}
+                        onClick={() => navigate(`/chats/${conversation.id}`)}
+                        className="group/conversation flex cursor-pointer items-center justify-between gap-4 rounded-xl px-3 py-3.5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface-soft/70 active:translate-y-0 active:scale-[0.995]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-bold leading-5 text-ink">
+                            {(conversation.title ?? '新对话').trim() || '新对话'}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-4 text-muted-soft">
+                            更新于 {formatTime(conversation.updatedAt)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 opacity-75 transition-opacity duration-200 group-hover/conversation:opacity-100">
+                          {conversation.isPinned && (
+                            <span className="rounded-lg bg-surface-soft px-2 py-1 text-[10px] font-semibold text-text-secondary">
+                              已置顶
+                            </span>
                           )}
-                        >
-                          更新于 {formatTime(conversation.updatedAt)}
-                        </p>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDeleteConversation(conversation.id);
+                            }}
+                            disabled={deleting}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="删除对话"
+                            title="删除对话"
+                          >
+                            {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                          </button>
+                        </div>
                       </div>
-                      {conversation.isPinned && (
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-md px-2 py-1 text-[10px] font-semibold',
-                            darkMode ? 'bg-[#2d2d2d] text-[#cccccc]' : 'bg-bg-base text-text-main/60',
-                          )}
-                        >
-                          已置顶
-                        </span>
-                      )}
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}

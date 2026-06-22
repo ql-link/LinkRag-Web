@@ -19,10 +19,8 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
 import { useToast } from '@/contexts/ToastContext';
 import type { DatasetDTO } from '@/types/api';
-import { useTheme } from '@/contexts/ThemeContext';
 
 export default function DatasetsPage() {
-  const { darkMode } = useTheme();
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [searchString, setSearchString] = useState('');
@@ -162,49 +160,31 @@ export default function DatasetsPage() {
   const sortLabel = sortBy === 'createdAt' ? '按创建时间排序' : '按更新时间排序';
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-canvas text-text-main">
       {/* Header */}
-      <header
-        className={cn(
-          'h-16 px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
-        )}
-      >
+      <header className="h-16 px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
         <div>
-          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '知识库' }]} darkMode={darkMode} />
+          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '知识库' }]} />
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4F7FA8]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="text"
               placeholder="搜索知识库..."
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
-              className={cn(
-                'h-9 w-48 rounded-lg border pl-9 pr-4 text-xs focus:outline-none focus:border-[#7B6B5D]',
-                darkMode
-                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                  : 'bg-bg-base/50 border-border-subtle',
-              )}
+              className="h-9 w-48 rounded-lg border border-hairline bg-canvas pl-9 pr-4 text-xs text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
             />
           </div>
-          <div
-            className={cn(
-              'flex h-9 items-center gap-2 rounded-lg border px-3',
-              darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-bg-base/50 border-border-subtle',
-            )}
-          >
+          <div className="flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3">
             <button
               type="button"
               onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
-              className={cn(
-                'flex items-center gap-2 text-xs bg-transparent focus:outline-none',
-                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-              )}
+              className="flex items-center gap-2 text-xs text-text-secondary bg-transparent focus:outline-none"
               title="点击切换排序方式"
             >
-              <ArrowUpDown size={14} className={darkMode ? 'text-[#858585]' : 'text-text-main/40'} />
+              <ArrowUpDown size={14} className="text-muted" />
               <span>{sortLabel}</span>
             </button>
           </div>
@@ -212,10 +192,7 @@ export default function DatasetsPage() {
             onClick={() => void loadDatasets()}
             disabled={loading}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
-                : 'border-border-subtle bg-white text-text-main hover:bg-gray-100',
+              'inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed',
               loading && 'opacity-60',
             )}
             title="刷新知识库"
@@ -227,63 +204,40 @@ export default function DatasetsPage() {
       </header>
 
       {/* Content */}
-      <div className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+      <div className="flex-1 overflow-y-auto p-8">
         {/* Stats Bar */}
-        <div className={cn('flex items-center gap-6 mb-6 mono-label', darkMode ? 'text-[#858585]' : '')}>
+        <div className="flex items-center gap-6 mb-6 mono-label text-muted">
           <span>共 {datasets.length} 个知识库</span>
           {hasSearch && <span>筛选出 {filteredDatasets.length} 个</span>}
         </div>
 
         {showInitialLoading ? (
-          <div
-            className={cn(
-              'h-56 flex flex-col items-center justify-center rounded-2xl',
-              darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
-            )}
-          >
-            <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
-            <p className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>正在加载知识库</p>
+          <div className="h-56 flex flex-col items-center justify-center rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+            <Loader2 size={24} className="mb-3 animate-spin text-ink" />
+            <p className="mono-label text-muted">正在加载知识库</p>
           </div>
         ) : showBlockingError ? (
-          <div
-            className={cn(
-              'h-56 flex flex-col items-center justify-center rounded-2xl text-center',
-              darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
-            )}
-          >
-            <AlertCircle size={26} className="mb-3 text-red-500" />
-            <p className={cn('text-sm mb-4', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>{errorMessage}</p>
+          <div className="h-56 flex flex-col items-center justify-center rounded-2xl border border-hairline bg-bg-card-solid text-center (--)]">
+            <AlertCircle size={26} className="mb-3 text-error" />
+            <p className="text-sm mb-4 text-ink">{errorMessage}</p>
             <button
               onClick={() => void loadDatasets()}
-              className={cn(
-                'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
-                darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-              )}
+              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
             >
               重试
             </button>
           </div>
         ) : filteredDatasets.length === 0 ? (
-          <div
-            className={cn(
-              'h-56 flex flex-col items-center justify-center rounded-2xl text-center',
-              darkMode ? 'bg-[#2d2d2d] border border-[#3c3c3c]' : 'art-card',
-            )}
-          >
-            <Database size={30} className="mb-3 text-[#4F7FA8]" />
-            <p className={cn('text-sm font-bold mb-2', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              {hasSearch ? '没有匹配的知识库' : '还没有知识库'}
-            </p>
-            <p className={cn('text-sm mb-4', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+          <div className="h-56 flex flex-col items-center justify-center rounded-2xl border border-hairline bg-bg-card-solid text-center (--)]">
+            <Database size={30} className="mb-3 text-muted" />
+            <p className="text-sm font-bold mb-2 text-ink">{hasSearch ? '没有匹配的知识库' : '还没有知识库'}</p>
+            <p className="text-sm mb-4 text-muted">
               {hasSearch ? '换个关键词试试' : '新建一个知识库后，就可以上传文件并开始问答'}
             </p>
             {!hasSearch && (
               <button
                 onClick={() => setCreateDialogOpen(true)}
-                className={cn(
-                  'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider',
-                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-                )}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
               >
                 <Plus size={14} />
                 新建知识库
@@ -299,52 +253,30 @@ export default function DatasetsPage() {
                 <div
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
-                  className={cn(
-                    'rounded-2xl h-full p-4 transition-colors cursor-pointer group flex flex-col overflow-hidden',
-                    darkMode
-                      ? 'bg-[#2d2d2d] border border-[#3c3c3c] hover:border-[#3b82f6]'
-                      : 'art-card hover:border-primary',
-                  )}
+                  className="rounded-2xl h-full p-4 border border-hairline bg-bg-card-solid (--)] transition-colors cursor-pointer group flex flex-col overflow-hidden hover:border-primary/40"
                 >
                   <div className="mb-2">
                     <div className="flex h-7 w-7 items-center justify-center bg-transparent">
-                      <Database size={16} className="text-[#4F7FA8]" />
+                      <Database size={16} className="text-muted" />
                     </div>
                   </div>
-                  <h3
-                    className={cn(
-                      'mb-0.5 truncate text-sm font-bold uppercase tracking-wider transition-colors group-hover:text-[#3b82f6]',
-                      darkMode ? 'text-[#e0e0e0]' : '',
-                    )}
-                  >
+                  <h3 className="mb-0.5 truncate text-sm font-bold uppercase tracking-wider text-ink transition-colors group-hover:text-primary">
                     {dataset.name}
                   </h3>
                   {dataset.description && (
-                    <p
-                      className={cn(
-                        'mb-1 line-clamp-2 min-h-0 text-[11px] leading-4',
-                        darkMode ? 'text-[#858585]' : 'text-text-main/60',
-                      )}
-                    >
+                    <p className="mb-1 line-clamp-2 min-h-0 text-[11px] leading-4 text-text-secondary">
                       {dataset.description}
                     </p>
                   )}
-                  <div className={cn('mt-auto flex items-end justify-between gap-2', darkMode ? 'text-[#858585]' : '')}>
+                  <div className="mt-auto flex items-end justify-between gap-2">
                     <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                        {getStatusLabel(dataset.status)}
-                      </span>
-                      <span className="mono-label">{formatDatasetTime(dataset.updatedAt)}</span>
+                      <span className="mono-label text-muted">{getStatusLabel(dataset.status)}</span>
+                      <span className="mono-label text-muted">{formatDatasetTime(dataset.updatedAt)}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={(event) => handleEditDataset(dataset, event)}
-                        className={cn(
-                          'p-2 rounded-xl transition-colors',
-                          darkMode
-                            ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#3b82f6]'
-                            : 'text-text-main/35 hover:bg-blue-50 hover:text-blue-500',
-                        )}
+                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
                         title="编辑知识库"
                       >
                         <Pencil size={14} />
@@ -354,25 +286,15 @@ export default function DatasetsPage() {
                           event.stopPropagation();
                           navigate(`/datasets/${dataset.id}/parse-config`);
                         }}
-                        className={cn(
-                          'p-2 rounded-xl transition-colors',
-                          darkMode
-                            ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-[#cccccc]'
-                            : 'text-text-main/35 hover:bg-gray-100 hover:text-text-main',
-                        )}
+                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
                         title="解析配置"
                       >
-                        <Settings size={14} className="text-[#7B6B5D]" />
+                        <Settings size={14} />
                       </button>
                       <button
                         onClick={(event) => void handleDeleteDataset(dataset, event)}
                         disabled={deleting}
-                        className={cn(
-                          'p-2 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                          darkMode
-                            ? 'text-[#858585] hover:bg-[#3c3c3c] hover:text-red-400'
-                            : 'text-text-main/35 hover:bg-red-50 hover:text-red-500',
-                        )}
+                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
                         title="删除知识库"
                       >
                         {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
@@ -386,12 +308,7 @@ export default function DatasetsPage() {
             {/* Add New */}
             <div
               onClick={() => setCreateDialogOpen(true)}
-              className={cn(
-                'rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed',
-                darkMode
-                  ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#858585] hover:text-[#d4d4d4] hover:border-[#d4d4d4]'
-                  : 'art-card border-dashed text-text-main/40 hover:text-[#1f1f1f] hover:border-[#1f1f1f]',
-              )}
+              className="rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed border-hairline bg-surface-soft text-muted hover:border-primary/40 hover:text-ink"
             >
               <Plus size={24} className="mb-2" />
               <span className="text-xs font-bold uppercase tracking-wider">添加知识库</span>
@@ -402,38 +319,20 @@ export default function DatasetsPage() {
         {/* Create Dataset Dialog */}
         {createDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)} />
-            <div
-              className={cn(
-                'relative w-[480px] rounded-2xl shadow-2xl overflow-hidden',
-                darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white border border-border-subtle',
-              )}
-            >
-              <div
-                className={cn(
-                  'flex items-center justify-between px-6 py-4 border-b',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
-                <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>新建知识库</h3>
+            <div className="absolute inset-0 bg-black/50 " onClick={() => setCreateDialogOpen(false)} />
+            <div className="relative w-[480px] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+                <h3 className="text-lg font-bold text-ink">新建知识库</h3>
                 <button
                   onClick={() => setCreateDialogOpen(false)}
-                  className={cn(
-                    'p-2 rounded-xl hover:bg-[#2d2d2d] transition-colors',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/50',
-                  )}
+                  className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
                 >
                   <X size={18} />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label
-                    className={cn(
-                      'block mb-2 text-xs font-bold uppercase tracking-wider',
-                      darkMode ? 'text-[#cccccc]' : 'text-text-main',
-                    )}
-                  >
+                  <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     知识库名称
                   </label>
                   <input
@@ -442,21 +341,11 @@ export default function DatasetsPage() {
                     onChange={(e) => setNewDatasetName(e.target.value)}
                     maxLength={128}
                     placeholder="输入知识库名称"
-                    className={cn(
-                      'w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6]',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/50 border-border-subtle',
-                    )}
+                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
                   />
                 </div>
                 <div>
-                  <label
-                    className={cn(
-                      'block mb-2 text-xs font-bold uppercase tracking-wider',
-                      darkMode ? 'text-[#cccccc]' : 'text-text-main',
-                    )}
-                  >
+                  <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     描述（可选）
                   </label>
                   <textarea
@@ -465,39 +354,21 @@ export default function DatasetsPage() {
                     maxLength={512}
                     placeholder="输入知识库描述"
                     rows={3}
-                    className={cn(
-                      'w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6] resize-none',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/50 border-border-subtle',
-                    )}
+                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40 resize-none"
                   />
                 </div>
               </div>
-              <div
-                className={cn(
-                  'flex items-center justify-end gap-3 px-6 py-4 border-t bg-bg-base/30',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-subtle bg-surface-soft">
                 <button
                   onClick={() => setCreateDialogOpen(false)}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors',
-                    darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
-                  )}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-card hover:text-ink"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleCreateDataset}
                   disabled={!newDatasetName.trim() || creating}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
-                    darkMode
-                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
-                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
-                  )}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {creating ? '创建中' : '创建'}
                 </button>
@@ -509,39 +380,21 @@ export default function DatasetsPage() {
         {/* Edit Dataset Dialog */}
         {editingDataset && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCloseEditDialog} />
-            <div
-              className={cn(
-                'relative w-[480px] rounded-2xl shadow-2xl overflow-hidden',
-                darkMode ? 'bg-[#252526] border border-[#3c3c3c]' : 'bg-white border border-border-subtle',
-              )}
-            >
-              <div
-                className={cn(
-                  'flex items-center justify-between px-6 py-4 border-b',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
-                <h3 className={cn('text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>编辑知识库</h3>
+            <div className="absolute inset-0 bg-black/50 " onClick={handleCloseEditDialog} />
+            <div className="relative w-[480px] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+                <h3 className="text-lg font-bold text-ink">编辑知识库</h3>
                 <button
                   onClick={handleCloseEditDialog}
                   disabled={updating}
-                  className={cn(
-                    'p-2 rounded-xl transition-colors disabled:opacity-60',
-                    darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/50 hover:bg-gray-100',
-                  )}
+                  className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink disabled:opacity-60"
                 >
                   <X size={18} />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label
-                    className={cn(
-                      'block mb-2 text-xs font-bold uppercase tracking-wider',
-                      darkMode ? 'text-[#cccccc]' : 'text-text-main',
-                    )}
-                  >
+                  <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     知识库名称
                   </label>
                   <input
@@ -553,21 +406,11 @@ export default function DatasetsPage() {
                     }}
                     maxLength={128}
                     placeholder="输入知识库名称"
-                    className={cn(
-                      'w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6]',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/50 border-border-subtle',
-                    )}
+                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
                   />
                 </div>
                 <div>
-                  <label
-                    className={cn(
-                      'block mb-2 text-xs font-bold uppercase tracking-wider',
-                      darkMode ? 'text-[#cccccc]' : 'text-text-main',
-                    )}
-                  >
+                  <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     描述（可选）
                   </label>
                   <textarea
@@ -576,40 +419,22 @@ export default function DatasetsPage() {
                     maxLength={512}
                     placeholder="输入知识库描述"
                     rows={3}
-                    className={cn(
-                      'w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-[#3b82f6] resize-none',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/50 border-border-subtle',
-                    )}
+                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40 resize-none"
                   />
                 </div>
               </div>
-              <div
-                className={cn(
-                  'flex items-center justify-end gap-3 px-6 py-4 border-t bg-bg-base/30',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-subtle bg-surface-soft">
                 <button
                   onClick={handleCloseEditDialog}
                   disabled={updating}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-60',
-                    darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'hover:bg-gray-100',
-                  )}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-card hover:text-ink disabled:opacity-60"
                 >
                   取消
                 </button>
                 <button
                   onClick={() => void handleUpdateDataset()}
                   disabled={!editDatasetName.trim() || updating}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-opacity disabled:cursor-not-allowed disabled:opacity-60',
-                    darkMode
-                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
-                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
-                  )}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updating ? '保存中' : '保存'}
                 </button>

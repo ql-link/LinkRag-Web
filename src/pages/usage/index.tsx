@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDailyUsage, getUsageByModel, getUsageLogs, getUsageSummary, getUsageTrend } from '@/services/llm';
 import type { DailyUsageDTO, ModelUsageDTO, UsageLogDTO, UsageSummaryDTO, UsageTrendDTO } from '@/types/api';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const RANGE_DAYS = 14;
 const USAGE_STAGE = 'all';
@@ -143,7 +142,6 @@ function getErrorLabel(errorMessage: string) {
 }
 
 export default function UsagePage() {
-  const { darkMode } = useTheme();
   const [summary, setSummary] = useState<UsageSummaryDTO | null>(null);
   const [dailyUsage, setDailyUsage] = useState<DailyUsageDTO[]>([]);
   const [modelUsage, setModelUsage] = useState<ModelUsageDTO[]>([]);
@@ -184,26 +182,16 @@ export default function UsagePage() {
   const today = useMemo(() => formatLocalDate(new Date()), []);
 
   return (
-    <div className="h-full flex flex-col">
-      <header
-        className={cn(
-          'h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 backdrop-blur-md',
-          darkMode ? 'bg-[#252526] border-[#3c3c3c]' : 'bg-white/80 border-border-subtle border-b',
-        )}
-      >
+    <div className="h-full flex flex-col bg-canvas">
+      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
         <div>
-          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} darkMode={darkMode} />
+          <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} />
         </div>
         <div className="flex items-center gap-2">
-          <RangePicker darkMode={darkMode} max={today} range={range} onApply={setRange} />
+          <RangePicker max={today} range={range} onApply={setRange} />
           <button
             onClick={loadData}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors',
-              darkMode
-                ? 'bg-[#1f2937] text-[#c7dff8] hover:bg-[#26364d]'
-                : 'border border-[#d7d2ca] bg-white text-text-main hover:bg-gray-100',
-            )}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             刷新
@@ -211,77 +199,51 @@ export default function UsagePage() {
         </div>
       </header>
 
-      <main
-        className={cn(
-          'flex-1 overflow-y-auto',
-          darkMode
-            ? 'bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_42%,#1f1f1f_100%)]'
-            : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f4f1ed_44%,#f8f4ef_100%)]',
-        )}
-      >
+      <main className="flex-1 overflow-y-auto bg-canvas">
         <section className="px-4 py-5 sm:px-6 lg:px-8 lg:py-6 space-y-5">
-          <UsageHero darkMode={darkMode} summary={summary} range={range} />
+          <UsageHero summary={summary} range={range} />
 
-          <div
-            className={cn(
-              'rounded-lg border px-5 py-4',
-              darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-            )}
-          >
+          <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>Token 趋势</h3>
+                <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <GrowthPill darkMode={darkMode} label="Token 环比" value={trend?.tokenGrowthRate ?? null} />
-                <GrowthPill darkMode={darkMode} label="调用环比" value={trend?.callGrowthRate ?? null} />
-                <div className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                <GrowthPill label="Token 环比" value={trend?.tokenGrowthRate ?? null} />
+                <GrowthPill label="调用环比" value={trend?.callGrowthRate ?? null} />
+                <div className="mono-label text-muted-soft">
                   {range.startDate} ~ {range.endDate}
                 </div>
               </div>
             </div>
 
             {hasDailyUsage ? (
-              <TokenLineChart darkMode={darkMode} data={dailyUsage} />
+              <TokenLineChart data={dailyUsage} />
             ) : (
-              <EmptyBlock darkMode={darkMode} icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
+              <EmptyBlock icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
             )}
           </div>
 
-          <div
-            className={cn(
-              'rounded-lg border px-5 py-4',
-              darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-            )}
-          >
+          <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
             <div className="grid grid-cols-1 gap-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-0">
               <section className="flex min-h-0 flex-col xl:pr-5">
-                <h3 className={cn('text-sm font-bold mb-4', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  模型用量
-                </h3>
+                <h3 className="text-sm font-bold mb-4 text-ink">模型用量</h3>
                 <div className="min-h-0 flex-1">
                   {topModels.length === 0 ? (
-                    <EmptyBlock darkMode={darkMode} icon={<Coins size={18} />} text="暂无模型用量" />
+                    <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
                   ) : (
-                    <ModelUsagePie darkMode={darkMode} data={modelUsage} />
+                    <ModelUsagePie data={modelUsage} />
                   )}
                 </div>
               </section>
 
-              <section
-                className={cn(
-                  'flex min-h-0 flex-col border-t pt-5 xl:border-l xl:border-t-0 xl:pt-0 xl:pl-5',
-                  darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-                )}
-              >
-                <h3 className={cn('text-sm font-bold mb-4', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  最近调用
-                </h3>
+              <section className="flex min-h-0 flex-col border-t border-border-subtle pt-5 xl:border-l xl:border-t-0 xl:pt-0 xl:pl-5">
+                <h3 className="text-sm font-bold mb-4 text-ink">最近调用</h3>
                 <div className="min-h-0 flex-1">
                   {logs.length === 0 ? (
-                    <EmptyBlock darkMode={darkMode} icon={<Activity size={18} />} text="暂无调用记录" />
+                    <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
                   ) : (
-                    <RecentCallsList darkMode={darkMode} logs={logs} />
+                    <RecentCallsList logs={logs} />
                   )}
                 </div>
               </section>
@@ -294,11 +256,9 @@ export default function UsagePage() {
 }
 
 function UsageHero({
-  darkMode,
   summary,
   range,
 }: {
-  darkMode?: boolean;
   summary: UsageSummaryDTO | null;
   range: { startDate: string; endDate: string };
 }) {
@@ -306,75 +266,61 @@ function UsageHero({
     {
       label: '输入 Token',
       value: formatCompactTokens(summary?.promptTokens ?? 0),
-      icon: <ArrowDownToLine size={17} className={darkMode ? 'text-[#9fb7d8]' : 'text-[#4F7FA8]'} />,
+      icon: <ArrowDownToLine size={17} className="text-muted" />,
     },
     {
       label: '输出 Token',
       value: formatCompactTokens(summary?.completionTokens ?? 0),
-      icon: <ArrowUpFromLine size={17} className={darkMode ? 'text-[#d8aa9f]' : 'text-[#D97373]'} />,
+      icon: <ArrowUpFromLine size={17} className="text-muted" />,
     },
     {
       label: '平均延迟',
       value: formatLatency(summary?.averageLatencyMs),
-      icon: <Clock3 size={17} className={darkMode ? 'text-[#d7c3a5]' : 'text-[#7B6B5D]'} />,
+      icon: <Clock3 size={17} className="text-muted" />,
     },
     {
       label: '失败调用',
       value: formatNumber(summary?.failedCalls ?? 0),
-      icon: <CircleX size={17} className={darkMode ? 'text-[#f0a3a3]' : 'text-[#D97373]'} />,
+      icon: <CircleX size={17} className="text-muted" />,
     },
   ];
 
   return (
-    <div
-      className={cn(
-        'rounded-lg border px-5 py-4',
-        darkMode ? 'bg-[#252526]/88 border-[#3c3c3c]' : 'bg-white/84 border-white/85 shadow-sm',
-      )}
-    >
+    <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className={cn('rounded-lg p-2.5', darkMode ? 'bg-[#1e3a5f]/50' : 'bg-[#e8f2ff]')}>
-              <Zap size={18} className="text-[#2584ff]" />
+            <div className="rounded-xl bg-surface-card p-2.5">
+              <Zap size={18} className="text-primary" />
             </div>
             <div>
-              <h2 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>Token 消耗</h2>
-              <p className={cn('mono-label mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+              <h2 className="text-base font-bold text-ink">Token 消耗</h2>
+              <p className="mono-label mt-1 text-muted-soft">
                 {range.startDate} ~ {range.endDate} · 全链路口径
               </p>
             </div>
           </div>
-          <div
-            className={cn(
-              'mt-4 break-words text-4xl font-bold leading-none tracking-normal sm:text-5xl',
-              darkMode ? 'text-[#f5f5f5]' : 'text-[#0b0d12]',
-            )}
-          >
+          <div className="mt-4 break-words text-4xl font-bold leading-none tracking-normal text-ink sm:text-5xl">
             {formatNumber(summary?.totalTokens ?? 0)}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className={cn('text-sm font-semibold', darkMode ? 'text-[#858585]' : 'text-text-main/55')}>
+            <p className="text-sm font-semibold text-text-secondary">
               ≈ {formatCompactTokens(summary?.totalTokens ?? 0)}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-5 lg:min-w-[260px] lg:pt-1">
-          <div className={cn('min-w-0', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            <div className={cn('mb-1.5 text-xs font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-              总调用
-            </div>
+          <div className="min-w-0 text-ink">
+            <div className="mb-1.5 text-xs font-bold text-muted">总调用</div>
             <div className="flex items-center gap-2 text-xl font-bold">
-              <Activity size={17} className="text-[#2584ff]" />
+              <Activity size={17} className="text-muted" />
               {formatNumber(summary?.totalCalls ?? 0)}
             </div>
           </div>
-          <div className={cn('min-w-0', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            <div className={cn('mb-1.5 text-xs font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-              成功率
-            </div>
-            <div className="flex items-center gap-2 text-xl font-bold text-[#13a872]">
+          <div className="min-w-0 text-ink">
+            <div className="mb-1.5 text-xs font-bold text-muted">成功率</div>
+            <div className="flex items-center gap-2 text-xl font-bold text-success">
               <CircleCheck size={17} />
               {formatPercent(summary?.successRate, 1)}
             </div>
@@ -382,40 +328,22 @@ function UsageHero({
         </div>
       </div>
 
-      <div
-        className={cn(
-          'mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t pt-4 xl:grid-cols-4',
-          darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-        )}
-      >
+      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
         {secondaryItems.map((item, index) => (
           <div
             key={item.label}
-            className={cn(
-              'min-w-0',
-              index > 0 && (darkMode ? 'xl:border-l xl:border-[#3c3c3c]' : 'xl:border-l xl:border-border-subtle'),
-              index > 0 ? 'xl:pl-5' : '',
-            )}
+            className={cn('min-w-0', index > 0 && 'xl:border-l xl:border-border-subtle', index > 0 ? 'xl:pl-5' : '')}
           >
             <div className="flex items-center gap-2">
               {item.icon}
-              <span className={cn('text-sm font-bold', darkMode ? 'text-[#cfcfcf]' : 'text-text-main/70')}>
-                {item.label}
-              </span>
+              <span className="text-sm font-bold text-text-secondary">{item.label}</span>
             </div>
-            <div className={cn('mt-2 text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-              {item.value}
-            </div>
+            <div className="mt-2 text-base font-bold text-ink">{item.value}</div>
           </div>
         ))}
       </div>
 
-      <div
-        className={cn(
-          'mt-4 border-t pt-3 mono-label',
-          darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/40',
-        )}
-      >
+      <div className="mt-4 border-t border-border-subtle pt-3 mono-label text-muted-soft">
         成功 {formatNumber(summary?.successCalls ?? 0)} · 失败 {formatNumber(summary?.failedCalls ?? 0)}
       </div>
     </div>
@@ -439,12 +367,10 @@ function getRangeLabel(range: { startDate: string; endDate: string }) {
 }
 
 function RangePicker({
-  darkMode,
   range,
   max,
   onApply,
 }: {
-  darkMode?: boolean;
   range: { startDate: string; endDate: string };
   max: string;
   onApply: (range: { startDate: string; endDate: string }) => void;
@@ -493,24 +419,14 @@ function RangePicker({
       <button
         type="button"
         onClick={openPicker}
-        className={cn(
-          'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition-colors',
-          darkMode
-            ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#d4d4d4] hover:bg-[#26364d]'
-            : 'border-[#d7d2ca] bg-white text-text-main hover:bg-gray-100',
-        )}
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
       >
         <CalendarDays size={15} />
         {getRangeLabel(range)}
       </button>
 
       {open && (
-        <div
-          className={cn(
-            'absolute right-0 top-full z-30 mt-2 w-[320px] rounded-lg border p-3 shadow-lg',
-            darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-          )}
-        >
+        <div className="absolute right-0 top-full z-30 mt-2 w-[320px] rounded-xl border border-hairline bg-bg-card-solid p-3 (--)]">
           <div className="mb-3 flex flex-wrap gap-2">
             {presets.map((preset) => {
               const presetRange = preset.range();
@@ -527,10 +443,8 @@ function RangePicker({
                   className={cn(
                     'h-8 rounded-lg border px-3 text-xs font-bold transition-colors',
                     active
-                      ? 'border-[#2584ff] bg-[#2584ff] text-white'
-                      : darkMode
-                        ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#d4d4d4] hover:bg-[#2d2d2d]'
-                        : 'border-border-subtle bg-white text-text-main/65 hover:bg-bg-base',
+                      ? 'border-primary/40 bg-primary/10 text-ink'
+                      : 'border-hairline bg-canvas text-text-secondary hover:border-primary/30 hover:text-ink',
                   )}
                 >
                   {preset.label}
@@ -539,25 +453,19 @@ function RangePicker({
             })}
           </div>
 
-          <div className={cn('border-t pt-3', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle')}>
+          <div className="border-t border-border-subtle pt-3">
             <div className="grid grid-cols-2 gap-2">
               <label className="min-w-0">
-                <span className={cn('mono-label mb-1 block', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                  开始日期
-                </span>
+                <span className="mono-label mb-1 block text-muted-soft">开始日期</span>
                 <DateTextInput
-                  darkMode={darkMode}
                   value={draftRange.startDate}
                   max={draftRange.endDate}
                   onChange={(value) => setDraftRange((prev) => ({ ...prev, startDate: value }))}
                 />
               </label>
               <label className="min-w-0">
-                <span className={cn('mono-label mb-1 block', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                  结束日期
-                </span>
+                <span className="mono-label mb-1 block text-muted-soft">结束日期</span>
                 <DateTextInput
-                  darkMode={darkMode}
                   value={draftRange.endDate}
                   min={draftRange.startDate}
                   max={max}
@@ -566,9 +474,7 @@ function RangePicker({
               </label>
             </div>
 
-            <div className={cn('mono-label mt-3', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-              输入 8 位数字后自动应用
-            </div>
+            <div className="mono-label mt-3 text-muted-soft">输入 8 位数字后自动应用</div>
           </div>
         </div>
       )}
@@ -577,13 +483,11 @@ function RangePicker({
 }
 
 function DateTextInput({
-  darkMode,
   value,
   min,
   max,
   onChange,
 }: {
-  darkMode?: boolean;
   value: string;
   min?: string;
   max?: string;
@@ -603,34 +507,19 @@ function DateTextInput({
         if (min && value < min) onChange(min);
         if (max && value > max) onChange(max);
       }}
-      className={cn(
-        'h-9 w-full rounded-lg border px-2.5 text-xs font-bold outline-none transition-colors',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#d4d4d4] focus:border-[#4F7FA8]'
-          : 'border-[#d7d2ca] bg-white text-text-main focus:border-primary',
-      )}
+      className="h-9 w-full rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-ink outline-none transition-colors focus:border-primary/40"
     />
   );
 }
 
-function GrowthPill({ darkMode, label, value }: { darkMode?: boolean; label: string; value: number | null }) {
+function GrowthPill({ label, value }: { label: string; value: number | null }) {
   const Icon = value !== null && value < 0 ? TrendingDown : TrendingUp;
   const hasValue = value !== null;
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold',
-        !hasValue
-          ? darkMode
-            ? 'bg-[#1e1e1e] text-[#858585]'
-            : 'bg-bg-base/70 text-text-main/45'
-          : value < 0
-            ? darkMode
-              ? 'bg-red-500/12 text-red-300'
-              : 'bg-red-50 text-red-600'
-            : darkMode
-              ? 'bg-emerald-500/12 text-emerald-300'
-              : 'bg-emerald-50 text-emerald-700',
+        !hasValue ? 'bg-surface-soft text-muted' : value < 0 ? 'bg-error/10 text-error' : 'bg-success/10 text-success',
       )}
       title={label}
     >
@@ -641,9 +530,9 @@ function GrowthPill({ darkMode, label, value }: { darkMode?: boolean; label: str
   );
 }
 
-const MODEL_COLORS = ['#4F7FA8', '#D97373', '#5E9B73', '#B68C4A', '#8B6EC8', '#7B6B5D'];
+const MODEL_COLORS = ['#cc785c', '#d8a48f', '#b8916f', '#e8e0d2', '#a9583e', '#cbb89a'];
 
-function ModelUsagePie({ darkMode, data }: { darkMode?: boolean; data: ModelUsageDTO[] }) {
+function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
   const topItems = data.slice(0, 5);
   const otherItems = data.slice(5);
   const otherTokens = otherItems.reduce((sum, item) => sum + item.totalTokens, 0);
@@ -656,7 +545,7 @@ function ModelUsagePie({ darkMode, data }: { darkMode?: boolean; data: ModelUsag
     <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-[170px_minmax(0,1fr)]">
       <div className="relative mx-auto h-[170px] w-[170px]">
         <svg viewBox="0 0 170 170" className="h-full w-full" role="img" aria-label="模型用量饼图">
-          <circle cx="85" cy="85" r="62" fill="none" stroke={darkMode ? '#1e1e1e' : '#f1ede8'} strokeWidth="24" />
+          <circle cx="85" cy="85" r="62" fill="none" stroke="var(--color-surface-card)" strokeWidth="24" />
           {segments.map((segment, index) => (
             <path
               key={`${segment.item.providerType}-${segment.item.modelName}`}
@@ -675,8 +564,8 @@ function ModelUsagePie({ darkMode, data }: { darkMode?: boolean; data: ModelUsag
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>总量</span>
-          <span className={cn('mt-1 text-lg font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          <span className="mono-label text-muted-soft">总量</span>
+          <span className="mt-1 text-lg font-bold text-ink">
             {formatCompactTokens(totalTokens).replace(' tokens', '')}
           </span>
         </div>
@@ -692,20 +581,14 @@ function ModelUsagePie({ darkMode, data }: { darkMode?: boolean; data: ModelUsag
                 style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
               />
               <div className="min-w-0 flex-1">
-                <p className={cn('truncate text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  {item.modelName}
-                </p>
-                <p className={cn('mono-label mt-0.5', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
+                <p className="truncate text-sm font-bold text-ink">{item.modelName}</p>
+                <p className="mono-label mt-0.5 text-muted-soft">
                   {item.providerType} · {formatNumber(item.calls)} 次
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  {formatPercent(percent, 1)}
-                </p>
-                <p className={cn('mono-label mt-0.5', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                  {formatNumber(item.totalTokens)}
-                </p>
+                <p className="text-sm font-bold text-ink">{formatPercent(percent, 1)}</p>
+                <p className="mono-label mt-0.5 text-muted-soft">{formatNumber(item.totalTokens)}</p>
               </div>
             </div>
           );
@@ -762,53 +645,35 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleInDegrees
   };
 }
 
-function RecentCallsList({ darkMode, logs }: { darkMode?: boolean; logs: UsageLogDTO[] }) {
+function RecentCallsList({ logs }: { logs: UsageLogDTO[] }) {
   return (
-    <div
-      className={cn(
-        'popover-scrollbar h-full divide-y overflow-y-auto rounded-lg border',
-        darkMode ? 'divide-[#3c3c3c] border-[#3c3c3c]' : 'divide-border-subtle border-border-subtle',
-      )}
-    >
+    <div className="popover-scrollbar h-full divide-y divide-border-subtle overflow-y-auto rounded-lg border border-hairline">
       {logs.map((log) => (
-        <div key={log.id} className={cn('px-3.5 py-3', darkMode ? 'bg-[#1e1e1e]/50' : 'bg-bg-base/45')}>
+        <div key={log.id} className="px-3.5 py-3 bg-surface-soft">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={cn(
                     'h-2 w-2 shrink-0 rounded-full',
-                    isSuccessStatus(log.status) ? 'bg-[#13a872]' : 'bg-[#D97373]',
+                    isSuccessStatus(log.status) ? 'bg-success' : 'bg-error',
                   )}
                 />
-                <p className={cn('truncate text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                  {log.modelName}
-                </p>
+                <p className="truncate text-sm font-bold text-ink">{log.modelName}</p>
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className={cn('mono-label', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>
-                  {formatTime(log.createdAt)}
-                </span>
+                <span className="mono-label text-muted-soft">{formatTime(log.createdAt)}</span>
                 <span
                   className={cn(
                     'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                    isSuccessStatus(log.status)
-                      ? darkMode
-                        ? 'bg-emerald-500/12 text-emerald-300'
-                        : 'bg-emerald-50 text-emerald-700'
-                      : darkMode
-                        ? 'bg-red-500/12 text-red-300'
-                        : 'bg-red-50 text-red-600',
+                    isSuccessStatus(log.status) ? 'bg-success/10 text-success' : 'bg-error/10 text-error',
                   )}
                 >
                   {getStatusLabel(log.status)}
                 </span>
                 {log.errorMessage && (
                   <span
-                    className={cn(
-                      'inline-flex max-w-[140px] items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
-                      darkMode ? 'bg-amber-500/12 text-amber-200' : 'bg-amber-50 text-amber-700',
-                    )}
+                    className="inline-flex max-w-[140px] items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning"
                     title={log.errorMessage}
                   >
                     <TriangleAlert size={10} className="shrink-0" />
@@ -818,10 +683,8 @@ function RecentCallsList({ darkMode, logs }: { darkMode?: boolean; logs: UsageLo
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                {formatNumber(log.totalTokens)}
-              </p>
-              <p className={cn('mono-label mt-1', darkMode ? 'text-[#858585]' : 'text-text-main/40')}>Token</p>
+              <p className="text-sm font-bold text-ink">{formatNumber(log.totalTokens)}</p>
+              <p className="mono-label mt-1 text-muted-soft">Token</p>
             </div>
           </div>
         </div>
@@ -830,7 +693,7 @@ function RecentCallsList({ darkMode, logs }: { darkMode?: boolean; logs: UsageLo
   );
 }
 
-function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsageDTO[] }) {
+function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const width = 720;
   const height = 220;
@@ -852,9 +715,9 @@ function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsa
     (index) => index >= 0,
   );
   const gridTicks = [0, 0.25, 0.5, 0.75, 1];
-  const strokeColor = darkMode ? '#60a5fa' : '#4F7FA8';
-  const gridColor = darkMode ? '#3c3c3c' : '#e2ddd6';
-  const labelColor = darkMode ? '#858585' : '#8a8177';
+  const strokeColor = 'var(--color-primary)';
+  const gridColor = 'var(--color-hairline)';
+  const labelColor = 'var(--color-muted-soft)';
   const hoveredPoint = points.find((point) => point.date === hoveredDate) ?? null;
 
   function updateHoverFromPointer(event: React.PointerEvent<SVGRectElement>) {
@@ -928,7 +791,7 @@ function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsa
               cx={point.x}
               cy={point.y}
               r={hoveredDate === point.date ? 5 : index === points.length - 1 ? 4 : 3}
-              fill={darkMode ? '#252526' : '#fff'}
+              fill="var(--color-bg-card-solid)"
               stroke={strokeColor}
               strokeWidth="2"
               className="transition-all"
@@ -963,10 +826,7 @@ function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsa
 
       {hoveredPoint && (
         <div
-          className={cn(
-            'pointer-events-none absolute z-10 min-w-[180px] rounded-lg border px-3 py-2 text-xs shadow-lg',
-            darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e] text-[#e0e0e0]' : 'border-border-subtle bg-white text-text-main',
-          )}
+          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-hairline bg-bg-card-solid px-3 py-2 text-xs text-ink (--)]"
           style={{
             left: `${(hoveredPoint.x / width) * 100}%`,
             top: `${(hoveredPoint.y / height) * 100}%`,
@@ -980,10 +840,10 @@ function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsa
         >
           <div className="mb-2 font-bold">{hoveredPoint.date}</div>
           <div className="space-y-1">
-            <TooltipRow darkMode={darkMode} label="总 Token" value={formatNumber(hoveredPoint.totalTokens)} />
-            <TooltipRow darkMode={darkMode} label="调用次数" value={`${formatNumber(hoveredPoint.calls)} 次`} />
-            <TooltipRow darkMode={darkMode} label="输入 Token" value={formatNumber(hoveredPoint.promptTokens)} />
-            <TooltipRow darkMode={darkMode} label="输出 Token" value={formatNumber(hoveredPoint.completionTokens)} />
+            <TooltipRow label="总 Token" value={formatNumber(hoveredPoint.totalTokens)} />
+            <TooltipRow label="调用次数" value={`${formatNumber(hoveredPoint.calls)} 次`} />
+            <TooltipRow label="输入 Token" value={formatNumber(hoveredPoint.promptTokens)} />
+            <TooltipRow label="输出 Token" value={formatNumber(hoveredPoint.completionTokens)} />
           </div>
         </div>
       )}
@@ -991,23 +851,18 @@ function TokenLineChart({ darkMode, data }: { darkMode?: boolean; data: DailyUsa
   );
 }
 
-function TooltipRow({ darkMode, label, value }: { darkMode?: boolean; label: string; value: string }) {
+function TooltipRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-5">
-      <span className={cn(darkMode ? 'text-[#858585]' : 'text-text-main/45')}>{label}</span>
+      <span className="text-muted">{label}</span>
       <span className="font-bold">{value}</span>
     </div>
   );
 }
 
-function EmptyBlock({ darkMode, icon, text }: { darkMode?: boolean; icon: ReactNode; text: string }) {
+function EmptyBlock({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <div
-      className={cn(
-        'flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-10 text-center text-sm',
-        darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/40',
-      )}
-    >
+    <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-hairline px-4 py-10 text-center text-sm text-muted">
       {icon}
       <span>{text}</span>
     </div>

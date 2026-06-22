@@ -77,7 +77,7 @@ export default function DemoDatasets() {
             <NavLink
               key={dataset.id}
               to={`/demo/datasets/${dataset.id}`}
-              className="group block bg-bg-surface border border-border-default rounded-xl p-5 hover:border-accent-default/30 hover:shadow-card transition-all duration-150"
+              className="group block bg-bg-surface border border-border-default rounded-xl p-5 hover:border-accent-default/30 hover: transition-all duration-150"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-accent-subtle flex items-center justify-center">

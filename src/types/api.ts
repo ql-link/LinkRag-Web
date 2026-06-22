@@ -155,7 +155,7 @@ export interface UpdatePresetRequest {
 
 export interface ConversationDTO {
   id: number;
-  title: string;
+  title: string | null;
   datasetId: number;
   lastConfigId: number | null;
   lastModelName: string | null;
@@ -164,15 +164,28 @@ export interface ConversationDTO {
   updatedAt: string;
 }
 
-export interface MessageDTO {
+export interface ChatTurnDTO {
   id: number;
   conversationId: number;
-  role: 'user' | 'assistant' | 'system';
+  query?: string | null;
+  answer?: string | null;
+  configId?: number | null;
+  modelName?: string | null;
+  references?: string[] | null;
+  status?: 'success' | 'partial' | 'failed' | (string & {}) | null;
+  createdAt?: string | null;
+}
+
+export interface UiChatMessage {
+  id: string;
+  conversationId?: number | null;
+  role: 'user' | 'assistant';
   content: string;
-  configId: number | null;
-  modelName: string | null;
-  tokenCount: number | null;
-  createdAt: string;
+  configId?: number | null;
+  modelName?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  references?: string[] | null;
 }
 
 export interface DatasetDTO {

@@ -79,7 +79,7 @@ export function DatasetSelector({
       <div
         onClick={() => setOpen(!open)}
         className={cn(
-          'min-h-[44px] rounded-xl border shadow-none cursor-pointer p-3 transition-colors',
+          'min-h-[44px] rounded-xl border  cursor-pointer p-3 transition-colors',
           single ? 'flex items-center justify-between gap-2' : 'flex items-center flex-wrap gap-2',
           open
             ? darkMode
@@ -115,7 +115,7 @@ export function DatasetSelector({
       {open && (
         <div
           className={cn(
-            'absolute top-full left-0 right-0 mt-2 rounded-xl shadow-xl border overflow-hidden z-[70] origin-top animate-[datasetDropdownIn_140ms_ease-out] will-change-transform',
+            'absolute top-full left-0 right-0 mt-2 rounded-xl  border overflow-hidden z-[70] origin-top animate-[datasetDropdownIn_140ms_ease-out] will-change-transform',
             darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white border-border-subtle',
           )}
         >

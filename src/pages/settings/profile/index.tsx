@@ -1,10 +1,19 @@
-import { useCallback, useEffect, useState, type ChangeEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type PointerEvent,
+  type ReactNode,
+  type SyntheticEvent,
+  type WheelEvent,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Loader2, Mail, PenLine, Phone, ShieldCheck, UserRound, X } from 'lucide-react';
+import { Loader2, Mail, PenLine, Phone, ShieldCheck, UserRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Routes } from '@/routes';
 import { getProfile, updateProfile } from '@/services/user';
@@ -12,6 +21,36 @@ import { uploadAvatar } from '@/services/oss';
 import type { UpdateProfileRequest, UserProfileDTO } from '@/types/api';
 
 type EditField = 'nickname' | 'email' | 'phone' | null;
+
+const AVATAR_CROP_SIZE = 280;
+const AVATAR_OUTPUT_SIZE = 512;
+
+type AvatarCropOffset = {
+  x: number;
+  y: number;
+};
+
+type AvatarCropImage = {
+  width: number;
+  height: number;
+};
+
+type AvatarDragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  initialOffset: AvatarCropOffset;
+} | null;
+
+type AvatarPointer = {
+  x: number;
+  y: number;
+};
+
+type AvatarPinchState = {
+  distance: number;
+  zoom: number;
+} | null;
 
 const fieldMeta: Record<
   Exclude<EditField, null>,
@@ -30,12 +69,68 @@ function getDisplayName(profile: UserProfileDTO | null) {
   return profile?.nickname || profile?.username || '未设置';
 }
 
-function mutedTextClassName(darkMode: boolean) {
-  return darkMode ? 'text-[#858585]' : 'text-text-main/50';
+function clampOffset(offset: AvatarCropOffset, image: AvatarCropImage | null, zoom: number): AvatarCropOffset {
+  if (!image) return offset;
+  const baseScale = Math.max(AVATAR_CROP_SIZE / image.width, AVATAR_CROP_SIZE / image.height);
+  const renderedWidth = image.width * baseScale * zoom;
+  const renderedHeight = image.height * baseScale * zoom;
+  const maxX = Math.max(0, (renderedWidth - AVATAR_CROP_SIZE) / 2);
+  const maxY = Math.max(0, (renderedHeight - AVATAR_CROP_SIZE) / 2);
+
+  return {
+    x: Math.min(maxX, Math.max(-maxX, offset.x)),
+    y: Math.min(maxY, Math.max(-maxY, offset.y)),
+  };
+}
+
+function getPointerDistance(pointers: AvatarPointer[]) {
+  if (pointers.length < 2) return 0;
+  return Math.hypot(pointers[0].x - pointers[1].x, pointers[0].y - pointers[1].y);
+}
+
+async function createCroppedAvatarFile(
+  sourceUrl: string,
+  sourceFile: File,
+  image: AvatarCropImage,
+  offset: AvatarCropOffset,
+  zoom: number,
+) {
+  const img = new Image();
+  img.src = sourceUrl;
+  await img.decode();
+
+  const baseScale = Math.max(AVATAR_CROP_SIZE / image.width, AVATAR_CROP_SIZE / image.height);
+  const scale = baseScale * zoom;
+  const sourceWidth = AVATAR_CROP_SIZE / scale;
+  const sourceHeight = AVATAR_CROP_SIZE / scale;
+  const sourceX = image.width / 2 - offset.x / scale - sourceWidth / 2;
+  const sourceY = image.height / 2 - offset.y / scale - sourceHeight / 2;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = AVATAR_OUTPUT_SIZE;
+  canvas.height = AVATAR_OUTPUT_SIZE;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Canvas is not supported');
+  }
+
+  context.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, AVATAR_OUTPUT_SIZE, AVATAR_OUTPUT_SIZE);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) {
+        resolve(result);
+      } else {
+        reject(new Error('Failed to create avatar image'));
+      }
+    }, 'image/png');
+  });
+
+  const filename = sourceFile.name.replace(/\.[^.]+$/, '') || 'avatar';
+  return new File([blob], `${filename}-cropped.png`, { type: 'image/png' });
 }
 
 export default function ProfilePage() {
-  const { darkMode } = useTheme();
   const { refreshProfile } = useAuth();
   const { addToast } = useToast();
   const [profile, setProfile] = useState<UserProfileDTO | null>(null);
@@ -45,6 +140,15 @@ export default function ProfilePage() {
   const [editField, setEditField] = useState<EditField>(null);
   const [draftValue, setDraftValue] = useState('');
   const [formError, setFormError] = useState('');
+  const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
+  const [avatarCropSrc, setAvatarCropSrc] = useState('');
+  const [avatarCropImage, setAvatarCropImage] = useState<AvatarCropImage | null>(null);
+  const [avatarCropOffset, setAvatarCropOffset] = useState<AvatarCropOffset>({ x: 0, y: 0 });
+  const [avatarCropZoom, setAvatarCropZoom] = useState(1);
+  const [avatarCropDragging, setAvatarCropDragging] = useState(false);
+  const avatarDragRef = useRef<AvatarDragState>(null);
+  const avatarPointersRef = useRef<Map<number, AvatarPointer>>(new Map());
+  const avatarPinchRef = useRef<AvatarPinchState>(null);
   const navigate = useNavigate();
 
   const loadProfile = useCallback(async () => {
@@ -63,6 +167,14 @@ export default function ProfilePage() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarCropSrc) {
+        URL.revokeObjectURL(avatarCropSrc);
+      }
+    };
+  }, [avatarCropSrc]);
 
   function handleOpenAdminPage() {
     navigate(Routes.AdminBlogs);
@@ -109,20 +221,158 @@ export default function ProfilePage() {
     }
   }
 
-  async function handleAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
+  function closeAvatarCrop(force = false) {
+    if (avatarLoading && !force) {
+      return;
+    }
+    if (avatarCropSrc) {
+      URL.revokeObjectURL(avatarCropSrc);
+    }
+    setAvatarCropFile(null);
+    setAvatarCropSrc('');
+    setAvatarCropImage(null);
+    setAvatarCropOffset({ x: 0, y: 0 });
+    setAvatarCropZoom(1);
+    setAvatarCropDragging(false);
+    avatarDragRef.current = null;
+    avatarPointersRef.current.clear();
+    avatarPinchRef.current = null;
+  }
+
+  function handleAvatarInputChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) {
       return;
     }
+    if (!file.type.startsWith('image/')) {
+      addToast('error', '请选择图片文件');
+      return;
+    }
+
+    if (avatarCropSrc) {
+      URL.revokeObjectURL(avatarCropSrc);
+    }
+    setAvatarCropFile(file);
+    setAvatarCropSrc(URL.createObjectURL(file));
+    setAvatarCropImage(null);
+    setAvatarCropOffset({ x: 0, y: 0 });
+    setAvatarCropZoom(1);
+  }
+
+  function handleAvatarCropImageLoad(event: SyntheticEvent<HTMLImageElement>) {
+    setAvatarCropImage({
+      width: event.currentTarget.naturalWidth,
+      height: event.currentTarget.naturalHeight,
+    });
+    setAvatarCropOffset({ x: 0, y: 0 });
+  }
+
+  function handleAvatarCropPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (!avatarCropImage || avatarLoading) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    avatarPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const activePointers = Array.from(avatarPointersRef.current.values());
+    if (activePointers.length >= 2) {
+      avatarDragRef.current = null;
+      avatarPinchRef.current = {
+        distance: getPointerDistance(activePointers),
+        zoom: avatarCropZoom,
+      };
+      setAvatarCropDragging(false);
+      return;
+    }
+
+    if (activePointers.length === 1) {
+      avatarDragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        initialOffset: avatarCropOffset,
+      };
+      setAvatarCropDragging(true);
+    }
+  }
+
+  function handleAvatarCropPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!avatarPointersRef.current.has(event.pointerId)) return;
+    avatarPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const activePointers = Array.from(avatarPointersRef.current.values());
+    if (activePointers.length >= 2) {
+      const pinchState = avatarPinchRef.current;
+      const distance = getPointerDistance(activePointers);
+      if (pinchState && pinchState.distance > 0 && distance > 0) {
+        handleAvatarZoomChange((pinchState.zoom * distance) / pinchState.distance);
+      }
+      return;
+    }
+
+    const dragState = avatarDragRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    const nextOffset = {
+      x: dragState.initialOffset.x + event.clientX - dragState.startX,
+      y: dragState.initialOffset.y + event.clientY - dragState.startY,
+    };
+    setAvatarCropOffset(clampOffset(nextOffset, avatarCropImage, avatarCropZoom));
+  }
+
+  function handleAvatarCropPointerEnd(event: PointerEvent<HTMLDivElement>) {
+    avatarPointersRef.current.delete(event.pointerId);
+    avatarPinchRef.current = null;
+
+    if (avatarDragRef.current?.pointerId === event.pointerId) {
+      avatarDragRef.current = null;
+      setAvatarCropDragging(false);
+    }
+
+    const remainingPointers = Array.from(avatarPointersRef.current.entries());
+    if (remainingPointers.length === 1 && avatarCropImage && !avatarLoading) {
+      const [pointerId, pointer] = remainingPointers[0];
+      avatarDragRef.current = {
+        pointerId,
+        startX: pointer.x,
+        startY: pointer.y,
+        initialOffset: avatarCropOffset,
+      };
+      setAvatarCropDragging(true);
+    }
+  }
+
+  function handleAvatarZoomChange(value: number) {
+    const nextZoom = Math.min(3, Math.max(1, value));
+    setAvatarCropZoom(nextZoom);
+    setAvatarCropOffset((prev) => clampOffset(prev, avatarCropImage, nextZoom));
+  }
+
+  function handleAvatarCropWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const scale = event.deltaY < 0 ? 1.05 : 0.95;
+    handleAvatarZoomChange(avatarCropZoom * scale);
+  }
+
+  async function handleConfirmAvatarUpload() {
+    if (!avatarCropFile || !avatarCropSrc || !avatarCropImage) {
+      return;
+    }
 
     setAvatarLoading(true);
     try {
-      const avatarUrl = await uploadAvatar(file);
+      const croppedFile = await createCroppedAvatarFile(
+        avatarCropSrc,
+        avatarCropFile,
+        avatarCropImage,
+        avatarCropOffset,
+        avatarCropZoom,
+      );
+      const avatarUrl = await uploadAvatar(croppedFile);
       await updateProfile({ avatarUrl });
       setProfile((prev) => (prev ? { ...prev, avatarUrl } : prev));
       await refreshProfile();
       addToast('success', '头像已更新');
+      closeAvatarCrop(true);
     } catch (error) {
       console.error('Failed to upload avatar:', error);
       addToast('error', '头像上传失败，请重试');
@@ -138,29 +388,12 @@ export default function ProfilePage() {
     icon: ReactNode,
   ) {
     return (
-      <div
-        className={cn(
-          'flex flex-col gap-3 border-b px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4 sm:px-6',
-          darkMode ? 'border-[#3c3c3c]/70' : 'border-border-subtle/70',
-        )}
-      >
+      <div className="flex flex-col gap-3 border-b border-border-subtle px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div
-            className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center',
-              darkMode ? 'text-[#858585]' : 'text-primary',
-            )}
-          >
-            {icon}
-          </div>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">{icon}</div>
           <div className="min-w-0">
-            <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{label}</p>
-            <p
-              className={cn(
-                'mt-1 truncate text-xs',
-                value ? (darkMode ? 'text-[#cccccc]' : 'text-text-main/70') : mutedTextClassName(darkMode),
-              )}
-            >
+            <p className="text-sm font-bold text-ink">{label}</p>
+            <p className={cn('mt-1 truncate text-xs', value ? 'text-text-secondary' : 'text-muted')}>
               {value || '未设置'}
             </p>
           </div>
@@ -168,10 +401,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => openEdit(field)}
-          className={cn(
-            'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold transition-colors sm:w-auto',
-            darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main/60 hover:bg-white/70 hover:text-text-main',
-          )}
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-soft hover:text-ink sm:w-auto"
         >
           <PenLine size={14} />
           修改
@@ -180,105 +410,80 @@ export default function ProfilePage() {
     );
   }
 
+  const avatarCropPreviewStyle = avatarCropImage
+    ? {
+        width:
+          avatarCropImage.width *
+          Math.max(AVATAR_CROP_SIZE / avatarCropImage.width, AVATAR_CROP_SIZE / avatarCropImage.height) *
+          avatarCropZoom,
+        height:
+          avatarCropImage.height *
+          Math.max(AVATAR_CROP_SIZE / avatarCropImage.width, AVATAR_CROP_SIZE / avatarCropImage.height) *
+          avatarCropZoom,
+        transform: `translate(calc(-50% + ${avatarCropOffset.x}px), calc(-50% + ${avatarCropOffset.y}px))`,
+      }
+    : undefined;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header
-        className={cn(
-          'flex min-h-16 shrink-0 items-center justify-between gap-4 border-b px-5 py-3 sm:px-8',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
-        )}
-      >
-        <Breadcrumb
-          items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]}
-          darkMode={darkMode}
-        />
+      <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border-subtle px-5 py-3 sm:px-8">
+        <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]} />
       </header>
 
-      <main className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+      <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
         <section className="mx-auto w-full max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-2">
-            <h1
-              className={cn(
-                'text-[24px] font-semibold leading-tight sm:text-[27px]',
-                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-              )}
-            >
-              个人信息
-            </h1>
-            <p className={cn('text-[13px]', mutedTextClassName(darkMode))}>
-              管理账户展示资料、联系方式与内容管理入口。
-            </p>
+            <h1 className="text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">个人信息</h1>
+            <p className="text-[13px] text-muted">管理账户展示资料、联系方式与内容管理入口。</p>
           </div>
 
           {loading ? (
             <div className="flex min-h-[320px] items-center justify-center">
-              <Loader2 className={cn('animate-spin', mutedTextClassName(darkMode))} size={24} />
+              <Loader2 className="animate-spin text-muted" size={24} />
             </div>
           ) : (
             <div className="space-y-8">
               <section>
-                <div
-                  className={cn(
-                    'flex flex-col gap-5 border-b px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6',
-                    darkMode ? 'border-[#3c3c3c]/70' : 'border-border-subtle/70',
-                  )}
-                >
+                <div className="flex flex-col gap-5 border-b border-border-subtle px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="relative shrink-0">
+                    <div className="group/avatar relative shrink-0">
                       {profile?.avatarUrl ? (
                         <img
                           src={profile.avatarUrl}
                           alt="用户头像"
-                          className="h-20 w-20 rounded-2xl border border-border-subtle object-cover"
+                          className="h-20 w-20 rounded-full border border-hairline object-cover"
                         />
                       ) : (
-                        <div
-                          className={cn(
-                            'flex h-20 w-20 items-center justify-center rounded-2xl border text-3xl font-semibold',
-                            darkMode
-                              ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0]'
-                              : 'border-border-subtle bg-bg-base/70 text-primary',
-                          )}
-                        >
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-hairline bg-surface-soft text-3xl font-semibold text-primary">
                           {getInitial(profile)}
                         </div>
                       )}
                       <label
                         className={cn(
-                          'absolute -bottom-2 -right-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border text-white transition-colors',
-                          darkMode
-                            ? 'border-[#3c3c3c] bg-[#094771] hover:bg-[#0d5b8f]'
-                            : 'border-white/80 bg-[#7B6B5D] hover:opacity-90',
+                          'absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/45 text-xs font-bold text-white opacity-0 transition-opacity group-hover/avatar:opacity-100 group-focus-within/avatar:opacity-100',
                           avatarLoading && 'pointer-events-none opacity-70',
                         )}
-                        aria-label="上传头像"
                       >
-                        {avatarLoading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
-                        <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                        {avatarLoading ? <Loader2 size={16} className="animate-spin" /> : '修改'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={handleAvatarInputChange}
+                          aria-label="上传头像"
+                        />
                       </label>
                     </div>
 
                     <div className="min-w-0">
-                      <h2
-                        className={cn(
-                          'max-w-full truncate text-lg font-bold',
-                          darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-                        )}
-                      >
-                        {getDisplayName(profile)}
-                      </h2>
-                      <p
-                        className={cn(
-                          'mt-1 max-w-full truncate font-mono text-xs uppercase tracking-[0.14em]',
-                          mutedTextClassName(darkMode),
-                        )}
-                      >
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <h2 className="min-w-0 max-w-full truncate text-lg font-bold text-ink">
+                          {getDisplayName(profile)}
+                        </h2>
+                      </div>
+                      <p className="mt-1 max-w-full truncate font-mono text-xs uppercase tracking-[0.14em] text-muted">
                         @{profile?.username || 'unset'}
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <StatusBadge darkMode={darkMode} label={profile?.role === 'ADMIN' ? '管理员' : '普通用户'} />
-                        <StatusBadge darkMode={darkMode} label={profile?.status === 1 ? '已启用' : '已停用'} />
-                      </div>
                     </div>
                   </div>
 
@@ -286,12 +491,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleOpenAdminPage}
-                      className={cn(
-                        'inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors',
-                        darkMode
-                          ? 'bg-[#1f2937] text-[#c7dff8] hover:bg-[#26364d]'
-                          : 'bg-white/70 text-text-main/70 hover:bg-white hover:text-text-main',
-                      )}
+                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-hairline bg-canvas px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
                     >
                       <ShieldCheck size={15} />
                       后台管理
@@ -301,7 +501,6 @@ export default function ProfilePage() {
 
                 <div className="py-1">
                   <ProfileStaticRow
-                    darkMode={darkMode}
                     label="账号ID"
                     value={profile?.username || '未设置'}
                     icon={<UserRound size={16} />}
@@ -310,7 +509,6 @@ export default function ProfilePage() {
                   {renderEditableRow('邮箱', profile?.email, 'email', <Mail size={16} />)}
                   {renderEditableRow('手机号', profile?.phone, 'phone', <Phone size={16} />)}
                   <ProfileStaticRow
-                    darkMode={darkMode}
                     label="账户权限"
                     value={profile?.role === 'ADMIN' ? '管理员' : '普通用户'}
                     icon={<ShieldCheck size={16} />}
@@ -322,33 +520,80 @@ export default function ProfilePage() {
         </section>
       </main>
 
+      {avatarCropSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button className="absolute inset-0 bg-black/50" onClick={() => closeAvatarCrop()} aria-label="关闭弹窗" />
+          <div className="relative w-full max-w-[420px] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+            <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
+              <h3 className="text-base font-bold text-ink">调整头像</h3>
+              <button
+                type="button"
+                onClick={() => closeAvatarCrop()}
+                disabled={avatarLoading}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-soft hover:text-ink disabled:opacity-60"
+                aria-label="关闭"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div
+                className={cn(
+                  'relative mx-auto h-[280px] w-[280px] touch-none overflow-hidden rounded-full border border-hairline bg-surface-soft',
+                  avatarCropDragging ? 'cursor-grabbing' : 'cursor-grab',
+                )}
+                onPointerDown={handleAvatarCropPointerDown}
+                onPointerMove={handleAvatarCropPointerMove}
+                onPointerUp={handleAvatarCropPointerEnd}
+                onPointerCancel={handleAvatarCropPointerEnd}
+                onWheel={handleAvatarCropWheel}
+              >
+                <img
+                  src={avatarCropSrc}
+                  alt="头像预览"
+                  className="absolute left-1/2 top-1/2 max-w-none select-none"
+                  draggable={false}
+                  style={avatarCropPreviewStyle}
+                  onLoad={handleAvatarCropImageLoad}
+                />
+                <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/60" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-soft px-6 py-4">
+              <button
+                type="button"
+                onClick={() => closeAvatarCrop()}
+                disabled={avatarLoading}
+                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink disabled:opacity-60"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAvatarUpload}
+                disabled={avatarLoading || !avatarCropImage}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
+              >
+                {avatarLoading && <Loader2 className="animate-spin" size={14} />}
+                保存头像
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editField && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={closeEdit} aria-label="关闭弹窗" />
-          <div
-            className={cn(
-              'relative w-full max-w-[480px] overflow-hidden rounded-2xl border shadow-2xl',
-              darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
-            )}
-          >
-            <div
-              className={cn(
-                'flex items-center justify-between border-b px-6 py-4',
-                darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-              )}
-            >
-              <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                修改{fieldMeta[editField].label}
-              </h3>
+          <button className="absolute inset-0 bg-black/50 " onClick={closeEdit} aria-label="关闭弹窗" />
+          <div className="relative w-full max-w-[480px] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+            <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
+              <h3 className="text-base font-bold text-ink">修改{fieldMeta[editField].label}</h3>
               <button
                 type="button"
                 onClick={closeEdit}
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
-                  darkMode
-                    ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
-                    : 'text-text-main/45 hover:bg-bg-base hover:text-text-main',
-                )}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-soft hover:text-ink"
                 aria-label="关闭"
               >
                 <X size={16} />
@@ -357,20 +602,13 @@ export default function ProfilePage() {
 
             <div className="space-y-4 p-6">
               <label className="block">
-                <span className={cn('mb-2 block text-xs font-bold', darkMode ? 'text-[#cccccc]' : 'text-text-main/70')}>
-                  {fieldMeta[editField].label}
-                </span>
+                <span className="mb-2 block text-xs font-bold text-text-secondary">{fieldMeta[editField].label}</span>
                 <input
                   type="text"
                   inputMode={fieldMeta[editField].inputMode}
                   value={draftValue}
                   onChange={(event) => setDraftValue(event.target.value)}
-                  className={cn(
-                    'h-11 w-full rounded-xl border px-4 text-sm outline-none transition-colors focus:border-primary/50',
-                    darkMode
-                      ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                      : 'border-border-subtle bg-bg-base/50 text-text-main placeholder:text-text-main/35 focus:bg-white',
-                  )}
+                  className="h-11 w-full rounded-xl border border-hairline bg-bg-card-solid px-4 text-sm text-text-main outline-none transition-colors placeholder:text-muted-soft focus:border-primary/40"
                   placeholder={fieldMeta[editField].placeholder}
                 />
               </label>
@@ -378,21 +616,11 @@ export default function ProfilePage() {
               {formError && <p className="text-sm text-error">{formError}</p>}
             </div>
 
-            <div
-              className={cn(
-                'flex items-center justify-end gap-3 border-t px-6 py-4',
-                darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]' : 'border-border-subtle bg-bg-base/30',
-              )}
-            >
+            <div className="flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-soft px-6 py-4">
               <button
                 type="button"
                 onClick={closeEdit}
-                className={cn(
-                  'h-9 rounded-xl px-4 text-xs font-bold transition-colors',
-                  darkMode
-                    ? 'text-[#cccccc] hover:bg-[#2d2d2d]'
-                    : 'text-text-main/65 hover:bg-white hover:text-text-main',
-                )}
+                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink"
               >
                 取消
               </button>
@@ -400,10 +628,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleSave}
                 disabled={submitLoading}
-                className={cn(
-                  'inline-flex h-9 items-center gap-2 rounded-xl px-4 text-xs font-bold text-white transition-colors disabled:opacity-70',
-                  darkMode ? 'bg-[#094771] hover:bg-[#0d5b8f]' : 'bg-[#7B6B5D] hover:opacity-90',
-                )}
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
               >
                 {submitLoading && <Loader2 className="animate-spin" size={14} />}
                 保存
@@ -416,50 +641,13 @@ export default function ProfilePage() {
   );
 }
 
-function StatusBadge({ darkMode, label }: { darkMode: boolean; label: string }) {
+function ProfileStaticRow({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
-    <div
-      className={cn(
-        'rounded-lg border px-3 py-2 text-center text-xs font-bold',
-        darkMode
-          ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc]'
-          : 'border-border-subtle bg-bg-base/55 text-text-main/70',
-      )}
-    >
-      {label}
-    </div>
-  );
-}
-
-function ProfileStaticRow({
-  darkMode,
-  label,
-  value,
-  icon,
-}: {
-  darkMode: boolean;
-  label: string;
-  value: string;
-  icon: ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-3 border-b px-5 py-4 last:border-b-0 sm:px-6',
-        darkMode ? 'border-[#3c3c3c]/70' : 'border-border-subtle/70',
-      )}
-    >
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 items-center justify-center',
-          darkMode ? 'text-[#858585]' : 'text-primary',
-        )}
-      >
-        {icon}
-      </div>
+    <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4 last:border-b-0 sm:px-6">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">{icon}</div>
       <div className="min-w-0">
-        <p className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{label}</p>
-        <p className={cn('mt-1 truncate text-xs', darkMode ? 'text-[#cccccc]' : 'text-text-main/70')}>{value}</p>
+        <p className="text-sm font-bold text-ink">{label}</p>
+        <p className="mt-1 truncate text-xs text-text-secondary">{value}</p>
       </div>
     </div>
   );

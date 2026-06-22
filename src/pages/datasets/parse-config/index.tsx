@@ -3,8 +3,7 @@ import { useBeforeUnload, useNavigate, useParams } from 'react-router';
 import { AlertCircle, Box, Check, FileText, Layers3, Loader2, Search, Sparkles } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useToast } from '@/contexts/ToastContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
+import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
@@ -133,8 +132,8 @@ const GROUPS: ParamGroup[] = [
     en: 'Chunking',
     note: '控制标题断层、候选块下限与块间重叠',
     count: 3,
-    colorClass: 'text-[#4F7FA8]',
-    dotClass: 'bg-[#4F7FA8]',
+    colorClass: 'text-muted',
+    dotClass: 'bg-primary/40',
     icon: Layers3,
     columns: 'double',
     params: [
@@ -181,8 +180,8 @@ const GROUPS: ParamGroup[] = [
     en: 'Enhancement',
     note: '库级只保存增强开关，模型固定跟随用户默认模型',
     count: 4,
-    colorClass: 'text-primary',
-    dotClass: 'bg-primary',
+    colorClass: 'text-muted',
+    dotClass: 'bg-primary/40',
     icon: Sparkles,
     columns: 'double',
     params: [
@@ -220,8 +219,8 @@ const GROUPS: ParamGroup[] = [
     en: 'PDF Parser',
     note: '选择 PDF 文档解析后端，系统默认当前等价 MinerU',
     count: 1,
-    colorClass: 'text-[#5E9B73]',
-    dotClass: 'bg-[#5E9B73]',
+    colorClass: 'text-muted',
+    dotClass: 'bg-primary/40',
     icon: FileText,
     columns: 'single',
     params: [
@@ -249,8 +248,8 @@ const GROUPS: ParamGroup[] = [
     en: 'Recall',
     note: '控制召回路、重排条数、容错模式与上下文预算',
     count: 9,
-    colorClass: 'text-[#7B6B5D]',
-    dotClass: 'bg-[#7B6B5D]',
+    colorClass: 'text-muted',
+    dotClass: 'bg-primary/40',
     icon: Search,
     columns: 'double',
     params: [
@@ -516,7 +515,6 @@ function isDisabled(param: ParamSpec, values: ParseConfigValues) {
 export default function DatasetParseConfigPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { darkMode } = useTheme();
   const { addToast } = useToast();
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
   const [values, setValues] = useState<ParseConfigValues>(DEFAULT_VALUES);
@@ -688,10 +686,10 @@ export default function DatasetParseConfigPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-canvas">
         <div className="flex flex-col items-center">
-          <Loader2 size={24} className={cn('mb-3 animate-spin', darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]')} />
-          <div className={cn('mono-label', darkMode && 'text-[#858585]')}>加载中...</div>
+          <Loader2 size={24} className="mb-3 animate-spin text-ink" />
+          <div className="mono-label text-muted">加载中...</div>
         </div>
       </div>
     );
@@ -699,19 +697,14 @@ export default function DatasetParseConfigPage() {
 
   if (!dataset) {
     return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <AlertCircle size={30} className="mb-3 text-red-500" />
-        <p className={cn('mb-2 text-lg', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>解析配置不可用</p>
-        <p className={cn('mb-4 text-sm', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-          {errorMessage || '知识库不存在或无权访问'}
-        </p>
+      <div className="flex h-full flex-col items-center justify-center bg-canvas">
+        <AlertCircle size={30} className="mb-3 text-error" />
+        <p className="mb-2 text-lg text-ink">解析配置不可用</p>
+        <p className="mb-4 text-sm text-muted">{errorMessage || '知识库不存在或无权访问'}</p>
         <button
           type="button"
           onClick={() => navigate(Routes.Datasets)}
-          className={cn(
-            'rounded-xl px-4 py-2 text-sm font-bold uppercase tracking-wider',
-            darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-          )}
+          className="rounded-xl px-4 py-2 text-sm font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
         >
           返回知识库列表
         </button>
@@ -720,13 +713,8 @@ export default function DatasetParseConfigPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header
-        className={cn(
-          'flex h-16 shrink-0 items-center justify-between border-b px-8 backdrop-blur-md',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/80',
-        )}
-      >
+    <div className="flex h-full flex-col bg-canvas text-text-main">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-8">
         <div className="min-w-0">
           <Breadcrumb
             items={[
@@ -735,20 +723,12 @@ export default function DatasetParseConfigPage() {
               { label: dataset.name, path: `/datasets/${dataset.id}` },
               { label: '解析配置' },
             ]}
-            darkMode={darkMode}
           />
         </div>
 
         <div className="flex items-center gap-2">
           {dirty && (
-            <span
-              className={cn(
-                'hidden h-9 items-center rounded-lg border px-3 text-xs font-bold lg:inline-flex',
-                darkMode
-                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc]'
-                  : 'border-border-subtle bg-white text-text-main/65',
-              )}
-            >
+            <span className="hidden h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary lg:inline-flex">
               未保存改动
             </span>
           )}
@@ -757,12 +737,7 @@ export default function DatasetParseConfigPage() {
               type="button"
               onClick={handleDiscard}
               disabled={saving}
-              className={cn(
-                'inline-flex h-9 items-center rounded-lg border px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                darkMode
-                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
-                  : 'border-border-subtle bg-white text-text-main hover:bg-gray-100',
-              )}
+              className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
             >
               放弃改动
             </button>
@@ -771,12 +746,7 @@ export default function DatasetParseConfigPage() {
             type="button"
             onClick={handleRestoreDefault}
             disabled={saving}
-            className={cn(
-              'inline-flex h-9 items-center rounded-lg border px-3 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:bg-[#3c3c3c]'
-                : 'border-border-subtle bg-white text-text-main hover:border-[#1f1f1f]',
-            )}
+            className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             恢复默认
           </button>
@@ -784,40 +754,25 @@ export default function DatasetParseConfigPage() {
             type="button"
             onClick={() => void handleSave()}
             disabled={saveDisabled}
-            className={cn(
-              'inline-flex h-9 min-w-[82px] items-center justify-center rounded-lg px-4 text-xs font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45',
-              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-            )}
+            className="inline-flex h-9 min-w-[82px] items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-45"
           >
             {saving ? '保存中' : '保存配置'}
           </button>
         </div>
       </header>
 
-      <main className={cn('flex-1 overflow-y-auto p-8', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+      <main className="flex-1 overflow-y-auto p-8">
         {errorCount > 0 && (
-          <div
-            className={cn(
-              'mb-4 flex items-center gap-2 rounded-[14px] border px-4 py-3 shadow-sm',
-              darkMode
-                ? 'border-red-500/30 bg-red-500/10 text-[#cccccc]'
-                : 'border-[#D97373]/30 bg-white/55 text-text-main/70',
-            )}
-          >
-            <AlertCircle size={16} className="shrink-0 text-[#D97373]" />
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-error/30 bg-bg-card-solid px-4 py-3 text-text-secondary">
+            <AlertCircle size={16} className="shrink-0 text-error" />
             <span className="text-sm">
-              有 <strong className="text-[#D97373]">{errorCount}</strong> 项参数待修正，修正后才能保存。
+              有 <strong className="text-error">{errorCount}</strong> 项参数待修正，修正后才能保存。
             </span>
           </div>
         )}
 
         <div className="flex flex-col items-start gap-5 lg:flex-row">
-          <aside
-            className={cn(
-              'w-full shrink-0 rounded-[18px] border p-2 shadow-sm lg:sticky lg:top-0 lg:w-[196px]',
-              darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/55',
-            )}
-          >
+          <aside className="w-full shrink-0 rounded-xl border border-hairline bg-bg-card-solid p-2 (--)] lg:sticky lg:top-0 lg:w-[196px]">
             <div className="grid grid-cols-2 gap-1 lg:grid-cols-1">
               {GROUPS.map((group) => (
                 <a
@@ -827,12 +782,8 @@ export default function DatasetParseConfigPage() {
                   className={cn(
                     'flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-colors',
                     activeGroup === group.id
-                      ? darkMode
-                        ? 'border-[#3b82f6]/35 bg-[#094771]/30 text-[#e0e0e0]'
-                        : 'border-primary/20 bg-primary/10 text-text-main'
-                      : darkMode
-                        ? 'border-transparent text-[#858585] hover:bg-[#2d2d2d] hover:text-[#cccccc]'
-                        : 'border-transparent text-text-main/65 hover:bg-bg-base/50 hover:text-text-main',
+                      ? 'border-primary/40 bg-primary/10 text-ink'
+                      : 'border-transparent text-text-secondary hover:bg-surface-soft hover:text-ink',
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
@@ -854,7 +805,6 @@ export default function DatasetParseConfigPage() {
                 errors={errors}
                 disabled={saving}
                 displayModels={defaultModels}
-                darkMode={darkMode}
                 onFocus={() => setActiveGroup(group.id)}
                 onChange={updateValue}
               />
@@ -872,7 +822,6 @@ function ConfigGroup({
   errors,
   disabled,
   displayModels,
-  darkMode,
   onFocus,
   onChange,
 }: {
@@ -881,7 +830,6 @@ function ConfigGroup({
   errors: Partial<Record<EditableParamKey, string>>;
   disabled: boolean;
   displayModels: DefaultModels;
-  darkMode: boolean;
   onFocus: () => void;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
@@ -891,24 +839,14 @@ function ConfigGroup({
     <section
       id={group.id}
       onMouseEnter={onFocus}
-      className={cn(
-        'scroll-mt-8 overflow-hidden rounded-[18px] border shadow-sm',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white/55',
-      )}
+      className="scroll-mt-8 overflow-hidden rounded-xl border border-hairline bg-bg-card-solid (--)]"
     >
-      <header
-        className={cn(
-          'flex items-center gap-3 border-b px-5 py-4',
-          darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
-        )}
-      >
+      <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent">
           <Icon size={18} className={group.colorClass} />
         </span>
         <div className="min-w-0">
-          <h2 className={cn('text-[15.5px] font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            {group.name}
-          </h2>
+          <h2 className="text-[15.5px] font-bold text-ink">{group.name}</h2>
         </div>
       </header>
       <div
@@ -932,7 +870,6 @@ function ConfigGroup({
                   ? displayModels.vision
                   : undefined
             }
-            darkMode={darkMode}
             onChange={onChange}
           />
         ))}
@@ -948,7 +885,6 @@ function ParamField({
   disabled,
   spanFull,
   displayModel,
-  darkMode,
   onChange,
 }: {
   param: ParamSpec;
@@ -957,7 +893,6 @@ function ParamField({
   disabled: boolean;
   spanFull: boolean;
   displayModel?: DefaultModelInfo | null;
-  darkMode: boolean;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
   const editableKey = isEditableKey(param.key) ? param.key : null;
@@ -985,16 +920,14 @@ function ParamField({
       className={cn(
         'flex min-w-0 flex-col gap-2.5',
         spanFull && 'xl:col-span-2',
-        param.type === 'multiselect' && ['gap-3 border-b pb-5', darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle'],
+        param.type === 'multiselect' && 'gap-3 border-b border-border-subtle pb-5',
         disabled && 'pointer-events-none opacity-40',
       )}
       title={[param.envKey, param.description].filter(Boolean).join(' · ')}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={cn('text-[13.5px] font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-            {param.label}
-          </p>
+          <p className="text-[13.5px] font-semibold text-ink">{param.label}</p>
         </div>
         <div className="shrink-0">
           {param.type === 'toggle' && editableKey && (
@@ -1003,19 +936,13 @@ function ParamField({
               onClick={() => onChange(editableKey, !booleanValue as ParseConfigValues[EditableParamKey])}
               className={cn(
                 'flex h-6 w-[42px] items-center rounded-full p-[3px] transition-colors',
-                booleanValue
-                  ? darkMode
-                    ? 'bg-[#3b82f6]'
-                    : 'bg-primary'
-                  : darkMode
-                    ? 'bg-[#3c3c3c]'
-                    : 'bg-text-main/15',
+                booleanValue ? 'bg-primary' : 'bg-text-main/15',
               )}
               aria-label={param.label}
             >
               <span
                 className={cn(
-                  'h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform',
+                  'h-[18px] w-[18px] rounded-full bg-white  transition-transform',
                   booleanValue && 'translate-x-[18px]',
                 )}
               />
@@ -1030,31 +957,18 @@ function ParamField({
               step={param.step ?? 1}
               onChange={handleNumberChange}
               className={cn(
-                'h-8 w-[84px] rounded-lg border px-2.5 font-mono text-[13px] font-medium outline-none transition-colors',
-                darkMode
-                  ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] focus:border-[#4a4a4a]'
-                  : 'border-border-subtle bg-white text-text-main focus:border-primary/50',
-                error && 'border-[#D97373] focus:border-[#D97373]',
+                'h-8 w-[84px] rounded-lg border border-hairline bg-bg-card-solid px-2.5 font-mono text-[13px] font-medium text-text-main outline-none transition-colors focus:border-primary/40',
+                error && 'border-error focus:border-error',
               )}
             />
           )}
           {param.type === 'slider' && (
-            <span
-              className={cn(
-                'rounded-lg px-2.5 py-1 font-mono text-[13px] font-semibold',
-                darkMode ? 'bg-[#094771]/40 text-[#cccccc]' : 'bg-primary/20 text-text-main',
-              )}
-            >
+            <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-mono text-[13px] font-semibold text-ink">
               {numericValue === null ? '-' : formatValue(numericValue)}
             </span>
           )}
           {param.type === 'multiselect' && (
-            <span
-              className={cn(
-                'rounded-lg px-2.5 py-1 font-mono text-[12px] font-semibold',
-                darkMode ? 'bg-[#094771]/40 text-[#cccccc]' : 'bg-primary/15 text-text-main/70',
-              )}
-            >
+            <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-mono text-[12px] font-semibold text-text-secondary">
               {arrayValue.length}/{param.options?.length ?? 0}
             </span>
           )}
@@ -1070,16 +984,15 @@ function ParamField({
           step={param.step ?? 1}
           style={{ '--range-progress': getRangeProgress(numericValue, param.min, param.max) } as CSSProperties}
           onChange={(event) => onChange(editableKey, Number(event.target.value) as ParseConfigValues[EditableParamKey])}
-          className={cn('parse-config-range h-2 w-full cursor-pointer accent-primary', darkMode && 'accent-[#3b82f6]')}
+          className="parse-config-range h-2 w-full cursor-pointer accent-primary"
         />
       )}
 
       {param.type === 'segment' && editableKey && (
         <div
           className={cn(
-            'grid gap-1 rounded-xl p-1',
+            'grid gap-1 rounded-xl bg-surface-soft p-1',
             compactOptions ? 'grid-cols-5' : 'grid-cols-2 sm:grid-cols-4',
-            darkMode ? 'bg-[#1e1e1e]' : 'bg-text-main/5',
           )}
         >
           {param.options?.map((option) => {
@@ -1092,13 +1005,7 @@ function ParamField({
                 className={cn(
                   'min-w-0 rounded-lg text-center transition-colors',
                   compactOptions ? 'px-1.5 py-1.5' : 'px-3 py-1.5',
-                  active
-                    ? darkMode
-                      ? 'bg-[#2d2d2d] text-[#e0e0e0] shadow-sm'
-                      : 'bg-white text-text-main shadow-sm'
-                    : darkMode
-                      ? 'text-[#858585] hover:bg-[#2d2d2d]/70'
-                      : 'text-text-main/50 hover:bg-white/70',
+                  active ? 'bg-bg-card-solid text-ink (--)]' : 'text-muted hover:bg-bg-card-solid/70',
                 )}
               >
                 <span
@@ -1111,9 +1018,8 @@ function ParamField({
                 </span>
                 <span
                   className={cn(
-                    'mt-0.5 block max-w-full truncate font-mono uppercase leading-tight',
+                    'mt-0.5 block max-w-full truncate font-mono uppercase leading-tight text-muted-soft',
                     compactOptions ? 'text-[7.5px]' : 'text-[8.5px]',
-                    darkMode ? 'text-[#6b6b6b]' : 'text-text-main/30',
                   )}
                 >
                   {option.value ?? 'default'}
@@ -1125,12 +1031,7 @@ function ParamField({
       )}
 
       {param.type === 'multiselect' && editableKey && (
-        <div
-          className={cn(
-            'grid grid-cols-1 gap-2 rounded-xl p-1 sm:grid-cols-3',
-            darkMode ? 'bg-[#1e1e1e]' : 'bg-text-main/5',
-          )}
-        >
+        <div className="grid grid-cols-1 gap-2 rounded-xl bg-surface-soft p-1 sm:grid-cols-3">
           {param.options?.map((option) => {
             if (typeof option.value !== 'string' || !isRecallSource(option.value)) return null;
 
@@ -1145,77 +1046,49 @@ function ParamField({
                 className={cn(
                   'rounded-lg border px-2 py-1.5 text-center transition-colors',
                   active
-                    ? darkMode
-                      ? 'border-[#3b82f6]/45 bg-[#094771]/55 text-[#e0e0e0]'
-                      : 'border-primary/35 bg-white text-text-main shadow-sm'
-                    : darkMode
-                      ? 'border-transparent text-[#858585] hover:bg-[#2d2d2d]/70'
-                      : 'border-transparent text-text-main/50 hover:bg-white/70',
+                    ? 'border-primary/40 bg-bg-card-solid text-ink (--)]'
+                    : 'border-transparent text-muted hover:bg-bg-card-solid/70',
                 )}
               >
                 <span className="flex items-center justify-center gap-1 text-xs font-semibold">
                   <Check size={11} className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-0')} />
                   {option.label}
                 </span>
-                <span
-                  className={cn(
-                    'mt-0.5 block font-mono text-[9px] uppercase',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/35',
-                  )}
-                >
-                  {source}
-                </span>
+                <span className="mt-0.5 block font-mono text-[9px] uppercase text-muted">{source}</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {param.type === 'display' && (
-        <ReadonlyModelField model={displayModel} hint={param.displaySub} darkMode={darkMode} />
-      )}
+      {param.type === 'display' && <ReadonlyModelField model={displayModel} hint={param.displaySub} />}
 
       {error && (
-        <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[#D97373]">
+        <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-error">
           <AlertCircle size={12} />
           {error}
         </p>
       )}
 
       {param.showDescription && param.description && param.type !== 'display' && (
-        <p className={cn('text-[11.5px] leading-5', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-          {param.description}
-        </p>
+        <p className="text-[11.5px] leading-5 text-muted">{param.description}</p>
       )}
     </div>
   );
 }
 
-function ReadonlyModelField({
-  model,
-  hint,
-  darkMode,
-}: {
-  model?: DefaultModelInfo | null;
-  hint?: string;
-  darkMode: boolean;
-}) {
+function ReadonlyModelField({ model, hint }: { model?: DefaultModelInfo | null; hint?: string }) {
   const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName) : '';
 
   return (
-    <div className={cn('rounded-xl px-3 py-3', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base/40')}>
+    <div className="rounded-xl bg-surface-soft px-3 py-3">
       <div className="flex min-w-0 items-center gap-3">
-        <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} darkMode={darkMode} />
+        <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} />
         <div className="min-w-0 flex-1">
-          <p
-            className={cn(
-              'truncate font-mono text-[12.5px] font-semibold',
-              model ? (darkMode ? 'text-[#e0e0e0]' : 'text-text-main') : 'text-[#D97373]',
-            )}
-          >
+          <p className={cn('truncate font-mono text-[12.5px] font-semibold', model ? 'text-ink' : 'text-error')}>
             {model?.modelName || DISPLAY_MODEL_FALLBACK}
           </p>
-          <p className={cn('mt-1 truncate text-[10.5px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+          <p className="mt-1 truncate text-[10.5px] text-muted">
             {model ? `${model.providerName} · ${hint || '跟随用户默认模型'}` : hint || '跟随用户默认模型'}
           </p>
         </div>
@@ -1231,25 +1104,20 @@ function shouldInsetProviderIcon(name: string, iconUrl: string) {
   return INSET_PROVIDER_ICON_KEYS.some((key) => token.includes(key));
 }
 
-function ProviderIcon({ iconUrl, name, darkMode }: { iconUrl: string; name: string; darkMode: boolean }) {
-  const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
+function ProviderIcon({ iconUrl, name }: { iconUrl: string; name: string }) {
   const iconInsetClass = shouldInsetProviderIcon(name, iconUrl) ? 'p-1' : 'p-0';
 
   if (iconUrl) {
     return (
       <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg border-0 bg-transparent">
-        <img
-          src={iconUrl}
-          alt={name}
-          className={cn('h-full w-full object-contain', iconInsetClass, darkMode && iconIsMonochrome && 'invert')}
-        />
+        <img src={iconUrl} alt={name} className={cn('h-full w-full object-contain', iconInsetClass)} />
       </div>
     );
   }
 
   return (
     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent">
-      <Box size={14} className={darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]'} />
+      <Box size={14} className="text-ink" />
     </div>
   );
 }

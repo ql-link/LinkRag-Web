@@ -62,7 +62,7 @@ function ToastItem({ toast, onClose }: { toast: ToastMessage; onClose: (id: stri
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg animate-slide-in',
+        'flex items-center gap-3 px-4 py-3 rounded-xl  animate-slide-in',
         toast.type === 'error' && 'bg-red-500 text-white',
         toast.type === 'success' && 'bg-green-500 text-white',
         toast.type === 'info' && 'bg-blue-500 text-white',
