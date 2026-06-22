@@ -16,6 +16,7 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   showFrontmatter?: boolean;
+  compact?: boolean;
 }
 
 const sanitizeSchema = {
@@ -50,9 +51,10 @@ type CodeBlockFrameProps = {
   code: string;
   language: string;
   notice?: string;
+  compact?: boolean;
 };
 
-const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
+const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFrameProps) => {
   const [copied, setCopied] = useState(false);
   const { darkMode } = useTheme();
 
@@ -63,11 +65,28 @@ const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
   };
 
   return (
-    <div className="not-prose group relative my-8 overflow-hidden rounded-2xl border border-border-subtle bg-surface-card  transition-colors dark:bg-[#2d2d2d]">
-      <div className="flex items-center justify-between border-b border-border-subtle bg-bg-base/30 px-4 py-3 dark:bg-[#252526]">
+    <div
+      className={cn(
+        'not-prose group relative overflow-hidden border border-border-subtle transition-colors',
+        compact ? 'bg-surface-soft/80 dark:bg-surface-card' : 'bg-surface-card dark:bg-[#2d2d2d]',
+        compact ? 'my-2 rounded-lg' : 'my-8 rounded-2xl',
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-center justify-between border-b border-border-subtle',
+          compact ? 'bg-canvas/70 dark:bg-white/[0.03]' : 'bg-bg-base/30 dark:bg-[#252526]',
+          compact ? 'px-2.5 py-1.5' : 'px-4 py-3',
+        )}
+      >
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <FileCode2 size={15} strokeWidth={1.8} />
+          <span
+            className={cn(
+              'flex items-center justify-center bg-primary/10 text-primary',
+              compact ? 'size-5 rounded-md' : 'size-7 rounded-xl',
+            )}
+          >
+            <FileCode2 size={compact ? 12 : 15} strokeWidth={1.8} />
           </span>
           <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
             {language || 'text'}
@@ -76,7 +95,10 @@ const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
+          className={cn(
+            'inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
+            compact ? 'rounded-md px-2 py-1' : 'rounded-xl px-2.5 py-1.5',
+          )}
           title="复制代码"
         >
           {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
@@ -89,18 +111,21 @@ const CodeBlockFrame = ({ code, language, notice }: CodeBlockFrameProps) => {
         </div>
       )}
       <SyntaxHighlighter
-        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
+        style={(compact ? oneLight : darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
         language={language || 'text'}
         PreTag="div"
         customStyle={{
           margin: 0,
-          padding: '1.125rem 1rem',
+          padding: compact ? '0.625rem 0.75rem' : '1.125rem 1rem',
           background: 'transparent',
-          fontSize: '0.875rem',
-          lineHeight: '1.65',
+          fontSize: compact ? '0.75rem' : '0.875rem',
+          lineHeight: compact ? '1.55' : '1.65',
         }}
         codeTagProps={{
-          style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
+          style: {
+            color: compact ? 'var(--color-text-main, #24292f)' : undefined,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          },
         }}
       >
         {code}
@@ -207,13 +232,14 @@ const HeadingRenderer = ({ level, getHeadingId, children, className, node: _node
 type CodeRendererProps = ComponentPropsWithoutRef<'code'> & {
   inline?: boolean;
   node?: unknown;
+  compact?: boolean;
 };
 
 const codeLanguagePattern = /language-([\w-]+)/;
 
 const getCodeLanguage = (className?: string) => codeLanguagePattern.exec(className || '')?.[1] ?? '';
 
-const CodeRenderer = ({ className, children, node: _node, ...props }: CodeRendererProps) => {
+const CodeRenderer = ({ className, children, node: _node, compact: _compact, ...props }: CodeRendererProps) => {
   return (
     <code
       className={cn(
@@ -229,6 +255,7 @@ const CodeRenderer = ({ className, children, node: _node, ...props }: CodeRender
 
 type PreRendererProps = ComponentPropsWithoutRef<'pre'> & {
   node?: unknown;
+  compact?: boolean;
 };
 
 const getCodeElement = (children: React.ReactNode): React.ReactElement<CodeRendererProps> | null => {
@@ -236,7 +263,7 @@ const getCodeElement = (children: React.ReactNode): React.ReactElement<CodeRende
   return React.isValidElement<CodeRendererProps>(firstChild) ? firstChild : null;
 };
 
-const PreRenderer = ({ children, node: _node, ...props }: PreRendererProps) => {
+const PreRenderer = ({ children, node: _node, compact = false, ...props }: PreRendererProps) => {
   const { darkMode } = useTheme();
   const codeElement = getCodeElement(children);
 
@@ -251,7 +278,7 @@ const PreRenderer = ({ children, node: _node, ...props }: PreRendererProps) => {
     return <MermaidChart chart={code} darkMode={darkMode} />;
   }
 
-  return <CodeBlockFrame code={code} language={language || 'text'} />;
+  return <CodeBlockFrame code={code} language={language || 'text'} compact={compact} />;
 };
 
 const BlockquoteRenderer = ({
@@ -322,7 +349,12 @@ function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-export function MarkdownRenderer({ content, className, showFrontmatter = true }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  className,
+  showFrontmatter = true,
+  compact = false,
+}: MarkdownRendererProps) {
   const { darkMode } = useTheme();
   const parsed = useMemo(() => parseMarkdownContent(content), [content]);
   const headingIdByLine = useMemo(() => {
@@ -335,8 +367,8 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
   };
 
   const components: Components = {
-    code: CodeRenderer as Components['code'],
-    pre: PreRenderer as Components['pre'],
+    code: (props) => <CodeRenderer compact={compact} {...props} />,
+    pre: (props) => <PreRenderer compact={compact} {...props} />,
     blockquote: BlockquoteRenderer as Components['blockquote'],
     h1: (props) => <HeadingRenderer level={1} getHeadingId={getHeadingId} {...props} />,
     h2: (props) => <HeadingRenderer level={2} getHeadingId={getHeadingId} {...props} />,
@@ -345,8 +377,10 @@ export function MarkdownRenderer({ content, className, showFrontmatter = true }:
     h5: (props) => <HeadingRenderer level={5} getHeadingId={getHeadingId} {...props} />,
     h6: (props) => <HeadingRenderer level={6} getHeadingId={getHeadingId} {...props} />,
     table: ({ node: _node, className: tableClassName, ...props }) => (
-      <div className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle">
-        <table className={cn('w-full border-collapse text-sm', tableClassName)} {...props} />
+      <div
+        className={cn('not-prose overflow-x-auto rounded-lg border border-border-subtle', compact ? 'my-2' : 'my-8')}
+      >
+        <table className={cn('w-full border-collapse', compact ? 'text-xs' : 'text-sm', tableClassName)} {...props} />
       </div>
     ),
     th: ({ node: _node, className: thClassName, children, ...props }) => (
