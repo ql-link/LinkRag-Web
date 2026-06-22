@@ -20,10 +20,11 @@ function normalizePageResult<T>(page: BackendPageResult<T>): PageResult<T> {
 }
 
 export async function getConversations(page = 1, pageSize = 20): Promise<PageResult<ConversationDTO>> {
-  return apiClient.get<PageResult<ConversationDTO>>('/api/v1/chat/conversations', {
+  const result = await apiClient.get<BackendPageResult<ConversationDTO>>('/api/v1/chat/conversations', {
     page,
     pageSize,
   });
+  return normalizePageResult(result);
 }
 
 export async function createConversation(data: CreateConversationRequest): Promise<ConversationDTO> {

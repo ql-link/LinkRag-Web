@@ -254,8 +254,7 @@ export default function HomePage() {
 
     setSubmitting(true);
     try {
-      const title = content.length > 28 ? `${content.slice(0, 28)}...` : content;
-      const conversation = await createConversation({ title, datasetId: targetDatasetId });
+      const conversation = await createConversation({ datasetId: targetDatasetId });
       sessionStorage.setItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${conversation.id}`, content);
       navigate(`/chats/${conversation.id}`, { state: { initialQuestion: content } });
     } catch (error) {
