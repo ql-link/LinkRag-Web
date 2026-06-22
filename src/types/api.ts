@@ -172,6 +172,7 @@ export interface ChatTurnDTO {
   configId?: number | null;
   modelName?: string | null;
   references?: string[] | null;
+  requestId?: string | null;
   status?: 'success' | 'partial' | 'failed' | (string & {}) | null;
   createdAt?: string | null;
 }
@@ -186,6 +187,7 @@ export interface UiChatMessage {
   status?: string | null;
   createdAt?: string | null;
   references?: string[] | null;
+  requestId?: string | null;
 }
 
 export interface DatasetDTO {

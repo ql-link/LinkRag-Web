@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronDown, Loader2, Trash2 } from 'lucide-react';
+import { ChevronDown, Loader2, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 
 /**
  * 「最近对话」列表，嵌入全局 Sidebar，仅在对话页显示。
  * 数据与回调来自 ChatsPage 发布的快照；快照为 null 时按加载中渲染。
- * 风格对齐 ChatGPT：仅标题列表，无标签页 / 搜索 / 新建按钮。
+ * 风格对齐 ChatGPT：轻量操作入口 + 标题列表，无标签页 / 搜索。
  */
 export function ChatWorkspacePanel({
   snapshot,
@@ -29,17 +29,38 @@ export function ChatWorkspacePanel({
     onNavigate?.();
   };
 
+  const beginNewConversation = () => {
+    snapshot?.onBeginNewConversation();
+    onNavigate?.();
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <button
-        type="button"
-        onClick={() => setCollapsed((value) => !value)}
-        className="group flex shrink-0 items-center justify-between gap-2 px-3 pt-3 pb-2 text-muted-soft transition-colors hover:text-text-secondary"
-        aria-expanded={!collapsed}
-      >
-        <span className="mono-label text-[10px]">最近</span>
-        <ChevronDown size={14} className={cn('transition-transform', collapsed && '-rotate-90')} />
-      </button>
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-3 pb-2">
+        <button
+          type="button"
+          onClick={() => setCollapsed((value) => !value)}
+          className="group flex min-w-0 items-center gap-1.5 text-text-secondary transition-colors hover:text-ink"
+          aria-expanded={!collapsed}
+        >
+          <span className="truncate text-sm font-semibold">最近对话</span>
+          <ChevronDown
+            size={14}
+            className={cn('shrink-0 text-muted transition-transform', collapsed && '-rotate-90')}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={beginNewConversation}
+          disabled={!snapshot}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/8 px-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary/35 hover:bg-primary/12 hover:text-primary-active disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="新建对话"
+          title="新建对话"
+        >
+          <Plus size={14} />
+          <span>新建</span>
+        </button>
+      </div>
       {collapsed ? null : !snapshot || snapshot.loadingConversations ? (
         <div className="flex h-20 items-center justify-center text-muted">
           <Loader2 size={16} className="animate-spin" />
