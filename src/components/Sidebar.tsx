@@ -56,11 +56,11 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const chatWorkspace = useChatWorkspaceSnapshot();
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
   const userInitial = getUserInitial(user);
   const isCollapsed = forceCollapsed || collapsed;
+  const chatWorkspace = useChatWorkspaceSnapshot();
   const isChatRoute = pathname === Routes.Chats || pathname.startsWith(`${Routes.Chats}/`);
   const showChatPanel = isChatRoute && !isCollapsed;
 
@@ -129,7 +129,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         })}
       </nav>
 
-      {/* Chat workspace — history & files, merged into the global sidebar on the chat route */}
+      {/* Chat workspace — history, merged into the global sidebar on the chat route */}
       {showChatPanel && (
         <div className="min-h-0 flex-1 border-t border-border-subtle">
           <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />

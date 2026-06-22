@@ -5,8 +5,7 @@ import { cn } from '@/lib/utils';
 import type { ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 
 /**
- * 「最近对话」列表，嵌入全局 Sidebar，仅在对话页显示。
- * 数据与回调来自 ChatsPage 发布的快照；快照为 null 时按加载中渲染。
+ * 「最近对话」列表。数据与回调来自 ChatsPage 发布的快照；快照为 null 时按加载中渲染。
  * 风格对齐 ChatGPT：轻量操作入口 + 标题列表，无标签页 / 搜索。
  */
 export function ChatWorkspacePanel({
@@ -36,14 +35,14 @@ export function ChatWorkspacePanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-3 pb-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-2">
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
           className="group flex min-w-0 items-center gap-1.5 text-text-secondary transition-colors hover:text-ink"
           aria-expanded={!collapsed}
         >
-          <span className="truncate text-sm font-semibold">最近对话</span>
+          <span className="truncate text-sm font-semibold">对话记录</span>
           <ChevronDown
             size={14}
             className={cn('shrink-0 text-muted transition-transform', collapsed && '-rotate-90')}
@@ -68,7 +67,7 @@ export function ChatWorkspacePanel({
       ) : conversations.length === 0 ? (
         <p className="px-3 py-4 text-xs text-muted-soft">暂无历史对话</p>
       ) : (
-        <div className="popover-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+        <div className="popover-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 pb-1">
           {conversations.map((item) => {
             const active = snapshot.activeConversationId === item.id;
             return (
