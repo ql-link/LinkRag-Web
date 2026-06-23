@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ArrowRight, Bot, Database, FileText, FileUp, Loader2, MessageSquare, Search } from 'lucide-react';
+import { Bot, Database, FileText, FileUp, Loader2, MessageSquare, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
@@ -113,7 +113,6 @@ export default function HomePage() {
   const [fileTotal, setFileTotal] = useState(() => cachedPortalData?.fileTotal ?? 0);
   const [conversationTotal, setConversationTotal] = useState(() => cachedPortalData?.conversationTotal ?? 0);
   const [tokenTotal, setTokenTotal] = useState(() => cachedPortalData?.tokenTotal ?? 0);
-  const [loading, setLoading] = useState(() => !cachedPortalData);
   const [searchLoading, setSearchLoading] = useState(() => !cachedPortalData);
 
   useEffect(() => {
@@ -122,7 +121,6 @@ export default function HomePage() {
     async function loadPortalData() {
       const previousCache = homePortalCache;
       if (!homePortalCache) {
-        setLoading(true);
         setSearchLoading(true);
       }
       try {
@@ -155,8 +153,6 @@ export default function HomePage() {
           conversationTotal: chatResult.total,
           tokenTotal: usageResult?.totalTokens ?? 0,
         };
-        setLoading(false);
-
         const fileResults = await Promise.allSettled(
           activeDatasets.map(async (dataset) => {
             const result = await getKnowledgeFiles(dataset.id, 1, 100);
@@ -192,7 +188,6 @@ export default function HomePage() {
         };
       } catch (error) {
         console.error('Failed to load home portal data:', error);
-        if (active) setLoading(false);
       } finally {
         if (active) setSearchLoading(false);
       }
@@ -333,7 +328,7 @@ export default function HomePage() {
               <form
                 onSubmit={handleSubmit}
                 className={cn(
-                  'mt-7 rounded-[22px] border px-5 py-5 shadow-[0_14px_34px_-28px_rgba(26,26,26,0.45)] sm:px-6',
+                  'mt-7 rounded-[22px] border px-5 py-5 shadow-[0_14px_34px_-28px_rgba(26,26,26,0.45)] backdrop-blur-xl sm:px-6',
                   darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-[rgba(31,31,31,0.11)] bg-white/55',
                 )}
               >
@@ -411,39 +406,13 @@ export default function HomePage() {
                 />
               </div>
             ) : (
-              <>
-                <StatsPanel
-                  darkMode={darkMode}
-                  datasetTotal={datasets.length}
-                  conversationTotal={conversationTotal}
-                  fileTotal={fileTotal}
-                  tokenTotal={tokenTotal}
-                />
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div
-                    className={cn(
-                      'min-h-[260px] rounded-[20px] border px-5 py-4 shadow-[0_12px_28px_-24px_rgba(26,26,26,0.45)] lg:px-6',
-                      darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
-                    )}
-                  >
-                    <RecentDatasetsList darkMode={darkMode} loading={loading} datasets={datasets} />
-                  </div>
-                  <div
-                    className={cn(
-                      'min-h-[260px] rounded-[20px] border px-5 py-4 shadow-[0_12px_28px_-24px_rgba(26,26,26,0.45)] lg:px-6',
-                      darkMode ? 'border-[#333333] bg-[#252526]/45' : 'border-border-subtle bg-white/55',
-                    )}
-                  >
-                    <RecentChatsList
-                      darkMode={darkMode}
-                      loading={loading}
-                      recentChats={recentChats}
-                      datasets={datasets}
-                      onOpenChat={(id) => navigate(`/chats/${id}`)}
-                    />
-                  </div>
-                </div>
-              </>
+              <StatsPanel
+                darkMode={darkMode}
+                datasetTotal={datasets.length}
+                conversationTotal={conversationTotal}
+                fileTotal={fileTotal}
+                tokenTotal={tokenTotal}
+              />
             )}
           </div>
         </div>
@@ -708,124 +677,6 @@ function ResultLink({
   );
 }
 
-function RecentDatasetsList({
-  darkMode,
-  loading,
-  datasets,
-}: {
-  darkMode: boolean;
-  loading: boolean;
-  datasets: DatasetDTO[];
-}) {
-  return (
-    <section>
-      <SectionHeading darkMode={darkMode} title="最近知识库" link={Routes.Datasets} />
-      {loading ? (
-        <MiniListSkeleton darkMode={darkMode} />
-      ) : datasets.length === 0 ? (
-        <LightweightEmpty darkMode={darkMode} icon={Database} title="暂无知识库" text="创建知识库后会显示在这里。" />
-      ) : (
-        <div className={cn('divide-y', darkMode ? 'divide-[#333333]' : 'divide-border-subtle')}>
-          {datasets.slice(0, 6).map((dataset) => (
-            <Link
-              key={dataset.id}
-              to={`/datasets/${dataset.id}`}
-              className={cn(
-                'group flex items-center gap-3 py-3.5 transition-colors',
-                darkMode ? 'hover:text-[#e0e0e0]' : 'hover:text-text-main',
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span
-                  className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
-                >
-                  {dataset.name}
-                </span>
-                <span
-                  className={cn('mt-0.5 block truncate text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
-                >
-                  {dataset.description || '暂无描述'} · {formatRelativeTime(dataset.updatedAt)}
-                </span>
-              </span>
-              <ArrowRight
-                size={14}
-                className={cn(
-                  'shrink-0 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100',
-                  neutralIconText(darkMode),
-                )}
-              />
-            </Link>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RecentChatsList({
-  darkMode,
-  loading,
-  recentChats,
-  datasets,
-  onOpenChat,
-}: {
-  darkMode: boolean;
-  loading: boolean;
-  recentChats: ConversationDTO[];
-  datasets: DatasetDTO[];
-  onOpenChat: (id: number) => void;
-}) {
-  return (
-    <section>
-      <SectionHeading darkMode={darkMode} title="最近对话" link={Routes.Chats} />
-      {loading ? (
-        <MiniListSkeleton darkMode={darkMode} />
-      ) : recentChats.length === 0 ? (
-        <LightweightEmpty
-          darkMode={darkMode}
-          icon={MessageSquare}
-          title="暂无最近对话"
-          text="新建对话后会显示在这里。"
-        />
-      ) : (
-        <div className={cn('divide-y', darkMode ? 'divide-[#333333]' : 'divide-border-subtle')}>
-          {recentChats.slice(0, 6).map((chat) => (
-            <button
-              key={chat.id}
-              type="button"
-              onClick={() => onOpenChat(chat.id)}
-              className={cn(
-                'group flex w-full items-center gap-3 py-3.5 text-left transition-colors',
-                darkMode ? 'hover:text-[#e0e0e0]' : 'hover:text-text-main',
-              )}
-            >
-              <span className="min-w-0 flex-1">
-                <span
-                  className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
-                >
-                  {chat.title || '未命名对话'}
-                </span>
-                <span
-                  className={cn('mt-0.5 block truncate text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/45')}
-                >
-                  {datasetName(datasets, chat.datasetId)} · {formatRelativeTime(chat.updatedAt)}
-                </span>
-              </span>
-              <ArrowRight
-                size={14}
-                className={cn(
-                  'shrink-0 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100',
-                  neutralIconText(darkMode),
-                )}
-              />
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function SectionHeading({ darkMode, title, link }: { darkMode: boolean; title: string; link?: string }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
@@ -877,26 +728,6 @@ function EmptyState({
   );
 }
 
-function LightweightEmpty({
-  darkMode,
-  icon: Icon,
-  title,
-  text,
-}: {
-  darkMode: boolean;
-  icon: typeof Database;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className={cn('py-8 text-center', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-      <Icon size={22} className="mx-auto mb-3 opacity-70" />
-      <p className={cn('text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</p>
-      <p className="mt-2 text-xs">{text}</p>
-    </div>
-  );
-}
-
 function SkeletonCard({ darkMode, compact = false }: { darkMode: boolean; compact?: boolean }) {
   return (
     <div
@@ -906,21 +737,5 @@ function SkeletonCard({ darkMode, compact = false }: { darkMode: boolean; compac
         darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base/60',
       )}
     />
-  );
-}
-
-function MiniListSkeleton({ darkMode }: { darkMode: boolean }) {
-  return (
-    <div className="space-y-3">
-      {[0, 1, 2].map((item) => (
-        <div key={item} className="flex items-center gap-3">
-          <div className={cn('h-8 w-8 animate-pulse rounded-[10px]', darkMode ? 'bg-[#2d2d2d]' : 'bg-bg-base')} />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className={cn('h-3 w-2/3 animate-pulse rounded', darkMode ? 'bg-[#2d2d2d]' : 'bg-bg-base')} />
-            <div className={cn('h-2 w-1/2 animate-pulse rounded', darkMode ? 'bg-[#2d2d2d]' : 'bg-bg-base')} />
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }

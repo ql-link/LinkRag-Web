@@ -103,7 +103,7 @@ export function MobileAppShell({ children }: { children: ReactNode }) {
     <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-bg-base font-sans text-text-main">
       {/* Top bar */}
       <header
-        className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-canvas/95 px-2"
+        className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-canvas/88 px-2 backdrop-blur-xl"
         style={topInset}
       >
         <button
@@ -149,7 +149,7 @@ export function MobileAppShell({ children }: { children: ReactNode }) {
               aria-label="关闭菜单遮罩"
             />
             <motion.div
-              className="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] flex-col bg-surface-soft"
+              className="fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] flex-col border-r border-white/60 bg-bg-frosted shadow-xl backdrop-blur-xl"
               initial={{ x: -24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -24, opacity: 0 }}
@@ -254,7 +254,7 @@ export function MobileAppShell({ children }: { children: ReactNode }) {
               aria-label="关闭账户遮罩"
             />
             <motion.div
-              className="fixed inset-y-0 right-0 z-50 flex w-[min(86vw,320px)] flex-col bg-surface-soft"
+              className="fixed inset-y-0 right-0 z-50 flex w-[min(86vw,320px)] flex-col border-l border-white/60 bg-bg-frosted shadow-xl backdrop-blur-xl"
               initial={{ x: 24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 24, opacity: 0 }}

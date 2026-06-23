@@ -113,7 +113,9 @@ export function ProtectedLayout() {
     <ChatWorkspaceProvider>
       <div className="relative flex h-screen min-h-0 overflow-hidden bg-bg-base font-sans text-text-main">
         <Sidebar />
-        <main className="min-h-0 flex-1 overflow-hidden">{content}</main>
+        <main className="min-h-0 flex-1 overflow-hidden rounded-l-[24px] border-l border-white/60 bg-bg-card shadow-sm backdrop-blur-xl">
+          {content}
+        </main>
       </div>
     </ChatWorkspaceProvider>
   );
