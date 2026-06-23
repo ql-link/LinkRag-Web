@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { AlertCircle, Loader2, MessageSquare, RefreshCw, Settings, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { Routes } from '@/routes';
 import { useToast } from '@/contexts/ToastContext';
@@ -164,6 +165,8 @@ export default function DatasetPage() {
   const [parseAfterUpload, setParseAfterUpload] = useState(false);
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
   const [deletingConversationIds, setDeletingConversationIds] = useState<number[]>([]);
+  const [filePendingDelete, setFilePendingDelete] = useState<KnowledgeFileDTO | null>(null);
+  const [conversationPendingDelete, setConversationPendingDelete] = useState<ConversationDTO | null>(null);
   const [submittingParseFileIds, setSubmittingParseFileIds] = useState<number[]>([]);
   const { addPollingFiles, removePollingFiles } = useParseResultPolling({
     datasetId: dataset?.id ?? null,
@@ -335,13 +338,15 @@ export default function DatasetPage() {
     await loadDataset(true);
   }
 
-  async function handleDeleteFile(fileId: number) {
-    if (!confirm('确定删除这个文件吗？')) return;
+  async function handleConfirmDeleteFile() {
+    if (!filePendingDelete || deletingFileIds.includes(filePendingDelete.id)) return;
+    const fileId = filePendingDelete.id;
     removePollingFiles(fileId);
     setDeletingFileIds((prev) => [...prev, fileId]);
     try {
       await deleteKnowledgeFile(fileId);
       setFiles((prev) => prev.filter((item) => item.id !== fileId));
+      setFilePendingDelete(null);
       addToast('success', '文件已删除');
     } catch (error) {
       console.error('Failed to delete knowledge file:', error);
@@ -350,12 +355,14 @@ export default function DatasetPage() {
     }
   }
 
-  async function handleDeleteConversation(conversationId: number) {
-    if (!confirm('确定删除这个对话吗？')) return;
+  async function handleConfirmDeleteConversation() {
+    if (!conversationPendingDelete || deletingConversationIds.includes(conversationPendingDelete.id)) return;
+    const conversationId = conversationPendingDelete.id;
     setDeletingConversationIds((prev) => [...prev, conversationId]);
     try {
       await deleteConversation(conversationId);
       setConversations((prev) => prev.filter((item) => item.id !== conversationId));
+      setConversationPendingDelete(null);
       addToast('success', '对话已删除');
     } catch (error) {
       console.error('Failed to delete conversation:', error);
@@ -384,6 +391,11 @@ export default function DatasetPage() {
       setSubmittingParseFileIds((prev) => prev.filter((item) => item !== fileId));
     }
   }
+
+  const deletingPendingFile = filePendingDelete ? deletingFileIds.includes(filePendingDelete.id) : false;
+  const deletingPendingConversation = conversationPendingDelete
+    ? deletingConversationIds.includes(conversationPendingDelete.id)
+    : false;
 
   if (loading) {
     return (
@@ -554,7 +566,7 @@ export default function DatasetPage() {
                               {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
                             </button>
                             <button
-                              onClick={() => void handleDeleteFile(file.id)}
+                              onClick={() => setFilePendingDelete(file)}
                               disabled={deleting}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
                             >
@@ -601,7 +613,7 @@ export default function DatasetPage() {
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              void handleDeleteConversation(conversation.id);
+                              setConversationPendingDelete(conversation);
                             }}
                             disabled={deleting}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
@@ -620,6 +632,38 @@ export default function DatasetPage() {
           </div>
         </section>
       </main>
+
+      <ConfirmDialog
+        open={Boolean(filePendingDelete)}
+        title="删除文件？"
+        confirmLabel="删除"
+        loading={deletingPendingFile}
+        onCancel={() => {
+          if (!deletingPendingFile) setFilePendingDelete(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteFile()}
+      >
+        <p>
+          这会删除 <strong className="font-bold text-ink">{filePendingDelete?.originalFilename}</strong>。
+        </p>
+        <p className="text-muted">文件删除后，相关解析结果与召回内容将不再用于知识库问答。</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(conversationPendingDelete)}
+        title="删除对话？"
+        confirmLabel="删除"
+        loading={deletingPendingConversation}
+        onCancel={() => {
+          if (!deletingPendingConversation) setConversationPendingDelete(null);
+        }}
+        onConfirm={() => void handleConfirmDeleteConversation()}
+      >
+        <p>
+          这会删除 <strong className="font-bold text-ink">{conversationPendingDelete?.title || '新对话'}</strong>。
+        </p>
+        <p className="text-muted">对话删除后，历史问答记录将不再显示。</p>
+      </ConfirmDialog>
     </div>
   );
 }

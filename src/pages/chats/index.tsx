@@ -18,7 +18,14 @@ import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createConversation, getConversations, getMessages, deleteConversation, toUiMessages } from '@/services/chat';
+import {
+  createConversation,
+  getConversations,
+  getMessages,
+  deleteConversation,
+  updateConversation,
+  toUiMessages,
+} from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
 import { getDatasets, getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
@@ -1041,7 +1048,6 @@ export default function ChatsPage() {
 
   const handleDeleteConversation = useCallback(
     async (id: number) => {
-      if (!window.confirm('确定要删除此对话吗？')) return;
       try {
         await deleteConversation(id);
         setConversations((prev) => prev.filter((c) => c.id !== id));
@@ -1055,6 +1061,39 @@ export default function ChatsPage() {
       }
     },
     [activeConversationId, addToast, beginNewConversation],
+  );
+
+  const handleRenameConversation = useCallback(
+    async (conversationId: number, title: string) => {
+      const nextTitle = title.trim();
+      if (!nextTitle) return;
+
+      const previousConversation = conversationsRef.current.find((item) => item.id === conversationId) ?? null;
+      if ((previousConversation?.title ?? '').trim() === nextTitle) return;
+
+      const optimisticConversation = previousConversation
+        ? { ...previousConversation, title: nextTitle, updatedAt: new Date().toISOString() }
+        : null;
+      if (optimisticConversation) {
+        setConversations((prev) => prev.map((item) => (item.id === conversationId ? optimisticConversation : item)));
+        setConversation((prev) => (prev?.id === conversationId ? optimisticConversation : prev));
+      }
+
+      try {
+        const updated = await updateConversation(conversationId, { title: nextTitle });
+        setConversations((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        setConversation((prev) => (prev?.id === updated.id ? updated : prev));
+        addToast('success', '对话已重命名');
+      } catch (error) {
+        console.error('Failed to rename conversation:', error);
+        if (previousConversation) {
+          setConversations((prev) => prev.map((item) => (item.id === conversationId ? previousConversation : item)));
+          setConversation((prev) => (prev?.id === conversationId ? previousConversation : prev));
+        }
+        addToast('error', '重命名失败');
+      }
+    },
+    [addToast],
   );
 
   const handleSend = useCallback(
@@ -1304,8 +1343,16 @@ export default function ChatsPage() {
       loadingConversations: loadingHistory && conversations.length === 0,
       onBeginNewConversation: beginNewConversation,
       onDeleteConversation: handleDeleteConversation,
+      onRenameConversation: handleRenameConversation,
     }),
-    [conversations, activeConversationId, loadingHistory, beginNewConversation, handleDeleteConversation],
+    [
+      conversations,
+      activeConversationId,
+      loadingHistory,
+      beginNewConversation,
+      handleDeleteConversation,
+      handleRenameConversation,
+    ],
   );
   const evidenceMessage = useMemo<LocalMessage | null>(() => {
     if (activeMessageAnchorId) {
