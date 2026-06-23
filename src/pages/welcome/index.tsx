@@ -24,6 +24,7 @@ import { Routes } from '@/routes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { login, register } from '@/services/auth';
+import { buildRequiredFieldErrors, validateAuthForm } from '@/lib/authValidation';
 import { useTheme } from '@/contexts/ThemeContext';
 
 type AuthMode = 'login' | 'register';
@@ -1304,33 +1305,6 @@ export default function WelcomePage() {
     });
   }
 
-  function buildRequiredFieldErrors(): Partial<Record<AuthFieldKey, string>> {
-    const nextFieldErrors: Partial<Record<AuthFieldKey, string>> = {};
-    const username = form.username.trim();
-    const email = form.email.trim();
-    const password = form.password;
-    const confirmPassword = form.confirmPassword;
-
-    if (!username) {
-      nextFieldErrors.username = '未填写用户名！';
-    }
-
-    if (!password) {
-      nextFieldErrors.password = '未填写密码！';
-    }
-
-    if (mode === 'register') {
-      if (!email) {
-        nextFieldErrors.email = '未填写邮箱！';
-      }
-      if (!confirmPassword) {
-        nextFieldErrors.confirmPassword = '请确认密码！';
-      }
-    }
-
-    return nextFieldErrors;
-  }
-
   function focusFirstInvalidField(nextFieldErrors: Partial<Record<AuthFieldKey, string>>) {
     if (nextFieldErrors.username) {
       usernameInputRef.current?.focus();
@@ -1349,39 +1323,9 @@ export default function WelcomePage() {
     }
   }
 
-  function validateAuthForm(): string | null {
-    const username = form.username.trim();
-    const password = form.password;
-    const email = form.email.trim();
-
-    if (!username) {
-      return '请输入用户名';
-    }
-
-    if (mode === 'register') {
-      if (username.length < 3 || username.length > 64) {
-        return '用户名长度需在 3 到 64 个字符之间';
-      }
-      if (!email) {
-        return '请输入邮箱';
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return '请输入正确的邮箱地址';
-      }
-      if (password.length < 6 || password.length > 128) {
-        return '密码长度需在 6 到 128 个字符之间';
-      }
-      if (password !== form.confirmPassword) {
-        return '两次输入的密码不一致';
-      }
-    }
-
-    return null;
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const requiredFieldErrors = buildRequiredFieldErrors();
+    const requiredFieldErrors = buildRequiredFieldErrors(form, mode);
     if (Object.keys(requiredFieldErrors).length > 0) {
       setFieldErrors(requiredFieldErrors);
       focusFirstInvalidField(requiredFieldErrors);
@@ -1389,7 +1333,7 @@ export default function WelcomePage() {
     }
     setFieldErrors({});
 
-    const validationMessage = validateAuthForm();
+    const validationMessage = validateAuthForm(form, mode);
     if (validationMessage) {
       addToast('error', validationMessage, 5000);
       return;

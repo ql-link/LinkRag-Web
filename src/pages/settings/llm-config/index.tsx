@@ -510,7 +510,7 @@ export default function LLMPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="px-8 py-6">
+        <section className="px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
           <div className="space-y-5 min-w-0">
             <EffectiveModelsPanel
               loading={loading && defaultByCapability.size === 0}
@@ -608,7 +608,7 @@ function EffectiveModelsPanel({
       {loading ? (
         <LoadingState label="加载生效模型..." />
       ) : (
-        <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
           {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
@@ -926,7 +926,7 @@ function ProviderPickerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <section className="relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[880px] flex-col overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+      <section className="relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[min(100vw-2rem,880px)] flex-col overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
         <header className="px-6 py-5 border-b border-border-subtle">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1081,7 +1081,7 @@ function SetupProviderModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-[520px] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
+      <div className="relative w-full max-w-[min(100vw-2rem,520px)] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
         <header className="h-20 px-6 flex items-center justify-between border-b border-border-subtle">
           <div className="flex items-center gap-3 min-w-0">
             <ProviderIcon iconUrl={iconUrl} name={target.provider.providerName} size="md" />

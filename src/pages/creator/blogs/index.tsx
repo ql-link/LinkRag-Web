@@ -123,7 +123,8 @@ export default function CreatorBlogsPage() {
             type="button"
             onClick={() => navigate(`${routePrefix}/edit/new`)}
             className={cn(
-              'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold text-white transition-colors',
+              // 博客编辑器为桌面专用页面，移动端隐藏入口避免点击后被重定向回首页
+              'hidden h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-bold text-white transition-colors lg:inline-flex',
               darkMode ? 'bg-[#094771] hover:bg-[#0d5b8f]' : 'bg-[#7B6B5D] hover:opacity-90',
             )}
           >

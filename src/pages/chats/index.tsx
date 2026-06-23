@@ -1391,7 +1391,8 @@ export default function ChatsPage() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-canvas">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* 面包屑：桌面端显示；移动端由外壳顶栏承担标题 */}
+        <div className="hidden items-center gap-3 min-w-0 flex-1 lg:flex">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} />
         </div>
         <div ref={headerActionsRef} className="flex shrink-0 items-center gap-2">
@@ -1405,13 +1406,13 @@ export default function ChatsPage() {
             <button
               type="button"
               onClick={toggleDatasetSelector}
-              className="flex h-9 max-w-[280px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+              className="flex h-9 max-w-[160px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-ink sm:max-w-[280px]"
             >
               <Database size={14} className="text-muted" />
               <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
             </button>
             {kbOpen && (
-              <div className="popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-2xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
+              <div className="popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
                 {datasets.length === 0 ? (
                   <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
                 ) : (
@@ -1564,7 +1565,7 @@ export default function ChatsPage() {
       <div className="relative flex min-h-0 flex-1">
         <MessageAnchorRail items={messageNavItems} activeId={activeMessageAnchorId} onSelect={scrollToMessageAnchor} />
         <section className="flex min-w-0 flex-1 flex-col">
-          <div ref={messageScrollRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <div ref={messageScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
             {loadingConversation ? (
               <div className="flex h-full items-center justify-center text-muted">
                 <Loader2 size={18} className="animate-spin" />
@@ -1658,7 +1659,7 @@ export default function ChatsPage() {
             )}
           </div>
 
-          <div className="shrink-0 px-4 pb-6 pt-3 sm:px-6 sm:pb-8">
+          <div className="shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:pb-8">
             <div className="mx-auto flex max-w-[760px] items-center gap-2 rounded-2xl border border-hairline bg-canvas p-2 (--)]">
               <textarea
                 value={inputValue}
@@ -1681,7 +1682,7 @@ export default function ChatsPage() {
                   <span className="min-w-0 truncate">{selectedModel?.modelName ?? '选择模型'}</span>
                 </button>
                 {modelOpen && (
-                  <div className="popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-64 overflow-y-auto rounded-xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
+                  <div className="popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-[min(16rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
                     {chatModels.map((model) => (
                       <button
                         key={model.id}

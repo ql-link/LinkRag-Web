@@ -162,22 +162,23 @@ export default function DatasetsPage() {
   return (
     <div className="h-full flex flex-col bg-canvas text-text-main">
       {/* Header */}
-      <header className="h-16 px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
-        <div>
+      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 shrink-0 border-b border-border-subtle">
+        {/* 面包屑：桌面端显示；移动端由外壳顶栏承担标题 */}
+        <div className="hidden min-w-0 lg:block">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '知识库' }]} />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-1 items-center gap-2 lg:flex-none lg:justify-end">
+          <div className="relative flex-1 lg:flex-none">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="text"
               placeholder="搜索知识库..."
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
-              className="h-9 w-48 rounded-lg border border-hairline bg-canvas pl-9 pr-4 text-xs text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
+              className="h-9 w-full lg:w-48 rounded-lg border border-hairline bg-canvas pl-9 pr-4 text-xs text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
             />
           </div>
-          <div className="flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3">
+          <div className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3">
             <button
               type="button"
               onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
@@ -185,26 +186,26 @@ export default function DatasetsPage() {
               title="点击切换排序方式"
             >
               <ArrowUpDown size={14} className="text-muted" />
-              <span>{sortLabel}</span>
+              <span className="hidden lg:inline">{sortLabel}</span>
             </button>
           </div>
           <button
             onClick={() => void loadDatasets()}
             disabled={loading}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed',
+              'inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed',
               loading && 'opacity-60',
             )}
             title="刷新知识库"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            刷新
+            <span className="hidden lg:inline">刷新</span>
           </button>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:pb-8">
         {/* Stats Bar */}
         <div className="flex items-center gap-6 mb-6 mono-label text-muted">
           <span>共 {datasets.length} 个知识库</span>
@@ -245,7 +246,7 @@ export default function DatasetsPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-3 auto-rows-[142px] gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[142px] gap-4">
             {filteredDatasets.map((dataset) => {
               const deleting = deletingDatasetIds.includes(dataset.id);
 
@@ -320,7 +321,7 @@ export default function DatasetsPage() {
         {createDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 " onClick={() => setCreateDialogOpen(false)} />
-            <div className="relative w-[480px] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
+            <div className="relative w-[min(100vw-2rem,480px)] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
                 <h3 className="text-lg font-bold text-ink">新建知识库</h3>
                 <button
@@ -381,7 +382,7 @@ export default function DatasetsPage() {
         {editingDataset && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 " onClick={handleCloseEditDialog} />
-            <div className="relative w-[480px] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
+            <div className="relative w-[min(100vw-2rem,480px)] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
                 <h3 className="text-lg font-bold text-ink">编辑知识库</h3>
                 <button

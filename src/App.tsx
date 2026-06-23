@@ -8,9 +8,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLocation } from 'react-router';
 import { ProtectedLayout } from '@/layouts/ProtectedLayout';
+import { DesktopOnlyRoute } from '@/components/DesktopOnlyRoute';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
 
 // Lazy-load public pages (welcome page is ~1600 lines with heavy animations)
 const WelcomePage = lazy(() => import('@/pages/welcome'));
+const MobileAuthPage = lazy(() => import('@/pages/mobile/MobileAuth'));
 const BlogsPage = lazy(() => import('@/pages/blogs'));
 const BlogDetailPage = lazy(() => import('@/pages/blogs/BlogDetail'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
@@ -20,6 +23,16 @@ const AdminModelsPage = lazy(() => import('@/pages/admin/models'));
 const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => ({ default: m.CreatorLayout })));
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
+
+// 根路由 `/`：移动端（<1024px）显示登录/注册页并在登录后进入对话；桌面端保持原欢迎落地页。
+function RootRoute() {
+  const isDesktop = useIsDesktop();
+  const { user } = useAuth();
+  if (user) {
+    return <Navigate to={isDesktop ? RoutePaths.Home : RoutePaths.Chats} replace />;
+  }
+  return isDesktop ? <WelcomePage /> : <MobileAuthPage />;
+}
 
 function isProtectedAppPath(pathname: string) {
   return (
@@ -62,7 +75,7 @@ function AppContent() {
           transition={{ duration: 0.22, ease: 'easeOut' }}
         >
           <Routes location={location}>
-            <Route index element={<WelcomePage />} />
+            <Route index element={<RootRoute />} />
             <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
             <Route path={RoutePaths.BlogDetail} element={<BlogDetailPage />} />
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
@@ -73,14 +86,35 @@ function AppContent() {
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/blogs" replace />} />
                   <Route path="blogs" element={<CreatorBlogsPage />} />
-                  <Route path="models" element={<AdminModelsPage />} />
+                  <Route
+                    path="models"
+                    element={
+                      <DesktopOnlyRoute>
+                        <AdminModelsPage />
+                      </DesktopOnlyRoute>
+                    }
+                  />
                 </Route>
-                <Route path="/admin/blogs/edit/:id" element={<CreatorBlogEditor />} />
+                <Route
+                  path="/admin/blogs/edit/:id"
+                  element={
+                    <DesktopOnlyRoute>
+                      <CreatorBlogEditor />
+                    </DesktopOnlyRoute>
+                  }
+                />
                 <Route path="/creator" element={<CreatorLayout />}>
                   <Route index element={<Navigate to="/creator/blogs" replace />} />
                   <Route path="blogs" element={<CreatorBlogsPage />} />
                 </Route>
-                <Route path="/creator/blogs/edit/:id" element={<CreatorBlogEditor />} />
+                <Route
+                  path="/creator/blogs/edit/:id"
+                  element={
+                    <DesktopOnlyRoute>
+                      <CreatorBlogEditor />
+                    </DesktopOnlyRoute>
+                  }
+                />
               </>
             )}
 

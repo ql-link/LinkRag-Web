@@ -16,7 +16,7 @@ export default function AdminPage() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
-        <section className="mx-auto w-full max-w-[980px] px-4 py-6 sm:px-6 lg:px-8">
+        <section className="mx-auto w-full max-w-[980px] px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
           <div className="mb-6 flex flex-col gap-2">
             <div className="mono-label">Admin Console</div>
             <h1 className="text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">后台管理</h1>
