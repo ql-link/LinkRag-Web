@@ -1082,16 +1082,15 @@ export default function ChatsPage() {
             lastConfigId: selectedModelConfigId,
           });
           setConversation(activeConversation);
-          setConversations((prev) => [
-            activeConversation!,
-            ...prev.filter((item) => item.id !== activeConversation!.id),
-          ]);
         }
       } catch (error) {
         console.error('Failed to create conversation:', error);
         addToast('error', '创建对话失败');
         return false;
       }
+
+      // 新建或再次发言的会话都置顶：新会话加入列表，已有会话提到最前，体现“最近进行”。
+      setConversations((prev) => [activeConversation!, ...prev.filter((item) => item.id !== activeConversation!.id)]);
 
       const userMsg: UiChatMessage = {
         id: `${Date.now()}:user`,
