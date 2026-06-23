@@ -172,6 +172,7 @@ export interface ChatTurnDTO {
   configId?: number | null;
   modelName?: string | null;
   references?: string[] | null;
+  requestId?: string | null;
   status?: 'success' | 'partial' | 'failed' | (string & {}) | null;
   createdAt?: string | null;
 }
@@ -186,6 +187,7 @@ export interface UiChatMessage {
   status?: string | null;
   createdAt?: string | null;
   references?: string[] | null;
+  requestId?: string | null;
 }
 
 export interface DatasetDTO {
@@ -443,6 +445,21 @@ export interface RecallHit {
   scores: Record<string, number | null>;
   /** chunk 正文，供展示召回片段；候选正文缺失时为空串。 */
   content: string;
+}
+
+export interface ChunkDetailDTO {
+  chunkId: string;
+  documentId?: number | string | null;
+  fileName?: string | null;
+  content: string;
+  score?: number | null;
+}
+
+export interface RecallChunk {
+  id: string;
+  fileName: string;
+  score: number | null;
+  snippet: string;
 }
 
 /**
