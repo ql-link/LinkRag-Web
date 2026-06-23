@@ -15,6 +15,7 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { post: vi.fn() },
 }));
 import { apiClient } from '@/lib/api-client';
+import { RAG_QUERY_MAX_LENGTH, RAG_QUERY_MAX_LENGTH_MESSAGE } from '@/lib/rag-query';
 const mockSessionPost = apiClient.post as unknown as Mock;
 
 /** 构造一个流式 SSE Response */
@@ -113,9 +114,27 @@ describe('recall - 请求构造', () => {
     expect('top_k' in body).toBe(false);
   });
 
+  it('stream 请求体使用 trim 后的 query', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
+    await recall({ query: '  hello  ', configId: 77, conversationId: 99, datasetIds: [1] });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.query).toBe('hello');
+  });
+
   it('空白 query 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
     await expect(recall({ query: '   ', configId: 77, conversationId: 99, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_INVALID_REQUEST',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockSessionPost).not.toHaveBeenCalled();
+  });
+
+  it('超长 query 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
+    await expect(
+      recall({ query: 'a'.repeat(RAG_QUERY_MAX_LENGTH + 1), configId: 77, conversationId: 99, datasetIds: [1] }),
+    ).rejects.toMatchObject({
+      code: 'RECALL_INVALID_REQUEST',
+      message: RAG_QUERY_MAX_LENGTH_MESSAGE,
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mockSessionPost).not.toHaveBeenCalled();

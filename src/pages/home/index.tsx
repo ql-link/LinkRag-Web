@@ -1,8 +1,14 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { ArrowRight, Bot, Database, FileText, FileUp, Loader2, MessageSquare, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Routes } from '@/routes';
+import {
+  RAG_QUERY_MAX_LENGTH,
+  RAG_QUERY_MAX_LENGTH_MESSAGE,
+  isRagQueryTooLong,
+  limitRagQueryLength,
+} from '@/lib/rag-query';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -200,6 +206,9 @@ export default function HomePage() {
 
   const keyword = searchTerm.trim().toLowerCase();
   const hasSearch = keyword.length > 0;
+  const searchQuery = searchTerm.trim();
+  const searchQueryTooLong = isRagQueryTooLong(searchQuery);
+  const searchQueryLength = searchTerm.length;
 
   const searchResults = useMemo(() => {
     if (!keyword) return { files: [], chats: [], datasets: [] };
@@ -246,6 +255,10 @@ export default function HomePage() {
   const createQuestionConversation = async (value = searchTerm) => {
     const content = value.trim();
     if (!content || submitting) return;
+    if (isRagQueryTooLong(content)) {
+      addToast('error', RAG_QUERY_MAX_LENGTH_MESSAGE);
+      return;
+    }
     const targetDatasetId = datasets[0]?.id;
     if (!targetDatasetId) {
       addToast('error', '请先创建或选择一个知识库');
@@ -270,6 +283,23 @@ export default function HomePage() {
     if (!hasSearch) return;
     void createQuestionConversation();
   };
+
+  const notifyQueryMaxLength = useCallback(() => {
+    addToast('error', RAG_QUERY_MAX_LENGTH_MESSAGE);
+  }, [addToast]);
+
+  const handleSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const nextValue = event.target.value;
+      if (nextValue.length > RAG_QUERY_MAX_LENGTH) {
+        setSearchTerm(limitRagQueryLength(nextValue));
+        notifyQueryMaxLength();
+        return;
+      }
+      setSearchTerm(nextValue);
+    },
+    [notifyQueryMaxLength],
+  );
 
   return (
     <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
@@ -313,7 +343,7 @@ export default function HomePage() {
                   <Search size={23} className="shrink-0 text-[#7B6B5D]" />
                   <input
                     value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
+                    onChange={handleSearchChange}
                     placeholder="搜索文件、对话、知识库，或输入一个问题..."
                     className={cn(
                       'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-text-main/40 sm:text-[17px]',
@@ -322,8 +352,22 @@ export default function HomePage() {
                   />
                 </div>
                 {hasSearch && (
-                  <div className={cn('mt-3 text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-                    {searchLoading ? '正在准备文件索引...' : `搜索结果 ${resultCount} 个 · 回车可用这个问题新建对话`}
+                  <div
+                    className={cn(
+                      'mt-3 flex items-center justify-between gap-3 text-xs',
+                      searchQueryTooLong ? 'text-error' : darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                    )}
+                  >
+                    <span className="min-w-0 truncate">
+                      {searchQueryTooLong
+                        ? RAG_QUERY_MAX_LENGTH_MESSAGE
+                        : searchLoading
+                          ? '正在准备文件索引...'
+                          : `搜索结果 ${resultCount} 个 · 回车可用这个问题新建对话`}
+                    </span>
+                    <span className="shrink-0">
+                      {searchQueryLength}/{RAG_QUERY_MAX_LENGTH}
+                    </span>
                   </div>
                 )}
                 {!hasSearch && quickQuestions.length > 0 && (
@@ -362,6 +406,7 @@ export default function HomePage() {
                   results={searchResults}
                   resultCount={resultCount}
                   submitting={submitting}
+                  queryTooLong={searchQueryTooLong}
                   onCreateQuestion={() => void createQuestionConversation()}
                 />
               </div>
@@ -462,6 +507,7 @@ function SearchResults({
   results,
   resultCount,
   submitting,
+  queryTooLong,
   onCreateQuestion,
 }: {
   darkMode: boolean;
@@ -470,6 +516,7 @@ function SearchResults({
   results: { files: SearchableFile[]; chats: ConversationDTO[]; datasets: DatasetDTO[] };
   resultCount: number;
   submitting: boolean;
+  queryTooLong: boolean;
   onCreateQuestion: () => void;
 }) {
   if (loading) {
@@ -558,7 +605,7 @@ function SearchResults({
           <button
             type="button"
             onClick={onCreateQuestion}
-            disabled={submitting}
+            disabled={submitting || queryTooLong}
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-xs font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
               darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
