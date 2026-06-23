@@ -147,6 +147,29 @@ export function abortActiveRecall(): void {
   activeController = null;
 }
 
+// ── 本轮幂等键（turn_id）生成 ─────────────────────────────────────────────────
+
+/**
+ * 生成一个 v4 UUID 作为本轮落库幂等键。
+ *
+ * 优先用 {@link crypto.randomUUID}，但它仅在「安全上下文」（https / localhost）可用；
+ * 本应用 dev server 绑定 0.0.0.0，经 http://<LAN-IP>:3000 访问时不是安全上下文，
+ * 此时 randomUUID 不存在。退回 {@link crypto.getRandomValues}（非安全上下文亦可用）手拼，
+ * 再退回 Math.random（极端环境兜底，唯一性弱但不致中断发送）。
+ */
+function generateTurnId(): string {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  if (c?.getRandomValues) {
+    const bytes = c.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
 // ── SSE 解析 ────────────────────────────────────────────────────────────────
 
 /** 解析单帧的 event / data（每帧含 event: 与 data: 单行 JSON）。 */
@@ -186,6 +209,12 @@ export interface RecallOptions {
    * 作为对话轮次落库的挂载锚点；Python /rag/stream 请求体 extra="forbid" 且该字段必填，缺失/拼错会直接 422。同一对话多轮复用同一个 id。
    */
   conversationId: number;
+  /**
+   * 本轮落库幂等键（对话流「后台续跑 + 可靠落库」）。一轮「用户提问 + 助手回答」对应一个稳定 UUID，
+   * 同一轮断线重连/重试必须复用同一值——后端据此 upsert 同一行，避免重复落库。
+   * 不传则由 {@link recall} 自动生成一个并在本次调用内（含 401 重申后的重试）复用。
+   */
+  turnId?: string;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
   /** 流式生成增量回调：每收到一帧 answer_delta 触发，参数为本帧增量文本。 */
@@ -203,7 +232,7 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + config_id + conversation_id + dataset_ids——任何未知字段 Python 直接 422。
+  // 请求体只允许 query + config_id + conversation_id + turn_id + dataset_ids——任何未知字段 Python 直接 422。
   //
   // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
   // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
@@ -214,10 +243,20 @@ async function streamOnce(
   //
   // LINK-181：conversation_id 必填。Python 侧 extra="forbid" + 字段必填，缺失/拼错直接 422
   // （映射为 RECALL_INVALID_REQUEST），不会进入问答流程。由 recall() 前置校验保证有值。
-  const body: { query: string; config_id: number; conversation_id: number; dataset_ids: number[] } = {
+  //
+  // turn_id：本轮落库幂等键（必填）。同一轮的多次连接/重试复用同一值，后端据此 upsert 同一行，
+  // 保证「关标签页/刷新/断网」后后台续跑仍只落一条记录。由 recall() 生成并在本次调用内复用。
+  const body: {
+    query: string;
+    config_id: number;
+    conversation_id: number;
+    turn_id: string;
+    dataset_ids: number[];
+  } = {
     query: options.query,
     config_id: options.configId,
     conversation_id: options.conversationId,
+    turn_id: options.turnId ?? '',
     dataset_ids: options.datasetIds,
   };
 
@@ -361,7 +400,10 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
     throw new RecallError('RECALL_INVALID_REQUEST', 'conversationId 不能为空');
   }
 
-  const requestOptions: RecallOptions = { ...options, query };
+  // 本轮落库幂等键：每轮一个稳定 UUID，本次调用内（含 401 重申后的重试）复用同一值，
+  // 保证后端「后台续跑 + 可靠落库」按同一行 upsert，不重复落库。
+  const turnId = options.turnId ?? generateTurnId();
+  const requestOptions: RecallOptions = { ...options, query, turnId };
 
   // 重连前先 abort 旧连接，释放并发名额。
   abortActiveRecall();
