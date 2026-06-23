@@ -428,16 +428,16 @@ export default function CreatorBlogEditor() {
       </header>
 
       {/* Main Split Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Editor & Settings */}
         <div
           ref={leftPaneRef}
           onScroll={handleScrollLeft}
           className={cn(
-            'w-1/2 flex flex-col border-r border-border-subtle overflow-y-auto transition-colors custom-scrollbar scroll-smooth bg-bg-base',
+            'w-full lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-border-subtle overflow-y-auto transition-colors custom-scrollbar scroll-smooth bg-bg-base',
           )}
         >
-          <div className="flex flex-col p-8 md:p-12 max-w-[800px] mx-auto w-full">
+          <div className="flex flex-col p-4 sm:p-8 md:p-12 max-w-[800px] mx-auto w-full">
             {/* Meta Data Inputs */}
             <div className="mb-8 space-y-4">
               <input
@@ -486,9 +486,11 @@ export default function CreatorBlogEditor() {
         <div
           ref={rightPaneRef}
           onScroll={handleScrollRight}
-          className={cn('w-1/2 overflow-y-auto transition-colors toc-scrollbar relative scroll-smooth bg-bg-base')}
+          className={cn(
+            'w-full lg:w-1/2 flex-1 lg:flex-none overflow-y-auto transition-colors toc-scrollbar relative scroll-smooth bg-bg-base',
+          )}
         >
-          <div className="absolute inset-0 max-w-[800px] mx-auto p-12">
+          <div className="max-w-[800px] mx-auto p-4 sm:p-8 md:p-12 lg:absolute lg:inset-0">
             <article>
               {/* Live Preview Header */}
               <h1 className="serif-heading text-3xl leading-tight text-text-main md:text-4xl lg:text-5xl">

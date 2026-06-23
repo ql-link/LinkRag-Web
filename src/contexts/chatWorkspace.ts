@@ -11,7 +11,8 @@ export interface ChatWorkspaceSnapshot {
   activeConversationId: number | null;
   loadingConversations: boolean;
   onBeginNewConversation: () => void;
-  onDeleteConversation: (id: number) => void;
+  onDeleteConversation: (id: number) => Promise<void> | void;
+  onRenameConversation: (id: number, title: string) => Promise<void> | void;
 }
 
 interface ChatWorkspaceContextValue {

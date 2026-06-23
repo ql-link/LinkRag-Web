@@ -69,6 +69,20 @@ Release rules:
 
 **Path alias:** `@/` → `src/` (configured in `tsconfig.json`, `vite.config.ts`, and `vitest.config.ts`).
 
+## Responsive / mobile
+
+The app must work down to ~360px. Breakpoints are Tailwind defaults (`sm` 640, `md` 768, `lg` 1024, `xl` 1280). The authenticated shell (`ProtectedLayout`) switches at `lg`: below it, a top hamburger header + `MobileNav` bottom tab bar replace the desktop `Sidebar`. **Write mobile-first** and follow these rules:
+
+- **Never bare multi-column grids.** `grid-cols-3` alone breaks phones. Stage it: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`. Compact stat tiles may stay `grid-cols-2 md:grid-cols-4` (two-up is fine on phones). Don't write breakpoints backwards (`grid-cols-2 lg:grid-cols-1`).
+- **Dialogs/modals:** width must fit the viewport — `w-[min(100vw-2rem,480px)]`, never bare `w-[480px]`. Cap tall dialogs with `max-h-[min(90vh,...)]` and make the body scroll.
+- **Popovers / dropdowns / floating panels:** `w-[min(20rem,calc(100vw-2rem))]` so they never exceed the screen. Anchor with care near screen edges.
+- **Bottom-nav clearance:** `MobileNav` is `fixed bottom-0` (~64px + safe area) and overlaps page content. Any page-level scroll container must add bottom padding on mobile — `pb-24 lg:pb-8` (or similar) — so the last row clears the tab bar. The bar itself already handles `env(safe-area-inset-bottom)`.
+- **Safe areas:** fixed top elements use `env(safe-area-inset-top)`; the welcome floating header already does.
+- **Horizontal rhythm:** page padding `px-4 sm:px-6 lg:px-8`. Wrap wide tables in `overflow-x-auto`. Avoid fixed `w-[NNNpx]` on layout containers (artwork/badges/toggles with intrinsic sizes are fine).
+- **Touch targets ≥ 40px** (`h-10 w-10` or `p-2.5`) for primary tap targets; don't rely on hover-only affordances on mobile.
+
+`src/pages/welcome/*` is an artwork-heavy public landing page with bespoke `max-[NNNpx]` handling — treat it as a special case, don't apply the grid rules blindly.
+
 ## Gotchas
 
 - **`src/pages/demo/*` and `src/layouts/DemoLayout.tsx` are stale design mockups**, not wired into the router and using a different token set (`bg-bg-*`, `accent-*`) and a non-existent `toggleDarkMode` from ThemeContext. Don't treat them as live code or copy their patterns into real pages.

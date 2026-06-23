@@ -714,7 +714,7 @@ export default function DatasetParseConfigPage() {
 
   return (
     <div className="flex h-full flex-col bg-canvas text-text-main">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-8">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 sm:px-6 lg:px-8">
         <div className="min-w-0">
           <Breadcrumb
             items={[
@@ -726,7 +726,7 @@ export default function DatasetParseConfigPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {dirty && (
             <span className="hidden h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary lg:inline-flex">
               未保存改动
@@ -761,7 +761,7 @@ export default function DatasetParseConfigPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-8">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:pb-8">
         {errorCount > 0 && (
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-error/30 bg-bg-card-solid px-4 py-3 text-text-secondary">
             <AlertCircle size={16} className="shrink-0 text-error" />
@@ -992,7 +992,7 @@ function ParamField({
         <div
           className={cn(
             'grid gap-1 rounded-xl bg-surface-soft p-1',
-            compactOptions ? 'grid-cols-5' : 'grid-cols-2 sm:grid-cols-4',
+            compactOptions ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4',
           )}
         >
           {param.options?.map((option) => {

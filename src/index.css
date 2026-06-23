@@ -107,6 +107,7 @@
     left: 0;
     right: 0;
     z-index: 100;
+    padding-top: env(safe-area-inset-top);
     transform: translateZ(0);
   }
 }
@@ -117,16 +118,20 @@
   @apply border border-border-subtle;
 }
 
-/* Cream content card — depth via surface tone, no blur, no heavy shadow. */
+/* Frosted content card. */
 @utility art-card {
-  background: var(--color-surface-card);
+  background: var(--color-bg-card);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-lg);
 }
 
-/* Previously frosted panel, now converted to solid editorial style */
+/* Heavier frosted panel for navigation and elevated surfaces. */
 @utility frosted-panel {
-  background: var(--color-surface-card);
+  background: var(--color-bg-frosted);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--color-hairline);
 }
 
