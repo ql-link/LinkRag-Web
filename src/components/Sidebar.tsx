@@ -78,7 +78,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
   return (
     <aside
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-surface-soft transition-[width] duration-300',
+        'flex shrink-0 flex-col overflow-visible border-r border-border-subtle bg-surface-soft transition-[width] duration-300',
         forceCollapsed ? 'w-[64px] min-w-[64px]' : allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[224px]') : 'w-[224px]',
         className,
       )}
@@ -166,7 +166,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           </button>
 
           {showUserMenu && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-hairline bg-canvas (--)]">
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-hairline bg-canvas shadow-dialog">
               <div className="border-b border-hairline px-3 py-2.5">
                 <p className="truncate text-sm font-medium text-ink">{displayName}</p>
                 <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
