@@ -426,12 +426,13 @@ export default function ProfilePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border-subtle px-5 py-3 sm:px-8">
+      {/* 面包屑：桌面端显示；移动端由外壳顶栏承担标题 */}
+      <header className="hidden min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border-subtle px-5 py-3 sm:px-8 lg:flex">
         <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '设置' }, { label: '个人信息' }]} />
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
-        <section className="mx-auto w-full max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
+        <section className="mx-auto w-full max-w-[820px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
           <div className="mb-6 flex flex-col gap-2">
             <h1 className="text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">个人信息</h1>
             <p className="text-[13px] text-muted">管理账户展示资料、联系方式与内容管理入口。</p>
@@ -523,7 +524,7 @@ export default function ProfilePage() {
       {avatarCropSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button className="absolute inset-0 bg-black/50" onClick={() => closeAvatarCrop()} aria-label="关闭弹窗" />
-          <div className="relative w-full max-w-[420px] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+          <div className="relative w-full max-w-[min(100vw-2rem,420px)] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
             <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
               <h3 className="text-base font-bold text-ink">调整头像</h3>
               <button
@@ -540,7 +541,7 @@ export default function ProfilePage() {
             <div className="p-6">
               <div
                 className={cn(
-                  'relative mx-auto h-[280px] w-[280px] touch-none overflow-hidden rounded-full border border-hairline bg-surface-soft',
+                  'relative mx-auto h-[280px] w-[280px] max-w-full touch-none overflow-hidden rounded-full border border-hairline bg-surface-soft',
                   avatarCropDragging ? 'cursor-grabbing' : 'cursor-grab',
                 )}
                 onPointerDown={handleAvatarCropPointerDown}
@@ -587,7 +588,7 @@ export default function ProfilePage() {
       {editField && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button className="absolute inset-0 bg-black/50 " onClick={closeEdit} aria-label="关闭弹窗" />
-          <div className="relative w-full max-w-[480px] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
+          <div className="relative w-full max-w-[min(100vw-2rem,480px)] overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
             <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
               <h3 className="text-base font-bold text-ink">修改{fieldMeta[editField].label}</h3>
               <button

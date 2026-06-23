@@ -119,7 +119,7 @@ export default function FeedbackPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[760px] px-6 py-8 lg:py-10">
+      <main className="mx-auto max-w-[760px] px-4 py-8 sm:px-6 lg:py-10">
         <section className="mx-auto mb-7 w-full max-w-[680px]">
           <p className={cn('text-sm leading-7', darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58')}>
             写下你遇到的问题、建议或希望改进的细节。描述越具体，后续越容易处理。
@@ -172,7 +172,7 @@ export default function FeedbackPage() {
             </div>
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6 max-[700px]:grid-cols-1">
+              <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
                 <label className="block">
                   <span
                     className={cn(

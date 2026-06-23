@@ -414,8 +414,8 @@ export default function DatasetPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-border-subtle px-8">
-        <div className="min-w-0">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 sm:px-6 lg:px-8">
+        <div className="min-w-0 shrink">
           <Breadcrumb
             items={[
               { label: '首页', path: Routes.Home },
@@ -424,7 +424,7 @@ export default function DatasetPage() {
             ]}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary-active hover:shadow-sm active:translate-y-0 active:scale-[0.98]"
@@ -474,7 +474,7 @@ export default function DatasetPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-8 bg-canvas">
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:pb-8 bg-canvas">
         <section className="overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
           <div className="flex flex-col gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">

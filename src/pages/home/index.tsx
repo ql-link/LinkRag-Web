@@ -286,7 +286,7 @@ export default function HomePage() {
         </header>
 
         <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
-          <div className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:pb-16">
+          <div className="mx-auto w-full max-w-[1120px] px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:px-8 lg:pb-16">
             <section className="mb-8">
               <h1
                 className={cn(
@@ -374,7 +374,7 @@ export default function HomePage() {
                   fileTotal={fileTotal}
                   tokenTotal={tokenTotal}
                 />
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div
                     className={cn(
                       'min-h-[260px] rounded-[20px] border px-5 py-4 shadow-[0_12px_28px_-24px_rgba(26,26,26,0.45)] lg:px-6',
@@ -430,7 +430,7 @@ function StatsPanel({
   return (
     <section
       className={cn(
-        'mb-8 grid grid-cols-2 gap-x-4 gap-y-4 border-y py-4 lg:grid-cols-4',
+        'mb-8 grid grid-cols-2 gap-x-4 gap-y-4 border-y py-4 md:grid-cols-4',
         darkMode ? 'border-[#333333]' : 'border-border-subtle/80',
       )}
     >
