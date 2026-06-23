@@ -16,6 +16,7 @@ import {
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
 import { useToast } from '@/contexts/ToastContext';
 import type { DatasetDTO } from '@/types/api';
@@ -37,6 +38,7 @@ export default function DatasetsPage() {
   const [editDatasetDesc, setEditDatasetDesc] = useState('');
   const [updating, setUpdating] = useState(false);
   const [deletingDatasetIds, setDeletingDatasetIds] = useState<number[]>([]);
+  const [datasetPendingDelete, setDatasetPendingDelete] = useState<DatasetDTO | null>(null);
 
   useEffect(() => {
     loadDatasets();
@@ -78,15 +80,20 @@ export default function DatasetsPage() {
     }
   };
 
-  const handleDeleteDataset = async (dataset: DatasetDTO, event: MouseEvent<HTMLButtonElement>) => {
+  const requestDeleteDataset = (dataset: DatasetDTO, event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (deletingDatasetIds.includes(dataset.id)) return;
-    if (!confirm(`确定要删除知识库「${dataset.name}」吗？删除后无法恢复。`)) return;
+    setDatasetPendingDelete(dataset);
+  };
 
+  const handleConfirmDeleteDataset = async () => {
+    if (!datasetPendingDelete || deletingDatasetIds.includes(datasetPendingDelete.id)) return;
+    const dataset = datasetPendingDelete;
     setDeletingDatasetIds((prev) => [...prev, dataset.id]);
     try {
       await deleteDataset(dataset.id);
       setDatasets((prev) => prev.filter((item) => item.id !== dataset.id));
+      setDatasetPendingDelete(null);
       addToast('success', '知识库已删除');
     } catch (error) {
       console.error('Failed to delete dataset:', error);
@@ -145,6 +152,7 @@ export default function DatasetsPage() {
   const hasSearch = searchString.trim().length > 0;
   const showInitialLoading = loading && datasets.length === 0;
   const showBlockingError = Boolean(errorMessage) && datasets.length === 0;
+  const deletingPendingDataset = datasetPendingDelete ? deletingDatasetIds.includes(datasetPendingDelete.id) : false;
 
   const formatDatasetTime = (value: string) => {
     if (!value) return '-';
@@ -293,7 +301,7 @@ export default function DatasetsPage() {
                         <Settings size={14} />
                       </button>
                       <button
-                        onClick={(event) => void handleDeleteDataset(dataset, event)}
+                        onClick={(event) => requestDeleteDataset(dataset, event)}
                         disabled={deleting}
                         className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
                         title="删除知识库"
@@ -443,6 +451,22 @@ export default function DatasetsPage() {
             </div>
           </div>
         )}
+
+        <ConfirmDialog
+          open={Boolean(datasetPendingDelete)}
+          title="删除知识库？"
+          confirmLabel="删除"
+          loading={deletingPendingDataset}
+          onCancel={() => {
+            if (!deletingPendingDataset) setDatasetPendingDelete(null);
+          }}
+          onConfirm={() => void handleConfirmDeleteDataset()}
+        >
+          <p>
+            这会删除 <strong className="font-bold text-ink">{datasetPendingDelete?.name}</strong>。
+          </p>
+          <p className="text-muted">知识库内的文件与关联配置将无法从前端继续访问，删除后无法恢复。</p>
+        </ConfirmDialog>
       </div>
     </div>
   );
