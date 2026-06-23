@@ -377,7 +377,7 @@ export default function AdminModelsPage() {
       </header>
 
       <main className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
-        <section className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+        <section className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
           <div className="mb-6">
             <div className={cn('mono-label mb-2', darkMode && 'text-[#858585]')}>Model Management</div>
             <h1
@@ -409,7 +409,7 @@ export default function AdminModelsPage() {
             绑定平台 Key，并作为新用户默认可用的内置模型配置。
           </div>
 
-          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <MetricCard
               darkMode={darkMode}
               label="厂商"
@@ -1045,7 +1045,7 @@ function DialogShell({
       <button className="absolute inset-0 bg-black/50 " onClick={onClose} aria-label="关闭弹窗" />
       <section
         className={cn(
-          'relative max-h-[90vh] w-full max-w-[560px] overflow-hidden rounded-2xl border ',
+          'relative max-h-[90vh] w-full max-w-[min(100vw-2rem,560px)] overflow-hidden rounded-2xl border ',
           darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
         )}
       >

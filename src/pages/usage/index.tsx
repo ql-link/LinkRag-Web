@@ -200,7 +200,7 @@ export default function UsagePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="px-4 py-5 sm:px-6 lg:px-8 lg:py-6 space-y-5">
+        <section className="px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6 space-y-5">
           <UsageHero summary={summary} range={range} />
 
           <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
@@ -310,7 +310,7 @@ function UsageHero({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-5 lg:min-w-[260px] lg:pt-1">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:min-w-[260px] lg:pt-1">
           <div className="min-w-0 text-ink">
             <div className="mb-1.5 text-xs font-bold text-muted">总调用</div>
             <div className="flex items-center gap-2 text-xl font-bold">
@@ -426,7 +426,7 @@ function RangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[320px] rounded-xl border border-hairline bg-bg-card-solid p-3 (--)]">
+        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-hairline bg-bg-card-solid p-3 (--)]">
           <div className="mb-3 flex flex-wrap gap-2">
             {presets.map((preset) => {
               const presetRange = preset.range();
@@ -454,7 +454,7 @@ function RangePicker({
           </div>
 
           <div className="border-t border-border-subtle pt-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="min-w-0">
                 <span className="mono-label mb-1 block text-muted-soft">开始日期</span>
                 <DateTextInput

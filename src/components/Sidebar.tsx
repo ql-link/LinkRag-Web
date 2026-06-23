@@ -56,11 +56,11 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const chatWorkspace = useChatWorkspaceSnapshot();
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
   const userInitial = getUserInitial(user);
   const isCollapsed = forceCollapsed || collapsed;
+  const chatWorkspace = useChatWorkspaceSnapshot();
   const isChatRoute = pathname === Routes.Chats || pathname.startsWith(`${Routes.Chats}/`);
   const showChatPanel = isChatRoute && !isCollapsed;
 
@@ -78,13 +78,18 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
   return (
     <aside
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-surface-soft transition-[width] duration-300',
+        'flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl transition-[width] duration-300',
         forceCollapsed ? 'w-[64px] min-w-[64px]' : allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[224px]') : 'w-[224px]',
         className,
       )}
     >
       {/* Logo */}
-      <div className={cn('flex h-16 items-center overflow-hidden', isCollapsed ? 'justify-center px-0' : 'px-5')}>
+      <div
+        className={cn(
+          'flex h-16 items-center overflow-hidden bg-white/35',
+          isCollapsed ? 'justify-center px-0' : 'px-5',
+        )}
+      >
         <div className={cn('flex min-w-max items-center', isCollapsed ? 'justify-center' : 'gap-2.5')}>
           <div className={cn('flex items-center justify-center overflow-hidden', isCollapsed ? 'h-9 w-9' : 'h-8 w-8')}>
             <LinkRagMark />
@@ -129,7 +134,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         })}
       </nav>
 
-      {/* Chat workspace — history & files, merged into the global sidebar on the chat route */}
+      {/* Chat workspace — history, merged into the global sidebar on the chat route */}
       {showChatPanel && (
         <div className="min-h-0 flex-1 border-t border-border-subtle">
           <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />
@@ -166,7 +171,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           </button>
 
           {showUserMenu && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-hairline bg-canvas (--)]">
+            <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl">
               <div className="border-b border-hairline px-3 py-2.5">
                 <p className="truncate text-sm font-medium text-ink">{displayName}</p>
                 <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
@@ -214,14 +219,14 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
               'mt-2 flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/5 hover:text-ink',
-              collapsed ? 'mx-auto h-11 w-11 p-0' : 'w-full py-2',
+              collapsed ? 'mx-auto h-11 w-11 p-0' : 'w-full px-3 py-2',
             )}
             aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
           >
             {collapsed ? (
               <ChevronRight size={18} />
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center justify-center gap-2">
                 <ChevronLeft size={16} />
                 <span className="text-xs font-medium">收起</span>
               </div>

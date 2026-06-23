@@ -56,22 +56,27 @@ export function toUiMessages(turns: ChatTurnDTO[]): UiChatMessage[] {
     if (query.trim().length > 0) {
       messages.push({
         id: `${turn.id}:user`,
+        conversationId: turn.conversationId,
         role: 'user',
         content: query,
         createdAt: turn.createdAt,
+        requestId: turn.requestId,
       });
     }
 
-    if (answer.trim().length > 0 || turn.status === 'failed') {
+    if (answer.trim().length > 0 || turn.status === 'failed' || turn.status === 'partial') {
+      const fallback = turn.status === 'failed' ? '本轮回答生成失败。' : '本轮回答不完整。';
       messages.push({
         id: `${turn.id}:assistant`,
+        conversationId: turn.conversationId,
         role: 'assistant',
-        content: answer.trim().length > 0 ? answer : '本轮回答生成失败。',
+        content: answer.trim().length > 0 ? answer : fallback,
         configId: turn.configId,
         modelName: turn.modelName,
         status: turn.status,
         createdAt: turn.createdAt,
         references: turn.references ?? [],
+        requestId: turn.requestId,
       });
     }
 
