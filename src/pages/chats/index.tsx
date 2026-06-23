@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +17,12 @@ import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
+import {
+  RAG_QUERY_MAX_LENGTH,
+  RAG_QUERY_MAX_LENGTH_MESSAGE,
+  isRagQueryTooLong,
+  limitRagQueryLength,
+} from '@/lib/rag-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { createConversation, getConversations, getMessages, deleteConversation, toUiMessages } from '@/services/chat';
@@ -43,6 +50,7 @@ import type {
 } from '@/types/api';
 
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
+const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -604,6 +612,8 @@ export default function ChatsPage() {
   const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerResizeFrameRef = useRef<number | null>(null);
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
   const pendingTitlePromptsRef = useRef<Map<number, string>>(new Map());
@@ -704,10 +714,52 @@ export default function ChatsPage() {
         }),
     [messages],
   );
+  const inputQuery = inputValue.trim();
+  const inputQueryTooLong = isRagQueryTooLong(inputQuery);
+  const inputLength = inputValue.length;
+
+  const resizeComposerTextarea = useCallback(() => {
+    const textarea = composerTextareaRef.current;
+    if (!textarea) return;
+    if (composerResizeFrameRef.current !== null) {
+      window.cancelAnimationFrame(composerResizeFrameRef.current);
+      composerResizeFrameRef.current = null;
+    }
+
+    const previousHeight = textarea.offsetHeight;
+    textarea.style.height = 'auto';
+    const nextHeight = Math.min(textarea.scrollHeight, COMPOSER_TEXTAREA_MAX_HEIGHT);
+    const overflowY = textarea.scrollHeight > COMPOSER_TEXTAREA_MAX_HEIGHT ? 'auto' : 'hidden';
+    if (Math.abs(previousHeight - nextHeight) <= 1) {
+      textarea.style.height = `${nextHeight}px`;
+      textarea.style.overflowY = overflowY;
+      return;
+    }
+
+    textarea.style.height = `${previousHeight}px`;
+    textarea.style.overflowY = 'hidden';
+    composerResizeFrameRef.current = window.requestAnimationFrame(() => {
+      textarea.style.height = `${nextHeight}px`;
+      textarea.style.overflowY = overflowY;
+      composerResizeFrameRef.current = null;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    resizeComposerTextarea();
+  }, [inputValue, resizeComposerTextarea]);
+
+  useEffect(() => {
+    window.addEventListener('resize', resizeComposerTextarea);
+    return () => window.removeEventListener('resize', resizeComposerTextarea);
+  }, [resizeComposerTextarea]);
 
   useEffect(() => {
     return () => {
       recallAbortRef.current?.abort();
+      if (composerResizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(composerResizeFrameRef.current);
+      }
       titleRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       titleRefreshTimeoutsRef.current = [];
     };
@@ -1061,6 +1113,10 @@ export default function ChatsPage() {
     async (overrideContent?: string, options?: SendOptions) => {
       const content = (overrideContent ?? inputValue).trim();
       if (!content || sending) return false;
+      if (isRagQueryTooLong(content)) {
+        addToast('error', RAG_QUERY_MAX_LENGTH_MESSAGE);
+        return false;
+      }
       const isFirstTurn = messages.length === 0;
       if (!selectedDatasetId) {
         setFilesPanelOpen(false);
@@ -1217,11 +1273,29 @@ export default function ChatsPage() {
   ]);
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void handleSend();
     }
   };
+
+  const notifyQueryMaxLength = useCallback(() => {
+    addToast('error', RAG_QUERY_MAX_LENGTH_MESSAGE);
+  }, [addToast]);
+
+  const handleComposerChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      const nextValue = event.target.value;
+      if (nextValue.length > RAG_QUERY_MAX_LENGTH) {
+        setInputValue(limitRagQueryLength(nextValue));
+        notifyQueryMaxLength();
+        return;
+      }
+      setInputValue(nextValue);
+    },
+    [notifyQueryMaxLength],
+  );
 
   const promptSelectDatasetForUpload = () => {
     addToast('error', '请先选择知识库后再上传文件');
@@ -1660,59 +1734,77 @@ export default function ChatsPage() {
           </div>
 
           <div className="shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:pb-8">
-            <div className="mx-auto flex max-w-[760px] items-center gap-2 rounded-2xl border border-hairline bg-canvas p-2 (--)]">
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleComposerKeyDown}
-                rows={1}
-                disabled={sending}
-                placeholder="输入提问，回车开始召回…"
-                className="h-9 min-w-0 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main outline-none placeholder:text-muted-soft"
-              />
-              <div ref={modelSelectorRef} className="relative shrink-0">
+            <div className="mx-auto max-w-[760px]">
+              <div
+                className={cn(
+                  'flex items-end gap-2 rounded-2xl border bg-canvas p-2 (--)]',
+                  inputQueryTooLong ? 'border-error' : 'border-hairline',
+                )}
+              >
+                <textarea
+                  ref={composerTextareaRef}
+                  value={inputValue}
+                  onChange={handleComposerChange}
+                  onKeyDown={handleComposerKeyDown}
+                  rows={1}
+                  disabled={sending}
+                  placeholder="输入提问，回车开始召回…"
+                  className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft"
+                />
+                <div ref={modelSelectorRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setModelOpen((value) => !value)}
+                    className="flex h-10 max-w-[156px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 sm:max-w-[200px]"
+                    title={selectedModel?.modelName ?? '选择模型'}
+                    aria-label={selectedModel?.modelName ?? '选择模型'}
+                  >
+                    <ModelProviderIcon model={selectedModel} size="sm" />
+                    <span className="min-w-0 truncate">{selectedModel?.modelName ?? '选择模型'}</span>
+                  </button>
+                  {modelOpen && (
+                    <div className="popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-[min(16rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
+                      {chatModels.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModelConfigId(model.id);
+                            setModelOpen(false);
+                          }}
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                            model.id === selectedModelConfigId
+                              ? 'bg-primary/10 text-ink'
+                              : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                          )}
+                        >
+                          <ModelProviderIcon model={model} size="xs" />
+                          <span className="min-w-0 flex-1 truncate">{model.modelName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setModelOpen((value) => !value)}
-                  className="flex h-10 max-w-[156px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 sm:max-w-[200px]"
-                  title={selectedModel?.modelName ?? '选择模型'}
-                  aria-label={selectedModel?.modelName ?? '选择模型'}
+                  onClick={() => void handleSend()}
+                  disabled={sending || !inputQuery || inputQueryTooLong}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <ModelProviderIcon model={selectedModel} size="sm" />
-                  <span className="min-w-0 truncate">{selectedModel?.modelName ?? '选择模型'}</span>
+                  {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
                 </button>
-                {modelOpen && (
-                  <div className="popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-[min(16rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
-                    {chatModels.map((model) => (
-                      <button
-                        key={model.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedModelConfigId(model.id);
-                          setModelOpen(false);
-                        }}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                          model.id === selectedModelConfigId
-                            ? 'bg-primary/10 text-ink'
-                            : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
-                        )}
-                      >
-                        <ModelProviderIcon model={model} size="xs" />
-                        <span className="min-w-0 flex-1 truncate">{model.modelName}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
-              <button
-                type="button"
-                onClick={() => void handleSend()}
-                disabled={sending || !inputValue.trim()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-40"
+              <div
+                className={cn(
+                  'mt-1 flex justify-end px-2 text-[11px] leading-5',
+                  inputQueryTooLong ? 'text-error' : 'text-muted-soft',
+                )}
               >
-                {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
-              </button>
+                {inputQueryTooLong
+                  ? `${RAG_QUERY_MAX_LENGTH_MESSAGE} · ${inputLength}/${RAG_QUERY_MAX_LENGTH}`
+                  : `${inputLength}/${RAG_QUERY_MAX_LENGTH}`}
+              </div>
             </div>
           </div>
         </section>

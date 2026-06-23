@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { RAG_QUERY_MAX_LENGTH_MESSAGE, isRagQueryTooLong, normalizeRagQuery } from '@/lib/rag-query';
 import type { RecallSessionDTO, RecallDonePayload, RecallErrorPayload, RecallStreamEvent } from '@/types/api';
 
 // LINK-105：前端直连 Python 召回 SSE。
@@ -343,8 +344,12 @@ function boundaryEnd(buffer: string, start: number): number {
  * @throws RecallError 各错误码见 {@link RecallErrorCode}
  */
 export async function recall(options: RecallOptions): Promise<RecallDonePayload> {
-  if (!options.query || options.query.trim() === '') {
+  const query = normalizeRagQuery(options.query);
+  if (!query) {
     throw new RecallError('RECALL_INVALID_REQUEST', 'query 不能为空');
+  }
+  if (isRagQueryTooLong(query)) {
+    throw new RecallError('RECALL_INVALID_REQUEST', RAG_QUERY_MAX_LENGTH_MESSAGE);
   }
   if (!options.datasetIds || options.datasetIds.length === 0) {
     // Java 端 @NotEmpty 必拒，提前本地拦截避免一次必败的 400 请求。
@@ -355,6 +360,8 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
     // 提前本地拦截避免一次必败的请求，并避免静默失败。
     throw new RecallError('RECALL_INVALID_REQUEST', 'conversationId 不能为空');
   }
+
+  const requestOptions: RecallOptions = { ...options, query };
 
   // 重连前先 abort 旧连接，释放并发名额。
   abortActiveRecall();
@@ -369,15 +376,15 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   }
 
   try {
-    const session = await getOrCreateSession(options.datasetIds, controller.signal);
+    const session = await getOrCreateSession(requestOptions.datasetIds, controller.signal);
     try {
-      return await streamOnce(session, options, controller.signal);
+      return await streamOnce(session, requestOptions, controller.signal);
     } catch (error) {
       // token 过期：清缓存、回 Java 重申一次后重试。
       if (isRecallUnauthorized(error)) {
         clearRecallSession();
-        const fresh = await getOrCreateSession(options.datasetIds, controller.signal);
-        return await streamOnce(fresh, options, controller.signal);
+        const fresh = await getOrCreateSession(requestOptions.datasetIds, controller.signal);
+        return await streamOnce(fresh, requestOptions, controller.signal);
       }
       throw error;
     }
