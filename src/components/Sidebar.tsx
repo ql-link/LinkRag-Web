@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Home,
   Database,
@@ -41,20 +42,50 @@ interface SidebarProps {
 export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = false, className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userMenuPosition, setUserMenuPosition] = useState<{ left: number; bottom: number } | null>(null);
+  const userMenuButtonRef = useRef<HTMLButtonElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const updateUserMenuPosition = useCallback(() => {
+    const rect = userMenuButtonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const menuWidth = 224;
+    const viewportPadding = 8;
+    setUserMenuPosition({
+      left: Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - menuWidth - viewportPadding)),
+      bottom: Math.max(viewportPadding, window.innerHeight - rect.top + 8),
+    });
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (userMenuButtonRef.current?.contains(target) || userMenuRef.current?.contains(target)) {
+        return;
+      }
+      if (showUserMenu) {
         setShowUserMenu(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showUserMenu]);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+
+    updateUserMenuPosition();
+    window.addEventListener('resize', updateUserMenuPosition);
+    window.addEventListener('scroll', updateUserMenuPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateUserMenuPosition);
+      window.removeEventListener('scroll', updateUserMenuPosition, true);
+    };
+  }, [showUserMenu, updateUserMenuPosition]);
 
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
@@ -63,6 +94,55 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
   const chatWorkspace = useChatWorkspaceSnapshot();
   const isChatRoute = pathname === Routes.Chats || pathname.startsWith(`${Routes.Chats}/`);
   const showChatPanel = isChatRoute && !isCollapsed;
+  const userMenuPortal =
+    showUserMenu && userMenuPosition
+      ? createPortal(
+          <div
+            ref={userMenuRef}
+            style={userMenuPosition}
+            className="fixed z-[100] w-56 overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl"
+          >
+            <div className="border-b border-hairline px-3 py-2.5">
+              <p className="truncate text-sm font-medium text-ink">{displayName}</p>
+              <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
+            </div>
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  setShowUserMenu(false);
+                  onNavigate?.();
+                  navigate(Routes.ProfilePage);
+                }}
+                className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
+              >
+                <User size={15} />
+                <span className="text-sm font-medium">个人信息</span>
+              </button>
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    onNavigate?.();
+                    navigate(Routes.AdminBlogs);
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
+                >
+                  <ShieldCheck size={15} />
+                  <span className="text-sm font-medium">后台管理</span>
+                </button>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 px-3 py-2 text-error transition-colors hover:bg-error/8"
+              >
+                <LogOut size={15} />
+                <span className="text-sm font-medium">退出登录</span>
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   async function handleLogout() {
     try {
@@ -143,9 +223,13 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
 
       {/* Footer — user menu */}
       <div className={cn('shrink-0 border-t border-border-subtle', isCollapsed ? 'px-2 py-3' : 'p-3')}>
-        <div className="relative" ref={userMenuRef}>
+        <div className="relative">
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            ref={userMenuButtonRef}
+            onClick={() => {
+              updateUserMenuPosition();
+              setShowUserMenu((open) => !open);
+            }}
             className={cn(
               'flex items-center rounded-lg transition-colors hover:bg-primary/5',
               isCollapsed ? 'mx-auto h-11 w-11 justify-center p-0' : 'w-full gap-3 px-2 py-2',
@@ -170,47 +254,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
             )}
           </button>
 
-          {showUserMenu && (
-            <div className="absolute bottom-full left-0 right-0 z-50 mb-2 overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl">
-              <div className="border-b border-hairline px-3 py-2.5">
-                <p className="truncate text-sm font-medium text-ink">{displayName}</p>
-                <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
-              </div>
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    onNavigate?.();
-                    navigate(Routes.ProfilePage);
-                  }}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
-                >
-                  <User size={15} />
-                  <span className="text-sm font-medium">个人信息</span>
-                </button>
-                {user?.role === 'ADMIN' && (
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onNavigate?.();
-                      navigate(Routes.AdminBlogs);
-                    }}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
-                  >
-                    <ShieldCheck size={15} />
-                    <span className="text-sm font-medium">后台管理</span>
-                  </button>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-error transition-colors hover:bg-error/8"
-                >
-                  <LogOut size={15} />
-                  <span className="text-sm font-medium">退出登录</span>
-                </button>
-              </div>
-            </div>
-          )}
+          {userMenuPortal}
         </div>
 
         {/* Collapse button */}
