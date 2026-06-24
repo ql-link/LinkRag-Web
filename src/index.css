@@ -250,6 +250,29 @@
   display: none;
 }
 
+/* 对话记录列表：5px 细滚动条，透明轨道，半透明拇指，hover 加深 */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 20, 19, 0.12) transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(20, 20, 19, 0.12);
+  border-radius: 9999px;
+}
+
+.thin-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(20, 20, 19, 0.2);
+}
+
 /* ===== Form Controls ===== */
 
 .parse-config-range {
