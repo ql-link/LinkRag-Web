@@ -148,12 +148,15 @@ function ChatWorkspaceProvider({ children }: { children: ReactNode }) {
 export function ProtectedLayout() {
   const location = useLocation();
   const isDesktop = useIsDesktop();
+  const pageKey = location.pathname.startsWith(`${RoutePaths.Chats}/`)
+    ? RoutePaths.Chats
+    : `${location.pathname}${location.search}`;
 
   const content = (
     <ErrorBoundary>
       <AnimatePresence mode="sync" initial={false}>
         <motion.div
-          key={`${location.pathname}${location.search}`}
+          key={pageKey}
           className="h-full min-w-0 overflow-hidden"
           initial={pageMotion.initial}
           animate={pageMotion.animate}

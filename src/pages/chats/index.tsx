@@ -34,7 +34,7 @@ import {
   toUiMessages,
 } from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
-import { getDatasets, getDataset, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
+import { getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
 import {
@@ -66,6 +66,32 @@ type ChatRouteState = {
 
 interface LocalMessage extends UiChatMessage {
   recallChunks?: RecallChunk[];
+}
+
+interface ConversationDraft {
+  messages: LocalMessage[];
+  sending: boolean;
+  updatedAt: number;
+}
+
+type ConversationDraftListener = (conversationId: number, draft: ConversationDraft) => void;
+
+const conversationDrafts = new Map<number, ConversationDraft>();
+const conversationDraftListeners = new Set<ConversationDraftListener>();
+let activeChatConversationId: number | null = null;
+let displayedChatConversationId: number | null = null;
+
+function updateConversationDraft(
+  conversationId: number,
+  updater: (draft: ConversationDraft | null) => ConversationDraft,
+) {
+  const next = {
+    ...updater(conversationDrafts.get(conversationId) ?? null),
+    updatedAt: Date.now(),
+  };
+  conversationDrafts.set(conversationId, next);
+  conversationDraftListeners.forEach((listener) => listener(conversationId, next));
+  return next;
 }
 
 interface SendOptions {
@@ -659,6 +685,28 @@ export default function ChatsPage() {
   const activeConversationId = id ? Number(id) : null;
 
   useEffect(() => {
+    activeChatConversationId = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    displayedChatConversationId = conversation?.id ?? activeConversationId;
+  }, [activeConversationId, conversation?.id]);
+
+  useEffect(() => {
+    const listener: ConversationDraftListener = (conversationId, draft) => {
+      if (activeChatConversationId === conversationId || displayedChatConversationId === conversationId) {
+        setMessages(draft.messages);
+        setSending(draft.sending);
+      }
+    };
+
+    conversationDraftListeners.add(listener);
+    return () => {
+      conversationDraftListeners.delete(listener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!kbOpen && !modelOpen) return;
 
     function handlePointerDown(event: PointerEvent) {
@@ -763,7 +811,6 @@ export default function ChatsPage() {
 
   useEffect(() => {
     return () => {
-      recallAbortRef.current?.abort();
       if (composerResizeFrameRef.current !== null) {
         window.cancelAnimationFrame(composerResizeFrameRef.current);
       }
@@ -897,13 +944,19 @@ export default function ChatsPage() {
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
+      setSending(false);
       setSelectedDatasetId(routeDatasetId);
       return;
     }
 
     let cancelled = false;
     const loadConversation = async () => {
-      setLoadingConversation(true);
+      const cachedDraft = conversationDrafts.get(activeConversationId);
+      if (cachedDraft) {
+        setMessages(cachedDraft.messages);
+        setSending(cachedDraft.sending);
+      }
+      setLoadingConversation(!cachedDraft);
       try {
         const conv =
           conversationsRef.current.find((item) => item.id === activeConversationId) ??
@@ -915,20 +968,26 @@ export default function ChatsPage() {
           }
           return;
         }
-        const [msgResult, fileResult] = await Promise.all([
-          getMessages(conv.id, 1, 100),
-          getKnowledgeFiles(conv.datasetId, 1, 100),
-          getDataset(conv.datasetId).catch(() => null),
-        ]);
+        const msgResult = await getMessages(conv.id, 1, 100);
         if (cancelled) return;
         const uiMessages = toUiMessages(msgResult.items);
+        const latestDraft = conversationDrafts.get(conv.id);
+        const shouldUseDraft = Boolean(
+          latestDraft && (latestDraft.sending || uiMessages.length < latestDraft.messages.length),
+        );
         setConversation(conv);
         setSelectedDatasetId(conv.datasetId);
-        setMessages(uiMessages);
-        setFiles(fileResult.items.sort((a, b) => b.id - a.id));
+        if (shouldUseDraft && latestDraft) {
+          setMessages(latestDraft.messages);
+          setSending(latestDraft.sending);
+        } else {
+          conversationDrafts.delete(conv.id);
+          setMessages(uiMessages);
+          setSending(false);
+        }
 
         const referencedChunkIds = collectReferencedChunkIds(uiMessages);
-        if (referencedChunkIds.length > 0) {
+        if (!shouldUseDraft && referencedChunkIds.length > 0) {
           void getChunkDetails(referencedChunkIds)
             .then((details) => {
               if (cancelled) return;
@@ -1178,6 +1237,7 @@ export default function ChatsPage() {
           });
           setConversation(activeConversation);
         }
+        displayedChatConversationId = activeConversation.id;
       } catch (error) {
         console.error('Failed to create conversation:', error);
         addToast('error', '创建对话失败');
@@ -1205,10 +1265,14 @@ export default function ChatsPage() {
         createdAt: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      const nextMessages = [...messages, userMsg, assistantMsg];
+      updateConversationDraft(activeConversation.id, () => ({
+        messages: nextMessages,
+        sending: true,
+        updatedAt: Date.now(),
+      }));
       setActiveMessageAnchorId(userMsg.id);
       setInputValue('');
-      setSending(true);
       recallAbortRef.current?.abort();
       const controller = new AbortController();
       recallAbortRef.current = controller;
@@ -1222,17 +1286,31 @@ export default function ChatsPage() {
           conversationId: activeConversation.id,
           signal: controller.signal,
           onAnswerDelta: (text) => {
-            setMessages((prev) =>
-              prev.map((msg) => (msg.id === assistantId ? { ...msg, content: `${msg.content ?? ''}${text}` } : msg)),
-            );
+            updateConversationDraft(activeConversation.id, (draft) => ({
+              messages: (draft?.messages ?? nextMessages).map((msg) =>
+                msg.id === assistantId ? { ...msg, content: `${msg.content ?? ''}${text}` } : msg,
+              ),
+              sending: true,
+              updatedAt: Date.now(),
+            }));
           },
         });
         const chunks = hitsToRecallChunks(result.hits, files);
-        setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? { ...msg, recallChunks: chunks } : msg)));
+        updateConversationDraft(activeConversation.id, (draft) => ({
+          messages: (draft?.messages ?? nextMessages).map((msg) =>
+            msg.id === assistantId ? { ...msg, recallChunks: chunks } : msg,
+          ),
+          sending: true,
+          updatedAt: Date.now(),
+        }));
         if (!result.answer && result.hits.length === 0) {
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg)),
-          );
+          updateConversationDraft(activeConversation.id, (draft) => ({
+            messages: (draft?.messages ?? nextMessages).map((msg) =>
+              msg.id === assistantId ? { ...msg, content: '未召回到相关内容。' } : msg,
+            ),
+            sending: true,
+            updatedAt: Date.now(),
+          }));
         }
         if (isFirstTurn) {
           pendingTitlePromptsRef.current.set(activeConversation.id, content);
@@ -1241,12 +1319,22 @@ export default function ChatsPage() {
       } catch (error) {
         if (!isRecallAborted(error)) {
           const message = recallErrorMessage(error);
-          setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? { ...msg, content: message } : msg)));
+          updateConversationDraft(activeConversation.id, (draft) => ({
+            messages: (draft?.messages ?? nextMessages).map((msg) =>
+              msg.id === assistantId ? { ...msg, content: message } : msg,
+            ),
+            sending: true,
+            updatedAt: Date.now(),
+          }));
           if (isRecallError(error)) addToast('error', message);
         }
       } finally {
         if (recallAbortRef.current === controller) recallAbortRef.current = null;
-        setSending(false);
+        updateConversationDraft(activeConversation.id, (draft) => ({
+          messages: draft?.messages ?? nextMessages,
+          sending: false,
+          updatedAt: Date.now(),
+        }));
       }
       return true;
     },
@@ -1255,7 +1343,7 @@ export default function ChatsPage() {
       conversation,
       files,
       inputValue,
-      messages.length,
+      messages,
       scheduleTitleRefresh,
       selectedDatasetId,
       selectedModel?.modelName,
