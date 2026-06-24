@@ -211,8 +211,9 @@ Logo files:
 
 - `assets/linkrag-logo-full.png` — full logo with wordmark
 - `assets/linkrag-mark-v2.png` — mark only (used in sidebar)
+- `assets/linkrag-mark-dark.png` — dark chrome mark variant
 - `assets/linkrag-icon-square.png` — square icon variant
-- `assets/favicon-v2.png` — favicon
+- `assets/favicon-light.png` / `assets/favicon-dark.png` — transparent favicon variants for light and dark browser chrome
 
 ---
 
