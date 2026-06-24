@@ -22,10 +22,12 @@ import { ChatWorkspacePanel } from '@/components/ChatWorkspacePanel';
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
   { path: Routes.Datasets, name: '知识库', icon: Database },
-  { path: Routes.Chats, name: '对话', icon: MessageSquare },
   { path: Routes.LLMPage, name: '模型配置', icon: Cpu },
   { path: Routes.Usage, name: '用量', icon: BarChart3 },
 ];
+
+// 「对话」入口单独成段，置于分割线下方、「对话记录」列表上方。
+const chatNavItem = { path: Routes.Chats, name: '对话', icon: MessageSquare };
 
 function getUserInitial(user: ReturnType<typeof useAuth>['user']) {
   return user?.nickname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '';
@@ -61,8 +63,35 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
   const userInitial = getUserInitial(user);
   const isCollapsed = forceCollapsed || collapsed;
   const chatWorkspace = useChatWorkspaceSnapshot();
-  const isChatRoute = pathname === Routes.Chats || pathname.startsWith(`${Routes.Chats}/`);
-  const showChatPanel = isChatRoute && !isCollapsed;
+  // 「对话记录」面板在侧栏展开时始终显示（数据由 ChatWorkspaceProvider 全局兜底提供）。
+  const showChatPanel = !isCollapsed;
+
+  const renderNavLink = ({ path, name, icon: Icon }: { path: string; name: string; icon: typeof Home }) => {
+    const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
+    return (
+      <Link
+        key={path}
+        to={path}
+        onClick={() => {
+          setShowUserMenu(false);
+          onNavigate?.();
+        }}
+        className={cn(
+          'group relative flex items-center rounded-lg transition-colors',
+          isCollapsed ? 'mx-auto h-11 w-11 justify-center p-0' : 'gap-3 px-3 py-2.5',
+          isActive ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+        )}
+      >
+        <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted')} />
+        {!isCollapsed && <span className="text-sm font-medium">{name}</span>}
+        {isCollapsed && (
+          <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-on-dark opacity-0  transition-opacity group-hover:opacity-100">
+            {name}
+          </span>
+        )}
+      </Link>
+    );
+  };
 
   async function handleLogout() {
     try {
@@ -103,40 +132,21 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
         className={cn(
           'space-y-1 overflow-x-hidden py-4',
           isCollapsed ? 'px-2' : 'px-3',
-          showChatPanel ? 'shrink-0' : 'flex-1 overflow-y-auto',
+          isCollapsed ? 'flex-1 overflow-y-auto' : 'shrink-0',
         )}
       >
-        {navItems.map(({ path, name, icon: Icon }) => {
-          const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
-          return (
-            <Link
-              key={path}
-              to={path}
-              onClick={() => {
-                setShowUserMenu(false);
-                onNavigate?.();
-              }}
-              className={cn(
-                'group relative flex items-center rounded-lg transition-colors',
-                isCollapsed ? 'mx-auto h-11 w-11 justify-center p-0' : 'gap-3 px-3 py-2.5',
-                isActive ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
-              )}
-            >
-              <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted')} />
-              {!isCollapsed && <span className="text-sm font-medium">{name}</span>}
-              {isCollapsed && (
-                <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-on-dark opacity-0  transition-opacity group-hover:opacity-100">
-                  {name}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {navItems.map(renderNavLink)}
       </nav>
 
-      {/* Chat workspace — history, merged into the global sidebar on the chat route */}
+      {/* 「对话」入口：分割线下方、「对话记录」上方 */}
+      <div className={cn('shrink-0 border-t border-border-subtle pt-3', isCollapsed ? 'px-2' : 'px-3')}>
+        {renderNavLink(chatNavItem)}
+      </div>
+
+      {/* Chat workspace — 历史「对话记录」，展开时始终显示。
+          外层补 px-3，使面板标题/列表与上方「对话」入口、导航项左缘对齐。 */}
       {showChatPanel && (
-        <div className="min-h-0 flex-1 border-t border-border-subtle">
+        <div className="min-h-0 flex-1 px-3 pt-1">
           <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />
         </div>
       )}
