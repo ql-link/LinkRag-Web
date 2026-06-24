@@ -15,6 +15,7 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { post: vi.fn() },
 }));
 import { apiClient } from '@/lib/api-client';
+import { RAG_QUERY_MAX_LENGTH, RAG_QUERY_MAX_LENGTH_MESSAGE } from '@/lib/rag-query';
 const mockSessionPost = apiClient.post as unknown as Mock;
 
 /** 构造一个流式 SSE Response */
@@ -104,18 +105,73 @@ describe('recall - 请求构造', () => {
     expect(init.headers.Authorization).toBe('Bearer tok-1');
   });
 
-  it('stream 请求体含 query + config_id + dataset_ids + conversation_id，不泄漏未知字段', async () => {
+  it('stream 请求体含 query + config_id + dataset_ids + conversation_id + turn_id，不泄漏未知字段', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
     await recall({ query: 'hello', configId: 77, conversationId: 99, datasetIds: [1, 2] });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body).toEqual({ query: 'hello', config_id: 77, dataset_ids: [1, 2], conversation_id: 99 });
+    expect(body).toEqual({
+      query: 'hello',
+      config_id: 77,
+      dataset_ids: [1, 2],
+      conversation_id: 99,
+      turn_id: expect.any(String),
+    });
+    expect(body.turn_id.length).toBeGreaterThan(0);
     expect('user_id' in body).toBe(false);
     expect('top_k' in body).toBe(false);
+  });
+
+  it('传入 turnId 时请求体复用该值（本轮幂等键稳定）', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
+    await recall({ query: 'hello', configId: 77, conversationId: 99, datasetIds: [1], turnId: 'turn-abc' });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.turn_id).toBe('turn-abc');
+  });
+
+  it('未传 turnId 时自动生成（每轮一个）', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(sseResponse([DONE_FRAME])));
+    await recall({ query: 'hello', configId: 77, conversationId: 99, datasetIds: [1] });
+    await recall({ query: 'world', configId: 77, conversationId: 99, datasetIds: [1] });
+    const first = JSON.parse(fetchMock.mock.calls[0][1].body).turn_id;
+    const second = JSON.parse(fetchMock.mock.calls[1][1].body).turn_id;
+    expect(first).not.toBe(second);
+  });
+
+  it('非安全上下文（无 crypto.randomUUID）仍生成合法 UUID', async () => {
+    const original = crypto.randomUUID;
+    // 模拟 http://<LAN-IP> 访问：randomUUID 不存在，但 getRandomValues 可用。
+    Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+    try {
+      fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
+      await recall({ query: 'hello', configId: 77, conversationId: 99, datasetIds: [1] });
+      const { turn_id } = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(turn_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
+    }
+  });
+
+  it('stream 请求体使用 trim 后的 query', async () => {
+    fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
+    await recall({ query: '  hello  ', configId: 77, conversationId: 99, datasetIds: [1] });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.query).toBe('hello');
   });
 
   it('空白 query 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
     await expect(recall({ query: '   ', configId: 77, conversationId: 99, datasetIds: [1] })).rejects.toMatchObject({
       code: 'RECALL_INVALID_REQUEST',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockSessionPost).not.toHaveBeenCalled();
+  });
+
+  it('超长 query 直接抛 RECALL_INVALID_REQUEST，不发请求', async () => {
+    await expect(
+      recall({ query: 'a'.repeat(RAG_QUERY_MAX_LENGTH + 1), configId: 77, conversationId: 99, datasetIds: [1] }),
+    ).rejects.toMatchObject({
+      code: 'RECALL_INVALID_REQUEST',
+      message: RAG_QUERY_MAX_LENGTH_MESSAGE,
     });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mockSessionPost).not.toHaveBeenCalled();
