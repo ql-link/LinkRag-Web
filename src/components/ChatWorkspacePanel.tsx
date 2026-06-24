@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import { ChevronDown, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -24,6 +25,7 @@ export function ChatWorkspacePanel({
 }) {
   const navigate = useNavigate();
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const renameSubmittingRef = useRef(false);
   const renameCancellingRef = useRef(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -59,7 +61,8 @@ export function ChatWorkspacePanel({
     if (visibleMenuId === null) return;
 
     function handlePointerDown(event: PointerEvent) {
-      if (panelRef.current?.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpenMenuId(null);
     }
 
@@ -137,6 +140,51 @@ export function ChatWorkspacePanel({
       setDeletingConversationId(null);
     }
   };
+
+  const menuTarget = visibleMenuId === null ? null : conversations.find((item) => item.id === visibleMenuId);
+  const menuPortal =
+    menuTarget && menuPosition
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={menuPosition}
+            className={cn(
+              'fixed z-[100] w-36 origin-left rounded-xl border border-hairline bg-bg-card-solid p-1 shadow-dialog transition-all duration-150 ease-out',
+              openMenuId === menuTarget.id
+                ? 'translate-x-0 scale-100 opacity-100'
+                : '-translate-x-1 scale-[0.98] opacity-0',
+            )}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={(event) => {
+                event.stopPropagation();
+                startRename(menuTarget);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-primary/8 hover:text-ink"
+            >
+              <Pencil size={14} />
+              重命名
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenMenuId(null);
+                setDeleteTarget(menuTarget);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-error transition-colors hover:bg-error/10"
+            >
+              <Trash2 size={14} />
+              删除
+            </button>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <div ref={panelRef} className="flex h-full min-h-0 flex-col">
@@ -220,7 +268,7 @@ export function ChatWorkspacePanel({
                     }
                     const rect = event.currentTarget.getBoundingClientRect();
                     setMenuPosition({
-                      left: rect.right + 8,
+                      left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 152)),
                       top: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 112)),
                     });
                     setOpenMenuId(item.id);
@@ -236,49 +284,12 @@ export function ChatWorkspacePanel({
                 >
                   {isBusy ? <Loader2 size={13} className="animate-spin" /> : <MoreHorizontal size={15} />}
                 </button>
-                {visibleMenuId === item.id && (
-                  <div
-                    role="menu"
-                    style={menuPosition ?? undefined}
-                    className={cn(
-                      'fixed z-40 w-36 origin-left rounded-xl border border-hairline bg-bg-card-solid p-1 shadow-dialog transition-all duration-150 ease-out',
-                      openMenuId === item.id
-                        ? 'translate-x-0 scale-100 opacity-100'
-                        : '-translate-x-1 scale-[0.98] opacity-0',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        startRename(item);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-primary/8 hover:text-ink"
-                    >
-                      <Pencil size={14} />
-                      重命名
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setOpenMenuId(null);
-                        setDeleteTarget(item);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-error transition-colors hover:bg-error/10"
-                    >
-                      <Trash2 size={14} />
-                      删除
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
+      {menuPortal}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="删除对话？"
