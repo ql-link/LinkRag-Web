@@ -180,6 +180,7 @@ export default function UsagePage() {
   const hasDailyUsage = dailyUsage.some((item) => item.totalTokens > 0 || item.calls > 0);
   const topModels = modelUsage.slice(0, 6);
   const today = useMemo(() => formatLocalDate(new Date()), []);
+  const showSkeleton = loading && summary === null;
 
   return (
     <div className="h-full flex flex-col bg-canvas">
@@ -201,56 +202,118 @@ export default function UsagePage() {
 
       <main className="flex-1 overflow-y-auto bg-canvas">
         <section className="px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6 space-y-5">
-          <UsageHero summary={summary} range={range} />
+          {showSkeleton ? (
+            <UsageSkeleton />
+          ) : (
+            <>
+              <UsageHero summary={summary} range={range} />
 
-          <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
+              <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <GrowthPill label="Token 环比" value={trend?.tokenGrowthRate ?? null} />
+                    <GrowthPill label="调用环比" value={trend?.callGrowthRate ?? null} />
+                    <div className="mono-label text-muted-soft">
+                      {range.startDate} ~ {range.endDate}
+                    </div>
+                  </div>
+                </div>
+
+                {hasDailyUsage ? (
+                  <TokenLineChart data={dailyUsage} />
+                ) : (
+                  <EmptyBlock icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
+                )}
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <GrowthPill label="Token 环比" value={trend?.tokenGrowthRate ?? null} />
-                <GrowthPill label="调用环比" value={trend?.callGrowthRate ?? null} />
-                <div className="mono-label text-muted-soft">
-                  {range.startDate} ~ {range.endDate}
+
+              <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+                <div className="grid grid-cols-1 gap-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-0">
+                  <section className="flex min-h-0 flex-col xl:pr-5">
+                    <h3 className="text-sm font-bold mb-4 text-ink">模型用量</h3>
+                    <div className="min-h-0 flex-1">
+                      {topModels.length === 0 ? (
+                        <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
+                      ) : (
+                        <ModelUsagePie data={modelUsage} />
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="flex min-h-0 flex-col border-t border-border-subtle pt-5 xl:border-l xl:border-t-0 xl:pt-0 xl:pl-5">
+                    <h3 className="text-sm font-bold mb-4 text-ink">最近调用</h3>
+                    <div className="min-h-0 flex-1">
+                      {logs.length === 0 ? (
+                        <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
+                      ) : (
+                        <RecentCallsList logs={logs} />
+                      )}
+                    </div>
+                  </section>
                 </div>
               </div>
-            </div>
-
-            {hasDailyUsage ? (
-              <TokenLineChart data={dailyUsage} />
-            ) : (
-              <EmptyBlock icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
-            )}
-          </div>
-
-          <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
-            <div className="grid grid-cols-1 gap-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-0">
-              <section className="flex min-h-0 flex-col xl:pr-5">
-                <h3 className="text-sm font-bold mb-4 text-ink">模型用量</h3>
-                <div className="min-h-0 flex-1">
-                  {topModels.length === 0 ? (
-                    <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
-                  ) : (
-                    <ModelUsagePie data={modelUsage} />
-                  )}
-                </div>
-              </section>
-
-              <section className="flex min-h-0 flex-col border-t border-border-subtle pt-5 xl:border-l xl:border-t-0 xl:pt-0 xl:pl-5">
-                <h3 className="text-sm font-bold mb-4 text-ink">最近调用</h3>
-                <div className="min-h-0 flex-1">
-                  {logs.length === 0 ? (
-                    <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
-                  ) : (
-                    <RecentCallsList logs={logs} />
-                  )}
-                </div>
-              </section>
-            </div>
-          </div>
+            </>
+          )}
         </section>
       </main>
+    </div>
+  );
+}
+
+function UsageSkeleton() {
+  return (
+    <div className="animate-pulse space-y-5" aria-busy="true" aria-label="正在加载用量数据">
+      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-xl bg-surface-card" />
+              <div className="space-y-2">
+                <div className="h-4 w-24 rounded bg-surface-card" />
+                <div className="h-3 w-40 rounded bg-surface-soft" />
+              </div>
+            </div>
+            <div className="h-10 w-48 rounded-lg bg-surface-card" />
+            <div className="h-4 w-32 rounded bg-surface-soft" />
+          </div>
+          <div className="grid grid-cols-2 gap-5 lg:min-w-[260px]">
+            {[0, 1].map((item) => (
+              <div key={item} className="space-y-2">
+                <div className="h-3 w-16 rounded bg-surface-soft" />
+                <div className="h-6 w-20 rounded bg-surface-card" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="space-y-2">
+              <div className="h-3 w-20 rounded bg-surface-soft" />
+              <div className="h-5 w-24 rounded bg-surface-card" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+        <div className="mb-4 h-4 w-24 rounded bg-surface-card" />
+        <div className="h-[220px] w-full rounded-lg bg-surface-soft" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 xl:grid-cols-2">
+        <div className="space-y-4">
+          <div className="h-4 w-20 rounded bg-surface-card" />
+          <div className="mx-auto h-[170px] w-[170px] rounded-full bg-surface-soft" />
+        </div>
+        <div className="space-y-3">
+          <div className="h-4 w-20 rounded bg-surface-card" />
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-12 w-full rounded-lg bg-surface-soft" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
