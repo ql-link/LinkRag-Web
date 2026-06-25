@@ -215,11 +215,21 @@ export interface RecallOptions {
    * 不传则由 {@link recall} 自动生成一个并在本次调用内（含 401 重申后的重试）复用。
    */
   turnId?: string;
+  /**
+   * 是否为本会话「首条用户消息」（LINK-209）。仅新建会话的第一条用户消息传 true，其余轮次省略或 false。
+   * Python 据此在首轮基于 query 生成会话标题（通过 conversation_title 事件回前端 + chat_turn.title 落库）。
+   */
+  isFirstTurn?: boolean;
   /** 外部取消信号（组件卸载 / 用户取消）。会与内部并发管理合并。 */
   signal?: AbortSignal;
   /** 流式生成增量回调：每收到一帧 answer_delta 触发，参数为本帧增量文本。 */
   onAnswerDelta?: (text: string) => void;
-  /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / answer_done / error / answer_delta 不经此回调）。 */
+  /**
+   * 会话标题回调（LINK-209）：收到 conversation_title 事件时触发，参数为 Python 生成的标题。
+   * 到达时机不固定——可能在 answer_delta 中途，也可能在 answer_done 之后补发；一次会话最多一条。
+   */
+  onConversationTitle?: (title: string) => void;
+  /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / answer_done / error / answer_delta / conversation_title 不经此回调）。 */
   onEvent?: (event: RecallStreamEvent) => void;
 }
 
@@ -246,12 +256,15 @@ async function streamOnce(
   //
   // turn_id：本轮落库幂等键（必填）。同一轮的多次连接/重试复用同一值，后端据此 upsert 同一行，
   // 保证「关标签页/刷新/断网」后后台续跑仍只落一条记录。由 recall() 生成并在本次调用内复用。
+  // LINK-209：is_first_turn 仅在新建会话的首条用户消息为 true，触发 Python 基于 query 生成会话标题。
+  // 请求体 extra="forbid"：字段名必须精确为 is_first_turn、布尔类型，仅在 true 时携带（非首轮省略即默认 false）。
   const body: {
     query: string;
     config_id: number;
     conversation_id: number;
     turn_id: string;
     dataset_ids: number[];
+    is_first_turn?: boolean;
   } = {
     query: options.query,
     config_id: options.configId,
@@ -259,6 +272,9 @@ async function streamOnce(
     turn_id: options.turnId ?? '',
     dataset_ids: options.datasetIds,
   };
+  if (options.isFirstTurn) {
+    body.is_first_turn = true;
+  }
 
   let resp: Response;
   try {
@@ -310,6 +326,13 @@ async function streamOnce(
     if (parsed.event === 'answer_delta') {
       const delta = parsed.data as { text?: string };
       if (delta?.text) options.onAnswerDelta?.(delta.text);
+      return undefined;
+    }
+    // LINK-209：会话标题事件，到达时机不固定（可能在 answer_delta 中途或 answer_done 之后），一次会话最多一条。
+    if (parsed.event === 'conversation_title') {
+      const payload = parsed.data as { title?: string };
+      const title = payload?.title?.trim();
+      if (title) options.onConversationTitle?.(title);
       return undefined;
     }
     if (parsed.event === 'error') {
