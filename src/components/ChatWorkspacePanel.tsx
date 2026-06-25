@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
-import { ChevronDown, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import type { ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
@@ -13,8 +13,9 @@ function getConversationTitle(item: ConversationItem | null | undefined) {
 }
 
 /**
- * 「最近对话」列表。数据与回调来自 ChatsPage 发布的快照；快照为 null 时按加载中渲染。
- * 风格对齐 ChatGPT：轻量操作入口 + 标题列表，无标签页 / 搜索。
+ * 「对话记录」列表。数据与回调来自 ChatsPage 发布的快照；快照为 null 时按加载中渲染。
+ * 视觉规格见《左侧边栏「对话记录」模块对接文档》：奶油 + coral 体系，
+ * 模块头（折叠箭头 + 标签 + 计数徽标 + 新建按钮 + 搜索框）固定，仅列表区域滚动。
  */
 export function ChatWorkspacePanel({
   snapshot,
@@ -29,6 +30,7 @@ export function ChatWorkspacePanel({
   const renameSubmittingRef = useRef(false);
   const renameCancellingRef = useRef(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [query, setQuery] = useState('');
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [visibleMenuId, setVisibleMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
@@ -42,6 +44,13 @@ export function ChatWorkspacePanel({
     const items = snapshot?.conversations ?? [];
     return [...items].sort((a, b) => new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime());
   }, [snapshot?.conversations]);
+
+  // 按标题做不区分大小写的子串过滤。
+  const filtered = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return conversations;
+    return conversations.filter((item) => getConversationTitle(item).toLowerCase().includes(keyword));
+  }, [conversations, query]);
 
   useEffect(() => {
     if (openMenuId !== null) {
@@ -80,6 +89,7 @@ export function ChatWorkspacePanel({
   const beginNewConversation = () => {
     setOpenMenuId(null);
     setMenuPosition(null);
+    setQuery('');
     snapshot?.onBeginNewConversation();
     onNavigate?.();
   };
@@ -148,12 +158,12 @@ export function ChatWorkspacePanel({
           <div
             ref={menuRef}
             role="menu"
-            style={menuPosition}
+            style={{ ...menuPosition, width: 132, boxShadow: '0 8px 24px rgba(20, 20, 19, 0.12)' }}
             className={cn(
-              'fixed z-[100] w-36 origin-left rounded-xl border border-hairline bg-bg-card-solid p-1 shadow-dialog transition-all duration-150 ease-out',
+              'fixed z-[100] origin-top-right rounded-[9px] border border-hairline bg-canvas p-1 transition-all duration-150 ease-out',
               openMenuId === menuTarget.id
-                ? 'translate-x-0 scale-100 opacity-100'
-                : '-translate-x-1 scale-[0.98] opacity-0',
+                ? 'translate-y-0 scale-100 opacity-100'
+                : '-translate-y-1 scale-[0.98] opacity-0',
             )}
           >
             <button
@@ -163,9 +173,9 @@ export function ChatWorkspacePanel({
                 event.stopPropagation();
                 startRename(menuTarget);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-primary/8 hover:text-ink"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] text-body transition-colors hover:bg-surface-soft"
             >
-              <Pencil size={14} />
+              <Pencil size={13} />
               重命名
             </button>
             <button
@@ -176,9 +186,9 @@ export function ChatWorkspacePanel({
                 setOpenMenuId(null);
                 setDeleteTarget(menuTarget);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-error transition-colors hover:bg-error/10"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] text-error transition-colors hover:bg-error/8"
             >
-              <Trash2 size={14} />
+              <Trash2 size={13} />
               删除
             </button>
           </div>,
@@ -188,43 +198,69 @@ export function ChatWorkspacePanel({
 
   return (
     <div ref={panelRef} className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-2">
-        <button
-          type="button"
-          onClick={() => setCollapsed((value) => !value)}
-          className="group flex min-w-0 items-center gap-1.5 text-text-secondary transition-colors hover:text-ink"
-          aria-expanded={!collapsed}
-        >
-          <span className="truncate text-sm font-semibold">对话记录</span>
-          <ChevronDown
-            size={14}
-            className={cn('shrink-0 text-muted transition-transform', collapsed && '-rotate-90')}
-          />
-        </button>
-        <button
-          type="button"
-          onClick={beginNewConversation}
-          disabled={!snapshot}
-          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/8 px-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary/35 hover:bg-primary/12 hover:text-primary-active disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="新建对话"
-          title="新建对话"
-        >
-          <Plus size={14} />
-          <span>新建</span>
-        </button>
+      {/* 模块头 */}
+      <div className="shrink-0 px-1 pb-2 pt-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className="group flex min-w-0 items-center gap-1.5 text-muted transition-colors hover:text-ink"
+            aria-expanded={!collapsed}
+          >
+            <ChevronRight
+              size={15}
+              className={cn('shrink-0 text-ink transition-transform duration-200', !collapsed && 'rotate-90')}
+            />
+            <span className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">对话记录</span>
+            <span className="shrink-0 rounded-full bg-surface-soft px-[7px] py-px font-mono text-[10px] font-semibold text-muted">
+              {conversations.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={beginNewConversation}
+            disabled={!snapshot}
+            className="flex shrink-0 items-center gap-1 rounded-full border border-primary-mid bg-primary-light px-2.5 py-1 text-[12.5px] font-semibold text-primary transition-colors hover:bg-primary-mid disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="新建对话"
+            title="新建对话"
+          >
+            <Plus size={13} />
+            <span>新建</span>
+          </button>
+        </div>
+
+        {/* 搜索框 */}
+        {!collapsed && (
+          <div className="group mt-2.5 flex items-center gap-2 rounded-[9px] border border-transparent bg-surface-soft px-[11px] py-2 transition-colors focus-within:border-primary focus-within:bg-white">
+            <Search size={15} className="shrink-0 text-muted-soft" />
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索对话"
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-ink placeholder:text-muted-soft focus:outline-none"
+              aria-label="搜索对话"
+            />
+          </div>
+        )}
       </div>
+
+      {/* 列表 */}
       {collapsed ? null : !snapshot || snapshot.loadingConversations ? (
         <div className="flex h-20 items-center justify-center text-muted">
           <Loader2 size={16} className="animate-spin" />
         </div>
       ) : conversations.length === 0 ? (
-        <p className="px-3 py-4 text-xs text-muted-soft">暂无历史对话</p>
+        <p className="px-3 py-4 text-[13px] text-muted-soft">暂无历史对话</p>
+      ) : filtered.length === 0 ? (
+        <p className="px-3 py-4 text-[13px] text-muted-soft">没有匹配的对话</p>
       ) : (
-        <div className="popover-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1 pb-1">
-          {conversations.map((item) => {
+        <div className="thin-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-1 pb-1">
+          {filtered.map((item) => {
             const active = snapshot.activeConversationId === item.id;
             const isRenaming = renameTargetId === item.id;
             const isBusy = deletingConversationId === item.id || renamingConversationId === item.id;
+            const menuOpen = openMenuId === item.id;
             return (
               <div key={item.id} className="group relative">
                 {isRenaming ? (
@@ -242,7 +278,7 @@ export function ChatWorkspacePanel({
                       }}
                       onKeyDown={handleRenameKeyDown}
                       maxLength={128}
-                      className="h-8 w-full rounded-lg border border-primary/35 bg-canvas px-2 text-sm text-ink outline-none"
+                      className="h-8 w-full rounded-[8px] border border-primary bg-white px-2 text-[13.5px] text-ink outline-none ring-2 ring-primary/20"
                       aria-label="重命名对话"
                     />
                   </form>
@@ -251,10 +287,16 @@ export function ChatWorkspacePanel({
                     type="button"
                     onClick={() => goToConversation(item.id)}
                     className={cn(
-                      'w-full truncate rounded-lg px-3 py-2 pr-9 text-left text-sm transition-colors',
-                      active ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                      'relative block w-full truncate rounded-[8px] py-[7px] pl-[14px] pr-8 text-left text-[13.5px] font-medium transition-colors',
+                      active ? 'bg-surface-cream-strong text-ink' : 'text-body hover:bg-surface-soft hover:text-ink',
                     )}
                   >
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="absolute left-[3px] top-1/2 h-[15px] w-[3px] -translate-y-1/2 rounded-[2px] bg-primary"
+                      />
+                    )}
                     {getConversationTitle(item)}
                   </button>
                 )}
@@ -262,25 +304,25 @@ export function ChatWorkspacePanel({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (openMenuId === item.id) {
+                    if (menuOpen) {
                       setOpenMenuId(null);
                       return;
                     }
                     const rect = event.currentTarget.getBoundingClientRect();
                     setMenuPosition({
-                      left: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 152)),
-                      top: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 112)),
+                      left: Math.max(8, Math.min(rect.right - 132, window.innerWidth - 132 - 8)),
+                      top: Math.min(rect.bottom + 4, window.innerHeight - 96),
                     });
                     setOpenMenuId(item.id);
                   }}
                   disabled={isBusy || isRenaming}
                   className={cn(
-                    'absolute right-1.5 top-1/2 h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted transition-colors hover:bg-black/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60',
-                    openMenuId === item.id ? 'flex' : 'hidden group-hover:flex',
+                    'absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[6px] text-muted transition-all hover:bg-surface-cream-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-60',
+                    menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
                   )}
                   aria-label="打开对话操作菜单"
                   aria-haspopup="menu"
-                  aria-expanded={openMenuId === item.id}
+                  aria-expanded={menuOpen}
                 >
                   {isBusy ? <Loader2 size={13} className="animate-spin" /> : <MoreHorizontal size={15} />}
                 </button>

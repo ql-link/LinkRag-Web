@@ -1,43 +1,72 @@
 <div align="center">
-<img width="1200" height="475" alt="ToLink Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 
-# ToLink · LinkRag Web
+# LinkRag Web
 
-**AI 知识图谱 + 检索增强问答的 Web 前端**
-
-将文档解析、可视化关系图谱与 AI 分析结合，把你的知识库变成可对话、可探索的智能图谱。
+LinkRag 的 Web 前端 —— 让知识库可视化、可对话、可溯源。
 
 </div>
 
----
+<p align="center">
+  <b>简体中文</b> · <a href="./README_EN.md">English</a>
+</p>
 
-## ✨ 功能特性
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white">
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-blue">
+</p>
+
+<p align="center">
+  <a href="http://linkrag.cn/"><img alt="在线体验 linkrag.cn" src="https://img.shields.io/badge/在线体验-linkrag.cn-c8a06a?style=for-the-badge&logo=googlechrome&logoColor=white"></a>
+</p>
+
+<p align="center">
+  <img alt="LinkRag Web 整体架构：一处收口、两路分叉" src="./docs/assets/sketches/sketch-web-architecture.png" width="840">
+</p>
+
+## LinkRag Web 是什么
+
+LinkRag 是一套企业级 RAG 系统，让任何人都能把文档变成可对话的知识库。本仓库是它的 **Web 前端**，也是用户直接接触的入口：在这里管理数据集与知识文件、用关系图谱可视化文档之间的联系、围绕知识库发起可溯源的 AI 问答。
+
+界面分两类请求落到后端：常规业务（登录、配置、数据集、文件、用量）走 Java 管理端；聊天的检索与生成则由前端凭 Java 签发的短期 token **直连 Python RAG 服务**流式返回——详见下方[系统边界](#系统边界)。
+
+## 功能特性
 
 - **知识图谱可视化** —— 基于 D3 渲染文档间的关系网络，支持交互式探索。
-- **知识库问答（RAG）** —— 围绕数据集进行检索增强对话，回答可追溯到来源文件。
-- **数据集与知识文件管理** —— 上传、归档、关联文件到指定数据集。
-- **多会话对话** —— 持久化的对话列表，首页展示最近对话。
+- **知识库问答（RAG）** —— 围绕数据集做检索增强对话，答案逐字流式返回并溯源到来源文件。
+- **数据集与知识文件管理** —— 上传、归档、关联文件到指定数据集，跟踪解析状态。
+- **多会话对话** —— 持久化的会话列表，首页展示最近对话。
 - **LLM 配置中心** —— 在设置中管理多家模型供应商、API Key 与能力开关。
 - **用量统计** —— 查看每日 / 汇总的调用用量。
-- **响应式与暗色模式** —— 适配桌面与移动端，内置主题切换。
+- **响应式与暗色模式** —— 适配桌面与移动端（低至 ~360px），内置主题切换。
 
-## 🛠 技术栈
+## 系统边界
 
-| 类别   | 选型                                    |
-| ------ | --------------------------------------- |
-| 框架   | React 19 + TypeScript                   |
-| 构建   | Vite 6                                  |
-| 样式   | Tailwind CSS 4                          |
-| 路由   | React Router 7                          |
-| 可视化 | D3                                      |
-| 动画   | Motion                                  |
-| 图标   | lucide-react                            |
-| 测试   | Vitest + Testing Library                |
-| 质量   | ESLint + Prettier + Husky + lint-staged |
+LinkRag 采用「Java 管理端 + Python RAG 执行端」协作模式，本仓库是面向用户的前端，同时与两端打交道：所有请求收敛到统一的 API 客户端，再分流成两条线——带令牌走 Java 办常规业务，凭临时通行证直连 Python 拉逐字流式问答（见文首架构图）。
 
-## 🚀 本地开发
+- **常规业务**：走统一的 `apiClient`，带 `satoken` 头请求 Java 管理端的 `/api/v1/*`（登录、数据集、文件、模型配置、用量）。
+- **聊天召回**：前端先向 Java 申请一个短期召回 session（`POST /api/v1/recall/sessions`，Java 校验登录态与数据集权限后签发含 `streamUrl` 的 token），再凭 token **直连 Python** 拉召回 / 生成的 SSE 流。Java 不在这条流式路径上（实现见 [src/services/recall.ts](src/services/recall.ts)、[src/types/api.ts](src/types/api.ts)）。
 
-**前置条件：** Node.js 20+
+## 技术栈
+
+| 类别     | 选型                                    |
+| -------- | --------------------------------------- |
+| 框架     | React 19 + TypeScript                   |
+| 构建     | Vite 6                                  |
+| 样式     | Tailwind CSS 4（CSS-first，无 config）  |
+| 路由     | React Router 7                          |
+| 可视化   | D3                                      |
+| Markdown | react-markdown + remark-gfm + rehype    |
+| 动画     | Motion                                  |
+| 图标     | lucide-react                            |
+| 测试     | Vitest + Testing Library                |
+| 质量     | ESLint + Prettier + Husky + lint-staged |
+
+## 快速开始
+
+**前置条件：** Node.js 20+，并确保 [LinkRag-Service](https://github.com/ql-link/LinkRag-Service) 后端已在本地 `8080` 端口运行。
 
 ```bash
 # 1. 安装依赖
@@ -47,10 +76,9 @@ npm install
 npm run dev
 ```
 
-开发服务器会将 `/api` 请求代理到后端 `http://localhost:8080`（见 [vite.config.ts](vite.config.ts)）。
-请确保 ToLink Service 后端已在本地 `8080` 端口运行，或按需修改代理目标。
+开发服务器会将 `/api` 请求代理到后端 `http://localhost:8080`（见 [vite.config.ts](vite.config.ts)）。如后端地址不同，按需修改代理目标。
 
-## 📜 常用脚本
+## 常用脚本
 
 | 命令                | 说明                         |
 | ------------------- | ---------------------------- |
@@ -63,26 +91,30 @@ npm run dev
 | `npm run format`    | Prettier 格式化              |
 | `npm run test`      | 运行单元测试                 |
 
-## 🌿 分支与发布管理
+## 目录结构
 
-本仓库与 LinkRag Python 端保持一致的分支模型：
+```text
+src/
+├── components/   # 通用组件（知识图谱、问答、侧边栏等）
+├── contexts/     # 全局状态（Auth / Theme / Toast）
+├── layouts/      # 布局（受保护布局、移动导航、右侧面板）
+├── pages/        # 页面（home / chats / datasets / settings ...）
+├── services/     # API 调用封装（auth / blog / chat / chunk / dataset / llm / oss / recall / user）
+├── lib/          # 工具与 API 客户端（api-client.ts）
+├── types/        # 类型定义
+└── routes.ts     # 路由表
+```
 
-- `dev`：日常集成分支，feature/refactor/chore 等日常开发分支通过 PR 合入这里。
-- `master`：稳定发布分支，只接受发布 PR 或 hotfix PR，不接受日常 feature/refactor/chore 直接合入。
-- `feature/<topic>` / `refactor/<topic>` / `chore/<topic>`：日常开发分支，从 `dev` 拉出并 PR 到 `dev`。
-- `release/<version>`：每周发布准备分支，从 `dev` 拉出，最终通过 release PR 合入 `master`。
-- `hotfix/<topic>`：紧急修复分支，从 `master` 拉出，修复后 PR 到 `master`，发布后必须 merge 或 cherry-pick 回 `dev`。
+## 后端联调
 
-发布合并规则：
+- 服务根地址：`http://{host}:8080`
+- 业务接口前缀：`/api/v1`
+- 认证请求头：`satoken: {accessToken}`（注意：不是 `Authorization: Bearer`）
+- 聊天召回：前端凭 Java 签发的 session token 直连 Python 的 `streamUrl` 拉 SSE（见上方[系统边界](#系统边界)）
 
-- `dev` -> `master` 必须使用普通 merge commit，禁止 squash merge，确保发布分支保留完整 PR 父子关系。
-- 每周发布必须通过 `release/<version>` PR 进入 `master`。
-- release PR 合入 `master` 后，在 `master` 顶部的 merge commit 上打版本 tag。
-- release PR 描述必须列出：包含的业务 PR、数据库/配置/契约变更、测试结果、已知风险。
-- hotfix 合入 `master` 并发布后，必须回合 `dev`，避免修复只存在于发布线。
-- CI 或 workflow 的分支过滤如需显式配置，应使用 `dev, master`。
+更多接口约定见 [docs/ToLink-前端API文档.md](docs/ToLink-前端API文档.md)。
 
-## ⚙️ 环境变量
+## 环境变量
 
 构建期可注入的 `VITE_` 前缀变量（会被打进静态产物）：
 
@@ -90,29 +122,7 @@ npm run dev
 | ----------------- | ---------------------- |
 | `VITE_GITHUB_URL` | 页面中 GitHub 链接地址 |
 
-## 📂 目录结构
-
-```
-src/
-├── components/   # 通用组件（知识图谱、问答、侧边栏等）
-├── contexts/     # 全局状态（Auth / Theme / Toast）
-├── layouts/      # 布局（受保护布局、移动导航、右侧面板）
-├── pages/        # 页面（home / chats / datasets / settings ...）
-├── services/     # API 调用封装（auth / chat / dataset / llm / oss / user）
-├── lib/          # 工具与 API 客户端
-├── types/        # 类型定义
-└── routes.ts     # 路由表
-```
-
-## 🔌 后端联调
-
-- 服务根地址：`http://{host}:8080`
-- 业务接口前缀：`/api/v1`
-- 认证请求头：`satoken: {accessToken}`（注意：不要使用 `Authorization: Bearer`）
-
-更多接口约定见 [docs/ToLink-前端API文档.md](docs/ToLink-前端API文档.md)。
-
-## 🐳 部署
+## 部署
 
 项目通过多阶段 Docker 构建，Nginx 托管 SPA 静态产物：
 
@@ -126,6 +136,37 @@ TAG=latest docker compose -f deploy/docker-compose.yml up -d
 
 CI 流程见 [Jenkinsfile](Jenkinsfile)。
 
-## 📄 文档
+## 分支与发布管理
+
+本仓库与 LinkRag 各端保持一致的分支模型：
+
+- `dev`：日常集成分支，feature/refactor/chore 等日常开发分支通过 PR 合入这里。
+- `master`：稳定发布分支，只接受发布 PR 或 hotfix PR，不接受日常分支直接合入。
+- `feature/<topic>` / `refactor/<topic>` / `chore/<topic>`：日常开发分支，从 `dev` 拉出并 PR 回 `dev`。
+- `release/<version>`：每周发布准备分支，从 `dev` 拉出，通过 release PR 合入 `master`。
+- `hotfix/<topic>`：紧急修复分支，从 `master` 拉出，修复后 PR 回 `master`，发布后必须 merge 或 cherry-pick 回 `dev`。
+
+发布规则：
+
+- `dev` → `master` 发布合并必须使用普通 merge commit，禁止 squash merge。
+- release PR 合入 `master` 后，在结果 merge commit 上打版本 tag。
+- release PR 描述需列出：包含的业务 PR、数据库 / 配置 / 契约变更、测试结果、已知风险。
+- CI 或 workflow 的分支过滤如需显式配置，使用 `dev, master`。
+
+## 关联仓库
+
+LinkRag 由三个仓库协作组成：
+
+| 仓库                                                                  | 角色                                                |
+| --------------------------------------------------------------------- | --------------------------------------------------- |
+| [ql-link/LinkRag](https://github.com/ql-link/LinkRag)                 | Python RAG 服务：文档解析、分片、向量化、索引与召回 |
+| [ql-link/LinkRag-Service](https://github.com/ql-link/LinkRag-Service) | Java 管理端：业务编排、任务下发与终态回收           |
+| [ql-link/LinkRag-Web](https://github.com/ql-link/LinkRag-Web)（本仓） | 前端：知识库管理与交互界面                          |
+
+## 文档
 
 `docs/` 目录包含前端 API 文档、联调计划、交接文档等，可作为开发与对接参考。
+
+## 许可证
+
+本项目基于 MIT License 开源。
