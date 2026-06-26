@@ -1,0 +1,46 @@
+/* ============================================================
+   Claude (Anthropic) editorial system — spacing, radii, shadow
+   Color-block first; shadows are rare and faint.
+   ============================================================ */
+
+:root {
+  /* ─ Spacing scale (4px base) ─ */
+  --space-1: 4px; /* xxs */
+  --space-2: 8px; /* xs */
+  --space-3: 12px; /* sm */
+  --space-4: 16px; /* md */
+  --space-5: 20px;
+  --space-6: 24px; /* lg */
+  --space-8: 32px; /* xl — card padding */
+  --space-10: 40px;
+  --space-12: 48px; /* xxl — coral callout padding */
+  --space-16: 64px; /* CTA band padding */
+  --space-24: 96px; /* section rhythm */
+
+  /* ─ Corner radii (hierarchical) ─ */
+  --radius-xs: 4px; /* badge accents */
+  --radius-sm: 6px; /* small inline buttons, dropdown items */
+  --radius-md: 8px; /* buttons, inputs, tabs */
+  --radius-lg: 12px; /* content + product cards */
+  --radius-xl: 16px; /* hero illustration container */
+  --radius-pill: 9999px; /* badge pills, icon buttons */
+
+  /* ─ Shadows (minimal — depth comes from surface contrast) ─ */
+  --shadow-card: 0 1px 3px rgba(20, 20, 19, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(20, 20, 19, 0.1);
+  --shadow-dialog: 0 16px 48px rgba(20, 20, 19, 0.16);
+  --shadow-focus-ring: 0 0 0 3px rgba(204, 120, 92, 0.18); /* coral focus */
+
+  /* ─ Motion ─ */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --duration-sm: 140ms; /* @kind other */
+  --duration-md: 200ms; /* @kind other */
+  --duration-lg: 280ms; /* @kind other */
+}
+
+/* Dark-surface shadow overrides */
+.dark {
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.6);
+}

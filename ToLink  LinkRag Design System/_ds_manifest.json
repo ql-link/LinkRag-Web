@@ -1,0 +1,583 @@
+{
+  "namespace": "ToLinkLinkRagDesignSystem_fa9960",
+  "components": [
+    { "name": "Badge", "sourcePath": "components/Badge/Badge.jsx" },
+    { "name": "Button", "sourcePath": "components/Button/Button.jsx" },
+    { "name": "Card", "sourcePath": "components/Card/Card.jsx" }
+  ],
+  "startingPoints": [],
+  "cards": [
+    {
+      "path": "preview/brand-filetypes.html",
+      "group": "Brand",
+      "viewport": "600x300",
+      "subtitle": "PDF · DOCX · Markdown · HTML — dog-ear page glyph, mono ext tag",
+      "name": "File-type Icons"
+    },
+    {
+      "path": "preview/brand-logos.html",
+      "group": "Brand",
+      "viewport": "680x300",
+      "subtitle": "LinkRag wordmark, mark & favicon",
+      "name": "Logos & Mark"
+    },
+    {
+      "path": "preview/brand-status.html",
+      "group": "Brand",
+      "viewport": "560x220",
+      "subtitle": "排队中 · 解析中 · 已完成 · 失败 — 胶囊徽章,纯 HTML/CSS",
+      "name": "Parse-status Pills"
+    },
+    {
+      "path": "preview/colors-dark.html",
+      "group": "Colors",
+      "viewport": "680x250",
+      "subtitle": "Warm ink scale + on-dark / on-coral",
+      "name": "Text — Ink on Cream"
+    },
+    {
+      "path": "preview/colors-neutral.html",
+      "group": "Colors",
+      "viewport": "680x240",
+      "subtitle": "Canvas, cards, dark-navy product chrome",
+      "name": "Surfaces — Cream Trinity & Dark"
+    },
+    {
+      "path": "preview/colors-primary.html",
+      "group": "Colors",
+      "viewport": "680x300",
+      "subtitle": "Accent only: button fills, inline links, thin rules, marks — never a large fill",
+      "name": "Primary — Anthropic Coral"
+    },
+    {
+      "path": "preview/colors-semantic.html",
+      "group": "Colors",
+      "viewport": "680x230",
+      "subtitle": "Teal, amber + success / warning / error",
+      "name": "Accent & Semantic"
+    },
+    {
+      "path": "components/Badge/badge.html",
+      "group": "Components",
+      "viewport": "680x240",
+      "subtitle": "coral fill · cream pill · accent & status tones — live component",
+      "name": "Badge"
+    },
+    {
+      "path": "components/Button/button.html",
+      "group": "Components",
+      "viewport": "680x320",
+      "subtitle": "coral CTA · secondary · ghost · link · pill — live component",
+      "name": "Button"
+    },
+    {
+      "path": "components/Card/card.html",
+      "group": "Components",
+      "viewport": "680x260",
+      "subtitle": "color-block surface card — cream · navy · coral — live component",
+      "name": "Card"
+    },
+    {
+      "path": "preview/comp-dialogs.html",
+      "group": "Components",
+      "viewport": "680x420",
+      "subtitle": "Modal overlay + create dialog",
+      "name": "Dialogs"
+    },
+    {
+      "path": "preview/comp-inputs.html",
+      "group": "Components",
+      "viewport": "680x320",
+      "subtitle": "Search, text fields, selects",
+      "name": "Inputs"
+    },
+    {
+      "path": "preview/comp-nav.html",
+      "group": "Components",
+      "viewport": "680x340",
+      "subtitle": "Sidebar nav items & breadcrumbs",
+      "name": "Navigation"
+    },
+    {
+      "path": "ui_kits/marketing/index.html",
+      "group": "Marketing",
+      "viewport": "1200x760",
+      "subtitle": "Claude-style editorial marketing surface — cream, coral, serif, dark mockups",
+      "name": "LinkRag — Landing Page"
+    },
+    {
+      "path": "preview/spacing-radii.html",
+      "group": "Spacing",
+      "viewport": "680x300",
+      "subtitle": "4px base scale, 4–16px hierarchical radii",
+      "name": "Radii & Spacing"
+    },
+    {
+      "path": "preview/spacing-shadows.html",
+      "group": "Spacing",
+      "viewport": "680x300",
+      "subtitle": "Color-block first — shadows rare & faint",
+      "name": "Elevation & Surfaces"
+    },
+    {
+      "path": "preview/type-body-mono.html",
+      "group": "Type",
+      "viewport": "680x320",
+      "subtitle": "Inter body (StyreneB sub) + JetBrains Mono",
+      "name": "Body & Code"
+    },
+    {
+      "path": "preview/type-scale.html",
+      "group": "Type",
+      "viewport": "680x480",
+      "subtitle": "Serif display → sans titles → body → mono",
+      "name": "Type Scale"
+    },
+    {
+      "path": "preview/type-serif-display.html",
+      "group": "Type",
+      "viewport": "680x320",
+      "subtitle": "Copernicus substitute · upright 500 · negative tracking",
+      "name": "Serif Display — Cormorant"
+    },
+    {
+      "path": "ui_kits/workspace/index.html",
+      "group": "Workspace",
+      "viewport": "1280x720",
+      "subtitle": "3-column workspace synced to dev: nav · Q&A · graph + vault",
+      "name": "Dashboard — Knowledge Synthesis"
+    }
+  ],
+  "templates": [
+    {
+      "name": "Claude-style Landing",
+      "description": "Editorial marketing page — cream canvas, coral CTAs, serif display, dark product mockup, feature cards, coral CTA band, dark footer.",
+      "folder": "templates/landing",
+      "entryPath": "templates/landing/Landing.dc.html",
+      "thumbnail": { "path": "templates/landing/.thumbnail", "kind": "captured" }
+    },
+    {
+      "name": "Home Dashboard",
+      "description": "LinkRag 首页重构 — 统一侧边壳层 + 3 套首页方向（专注提问 / 工作台 / 编辑大开本）可切换。Cream/coral/serif，参考 Claude 编辑体。",
+      "folder": "templates/home",
+      "entryPath": "templates/home/Home.dc.html",
+      "thumbnail": { "path": "templates/home/.thumbnail", "kind": "captured" }
+    },
+    {
+      "name": "Knowledge Workspace",
+      "description": "Unified product shell — one app frame divided by hairlines: nav, Knowledge Synthesis Q&A, and a quiet context rail (graph + vault). Cream/coral/serif.",
+      "folder": "templates/workspace",
+      "entryPath": "templates/workspace/Workspace.dc.html",
+      "thumbnail": { "path": "templates/workspace/.thumbnail", "kind": "captured" }
+    }
+  ],
+  "hasThumbnailHtml": false,
+  "globalCssPaths": [
+    "tokens/fonts.css",
+    "tokens/colors.css",
+    "tokens/typography.css",
+    "tokens/spacing.css",
+    "styles.css"
+  ],
+  "tokens": [
+    { "name": "--primary", "value": "#cc785c", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--primary-active", "value": "#a9583e", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--primary-disabled", "value": "#e6dfd8", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--accent-teal", "value": "#5db8a6", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--accent-amber", "value": "#e8a55a", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--canvas", "value": "#faf9f5", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-soft", "value": "#f5f0e8", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-card", "value": "#efe9de", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-cream-strong", "value": "#e8e0d2", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-dark", "value": "#2c2520", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-dark-elevated", "value": "#3a322b", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--surface-dark-soft", "value": "#251f1a", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--ink", "value": "#141413", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--body-strong", "value": "#252523", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--body", "value": "#3d3d3a", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--muted", "value": "#6c6a64", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--muted-soft", "value": "#8e8b82", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--on-primary", "value": "#ffffff", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--on-dark", "value": "#faf9f5", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--on-dark-soft", "value": "#a09d96", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--hairline", "value": "#e6dfd8", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--hairline-soft", "value": "#ebe6df", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--success", "value": "#5db872", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--warning", "value": "#d4a017", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--error", "value": "#c64545", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--info", "value": "#5b7fb8", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-primary", "value": "var(--primary)", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--color-primary-light",
+      "value": "rgba(204, 120, 92, 0.10)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--color-primary-mid",
+      "value": "rgba(204, 120, 92, 0.20)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    {
+      "name": "--color-primary-hover",
+      "value": "rgba(204, 120, 92, 0.06)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--color-bg-base", "value": "var(--canvas)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-bg-card", "value": "var(--surface-card)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-bg-card-solid", "value": "#ffffff", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--color-bg-frosted",
+      "value": "rgba(250, 249, 245, 0.85)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--color-bg-inset", "value": "var(--surface-soft)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-text-main", "value": "var(--ink)", "kind": "font", "definedIn": "tokens/colors.css" },
+    { "name": "--color-text-secondary", "value": "var(--body)", "kind": "font", "definedIn": "tokens/colors.css" },
+    { "name": "--color-text-tertiary", "value": "var(--muted)", "kind": "font", "definedIn": "tokens/colors.css" },
+    { "name": "--color-text-muted", "value": "var(--muted-soft)", "kind": "font", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--color-text-faint",
+      "value": "rgba(20, 20, 19, 0.30)",
+      "kind": "font",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--color-border-subtle", "value": "var(--hairline)", "kind": "color", "definedIn": "tokens/colors.css" },
+    {
+      "name": "--color-border-medium",
+      "value": "rgba(20, 20, 19, 0.14)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css"
+    },
+    { "name": "--color-error", "value": "var(--error)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-success", "value": "var(--success)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-info", "value": "var(--info)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-warning", "value": "var(--warning)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-btn-primary", "value": "var(--primary)", "kind": "color", "definedIn": "tokens/colors.css" },
+    { "name": "--color-btn-text", "value": "var(--on-primary)", "kind": "font", "definedIn": "tokens/colors.css" },
+    { "name": "--canvas", "value": "#221c18", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    {
+      "name": "--surface-soft",
+      "value": "#2a231e",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--surface-card",
+      "value": "#322a24",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--surface-cream-strong",
+      "value": "#3c332c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--surface-dark",
+      "value": "#1b1614",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--surface-dark-elevated",
+      "value": "#322a24",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--surface-dark-soft",
+      "value": "#2a231e",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    { "name": "--ink", "value": "#faf9f5", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    {
+      "name": "--body-strong",
+      "value": "#ece8e0",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    { "name": "--body", "value": "#d8d4cc", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    { "name": "--muted", "value": "#a09d96", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    { "name": "--muted-soft", "value": "#8e8b82", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    {
+      "name": "--hairline",
+      "value": "rgba(255, 255, 255, 0.10)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--hairline-soft",
+      "value": "rgba(255, 255, 255, 0.06)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    { "name": "--primary", "value": "#cc785c", "kind": "color", "definedIn": "tokens/colors.css", "scope": ".dark" },
+    {
+      "name": "--primary-active",
+      "value": "#d98a6f",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-bg-base",
+      "value": "#221c18",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-bg-card",
+      "value": "#322a24",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-bg-card-solid",
+      "value": "#322a24",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-bg-frosted",
+      "value": "rgba(34, 28, 24, 0.85)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-bg-inset",
+      "value": "#2a231e",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-text-main",
+      "value": "#faf9f5",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-text-secondary",
+      "value": "#d8d4cc",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-text-tertiary",
+      "value": "#a09d96",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-text-muted",
+      "value": "#8e8b82",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-text-faint",
+      "value": "rgba(255, 255, 255, 0.28)",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-border-subtle",
+      "value": "rgba(255, 255, 255, 0.10)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-border-medium",
+      "value": "rgba(255, 255, 255, 0.16)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-primary",
+      "value": "#cc785c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-primary-light",
+      "value": "rgba(204, 120, 92, 0.14)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-primary-mid",
+      "value": "rgba(204, 120, 92, 0.26)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-primary-hover",
+      "value": "rgba(204, 120, 92, 0.08)",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-btn-primary",
+      "value": "#cc785c",
+      "kind": "color",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--color-btn-text",
+      "value": "#ffffff",
+      "kind": "font",
+      "definedIn": "tokens/colors.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--font-sans",
+      "value": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--font-serif",
+      "value": "'Cormorant Garamond', 'Tiempos Headline', Garamond, 'Times New Roman', serif",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    {
+      "name": "--font-mono",
+      "value": "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace",
+      "kind": "font",
+      "definedIn": "tokens/typography.css"
+    },
+    { "name": "--font-display-cn", "value": "var(--font-serif)", "kind": "font", "definedIn": "tokens/typography.css" },
+    { "name": "--font-body-cn", "value": "var(--font-sans)", "kind": "font", "definedIn": "tokens/typography.css" },
+    { "name": "--font-handwrite", "value": "var(--font-serif)", "kind": "font", "definedIn": "tokens/typography.css" },
+    { "name": "--space-1", "value": "4px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-2", "value": "8px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-3", "value": "12px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-4", "value": "16px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-5", "value": "20px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-6", "value": "24px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-8", "value": "32px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-10", "value": "40px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-12", "value": "48px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-16", "value": "64px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--space-24", "value": "96px", "kind": "spacing", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-xs", "value": "4px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-sm", "value": "6px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-md", "value": "8px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-lg", "value": "12px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-xl", "value": "16px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    { "name": "--radius-pill", "value": "9999px", "kind": "radius", "definedIn": "tokens/spacing.css" },
+    {
+      "name": "--shadow-card",
+      "value": "0 1px 3px rgba(20, 20, 19, 0.06)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-card-hover",
+      "value": "0 4px 16px rgba(20, 20, 19, 0.10)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-dialog",
+      "value": "0 16px 48px rgba(20, 20, 19, 0.16)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--shadow-focus-ring",
+      "value": "0 0 0 3px rgba(204, 120, 92, 0.18)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css"
+    },
+    {
+      "name": "--ease-out",
+      "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--duration-sm",
+      "value": "140ms",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--duration-md",
+      "value": "200ms",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--duration-lg",
+      "value": "280ms",
+      "kind": "other",
+      "definedIn": "tokens/spacing.css",
+      "annotation": "other"
+    },
+    {
+      "name": "--shadow-card",
+      "value": "0 1px 3px rgba(0, 0, 0, 0.3)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--shadow-card-hover",
+      "value": "0 4px 16px rgba(0, 0, 0, 0.45)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css",
+      "scope": ".dark"
+    },
+    {
+      "name": "--shadow-dialog",
+      "value": "0 16px 48px rgba(0, 0, 0, 0.6)",
+      "kind": "shadow",
+      "definedIn": "tokens/spacing.css",
+      "scope": ".dark"
+    }
+  ],
+  "themes": [{ "selector": ".dark", "label": "Dark" }],
+  "fonts": [],
+  "brandFonts": [
+    { "family": "Inter", "status": "ok", "tokens": ["--font-sans"], "path": "tokens/typography.css" },
+    { "family": "Cormorant Garamond", "status": "ok", "tokens": ["--font-serif"], "path": "tokens/typography.css" },
+    { "family": "JetBrains Mono", "status": "ok", "tokens": ["--font-mono"], "path": "tokens/typography.css" }
+  ],
+  "source": "spa"
+}

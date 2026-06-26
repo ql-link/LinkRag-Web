@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Claude-style Landing" description="Editorial marketing page — cream canvas, coral CTAs, serif display, dark product mockup, feature cards, coral CTA band, dark footer." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); font-family: var(--font-sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+
+  <!-- Top nav -->
+  <header style="position:sticky;top:0;z-index:20;background:rgba(250,249,245,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--hairline);">
+    <div style="max-width:1200px;margin:0 auto;padding:0 32px;height:64px;display:flex;align-items:center;gap:36px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#141413"><path d="M12 1.5l1.7 7 5-5-3.3 6.4 7 .9-7 .9 3.3 6.4-5-5-1.7 7-1.7-7-5 5 3.3-6.4-7-.9 7-.9L6 3.5l5 5z"></path></svg>
+        <span style="font-family:var(--font-serif);font-weight:600;font-size:21px;letter-spacing:-0.02em;">LinkRag</span>
+      </div>
+      <nav style="display:flex;gap:26px;flex:1;">
+        <a href="#" style="font-size:14px;font-weight:500;color:var(--body);">产品</a>
+        <a href="#" style="font-size:14px;font-weight:500;color:var(--body);">功能</a>
+        <a href="#" style="font-size:14px;font-weight:500;color:var(--body);">价格</a>
+        <a href="#" style="font-size:14px;font-weight:500;color:var(--body);">研究</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <a href="#" style="font-size:14px;font-weight:500;color:var(--primary);">登录</a>
+        <x-import component-from-global-scope="ToLinkLinkRagDesignSystem_fa9960.Button" hint-size="110px,40px">免费试用</x-import>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section style="max-width:1200px;margin:0 auto;padding:88px 32px 96px;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center;">
+    <div>
+      <div style="margin-bottom:24px;">
+        <x-import component-from-global-scope="ToLinkLinkRagDesignSystem_fa9960.Badge" tone="primary" uppercase="{{ true }}" hint-size="120px,26px">知识合成引擎</x-import>
+      </div>
+      <h1 style="font-family:var(--font-serif);font-weight:500;font-size:64px;line-height:1.04;letter-spacing:-0.022em;margin:0;">读懂你的<br>每一份文档</h1>
+      <p style="font-size:19px;line-height:1.55;color:var(--body);margin:24px 0 0;max-width:480px;">LinkRag 把文档切分、向量化，并连成知识图谱——让每个答案都带着可追溯的引用。</p>
+      <div style="display:flex;gap:12px;margin-top:32px;">
+        <x-import component-from-global-scope="ToLinkLinkRagDesignSystem_fa9960.Button" size="lg" hint-size="120px,48px">开始构建</x-import>
+        <x-import component-from-global-scope="ToLinkLinkRagDesignSystem_fa9960.Button" size="lg" variant="secondary" hint-size="120px,48px">预约演示</x-import>
+      </div>
+    </div>
+    <!-- Light product mockup -->
+    <div style="background:#fff;border:1px solid var(--hairline);border-radius:16px;padding:28px;box-shadow:0 24px 60px rgba(20,20,19,0.10);">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:22px;">
+        <span style="width:11px;height:11px;border-radius:50%;background:rgba(204,120,92,0.55);"></span>
+        <span style="width:11px;height:11px;border-radius:50%;background:var(--hairline);"></span>
+        <span style="width:11px;height:11px;border-radius:50%;background:var(--hairline);"></span>
+        <span style="margin-left:10px;font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:0.08em;">KNOWLEDGE SYNTHESIS</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:18px;">
+        <div style="background:rgba(204,120,92,0.1);border:1px solid rgba(204,120,92,0.24);color:var(--ink);font-size:13px;padding:10px 16px;border-radius:12px 12px 2px 12px;max-width:78%;">大模型在自然语言处理中的应用有哪些？</div>
+      </div>
+      <div style="font-family:var(--font-serif);font-weight:500;font-size:21px;line-height:1.3;color:var(--ink);border-left:2px solid var(--primary);padding-left:16px;">大模型已广泛用于文本生成、理解、翻译与问答系统</div>
+      <div style="margin-top:14px;background:var(--surface-soft);border:1px solid var(--hairline);border-radius:12px;padding:14px;font-family:var(--font-mono);font-size:11px;line-height:1.7;color:var(--muted);">01 — 文本生成：文章写作、摘要、对话<br>02 — 文本理解：情感分析、实体识别<br>03 — 问答系统：基于引用片段的合成</div>
+    </div>
+  </section>
+
+  <!-- Feature grid -->
+  <section style="max-width:1200px;margin:0 auto;padding:32px 32px 96px;">
+    <div style="max-width:620px;margin-bottom:48px;">
+      <span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.125em;color:var(--primary);">为什么是 LinkRag</span>
+      <h2 style="font-family:var(--font-serif);font-weight:500;font-size:44px;line-height:1.1;letter-spacing:-0.02em;margin:14px 0 0;">从文档到洞见，只差一次提问</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+      <div style="background:var(--surface-card);border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:14px;">
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--canvas);color:var(--primary);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M12 18v-6"></path><path d="M9 15l3-3 3 3"></path></svg></div>
+        <h3 style="font-size:18px;font-weight:500;margin:0;">导入即解析</h3>
+        <p style="font-size:15px;line-height:1.55;color:var(--body);margin:0;">拖入 PDF、Word、Markdown，自动切分为稳定片段并向量化索引。</p>
+      </div>
+      <div style="background:var(--surface-card);border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:14px;">
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--canvas);color:var(--primary);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"></circle><circle cx="19" cy="7" r="2.4"></circle><circle cx="12" cy="18" r="2.4"></circle><path d="M7 7l4 9M17 8.5l-4 7.5"></path></svg></div>
+        <h3 style="font-size:18px;font-weight:500;margin:0;">知识图谱</h3>
+        <p style="font-size:15px;line-height:1.55;color:var(--body);margin:0;">实体与关系自动连成空间智能图谱，点开任意节点追溯来源文档。</p>
+      </div>
+      <div style="background:var(--surface-card);border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:14px;">
+        <div style="width:44px;height:44px;border-radius:8px;background:var(--canvas);color:var(--primary);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.8L18 9.4l-4.4 1.6L12 16l-1.6-5L6 9.4l4.4-1.6z"></path></svg></div>
+        <h3 style="font-size:18px;font-weight:500;margin:0;">带引用的问答</h3>
+        <p style="font-size:15px;line-height:1.55;color:var(--body);margin:0;">每个回答都基于检索到的片段合成，并标注出处——可信、可追溯。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Coral CTA band -->
+  <section style="max-width:1200px;margin:0 auto;padding:0 32px 96px;">
+    <div style="background:var(--primary);border-radius:12px;padding:64px;text-align:center;">
+      <h2 style="font-family:var(--font-serif);font-weight:500;font-size:40px;line-height:1.12;letter-spacing:-0.015em;color:var(--on-primary);margin:0;">让你的文档开口说话</h2>
+      <p style="font-size:17px;color:rgba(255,255,255,0.86);margin:16px auto 0;max-width:480px;">几分钟接入，立刻获得带引用的智能问答与知识图谱。</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:30px;">
+        <button style="background:var(--canvas);color:var(--ink);border:none;border-radius:8px;height:48px;padding:0 26px;font-family:var(--font-sans);font-size:15px;font-weight:500;cursor:pointer;">免费试用</button>
+        <button style="background:transparent;color:var(--on-primary);border:1px solid rgba(255,255,255,0.5);border-radius:8px;height:48px;padding:0 26px;font-family:var(--font-sans);font-size:15px;font-weight:500;cursor:pointer;">预约演示</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="background:var(--surface-card);border-top:1px solid var(--hairline);padding:64px 0 40px;">
+    <div style="max-width:1200px;margin:0 auto;padding:0 32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;">
+      <div style="display:flex;align-items:center;gap:9px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#141413"><path d="M12 1.5l1.7 7 5-5-3.3 6.4 7 .9-7 .9 3.3 6.4-5-5-1.7 7-1.7-7-5 5 3.3-6.4-7-.9 7-.9L6 3.5l5 5z"></path></svg>
+        <span style="font-family:var(--font-serif);font-weight:600;font-size:21px;letter-spacing:-0.02em;color:var(--ink);">LinkRag</span>
+      </div>
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">© 2026 LinkRag · ToLink Knowledge Workspace</span>
+    </div>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

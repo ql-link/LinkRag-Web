@@ -1,5 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Box, ChevronDown, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
+import chatIconUrl from '@/assets/icons/color/chat.svg';
+import denseIconUrl from '@/assets/icons/color/dense.svg';
+import rerankIconUrl from '@/assets/icons/color/rerank.svg';
+import sparseIconUrl from '@/assets/icons/color/sparse.svg';
+import speechIconUrl from '@/assets/icons/color/speech.svg';
+import visionIconUrl from '@/assets/icons/color/vision.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
@@ -46,15 +52,16 @@ interface CapabilityMeta {
   value: LLMCapabilityValue;
   label: string;
   hint: string;
+  iconUrl?: string;
 }
 
 const CAPABILITIES: Array<CapabilityMeta & { value: LLMCapability }> = [
-  { value: 'CHAT', label: '对话', hint: '对话' },
-  { value: 'VISION', label: '视觉', hint: '视觉' },
-  { value: 'ASR', label: '语音识别', hint: '语音识别' },
-  { value: 'RERANK', label: '重排', hint: '重排' },
-  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量' },
-  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量' },
+  { value: 'CHAT', label: '对话', hint: '对话', iconUrl: chatIconUrl },
+  { value: 'VISION', label: '视觉', hint: '视觉', iconUrl: visionIconUrl },
+  { value: 'ASR', label: '语音识别', hint: '语音识别', iconUrl: speechIconUrl },
+  { value: 'RERANK', label: '重排', hint: '重排', iconUrl: rerankIconUrl },
+  { value: 'EMBEDDING', label: '稠密向量', hint: '稠密向量', iconUrl: denseIconUrl },
+  { value: 'SPARSE_EMBEDDING', label: '稀疏向量', hint: '稀疏向量', iconUrl: sparseIconUrl },
 ];
 
 const EFFECTIVE_MODEL_CAPABILITIES = CAPABILITIES;
@@ -127,14 +134,7 @@ function getModelCapabilityValues(model: ModelCapabilityDTO) {
 }
 
 function getModelSearchTokens(model: ModelCapabilityDTO) {
-  return [
-    model.modelName,
-    ...model.capabilities.flatMap((capability) =>
-      typeof capability === 'string'
-        ? [capability]
-        : [capability.capability, capability.protocol, capability.apiBaseUrl],
-    ),
-  ];
+  return [model.modelName];
 }
 
 function getProviderSortRank(providerType: string, providerName?: string) {
@@ -492,7 +492,7 @@ export default function LLMPage() {
               invalidateLLMPageCache();
               void loadPageData();
             }}
-            className="h-9 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold inline-flex items-center gap-2 text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+            className="h-9 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold inline-flex items-center gap-2 text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
             title="刷新"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -543,7 +543,6 @@ export default function LLMPage() {
           onCapabilityFilterChange={setSelectedCapabilityFilters}
           onClose={() => setProviderPickerOpen(false)}
           onSetup={(provider, mode) => {
-            setProviderPickerOpen(false);
             setSetupTarget({ provider, mode });
           }}
         />
@@ -553,11 +552,7 @@ export default function LLMPage() {
         <SetupProviderModal
           target={setupTarget}
           onClose={() => {
-            const shouldReopenPicker = setupTarget.mode === 'create';
             setSetupTarget(null);
-            if (shouldReopenPicker) {
-              setProviderPickerOpen(true);
-            }
           }}
           onSubmit={handleSetupProvider}
         />
@@ -599,16 +594,14 @@ function EffectiveModelsPanel({
   }, [openCapability]);
 
   return (
-    <section className={cn(PANEL_CLASS, 'relative z-10 overflow-visible')}>
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle">
-        <div>
-          <h3 className="text-base font-bold text-ink">生效模型</h3>
-        </div>
+    <section className="relative z-10 overflow-visible">
+      <div className="flex items-center justify-between gap-3 px-1 pb-2">
+        <h3 className="text-base font-bold text-ink">生效模型</h3>
       </div>
       {loading ? (
         <LoadingState label="加载生效模型..." />
       ) : (
-        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
@@ -620,60 +613,59 @@ function EffectiveModelsPanel({
               <div
                 key={capability.value}
                 className={cn(
-                  'relative flex h-full min-h-[146px] flex-col gap-3.5 overflow-visible rounded-2xl border border-hairline bg-surface-soft p-4 transition-all duration-300 hover:border-primary',
-                  SURFACE_SHADOW_CLASS,
-                  isOpen && 'z-20',
+                  'relative flex h-full min-h-[132px] flex-col gap-4 overflow-visible rounded-md border border-border-subtle bg-bg-card-solid p-3 outline-none transition-[background-color,border-color] duration-200',
+                  candidates.length > 0
+                    ? 'cursor-pointer hover:border-primary/35 hover:bg-ink/[0.025] focus-visible:border-primary/50 focus-visible:bg-ink/[0.035]'
+                    : 'cursor-default opacity-70',
+                  isOpen && 'z-20 border-primary/45 bg-primary/5',
                 )}
                 data-capability={capability.value}
+                data-model-selector={capability.value}
+                role={candidates.length > 0 ? 'button' : undefined}
+                tabIndex={candidates.length > 0 ? 0 : undefined}
+                onClick={() => {
+                  if (candidates.length === 0) return;
+                  setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
+                }}
+                onKeyDown={(event) => {
+                  if (candidates.length === 0 || (event.key !== 'Enter' && event.key !== ' ')) return;
+                  event.preventDefault();
+                  setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
+                }}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <CapabilityBadge capability={capability.value} compact label={capability.label} />
-                  {current ? <SourcePill preset={current.isSystemPreset} compact /> : null}
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {capability.iconUrl ? (
+                      <img
+                        src={capability.iconUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-6 w-6 shrink-0 object-contain"
+                      />
+                    ) : null}
+                    <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
+                  </div>
+                  {current ? <SourcePill preset={current.isSystemPreset} compact quiet /> : null}
                 </div>
 
-                <div className="min-w-0 flex-1 flex items-center">
-                  <div className="flex items-center gap-3 min-w-0">
-                    {current ? <ProviderIcon iconUrl={selectedIcon} name={current.providerName} size="sm" /> : null}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ProviderIcon iconUrl={selectedIcon} name={current?.providerName || capability.label} size="md" />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold truncate leading-5 text-ink">
+                      <p className="truncate text-sm font-bold leading-5 text-ink">
                         {current ? current.modelName : '未设置'}
                       </p>
-                      <p className="text-[11px] mt-0.5 truncate font-mono uppercase tracking-wider text-muted">
-                        {current ? `${current.providerName}` : '暂无生效模型'}
+                      <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
+                        {current ? current.providerName : '暂无生效模型'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  data-model-selector={capability.value}
-                  disabled={candidates.length === 0}
-                  onClick={() => setOpenCapability((prev) => (prev === capability.value ? null : capability.value))}
-                  className={cn(
-                    'group flex h-9 w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-xs outline-none transition-all duration-300 font-medium disabled:cursor-not-allowed disabled:opacity-50',
-                    isOpen
-                      ? 'bg-bg-card-solid border-primary/50 '
-                      : 'border-hairline bg-bg-card-solid text-text-secondary hover:border-primary/40',
-                  )}
-                >
-                  <span
-                    className={current ? 'text-[11px] tracking-wide' : 'text-[11px] text-muted tracking-wide font-mono'}
-                  >
-                    {candidates.length === 0 ? '暂无候选模型' : isOpen ? '选择生效模型...' : '点击选择生效模型'}
-                  </span>
-                  <ChevronDown
-                    size={12}
-                    className={cn(
-                      'shrink-0 text-muted transition-transform duration-300 group-hover:text-primary',
-                      isOpen && 'rotate-180',
-                    )}
-                  />
-                </button>
-
                 {isOpen && candidates.length > 0 ? (
                   <div
                     data-model-selector={capability.value}
+                    onClick={(event) => event.stopPropagation()}
                     className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
                   >
                     <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
@@ -683,7 +675,8 @@ function EffectiveModelsPanel({
                           <button
                             type="button"
                             key={config.id}
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               onSelect(capability.value, `${config.id}`);
                               setOpenCapability(null);
                             }}
@@ -729,8 +722,8 @@ function ConfiguredProvidersPanel({
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   return (
-    <section className={PANEL_CLASS}>
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border-subtle">
+    <section className="min-w-0">
+      <div className="flex items-center justify-between gap-3 px-1 pb-2">
         <h3 className="text-base font-bold text-ink">模型管理</h3>
         <div className="flex items-center gap-2">
           <button
@@ -769,7 +762,7 @@ function ConfiguredProvidersPanel({
       ) : groups.length === 0 ? (
         <EmptyConfiguredState sourceFilter={sourceFilter} />
       ) : (
-        <div className="space-y-3 p-3">
+        <div className="overflow-hidden rounded-md border border-border-subtle bg-bg-card-solid">
           {groups.map((group) => (
             <Fragment key={group.providerType}>
               <ProviderConfigCard group={group} onToggleModel={onToggleModel} onUpdateProvider={onUpdateProvider} />
@@ -796,7 +789,7 @@ function ProviderConfigCard({
   const [collapsed, setCollapsed] = useState(true);
 
   return (
-    <article className="py-3 first:pt-1 last:pb-1 border-b border-border-subtle">
+    <article className="border-b border-border-subtle px-3 py-3 last:border-b-0">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-2 py-1.5">
         <div className="flex items-center gap-3 min-w-0">
           <ProviderIcon iconUrl={iconUrl} name={group.providerName} size="sm" />
@@ -822,7 +815,7 @@ function ProviderConfigCard({
                   models: [],
                 })
               }
-              className="inline-flex h-8 items-center justify-center rounded-xl border border-hairline bg-canvas px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:text-ink"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border-subtle bg-surface-soft px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:bg-surface-card hover:text-ink"
               title="更新密钥"
               aria-label="更新密钥"
             >
@@ -831,7 +824,7 @@ function ProviderConfigCard({
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-hairline bg-canvas px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:text-ink"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-surface-soft px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:bg-surface-card hover:text-ink"
               title={collapsed ? '展开' : '收起'}
               aria-label={collapsed ? '展开' : '收起'}
             >
@@ -926,8 +919,8 @@ function ProviderPickerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <section className="relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[min(100vw-2rem,880px)] flex-col overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
-        <header className="px-6 py-5 border-b border-border-subtle">
+      <section className="relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[min(100vw-2rem,880px)] flex-col overflow-hidden rounded-xl border border-hairline bg-bg-card-solid (--)]">
+        <header className="px-6 pb-4 pt-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-lg font-bold tracking-wide text-ink">配置厂商</h3>
@@ -936,7 +929,7 @@ function ProviderPickerModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+              className="rounded-md p-2 text-muted transition-colors hover:bg-ink/[0.035] hover:text-ink"
               title="关闭"
             >
               <X size={18} />
@@ -948,7 +941,7 @@ function ProviderPickerModal({
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="搜索厂商、模型或能力"
-              className="h-10 w-full rounded-xl border border-hairline bg-surface-soft pl-9 pr-3 text-sm text-ink outline-none transition-all duration-300 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40"
+              className="h-10 w-full rounded-md border border-border-subtle bg-transparent pl-9 pr-3 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40"
             />
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -960,12 +953,15 @@ function ProviderPickerModal({
                   key={capability.value}
                   onClick={() => toggleCapabilityFilter(capability.value)}
                   className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-bold transition-all duration-300',
+                    'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold transition-colors duration-200',
                     active
-                      ? 'border-primary/40 bg-primary/10 text-primary'
-                      : 'border-hairline bg-canvas text-text-secondary hover:border-primary/35',
+                      ? 'border-primary/40 bg-transparent text-ink'
+                      : 'border-transparent bg-transparent text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
                   )}
                 >
+                  {capability.iconUrl ? (
+                    <img src={capability.iconUrl} alt="" aria-hidden="true" className="h-4 w-4 object-contain" />
+                  ) : null}
                   {capability.label}
                 </button>
               );
@@ -973,13 +969,13 @@ function ProviderPickerModal({
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-bg-card-solid">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
             <LoadingState label="加载厂商目录..." />
           ) : providers.length === 0 ? (
             <div className="px-6 py-16 text-center text-sm text-muted">没有匹配的厂商</div>
           ) : (
-            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-2.5 p-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-2.5 px-4 pb-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
               {providers.map((provider) => {
                 const configured = configuredProviderTypes.has(provider.providerType);
                 return (
@@ -1017,10 +1013,7 @@ function AvailableProviderCard({
     <button
       type="button"
       onClick={onSetup}
-      className={cn(
-        'group h-fit w-full rounded-xl border border-hairline bg-surface-soft p-3.5 text-left transition-all duration-300 hover:border-primary/35 hover:bg-bg-card-solid',
-        SURFACE_SHADOW_CLASS,
-      )}
+      className="group h-fit w-full rounded-md border border-border-subtle bg-transparent p-3.5 text-left transition-[background-color,border-color] duration-200 hover:border-primary/35 hover:bg-ink/[0.025]"
     >
       <div className="flex min-h-8 items-center gap-2.5">
         <ProviderIcon iconUrl={iconUrl} name={provider.providerName} size="sm" />
@@ -1041,7 +1034,7 @@ function AvailableProviderCard({
           ))}
           <span className="whitespace-nowrap"> · {provider.models.length} MODELS</span>
         </p>
-        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-bold text-white transition-all duration-300 group-hover:bg-primary-active">
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-bold text-white transition-colors duration-200 group-hover:bg-primary-active">
           <Plus size={13} />
           {configured ? '更新' : '配置'}
         </span>
@@ -1081,8 +1074,8 @@ function SetupProviderModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-[min(100vw-2rem,520px)] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
-        <header className="h-20 px-6 flex items-center justify-between border-b border-border-subtle">
+      <div className="relative w-full max-w-[min(100vw-2rem,520px)] overflow-hidden rounded-xl border border-hairline bg-bg-card-solid (--)]">
+        <header className="flex h-20 items-center justify-between px-6">
           <div className="flex items-center gap-3 min-w-0">
             <ProviderIcon iconUrl={iconUrl} name={target.provider.providerName} size="md" />
             <div className="min-w-0">
@@ -1097,7 +1090,7 @@ function SetupProviderModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+            className="rounded-md p-2 text-muted transition-colors hover:bg-ink/[0.035] hover:text-ink"
           >
             <X size={18} />
           </button>
@@ -1109,16 +1102,16 @@ function SetupProviderModal({
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             placeholder="输入 API KEY"
-            className="h-11 w-full rounded-xl border border-hairline bg-canvas px-3 text-sm text-ink outline-none transition-all duration-300 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40"
+            className="h-11 w-full rounded-md border border-border-subtle bg-transparent px-3 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40"
           />
 
           {validationError && <div className="px-1 text-xs font-bold text-error">{validationError}</div>}
         </div>
 
-        <footer className="px-6 py-4 border-t border-border-subtle flex items-center justify-end gap-3">
+        <footer className="flex items-center justify-end gap-3 px-6 pb-5 pt-2">
           <button
             onClick={onClose}
-            className="h-9 px-4 rounded-xl text-xs font-bold text-text-secondary transition-colors hover:bg-surface-soft hover:text-ink"
+            className="h-9 rounded-md px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink"
             disabled={submitting}
           >
             取消
@@ -1126,7 +1119,7 @@ function SetupProviderModal({
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="h-9 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-2 bg-primary text-white transition-all duration-300 hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-xs font-bold text-white transition-colors duration-200 hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting && <RefreshCw size={13} className="animate-spin" />}
             保存
@@ -1233,49 +1226,20 @@ function ProviderIcon({ iconUrl, name, size }: { iconUrl: string; name: string; 
   );
 }
 
-function CapabilityBadge({
-  capability,
-  compact,
-  label,
-}: {
-  capability: LLMCapabilityValue;
-  compact?: boolean;
-  label?: string;
-}) {
-  const meta = getCapabilityMeta(capability);
-
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center justify-center font-bold tracking-wide rounded-md transition-colors',
-        compact
-          ? 'text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary'
-          : 'text-[11px] px-2.5 py-1 bg-primary/10 text-primary',
-      )}
-    >
-      {label ?? meta.label}
-    </span>
-  );
-}
-
 function CountPill({ label }: { label: string }) {
-  return <span className="inline-flex items-center text-[10px] font-medium text-muted">{label}</span>;
+  return <span className="inline-flex items-center text-[10px] font-bold text-muted">{label}</span>;
 }
 
-function SourcePill({ preset, compact }: { preset: boolean; compact?: boolean }) {
+function SourcePill({ preset, compact, quiet }: { preset: boolean; compact?: boolean; quiet?: boolean }) {
   return (
     <span
       className={cn(
-        compact ? 'h-5 px-1.5 text-[9px]' : 'h-6 px-2 text-[10px]',
+        compact ? 'h-5 px-1.5 text-[10px]' : 'h-6 px-2 text-[10px]',
         'w-fit rounded-md inline-flex items-center justify-center font-bold',
-        preset ? 'bg-primary/10 text-primary' : 'bg-surface-soft text-muted',
+        quiet ? 'bg-transparent text-muted' : preset ? 'bg-primary/10 text-primary' : 'bg-surface-soft text-muted',
       )}
     >
       {preset ? '系统预设' : '自配'}
     </span>
   );
 }
-
-const PANEL_CLASS = 'rounded-2xl border border-hairline bg-bg-card-solid (--)] transition-all duration-300';
-
-const SURFACE_SHADOW_CLASS = '(--)]';

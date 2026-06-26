@@ -63,10 +63,10 @@ export function CreatorLayout() {
           <button
             onClick={() => navigate('/creator/blogs/edit/new')}
             className={cn(
-              'flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition-colors sm:px-4',
+              'flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-bold transition-colors sm:px-4',
               darkMode
                 ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#cccccc] hover:border-primary/50 hover:text-[#e0e0e0]'
-                : 'border-border-subtle bg-white text-text-main/70 hover:border-primary hover:bg-primary/5 hover:text-text-main',
+                : 'border-border-subtle bg-surface-soft text-text-main/70 hover:border-primary/30 hover:bg-surface-card hover:text-text-main',
             )}
           >
             <PenSquare size={14} />

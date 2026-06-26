@@ -1,0 +1,12 @@
+/* ============================================================
+   Claude (Anthropic) editorial system — webfonts
+   ------------------------------------------------------------
+   SUBSTITUTES (licensed Anthropic faces unavailable):
+     · Copernicus / Tiempos Headline  →  Cormorant Garamond
+     · StyreneB                        →  Inter
+     · JetBrains Mono                  →  JetBrains Mono (exact)
+   Served from Google Fonts. Swap in real Copernicus/StyreneB
+   woff2 here when licensed.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');

@@ -1,0 +1,51 @@
+/* ============================================================
+   Claude (Anthropic) editorial system — root stylesheet
+   Imports all token layers + global utilities.
+   The compiler reads tokens and @font-face from this closure.
+   ============================================================ */
+
+@import url('./tokens/fonts.css');
+@import url('./tokens/colors.css');
+@import url('./tokens/typography.css');
+@import url('./tokens/spacing.css');
+
+/* ── Global surfaces — color-block first, shadows rare ── */
+
+/* Content / feature card — flat cream, hairline, no frosted glass */
+.art-card {
+  background: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+}
+
+.art-border {
+  border: 1px solid var(--hairline);
+}
+
+/* Panel surface — sidebar, header. Solid cream, not glass. */
+.frosted-panel {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+}
+
+/* Dark product-chrome surface — code mockups, footer, featured */
+.surface-dark {
+  background: var(--surface-dark);
+  color: var(--on-dark);
+}
+
+/* ── Thin scrollbar (4px, faint thumb) ── */
+.tl-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.tl-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tl-scroll::-webkit-scrollbar-thumb {
+  background: rgba(20, 20, 19, 0.14);
+  border-radius: var(--radius-pill);
+}
+.dark .tl-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+}

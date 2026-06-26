@@ -37,6 +37,7 @@ const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
 const PROVIDER_ICON_MONOCHROME_BY_URL = new Map(
   Object.entries(PROVIDER_ICON_URLS).map(([key, url]) => [url, MONOCHROME_PROVIDER_ICON_KEYS.has(key)]),
 );
+let providerIconsPreloaded = false;
 
 function firstAvailableIconKey(...keys: string[]) {
   return keys.map(normalizeProviderToken).find((key) => PROVIDER_ICON_URLS[key]) || '';
@@ -102,4 +103,14 @@ export function getProviderIcon(providerType: string, providerName?: string, mod
 
 export function isProviderIconMonochrome(iconUrl: string) {
   return PROVIDER_ICON_MONOCHROME_BY_URL.get(iconUrl) ?? false;
+}
+
+export function preloadProviderIcons() {
+  if (providerIconsPreloaded || typeof window === 'undefined') return;
+  providerIconsPreloaded = true;
+  Object.values(PROVIDER_ICON_URLS).forEach((url) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+  });
 }

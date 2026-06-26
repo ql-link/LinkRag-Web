@@ -112,6 +112,20 @@ describe('MarkdownRenderer', () => {
     expect(screen.queryByText('**Bold value**')).not.toBeInTheDocument();
   });
 
+  it('renders inline latex math with KaTeX', () => {
+    const { container } = render(<MarkdownRenderer content={'质能方程 $E = mc^2$'} />);
+
+    expect(container.querySelector('.katex')).toBeInTheDocument();
+    expect(screen.queryByText('$E = mc^2$')).not.toBeInTheDocument();
+  });
+
+  it('normalizes bracket latex delimiters before rendering math', () => {
+    const { container } = render(<MarkdownRenderer content={'\\[\na^2 + b^2 = c^2\n\\]'} />);
+
+    expect(container.querySelector('.katex-display')).toBeInTheDocument();
+    expect(screen.queryByText(/\\\[/)).not.toBeInTheDocument();
+  });
+
   it('renders multiple bold spans in the same CJK table row without leaking markers', () => {
     render(
       <MarkdownRenderer

@@ -1,11 +1,14 @@
 import React, { useEffect, useId, useMemo, useState, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import 'katex/dist/katex.min.css';
 import { Check, Copy, FileCode2 } from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
@@ -23,6 +26,7 @@ const sanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^language-./, 'math-inline', 'math-display']],
     input: [...(defaultSchema.attributes?.input ?? []), ['checked', true]],
   },
 };
@@ -301,7 +305,7 @@ const BlockquoteRenderer = ({
 function InlineMarkdown({ content }: { content: string }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
       components={{
         p: ({ node: _node, children }) => <>{children}</>,
         code: CodeRenderer as Components['code'],
@@ -439,8 +443,8 @@ export function MarkdownRenderer({
     >
       {showFrontmatter && <FrontmatterBlock data={parsed.frontmatter} />}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
         components={components}
       >
         {parsed.content}

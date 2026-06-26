@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+<style>
+.edge{stroke-dasharray:18 10;animation:aiEdgeFlow 1.7s linear infinite}
+.node{transform-box:fill-box;transform-origin:center;animation:aiNodePulse 1.8s ease-in-out infinite}
+.n-b{animation-delay:.18s}.n-c{animation-delay:.36s}
+.spk{transform-box:fill-box;transform-origin:center;animation:aiSparkPulse 1.35s ease-in-out infinite}
+.spk-s1{animation-delay:.18s}.spk-s2{animation-delay:.34s}
+@keyframes aiEdgeFlow{to{stroke-dashoffset:-28}}
+@keyframes aiNodePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.16);opacity:.82}}
+@keyframes aiSparkPulse{0%,100%{transform:scale(.86);opacity:.45}45%{transform:scale(1.18);opacity:1}}
+@media (prefers-reduced-motion:reduce){.edge,.node,.spk{animation:none}}
+</style>
+
+<g class="scope">
+<circle cx="27" cy="27" r="19" stroke="#2f3743" stroke-width="4.5"></circle>
+<line x1="40.4" y1="40.4" x2="52" y2="52" stroke="#2f3743" stroke-width="5.5" stroke-linecap="round"></line>
+<g stroke="#2f3743" stroke-width="2.8" stroke-linecap="round">
+<line class="edge" x1="20" y1="25" x2="32" y2="21"></line>
+<line class="edge" x1="32" y1="21" x2="29" y2="34"></line>
+<line class="edge" x1="29" y1="34" x2="20" y2="25"></line>
+</g>
+<g transform="translate(20,25)"><circle class="node n-a" r="4.3" fill="#ffffff" stroke="#4e8b81" stroke-width="2.8"></circle></g>
+<g transform="translate(32,21)"><circle class="node n-b" r="4.3" fill="#ffffff" stroke="#e8964a" stroke-width="2.8"></circle></g>
+<g transform="translate(29,34)"><circle class="node n-c" r="4.3" fill="#ffffff" stroke="#e8964a" stroke-width="2.8"></circle></g>
+<g transform="translate(50,34)"><path class="spk spk-lg" fill="#e8964a" d="M0,-7 C0.84,-2.45 2.45,-0.84 7,0 C2.45,0.84 0.84,2.45 0,7 C-0.84,2.45 -2.45,0.84 -7,0 C-2.45,-0.84 -0.84,-2.45 0,-7 z"></path></g>
+<g transform="translate(45,25)"><path class="spk spk-s1" fill="#4e8b81" d="M0,-4 C0.48,-1.4 1.4,-0.48 4,0 C1.4,0.48 0.48,1.4 0,4 C-0.48,1.4 -1.4,0.48 -4,0 C-1.4,-0.48 -0.48,-1.4 0,-4 z"></path></g>
+<g transform="translate(46,43)"><path class="spk spk-s2" fill="#4e8b81" d="M0,-3.4 C0.41,-1.2 1.2,-0.41 3.4,0 C1.2,0.41 0.41,1.2 0,3.4 C-0.41,1.2 -1.2,0.41 -3.4,0 C-1.2,-0.41 -0.41,-1.2 0,-3.4 z"></path></g>
+</g>
+</svg>

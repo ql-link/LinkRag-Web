@@ -319,7 +319,7 @@ export default function HomePage() {
                   darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
                 )}
               >
-                {getGreeting()}，<span className="font-serif italic">{displayName}</span>
+                {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
               </h1>
               <p className={cn('text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
                 搜索文件、对话、知识库，或从最近内容继续。

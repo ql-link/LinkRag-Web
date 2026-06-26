@@ -334,7 +334,7 @@ export default function CreatorBlogEditor() {
           <button
             onClick={() => navigate(blogListPath)}
             className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-xl text-text-main/65 transition-colors hover:bg-primary/5 hover:text-primary',
+              'flex h-8 w-8 items-center justify-center rounded-md bg-surface-soft text-text-main/65 transition-colors hover:bg-surface-card hover:text-primary',
             )}
             title="返回文章列表"
           >
@@ -349,7 +349,7 @@ export default function CreatorBlogEditor() {
         <div className="flex items-center gap-4">
           <label
             className={cn(
-              'flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
+              'flex cursor-pointer items-center gap-1.5 rounded-md bg-surface-soft px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-surface-card hover:text-text-main',
             )}
             title="导入本地 .md 文件"
           >
@@ -367,7 +367,7 @@ export default function CreatorBlogEditor() {
           <button
             onClick={() => setShowCoverModal(true)}
             className={cn(
-              'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
+              'flex items-center gap-1.5 rounded-md bg-surface-soft px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-surface-card hover:text-text-main',
             )}
             title="设置文章封面"
           >
@@ -378,7 +378,7 @@ export default function CreatorBlogEditor() {
           <button
             onClick={() => setShowImagesModal(true)}
             className={cn(
-              'flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-primary/5 hover:text-text-main',
+              'flex items-center gap-1.5 rounded-md bg-surface-soft px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-main/65 transition-colors hover:bg-surface-card hover:text-text-main',
             )}
             title="管理文章插图"
           >
@@ -390,7 +390,7 @@ export default function CreatorBlogEditor() {
             onClick={handleSaveAll}
             disabled={loading || !formData.title}
             className={cn(
-              'flex items-center gap-1.5 rounded-xl border border-border-subtle px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:border-primary hover:bg-primary/5 disabled:opacity-50',
+              'flex items-center gap-1.5 rounded-md border border-border-subtle bg-surface-soft px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary transition-colors hover:border-primary/30 hover:bg-surface-card disabled:opacity-50',
             )}
           >
             <Save size={14} />

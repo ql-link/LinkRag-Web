@@ -201,7 +201,7 @@ export default function BlogsPage() {
               'group flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-300',
               darkMode
                 ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] hover:border-[#3b82f6]'
-                : 'border-border-subtle bg-white text-text-main hover:border-primary',
+                : 'rounded-md border-border-subtle bg-surface-soft text-text-main hover:border-primary hover:bg-surface-card',
             )}
           >
             <Settings

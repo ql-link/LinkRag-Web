@@ -29,6 +29,7 @@ const navItems = [
 
 // 「对话」入口单独成段，置于分割线下方、「对话记录」列表上方。
 const chatNavItem = { path: Routes.Chats, name: '对话', icon: MessageSquare };
+const SIDEBAR_CONTENT_REVEAL_DELAY_MS = 90;
 
 function getUserInitial(user: ReturnType<typeof useAuth>['user']) {
   return user?.nickname?.[0]?.toUpperCase() || user?.username?.[0]?.toUpperCase() || '';
@@ -36,32 +37,47 @@ function getUserInitial(user: ReturnType<typeof useAuth>['user']) {
 
 interface SidebarProps {
   onNavigate?: () => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
   allowCollapse?: boolean;
   forceCollapsed?: boolean;
   className?: string;
 }
 
-export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = false, className }: SidebarProps) {
+export function Sidebar({
+  onNavigate,
+  onCollapsedChange,
+  allowCollapse = true,
+  forceCollapsed = false,
+  className,
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [expandedContentVisible, setExpandedContentVisible] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [userMenuPosition, setUserMenuPosition] = useState<{ left: number; bottom: number } | null>(null);
+  const [userMenuPosition, setUserMenuPosition] = useState<{ left: number; bottom: number; width: number } | null>(
+    null,
+  );
+  const sidebarRef = useRef<HTMLElement>(null);
   const userMenuButtonRef = useRef<HTMLButtonElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const isCollapsed = forceCollapsed || collapsed;
 
   const updateUserMenuPosition = useCallback(() => {
     const rect = userMenuButtonRef.current?.getBoundingClientRect();
+    const sidebarRect = sidebarRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const menuWidth = 224;
+    const menuWidth = isCollapsed && sidebarRect ? 224 : rect.width;
     const viewportPadding = 8;
+    const preferredLeft = isCollapsed && sidebarRect ? sidebarRect.left : rect.left;
     setUserMenuPosition({
-      left: Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - menuWidth - viewportPadding)),
+      left: Math.max(viewportPadding, Math.min(preferredLeft, window.innerWidth - menuWidth - viewportPadding)),
       bottom: Math.max(viewportPadding, window.innerHeight - rect.top + 8),
+      width: menuWidth,
     });
-  }, []);
+  }, [isCollapsed]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -92,10 +108,25 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
   const displayName = user?.nickname || user?.username || '当前用户';
   const displayEmail = user?.email || '未设置邮箱';
   const userInitial = getUserInitial(user);
-  const isCollapsed = forceCollapsed || collapsed;
+  const showExpandedContent = !isCollapsed && expandedContentVisible;
   const chatWorkspace = useChatWorkspaceSnapshot();
-  // 「对话记录」面板在侧栏展开时始终显示（数据由 ChatWorkspaceProvider 全局兜底提供）。
-  const showChatPanel = !isCollapsed;
+
+  useEffect(() => {
+    onCollapsedChange?.(isCollapsed);
+  }, [isCollapsed, onCollapsedChange]);
+
+  useEffect(() => {
+    if (isCollapsed) {
+      setExpandedContentVisible(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setExpandedContentVisible(true);
+    }, SIDEBAR_CONTENT_REVEAL_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isCollapsed]);
 
   const renderNavLink = ({ path, name, icon: Icon }: { path: string; name: string; icon: typeof Home }) => {
     const isActive = pathname === path || (path !== Routes.Home && pathname.startsWith(`${path}/`));
@@ -108,13 +139,24 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           onNavigate?.();
         }}
         className={cn(
-          'group relative flex items-center rounded-lg transition-colors',
-          isCollapsed ? 'mx-auto h-11 w-11 justify-center p-0' : 'gap-3 px-3 py-2.5',
-          isActive ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+          'group relative flex h-11 w-full items-center justify-start gap-3 rounded-lg px-3 transition-[background-color,color] duration-200 ease-out',
+          isActive ? 'text-ink' : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
         )}
       >
-        <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted')} />
-        {!isCollapsed && <span className="text-sm font-medium">{name}</span>}
+        <Icon
+          size={18}
+          strokeWidth={isActive ? 2.35 : 2}
+          className={cn('shrink-0', isActive ? 'text-ink' : 'text-muted')}
+        />
+        <span
+          className={cn(
+            'whitespace-nowrap text-sm transition-[opacity,transform] duration-150',
+            isActive ? 'font-bold' : 'font-medium',
+            showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
+          )}
+        >
+          {name}
+        </span>
         {isCollapsed && (
           <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-on-dark opacity-0  transition-opacity group-hover:opacity-100">
             {name}
@@ -130,7 +172,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
           <div
             ref={userMenuRef}
             style={userMenuPosition}
-            className="fixed z-[100] w-56 overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl"
+            className="fixed z-[100] overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl"
           >
             <div className="border-b border-hairline px-3 py-2.5">
               <p className="truncate text-sm font-medium text-ink">{displayName}</p>
@@ -143,7 +185,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                   onNavigate?.();
                   navigate(Routes.ProfilePage);
                 }}
-                className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-text-secondary transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink"
               >
                 <User size={15} />
                 <span className="text-sm font-medium">个人信息</span>
@@ -155,7 +197,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
                     onNavigate?.();
                     navigate(Routes.AdminBlogs);
                   }}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-text-secondary transition-colors hover:bg-primary/5 hover:text-ink"
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-text-secondary transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink"
                 >
                   <ShieldCheck size={15} />
                   <span className="text-sm font-medium">后台管理</span>
@@ -163,7 +205,7 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
               )}
               <button
                 onClick={handleLogout}
-                className="flex w-full items-center gap-3 px-3 py-2 text-error transition-colors hover:bg-error/8"
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-error transition-[background-color,color] duration-200 ease-out hover:bg-error/[0.035] hover:text-error/80"
               >
                 <LogOut size={15} />
                 <span className="text-sm font-medium">退出登录</span>
@@ -185,55 +227,63 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
     }
   }
 
+  const userAvatar = user?.avatarUrl ? (
+    <img
+      src={user.avatarUrl}
+      alt="用户头像"
+      className="h-8 w-8 min-w-8 max-w-8 shrink-0 rounded-full border border-hairline object-cover"
+    />
+  ) : (
+    <div className="flex h-8 w-8 min-w-8 max-w-8 shrink-0 items-center justify-center rounded-full bg-surface-soft text-xs font-bold text-ink">
+      {userInitial || <User size={14} className="text-muted" />}
+    </div>
+  );
+
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden border-r border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl transition-[width] duration-300',
+        'flex shrink-0 flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl transition-[width] duration-[140ms] ease-out',
         forceCollapsed ? 'w-[64px] min-w-[64px]' : allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[224px]') : 'w-[224px]',
         className,
       )}
     >
       {/* Logo */}
-      <div
-        className={cn(
-          'flex h-16 items-center overflow-hidden bg-white/35',
-          isCollapsed ? 'justify-center px-0' : 'px-5',
-        )}
-      >
-        <div className={cn('flex min-w-max items-center', isCollapsed ? 'justify-center' : 'gap-2.5')}>
-          <div className={cn('flex items-center justify-center overflow-hidden', isCollapsed ? 'h-9 w-9' : 'h-8 w-8')}>
+      <div className="flex h-16 items-center overflow-hidden bg-white/35 px-5">
+        <div className="flex min-w-max items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden">
             <LinkRagMark />
           </div>
-          {!isCollapsed && <h1 className="serif-heading text-xl text-ink">LinkRag</h1>}
+          <h1
+            className={cn(
+              'serif-heading whitespace-nowrap text-xl text-ink transition-[opacity,transform] duration-150',
+              showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
+            )}
+          >
+            LinkRag
+          </h1>
         </div>
       </div>
 
       {/* Nav */}
-      <nav
-        className={cn(
-          'space-y-1 overflow-x-hidden py-4',
-          isCollapsed ? 'px-2' : 'px-3',
-          isCollapsed ? 'flex-1 overflow-y-auto' : 'shrink-0',
-        )}
-      >
-        {navItems.map(renderNavLink)}
-      </nav>
+      <nav className="shrink-0 space-y-1 overflow-x-hidden px-3 pb-1 pt-4">{navItems.map(renderNavLink)}</nav>
 
       {/* 「对话」入口：分割线下方、「对话记录」上方 */}
-      <div className={cn('shrink-0 border-t border-border-subtle pt-3', isCollapsed ? 'px-2' : 'px-3')}>
-        {renderNavLink(chatNavItem)}
-      </div>
+      <div className="shrink-0 px-3">{renderNavLink(chatNavItem)}</div>
 
       {/* Chat workspace — 历史「对话记录」，展开时始终显示。
           外层补 px-3，使面板标题/列表与上方「对话」入口、导航项左缘对齐。 */}
-      {showChatPanel && (
-        <div className="min-h-0 flex-1 px-3 pt-1">
-          <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />
-        </div>
-      )}
+      <div
+        className={cn(
+          'min-h-0 flex-1 px-3 pt-1 transition-opacity duration-150',
+          showExpandedContent ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        {showExpandedContent && <ChatWorkspacePanel snapshot={chatWorkspace} onNavigate={onNavigate} />}
+      </div>
 
       {/* Footer — user menu */}
-      <div className={cn('shrink-0 border-t border-border-subtle', isCollapsed ? 'px-2 py-3' : 'p-3')}>
+      <div className="shrink-0 p-3">
         <div className="relative">
           <button
             ref={userMenuButtonRef}
@@ -242,49 +292,48 @@ export function Sidebar({ onNavigate, allowCollapse = true, forceCollapsed = fal
               setShowUserMenu((open) => !open);
             }}
             className={cn(
-              'flex items-center rounded-lg transition-colors hover:bg-primary/5',
-              isCollapsed ? 'mx-auto h-11 w-11 justify-center p-0' : 'w-full gap-3 px-2 py-2',
+              'relative flex h-11 w-full min-w-0 items-center rounded-lg transition-colors duration-200 ease-out hover:text-ink',
             )}
           >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt="用户头像"
-                className="h-8 w-8 shrink-0 rounded-full border border-hairline object-cover"
-              />
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                {userInitial || <User size={14} className="text-muted" />}
-              </div>
-            )}
-            {!isCollapsed && (
-              <div className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm font-medium text-ink">{displayName}</p>
-                <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
-              </div>
-            )}
+            <span className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+              {userAvatar}
+            </span>
+            <div
+              className={cn(
+                'absolute left-[52px] right-2 min-w-0 overflow-hidden text-left transition-opacity duration-150',
+                showExpandedContent ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+            >
+              <p className="truncate text-sm font-medium text-ink">{displayName}</p>
+              <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
+            </div>
           </button>
 
           {userMenuPortal}
         </div>
 
-        {/* Collapse button */}
         {allowCollapse && !forceCollapsed && (
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => {
+              setShowUserMenu(false);
+              setCollapsed(!collapsed);
+            }}
             className={cn(
-              'mt-2 flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/5 hover:text-ink',
-              collapsed ? 'mx-auto h-11 w-11 p-0' : 'w-full px-3 py-2',
+              'mt-2 flex h-9 items-center rounded-lg text-muted transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink',
+              collapsed ? 'mx-auto w-11 justify-center p-0' : 'w-full justify-center gap-2 px-3',
             )}
             aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
           >
-            {collapsed ? (
-              <ChevronRight size={18} />
-            ) : (
-              <div className="flex w-full items-center justify-center gap-2">
-                <ChevronLeft size={16} />
-                <span className="text-xs font-medium">收起</span>
-              </div>
+            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={17} />}
+            {!collapsed && (
+              <span
+                className={cn(
+                  'whitespace-nowrap text-xs font-medium transition-[opacity,transform] duration-150',
+                  showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
+                )}
+              >
+                收起
+              </span>
             )}
           </button>
         )}

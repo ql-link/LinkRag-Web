@@ -47,10 +47,10 @@ export function AdminLayout() {
               type="button"
               onClick={() => navigate(RoutePaths.ProfilePage)}
               className={cn(
-                'flex h-9 items-center gap-2 rounded-xl px-2 text-xs font-bold transition-colors',
+                'flex h-9 items-center gap-2 rounded-md px-2 text-xs font-bold transition-colors',
                 darkMode
                   ? 'text-[#cccccc] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
-                  : 'text-text-main/65 hover:bg-primary/5 hover:text-text-main',
+                  : 'bg-surface-soft text-text-main/65 hover:bg-surface-card hover:text-text-main',
               )}
             >
               <ArrowLeft size={15} />

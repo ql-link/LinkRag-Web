@@ -401,7 +401,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => openEdit(field)}
-          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-soft hover:text-ink sm:w-auto"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-card hover:text-ink sm:w-auto"
         >
           <PenLine size={14} />
           修改
@@ -492,7 +492,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleOpenAdminPage}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-hairline bg-canvas px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
                     >
                       <ShieldCheck size={15} />
                       后台管理
@@ -567,7 +567,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => closeAvatarCrop()}
                 disabled={avatarLoading}
-                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink disabled:opacity-60"
+                className="h-9 rounded-lg px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink disabled:opacity-60"
               >
                 取消
               </button>
@@ -575,7 +575,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleConfirmAvatarUpload}
                 disabled={avatarLoading || !avatarCropImage}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
               >
                 {avatarLoading && <Loader2 className="animate-spin" size={14} />}
                 保存头像
@@ -609,7 +609,7 @@ export default function ProfilePage() {
                   inputMode={fieldMeta[editField].inputMode}
                   value={draftValue}
                   onChange={(event) => setDraftValue(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-hairline bg-bg-card-solid px-4 text-sm text-text-main outline-none transition-colors placeholder:text-muted-soft focus:border-primary/40"
+                  className="h-11 w-full rounded-lg border border-hairline bg-bg-card-solid px-4 text-sm text-text-main outline-none transition-colors placeholder:text-muted-soft focus:border-primary/40"
                   placeholder={fieldMeta[editField].placeholder}
                 />
               </label>
@@ -621,7 +621,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={closeEdit}
-                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink"
+                className="h-9 rounded-lg px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink"
               >
                 取消
               </button>
@@ -629,7 +629,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleSave}
                 disabled={submitLoading}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
               >
                 {submitLoading && <Loader2 className="animate-spin" size={14} />}
                 保存
