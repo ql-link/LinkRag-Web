@@ -401,7 +401,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => openEdit(field)}
-          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-card hover:text-ink sm:w-auto"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink sm:w-auto"
         >
           <PenLine size={14} />
           修改
@@ -492,7 +492,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleOpenAdminPage}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
+                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border-subtle px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-ink/[0.035] hover:text-ink"
                     >
                       <ShieldCheck size={15} />
                       后台管理

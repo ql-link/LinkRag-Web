@@ -11,13 +11,20 @@
 
 @theme {
   --font-sans:
-    'Noto Serif SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
-  --font-display: 'Playfair Display', 'Noto Serif SC', serif;
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', sans-serif;
+  --font-serif:
+    'Playfair Display', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', ui-sans-serif,
+    system-ui, sans-serif;
+  --font-display:
+    'Playfair Display', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', ui-sans-serif,
+    system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --font-handwrite: 'Caveat', cursive;
-  --font-display-cn: 'ZCOOL XiaoWei', 'Noto Serif SC', serif;
-  --font-body-cn: 'LXGW WenKai', 'Noto Serif SC', sans-serif;
+  --font-display-cn:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', ui-sans-serif, system-ui, sans-serif;
+  --font-body-cn:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', ui-sans-serif, system-ui, sans-serif;
 
   /* Brand — coral */
   --color-primary: #cc785c;

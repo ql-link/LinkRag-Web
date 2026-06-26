@@ -403,21 +403,89 @@ function MessageStatusNotice({ status }: { status?: string | null }) {
 }
 
 function AiGeneratingIcon({ active = false }: { active?: boolean }) {
-  const lightIcon = active ? aiGeneratingActiveIconUrl : aiGeneratingIconUrl;
-  const darkIcon = active ? aiGeneratingActiveOnDarkIconUrl : aiGeneratingOnDarkIconUrl;
+  const [replayNonce, setReplayNonce] = useState(0);
+  const [isReplaying, setIsReplaying] = useState(false);
+  const [isSettling, setIsSettling] = useState(false);
+
+  useEffect(() => {
+    if (!isReplaying || active) return;
+
+    const settleTimeoutId = window.setTimeout(() => {
+      setIsSettling(true);
+    }, 1120);
+
+    const endTimeoutId = window.setTimeout(() => {
+      setIsReplaying(false);
+      setIsSettling(false);
+    }, 1360);
+
+    return () => {
+      window.clearTimeout(settleTimeoutId);
+      window.clearTimeout(endTimeoutId);
+    };
+  }, [active, isReplaying, replayNonce]);
+
+  const showActiveIcon = active || (isReplaying && !isSettling);
+  const showStaticIcon = !active && (!isReplaying || isSettling);
 
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-      <img src={lightIcon} alt="" className="h-7 w-7 dark:hidden" draggable={false} />
-      <img src={darkIcon} alt="" className="hidden h-7 w-7 dark:block" draggable={false} />
-    </span>
+    <button
+      type="button"
+      className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-md transition-opacity duration-150 hover:opacity-80"
+      aria-label={active ? '正在生成回答' : '播放生成动效'}
+      onClick={() => {
+        if (active) return;
+        setIsSettling(false);
+        setIsReplaying(true);
+        setReplayNonce((nonce) => nonce + 1);
+      }}
+    >
+      <img
+        src={aiGeneratingIconUrl}
+        alt=""
+        className={cn(
+          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:hidden',
+          showStaticIcon ? 'opacity-100' : 'opacity-0',
+        )}
+        draggable={false}
+      />
+      <img
+        src={aiGeneratingOnDarkIconUrl}
+        alt=""
+        className={cn(
+          'absolute hidden h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:block',
+          showStaticIcon ? 'opacity-100' : 'opacity-0',
+        )}
+        draggable={false}
+      />
+      <img
+        key={`light-active-${replayNonce}`}
+        src={aiGeneratingActiveIconUrl}
+        alt=""
+        className={cn(
+          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:hidden',
+          showActiveIcon ? 'opacity-100' : 'opacity-0',
+        )}
+        draggable={false}
+      />
+      <img
+        key={`dark-active-${replayNonce}`}
+        src={aiGeneratingActiveOnDarkIconUrl}
+        alt=""
+        className={cn(
+          'absolute hidden h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:block',
+          showActiveIcon ? 'opacity-100' : 'opacity-0',
+        )}
+        draggable={false}
+      />
+    </button>
   );
 }
 
 function ThinkingBubble() {
   return (
     <div className="chat-rise flex items-start gap-3">
-      <div className="mt-1">
+      <div className="-mt-0.5">
         <AiGeneratingIcon active />
       </div>
       <div className="mt-1 flex h-9 items-center gap-2 rounded-full border border-hairline bg-surface-soft px-4 text-xs font-medium text-muted">
@@ -1880,7 +1948,7 @@ export default function ChatsPage() {
                         data-message-turn-id={messageTurnIdById.get(message.id)}
                         className="group/message chat-rise flex items-start gap-3"
                       >
-                        <div className="mt-1">
+                        <div className="-mt-0.5">
                           <AiGeneratingIcon active={isGeneratingAssistant} />
                         </div>
                         <div className="min-w-0 flex-1 pt-0.5">

@@ -19,6 +19,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 import { LinkRagMark } from '@/components/LinkRagMark';
 import { ChatWorkspacePanel } from '@/components/ChatWorkspacePanel';
+import linkRagLogoCreamUrl from '@/assets/brand/linkrag-logo-cream.png';
+import linkRagLogoInkUrl from '@/assets/brand/linkrag-logo-ink.png';
 
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
@@ -254,14 +256,15 @@ export function Sidebar({
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden">
             <LinkRagMark />
           </div>
-          <h1
+          <div
             className={cn(
-              'serif-heading whitespace-nowrap text-xl text-ink transition-[opacity,transform] duration-150',
+              'flex h-8 items-center transition-[opacity,transform] duration-150',
               showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
             )}
           >
-            LinkRag
-          </h1>
+            <img src={linkRagLogoInkUrl} alt="LinkRag" className="h-7 w-auto dark:hidden" draggable={false} />
+            <img src={linkRagLogoCreamUrl} alt="LinkRag" className="hidden h-7 w-auto dark:block" draggable={false} />
+          </div>
         </div>
       </div>
 

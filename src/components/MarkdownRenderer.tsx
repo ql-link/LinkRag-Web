@@ -9,7 +9,19 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import 'katex/dist/katex.min.css';
-import { Check, Copy, FileCode2 } from 'lucide-react';
+import {
+  Check,
+  CircleX,
+  Copy,
+  FileCode2,
+  Lightbulb,
+  PencilLine,
+  Pin,
+  Search,
+  Sparkles,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -48,8 +60,136 @@ const getPlainTextChildren = (children: React.ReactNode): string | null => {
 };
 
 const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|`[^`\n]+?`|\[[^\]\n]+?\]\([^)]+?\))/;
+const STATUS_SYMBOL_PATTERN = /(✅|☑️|☑|✔️|✔|❌|✖️|✖|⚠️|⚠|💡|📌|🔍|📝|🚀)/gu;
 
 const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
+
+type InlineStatusSymbolConfig = {
+  label: string;
+  icon: LucideIcon;
+  className: string;
+};
+
+const getInlineStatusSymbolConfig = (symbol: string): InlineStatusSymbolConfig | null => {
+  const normalized = symbol.replace(/\uFE0F/g, '');
+
+  if (normalized === '✅' || normalized === '☑' || normalized === '✔') {
+    return {
+      label: '完成',
+      icon: Check,
+      className: 'border-[#2f7d62]/20 bg-[#2f7d62]/10 text-[#2f7d62]',
+    };
+  }
+
+  if (normalized === '❌' || normalized === '✖') {
+    return {
+      label: '错误',
+      icon: CircleX,
+      className: 'border-state-error/20 bg-state-error/10 text-state-error',
+    };
+  }
+
+  if (normalized === '⚠') {
+    return {
+      label: '注意',
+      icon: TriangleAlert,
+      className: 'border-[#b7791f]/20 bg-[#b7791f]/10 text-[#9a640f]',
+    };
+  }
+
+  if (normalized === '💡') {
+    return {
+      label: '提示',
+      icon: Lightbulb,
+      className: 'border-primary/20 bg-primary/10 text-primary',
+    };
+  }
+
+  if (normalized === '📌') {
+    return {
+      label: '重点',
+      icon: Pin,
+      className: 'border-[#8a6f4d]/20 bg-[#8a6f4d]/10 text-[#755f42]',
+    };
+  }
+
+  if (normalized === '🔍') {
+    return {
+      label: '检索',
+      icon: Search,
+      className: 'border-[#5f7284]/20 bg-[#5f7284]/10 text-[#526579]',
+    };
+  }
+
+  if (normalized === '📝') {
+    return {
+      label: '记录',
+      icon: PencilLine,
+      className: 'border-[#6f6a8f]/20 bg-[#6f6a8f]/10 text-[#5f5a7f]',
+    };
+  }
+
+  if (normalized === '🚀') {
+    return {
+      label: '推进',
+      icon: Sparkles,
+      className: 'border-[#cc785c]/20 bg-[#cc785c]/10 text-[#ad6048]',
+    };
+  }
+
+  return null;
+};
+
+const InlineStatusSymbol = ({ symbol }: { symbol: string }) => {
+  const config = getInlineStatusSymbolConfig(symbol);
+  if (!config) return <>{symbol}</>;
+
+  const Icon = config.icon;
+  return (
+    <span
+      aria-label={config.label}
+      title={config.label}
+      className={cn(
+        'not-prose mx-0.5 inline-flex size-[1.15em] translate-y-[0.14em] items-center justify-center rounded-[5px] border align-baseline',
+        config.className,
+      )}
+    >
+      <Icon size="0.78em" strokeWidth={2.2} />
+    </span>
+  );
+};
+
+const renderStatusSymbolsInText = (text: string, keyPrefix: string): React.ReactNode[] => {
+  STATUS_SYMBOL_PATTERN.lastIndex = 0;
+
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = STATUS_SYMBOL_PATTERN.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    nodes.push(<InlineStatusSymbol key={`${keyPrefix}-${match.index}-${match[0]}`} symbol={match[0]} />);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+};
+
+const renderStatusSymbols = (children: React.ReactNode, keyPrefix = 'status-symbol'): React.ReactNode => {
+  if (typeof children === 'string') return renderStatusSymbolsInText(children, keyPrefix);
+  if (typeof children === 'number') return children;
+  if (Array.isArray(children)) {
+    return children.flatMap((child, index) => renderStatusSymbols(child, `${keyPrefix}-${index}`));
+  }
+  return children;
+};
 
 type CodeBlockFrameProps = {
   code: string;
@@ -293,8 +433,8 @@ const BlockquoteRenderer = ({
   return (
     <blockquote
       className={cn(
-        'not-prose my-8 rounded-r-lg border-l-2 border-primary bg-black/5 px-5 py-3 text-text-main dark:bg-surface-card',
-        '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main',
+        'not-prose my-6 border-l-2 border-primary/45 bg-transparent py-1 pl-4 pr-0 text-text-main',
+        '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main/85',
         className,
       )}
       {...props}
@@ -307,7 +447,7 @@ function InlineMarkdown({ content }: { content: string }) {
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
       components={{
-        p: ({ node: _node, children }) => <>{children}</>,
+        p: ({ node: _node, children }) => <>{renderStatusSymbols(children)}</>,
         code: CodeRenderer as Components['code'],
         a: ({ node: _node, href, className: linkClassName, ...props }) => (
           <a
@@ -330,7 +470,7 @@ function TableCellContent({ children }: { children: React.ReactNode }) {
   if (plainText && INLINE_MARKDOWN_PATTERN.test(plainText)) {
     return <InlineMarkdown content={plainText} />;
   }
-  return <>{children}</>;
+  return <>{renderStatusSymbols(children)}</>;
 }
 
 function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
@@ -374,6 +514,8 @@ export function MarkdownRenderer({
     code: (props) => <CodeRenderer compact={compact} {...props} />,
     pre: (props) => <PreRenderer compact={compact} {...props} />,
     blockquote: BlockquoteRenderer as Components['blockquote'],
+    p: ({ node: _node, children, ...props }) => <p {...props}>{renderStatusSymbols(children)}</p>,
+    li: ({ node: _node, children, ...props }) => <li {...props}>{renderStatusSymbols(children)}</li>,
     h1: (props) => <HeadingRenderer level={1} getHeadingId={getHeadingId} {...props} />,
     h2: (props) => <HeadingRenderer level={2} getHeadingId={getHeadingId} {...props} />,
     h3: (props) => <HeadingRenderer level={3} getHeadingId={getHeadingId} {...props} />,
@@ -434,7 +576,7 @@ export function MarkdownRenderer({
         'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
         'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
         'prose-strong:font-extrabold prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
-        'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-surface-card',
+        'prose-blockquote:border-l-primary/45 prose-blockquote:bg-transparent prose-blockquote:py-1 prose-blockquote:pl-4 prose-blockquote:pr-0 prose-blockquote:text-text-main prose-blockquote:not-italic',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&
           'prose-headings:text-[#f2f2f2] prose-p:text-[#cccccc] prose-li:text-[#cccccc] prose-strong:text-[#f2f2f2]',

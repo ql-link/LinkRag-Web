@@ -86,7 +86,8 @@ describe('MarkdownRenderer', () => {
     const quote = screen.getByText('quoted text').closest('blockquote');
 
     expect(quote).toHaveClass('not-prose');
-    expect(quote).toHaveClass('border-primary');
+    expect(quote).toHaveClass('border-primary/45');
+    expect(quote).toHaveClass('bg-transparent');
   });
 
   it('renders deterministic heading ids that match markdown toc links', () => {
@@ -117,6 +118,15 @@ describe('MarkdownRenderer', () => {
 
     expect(container.querySelector('.katex')).toBeInTheDocument();
     expect(screen.queryByText('$E = mc^2$')).not.toBeInTheDocument();
+  });
+
+  it('renders common status emoji as inline interface symbols', () => {
+    render(<MarkdownRenderer content={'✅ 已完成\n\n- ⚠️ 需要注意'} />);
+
+    expect(screen.getByLabelText('完成')).toBeInTheDocument();
+    expect(screen.getByLabelText('注意')).toBeInTheDocument();
+    expect(screen.queryByText('✅')).not.toBeInTheDocument();
+    expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
   });
 
   it('normalizes bracket latex delimiters before rendering math', () => {
