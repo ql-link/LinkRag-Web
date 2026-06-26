@@ -14,6 +14,7 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import {
@@ -254,7 +255,7 @@ export default function CreatorBlogEditor() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
     } catch (e) {
       console.error(e);
     }
