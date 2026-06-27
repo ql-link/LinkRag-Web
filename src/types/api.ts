@@ -34,14 +34,20 @@ export interface UserProfileDTO {
 
 export interface LLMConfigDTO {
   id: number;
+  configId?: number;
+  providerId?: number;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
+  protocol?: LLMProtocol;
   apiKeyMasked: string;
   apiBaseUrl: string | null;
   isActive: boolean;
   isDefault: boolean;
   isSystemPreset: boolean;
+  isEditable?: boolean;
+  source?: 'USER' | 'SYSTEM' | (string & {});
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +63,7 @@ export interface ModelCapabilityDetailDTO {
 
 export interface ModelCapabilityDTO {
   modelName: string;
+  displayName?: string | null;
   capabilities: Array<LLMCapabilityValue | ModelCapabilityDetailDTO>;
 }
 
@@ -82,6 +89,7 @@ export interface ProviderModel {
   id: number;
   providerId: number;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
   protocol: LLMProtocol;
   apiBaseUrl: string;
@@ -95,11 +103,14 @@ export interface SystemPreset {
   providerId: number;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
   protocol: LLMProtocol;
   apiBaseUrl: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyMasked?: string;
   isActive: boolean;
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +136,7 @@ export interface UpdateProviderRequest {
 
 export interface AddProviderModelRequest {
   modelName: string;
+  displayName?: string;
   capability: LLMCapability;
   protocol: LLMProtocol;
   apiBaseUrl: string;
@@ -132,6 +144,7 @@ export interface AddProviderModelRequest {
 
 export interface UpdateProviderModelRequest {
   modelName?: string;
+  displayName?: string;
   capability?: LLMCapability;
   protocol?: LLMProtocol;
   apiBaseUrl?: string;
@@ -143,6 +156,7 @@ export interface CreatePresetRequest {
   modelName: string;
   capability: LLMCapability;
   apiKey: string;
+  isDefault?: boolean;
 }
 
 export interface UpdatePresetRequest {
@@ -151,6 +165,7 @@ export interface UpdatePresetRequest {
   capability?: LLMCapability;
   apiKey?: string;
   isActive?: boolean;
+  isDefault?: boolean;
 }
 
 export interface ConversationDTO {
@@ -316,6 +331,7 @@ export type UsageStatus = 'success' | 'partial' | 'failed' | (string & {});
 export interface ModelUsageDTO {
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   calls: number;
   promptTokens: number;
   completionTokens: number;
@@ -344,6 +360,7 @@ export interface UsageLogDTO {
   configId: number | null;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   stage: Exclude<UsageStage, 'all'> | (string & {});
   operation: UsageOperation;
   promptTokens: number;
@@ -507,6 +524,7 @@ export interface BlogPostAdminListDTO {
   summary: string | null;
   contentObjectKey: string | null;
   coverAssetId: number | null;
+  coverPublicUrl?: string | null;
   status: BlogPostStatus;
   publishedAt: string | null;
   createdBy: number;
