@@ -14,7 +14,7 @@ const INITIAL_MESSAGES: Message[] = [
 
 export const KnowledgeQA: React.FC = () => {
   return (
-    <div className="flex flex-col h-full bg-white rounded-3xl overflow-hidden ">
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl bg-bg-card-solid">
       <div className="flex-1 overflow-y-auto px-12 py-10 space-y-12">
         <div className="flex justify-center">
           <div className="mono-label px-4 py-2 border border-border-subtle inline-block rounded-full">
@@ -81,9 +81,9 @@ export const KnowledgeQA: React.FC = () => {
           <input
             type="text"
             placeholder="TYPE YOUR INQUIRY..."
-            className="w-full bg-white art-border py-6 pl-8 pr-20 text-xs font-bold uppercase tracking-widest focus:outline-none focus:ring-0 focus:border-text-main transition-all placeholder:text-text-main/20 rounded-2xl"
+            className="w-full rounded-2xl bg-bg-card-solid py-6 pl-8 pr-20 text-xs font-bold uppercase tracking-widest art-border transition-all placeholder:text-text-main/20 focus:border-text-main focus:outline-none focus:ring-0"
           />
-          <button className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-[#7B6B5D] text-white flex items-center justify-center hover:bg-[#8A7662] transition-colors rounded-xl">
+          <button className="absolute right-4 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-xl bg-primary text-white transition-colors hover:bg-primary-active">
             <Send size={18} />
           </button>
         </div>

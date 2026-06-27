@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -9,9 +9,6 @@ interface ThemeContextValue {
   setTheme: (theme: Theme) => void;
 }
 
-// Dark mode is intentionally disabled while the warm editorial light theme is
-// rebuilt. The context API is kept so existing `useTheme()` callers (which read
-// `darkMode` and resolve to their light branch) keep working unchanged.
 const LIGHT_VALUE: ThemeContextValue = {
   theme: 'light',
   darkMode: false,
@@ -22,12 +19,50 @@ const LIGHT_VALUE: ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue>(LIGHT_VALUE);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
-  }, []);
+  const mountedRef = useRef(false);
+  const transitionTimeoutRef = useRef<number | null>(null);
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+  });
 
-  return <ThemeContext.Provider value={LIGHT_VALUE}>{children}</ThemeContext.Provider>;
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (mountedRef.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      root.classList.add('theme-transition');
+      if (transitionTimeoutRef.current !== null) {
+        window.clearTimeout(transitionTimeoutRef.current);
+      }
+      transitionTimeoutRef.current = window.setTimeout(() => {
+        root.classList.remove('theme-transition');
+        transitionTimeoutRef.current = null;
+      }, 360);
+    }
+
+    root.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('theme', theme);
+    mountedRef.current = true;
+
+    return () => {
+      if (transitionTimeoutRef.current !== null) {
+        window.clearTimeout(transitionTimeoutRef.current);
+        transitionTimeoutRef.current = null;
+      }
+      root.classList.remove('theme-transition');
+    };
+  }, [theme]);
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      theme,
+      darkMode: theme === 'dark',
+      toggleTheme: () => setThemeState((current) => (current === 'dark' ? 'light' : 'dark')),
+      setTheme: setThemeState,
+    }),
+    [theme],
+  );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

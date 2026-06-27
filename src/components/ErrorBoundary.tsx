@@ -33,18 +33,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-4 rounded-2xl p-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-900/20">
-            <AlertCircle size={24} className="text-red-500" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-error/10">
+            <AlertCircle size={24} className="text-error" />
           </div>
           <div className="text-center">
-            <h3 className="text-sm font-bold text-text-main dark:text-[#e0e0e0]">页面出现了问题</h3>
-            <p className="mt-1 text-xs text-text-main/50 dark:text-[#858585]">
-              {this.state.error?.message || '发生了未知错误'}
-            </p>
+            <h3 className="text-sm font-bold text-text-main">页面出现了问题</h3>
+            <p className="mt-1 text-xs text-text-main/50">{this.state.error?.message || '发生了未知错误'}</p>
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors bg-[#7B6B5D] text-white hover:opacity-90 dark:bg-[#8A7662] dark:hover:bg-[#7B6B5D]"
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-primary-active"
           >
             <RotateCcw size={12} />
             重试

@@ -86,7 +86,7 @@ export default function MobileAuth() {
     <div
       className={cn(
         'flex min-h-screen flex-col justify-center px-6 py-10',
-        darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
+        darkMode ? 'bg-[#1f1f1f] text-[#d6d6d6]' : 'bg-bg-base text-text-main',
       )}
       style={{
         paddingTop: 'max(2.5rem, env(safe-area-inset-top))',

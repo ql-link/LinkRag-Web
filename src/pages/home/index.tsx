@@ -72,18 +72,12 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value || 0);
 }
 
-function formatLocalDate(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function getRangeDates(days: number) {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - (days - 1));
-  return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
+  const toIso = (date: Date) => date.toISOString().slice(0, 10);
+  return { startDate: toIso(start), endDate: toIso(end) };
 }
 
 function datasetName(datasets: DatasetDTO[], id: number) {
@@ -95,11 +89,11 @@ function includesKeyword(value: string | null | undefined, keyword: string) {
 }
 
 function neutralIconTone(darkMode: boolean) {
-  return darkMode ? 'bg-[#2d2d2d] text-[#d4d4d4]' : 'bg-[#f2f2f2] text-[#1f1f1f]';
+  return darkMode ? 'bg-[#303030] text-[#d6d6d6]' : 'bg-[#f2f2f2] text-[#1f1f1f]';
 }
 
 function neutralIconText(darkMode: boolean) {
-  return darkMode ? 'text-[#d4d4d4]' : 'text-[#1f1f1f]';
+  return darkMode ? 'text-[#d6d6d6]' : 'text-[#1f1f1f]';
 }
 
 export default function HomePage() {
@@ -135,7 +129,7 @@ export default function HomePage() {
           getDatasets(1, 100),
           getRecentKnowledgeFiles(8),
           getConversations(1, 100),
-          getUsageSummary(usageRange.startDate, usageRange.endDate, 'all').catch((error) => {
+          getUsageSummary(usageRange.startDate, usageRange.endDate).catch((error) => {
             console.error('Failed to load home usage summary:', error);
             return null;
           }),
@@ -303,12 +297,12 @@ export default function HomePage() {
   );
 
   return (
-    <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+    <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#d6d6d6]' : 'text-text-main')}>
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header
           className={cn(
             'flex min-h-16 shrink-0 items-center justify-between gap-4 border-b px-5 py-3 sm:px-8',
-            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+            darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
           )}
         >
           <div className="min-w-0">
@@ -316,18 +310,18 @@ export default function HomePage() {
           </div>
         </header>
 
-        <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base')}>
           <div className="mx-auto w-full max-w-[1120px] px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:px-8 lg:pb-16">
             <section className="mb-8">
               <h1
                 className={cn(
                   'mb-2 text-[24px] font-semibold leading-tight sm:text-[27px]',
-                  darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+                  darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
                 )}
               >
-                {getGreeting()}，<span className="font-serif italic">{displayName}</span>
+                {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
               </h1>
-              <p className={cn('text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+              <p className={cn('text-[13px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
                 搜索文件、对话、知识库，或从最近内容继续。
               </p>
 
@@ -335,20 +329,20 @@ export default function HomePage() {
                 onSubmit={handleSubmit}
                 className={cn(
                   'mt-7 rounded-[22px] border px-5 py-5 shadow-[0_14px_34px_-28px_rgba(26,26,26,0.45)] backdrop-blur-xl sm:px-6',
-                  darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-[rgba(31,31,31,0.11)] bg-white/55',
+                  darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]/62' : 'border-[rgba(31,31,31,0.11)] bg-white/55',
                 )}
               >
                 <div
                   className={cn('flex items-center gap-3 sm:gap-4', !hasSearch && quickQuestions.length > 0 && 'mb-4')}
                 >
-                  <Search size={23} className="shrink-0 text-[#7B6B5D]" />
+                  <Search size={23} className="shrink-0 text-primary" />
                   <input
                     value={searchTerm}
                     onChange={handleSearchChange}
                     placeholder="搜索文件、对话、知识库，或输入一个问题..."
                     className={cn(
                       'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-text-main/40 sm:text-[17px]',
-                      darkMode ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'text-text-main',
+                      darkMode ? 'text-[#f2f2f2] placeholder:text-muted-soft' : 'text-text-main',
                     )}
                   />
                 </div>
@@ -356,7 +350,7 @@ export default function HomePage() {
                   <div
                     className={cn(
                       'mt-3 flex items-center justify-between gap-3 text-xs',
-                      searchQueryTooLong ? 'text-error' : darkMode ? 'text-[#858585]' : 'text-text-main/50',
+                      searchQueryTooLong ? 'text-error' : darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50',
                     )}
                   >
                     <span className="min-w-0 truncate">
@@ -382,12 +376,12 @@ export default function HomePage() {
                           'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors',
                           item.featured
                             ? darkMode
-                              ? 'border-[#4a4a4a] bg-[#2d2d2d] text-[#d4d4d4]'
+                              ? 'border-[#4a4a4a] bg-[#303030] text-[#d6d6d6]'
                               : 'border-[#d6d6d6] bg-[#f2f2f2] text-[#1f1f1f]'
                             : darkMode
-                              ? 'border-[#3c3c3c] bg-[#252526] text-[#cccccc]'
+                              ? 'border-[#3a3a3a] bg-[#2b2b2b] text-[#d6d6d6]'
                               : 'border-border-subtle bg-white text-text-main/70',
-                          darkMode ? 'hover:border-[#d4d4d4]' : 'hover:border-[#1f1f1f]',
+                          darkMode ? 'hover:border-[#d6d6d6]' : 'hover:border-[#1f1f1f]',
                         )}
                       >
                         {item.label}
@@ -442,7 +436,7 @@ function StatsPanel({
 }) {
   const stats = [
     { label: '知识库', value: datasetTotal, icon: Database, iconClass: 'text-[#4F7FA8]' },
-    { label: '对话', value: conversationTotal, icon: MessageSquare, iconClass: 'text-[#7B6B5D]' },
+    { label: '对话', value: conversationTotal, icon: MessageSquare, iconClass: 'text-primary' },
     { label: '文件', value: fileTotal, icon: FileText, iconClass: 'text-[#5E9B73]' },
     { label: `${USAGE_RANGE_DAYS}天 Token`, value: tokenTotal, icon: Bot, iconClass: 'text-[#D97373]' },
   ];
@@ -451,7 +445,7 @@ function StatsPanel({
     <section
       className={cn(
         'mb-8 grid grid-cols-2 gap-x-4 gap-y-4 border-y py-4 md:grid-cols-4',
-        darkMode ? 'border-[#333333]' : 'border-border-subtle/80',
+        darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle/80',
       )}
     >
       {stats.map(({ label, value, icon: Icon, iconClass }) => (
@@ -461,11 +455,11 @@ function StatsPanel({
           </span>
           <span className="min-w-0">
             <span
-              className={cn('block text-lg font-semibold leading-none', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
+              className={cn('block text-lg font-semibold leading-none', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}
             >
               {formatNumber(value)}
             </span>
-            <span className={cn('mt-1 block truncate text-[11px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
+            <span className={cn('mt-1 block truncate text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
               {label}
             </span>
           </span>
@@ -536,7 +530,7 @@ function SearchResults({
                 key={chat.id}
                 darkMode={darkMode}
                 icon={MessageSquare}
-                iconClass="text-[#7B6B5D]"
+                iconClass="text-primary"
                 title={chat.title || '未命名对话'}
                 meta={`${chat.lastModelName || '知识库问答'} · ${formatRelativeTime(chat.updatedAt)}`}
                 to={`/chats/${chat.id}`}
@@ -565,14 +559,14 @@ function SearchResults({
       <div
         className={cn(
           'flex flex-col gap-3 rounded-[15px] border p-4 sm:flex-row sm:items-center sm:justify-between',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+          darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]' : 'border-border-subtle bg-white',
         )}
       >
         <div className="min-w-0">
-          <h3 className={cn('text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          <h3 className={cn('text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
             没找到想要的？
           </h3>
-          <p className={cn('mt-1 truncate text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+          <p className={cn('mt-1 truncate text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
             使用“{keyword}”新建对话，或上传相关文档补充知识来源。
           </p>
         </div>
@@ -583,7 +577,7 @@ function SearchResults({
             disabled={submitting || queryTooLong}
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-xs font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
-              darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
+              darkMode ? 'bg-primary text-white hover:bg-primary' : 'bg-primary text-white hover:opacity-90',
             )}
           >
             {submitting && <Loader2 size={14} className="animate-spin" />}
@@ -595,7 +589,7 @@ function SearchResults({
             className={cn(
               'inline-flex h-9 items-center gap-2 rounded-[10px] border px-3 text-xs font-semibold transition-colors',
               darkMode
-                ? 'border-[#3c3c3c] text-[#cccccc] hover:border-[#d4d4d4]'
+                ? 'border-[#3a3a3a] text-[#d6d6d6] hover:border-[#d6d6d6]'
                 : 'border-border-subtle text-text-main/70 hover:border-[#1f1f1f]',
             )}
           >
@@ -626,7 +620,7 @@ function ResultGroup({
         <p
           className={cn(
             'rounded-[15px] border border-dashed px-4 py-5 text-xs',
-            darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
+            darkMode ? 'border-[#3a3a3a] text-[#a6a6a6]' : 'border-border-subtle text-text-main/45',
           )}
         >
           {emptyText}
@@ -661,7 +655,7 @@ function ResultLink({
       className={cn(
         'group flex items-center gap-3 rounded-[14px] border p-3 transition-all hover:-translate-y-px hover:shadow-[0_6px_18px_-8px_rgba(26,26,26,0.18)]',
         darkMode
-          ? 'border-[#3c3c3c] bg-[#252526] hover:border-[#d4d4d4]'
+          ? 'border-[#3a3a3a] bg-[#2b2b2b] hover:border-[#d6d6d6]'
           : 'border-border-subtle bg-white hover:border-[#1f1f1f]',
       )}
     >
@@ -671,10 +665,10 @@ function ResultLink({
         <Icon size={17} className={iconClass} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+        <span className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
           {title}
         </span>
-        <span className={cn('mt-1 block truncate text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
+        <span className={cn('mt-1 block truncate text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
           {meta}
         </span>
       </span>
@@ -689,7 +683,7 @@ function SectionHeading({ darkMode, title, link }: { darkMode: boolean; title: s
       <h3
         className={cn(
           'font-mono text-[10px] uppercase tracking-[0.12em]',
-          darkMode ? 'text-[#858585]' : 'text-text-main/50',
+          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50',
         )}
       >
         {title}
@@ -699,7 +693,7 @@ function SectionHeading({ darkMode, title, link }: { darkMode: boolean; title: s
           to={link}
           className={cn(
             'font-mono text-[10px] uppercase tracking-[0.12em] transition-colors',
-            darkMode ? 'text-[#858585] hover:text-[#d4d4d4]' : 'text-text-main/50 hover:text-[#1f1f1f]',
+            darkMode ? 'text-[#a6a6a6] hover:text-[#d6d6d6]' : 'text-text-main/50 hover:text-[#1f1f1f]',
           )}
         >
           查看全部
@@ -724,11 +718,11 @@ function EmptyState({
     <div
       className={cn(
         'rounded-[15px] border border-dashed px-5 py-10 text-center',
-        darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
+        darkMode ? 'border-[#3a3a3a] text-[#a6a6a6]' : 'border-border-subtle text-text-main/45',
       )}
     >
       <Icon size={24} className="mx-auto mb-3 opacity-70" />
-      <p className={cn('text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</p>
+      <p className={cn('text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>{title}</p>
       <p className="mt-2 text-xs">{text}</p>
     </div>
   );
@@ -740,7 +734,7 @@ function SkeletonCard({ darkMode, compact = false }: { darkMode: boolean; compac
       className={cn(
         compact ? 'h-[72px]' : 'h-[138px]',
         'animate-pulse rounded-[15px] border',
-        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-bg-base/60',
+        darkMode ? 'border-[#3a3a3a] bg-[#303030]' : 'border-border-subtle bg-bg-base/60',
       )}
     />
   );

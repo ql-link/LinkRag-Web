@@ -70,11 +70,11 @@ export default function FeedbackPage() {
   const showUploadPrompt = !form.content && attachments.length === 0;
 
   return (
-    <div className={cn('min-h-screen', darkMode ? 'bg-[#151515] text-[#cccccc]' : 'bg-bg-base text-text-main')}>
+    <div className={cn('min-h-screen', darkMode ? 'bg-[#1f1f1f] text-[#d6d6d6]' : 'bg-bg-base text-text-main')}>
       <header
         className={cn(
           'sticky top-0 z-20 border-b px-6 py-2.5  lg:px-10',
-          darkMode ? 'border-[#282828] bg-[#151515]/92' : 'border-border-subtle bg-bg-base/86',
+          darkMode ? 'border-[#282828] bg-[#1f1f1f]/92' : 'border-border-subtle bg-bg-base/86',
         )}
       >
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4">
@@ -84,13 +84,13 @@ export default function FeedbackPage() {
               <div
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-xl border',
-                  darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-surface-card',
+                  darkMode ? 'border-[#3a3a3a] bg-[#242424]' : 'border-border-subtle bg-surface-card',
                 )}
               >
-                <MessageSquareText size={16} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
+                <MessageSquareText size={16} className={darkMode ? 'text-primary' : 'text-primary'} />
               </div>
               <div>
-                <p className={cn('mono-label mb-0.5 text-[10px] leading-none', darkMode ? 'text-[#858585]' : '')}>
+                <p className={cn('mono-label mb-0.5 text-[10px] leading-none', darkMode ? 'text-[#a6a6a6]' : '')}>
                   product feedback
                 </p>
                 <h1
@@ -109,8 +109,8 @@ export default function FeedbackPage() {
             className={cn(
               'group hidden items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] transition-all sm:inline-flex',
               darkMode
-                ? 'border-[#3a3a3a] bg-[linear-gradient(135deg,#202020,#262626)] text-[#d7d7d7] (255,255,255,0.04)] hover:border-[#4a4a4a] hover:text-[#f1f1f1] hover:(0,0,0,0.26)]'
-                : 'border-border-subtle bg-[linear-gradient(135deg,#ffffff,#f5f2ee)] text-text-main (255,255,255,0.8)] hover:border-text-main/20 hover:(42,33,24,0.08)]',
+                ? 'border-border-subtle bg-bg-card-solid text-text-main hover:border-border-medium'
+                : 'border-border-subtle bg-bg-card-solid text-text-main hover:border-text-main/20',
             )}
           >
             <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -131,13 +131,13 @@ export default function FeedbackPage() {
             <div
               className={cn(
                 'rounded-2xl border px-6 py-8 text-center',
-                darkMode ? 'border-[#303030] bg-[#202020]' : 'border-border-subtle bg-surface-card',
+                darkMode ? 'border-[#3a3a3a] bg-[#242424]' : 'border-border-subtle bg-surface-card',
               )}
             >
               <div
                 className={cn(
                   'mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl',
-                  darkMode ? 'bg-cyan-400/12 text-cyan-200' : 'bg-primary/12 text-primary',
+                  darkMode ? 'bg-primary/12 text-primary' : 'bg-primary/12 text-primary',
                 )}
               >
                 <CheckCircle2 size={22} />
@@ -163,7 +163,7 @@ export default function FeedbackPage() {
                 className={cn(
                   'mt-6 rounded-full px-5 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
                   darkMode
-                    ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#3a3a3a]'
+                    ? 'bg-[#303030] text-[#f2f2f2] hover:bg-[#3a3a3a]'
                     : 'bg-bg-base text-text-main hover:bg-white',
                 )}
               >
@@ -189,7 +189,7 @@ export default function FeedbackPage() {
                       className={cn(
                         'flex h-12 w-full items-center justify-between rounded-xl px-4.5 text-sm outline-none transition-colors',
                         darkMode
-                          ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] hover:border-[#444] focus:border-cyan-300/55'
+                          ? 'border border-[#3a3a3a] bg-[#242424] text-[#f2f2f2] hover:border-[#4a4a4a] focus:border-primary/45'
                           : 'border border-border-subtle bg-surface-card text-text-main (255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
                       )}
                     >
@@ -199,7 +199,7 @@ export default function FeedbackPage() {
                         className={cn(
                           'transition-transform',
                           openDropdown === 'type' && 'rotate-180',
-                          darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
                         )}
                       />
                     </button>
@@ -226,7 +226,7 @@ export default function FeedbackPage() {
                                 'flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors',
                                 active
                                   ? darkMode
-                                    ? 'bg-cyan-400/10 text-[#f2f2f2]'
+                                    ? 'bg-primary/10 text-[#f2f2f2]'
                                     : 'bg-primary/8 text-text-main'
                                   : darkMode
                                     ? 'text-[#d7d7d7] hover:bg-[#292929]'
@@ -238,7 +238,7 @@ export default function FeedbackPage() {
                                 <span
                                   className={cn(
                                     'text-[10px] font-bold uppercase tracking-[0.22em]',
-                                    darkMode ? 'text-cyan-200' : 'text-primary',
+                                    darkMode ? 'text-primary' : 'text-primary',
                                   )}
                                 >
                                   当前
@@ -268,7 +268,7 @@ export default function FeedbackPage() {
                       className={cn(
                         'flex h-12 w-full items-center justify-between rounded-xl px-4.5 text-sm outline-none transition-colors',
                         darkMode
-                          ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] hover:border-[#444] focus:border-cyan-300/55'
+                          ? 'border border-[#3a3a3a] bg-[#242424] text-[#f2f2f2] hover:border-[#4a4a4a] focus:border-primary/45'
                           : 'border border-border-subtle bg-surface-card text-text-main (255,255,255,0.72)] hover:border-text-main/15 focus:border-primary/60',
                       )}
                     >
@@ -278,7 +278,7 @@ export default function FeedbackPage() {
                         className={cn(
                           'transition-transform',
                           openDropdown === 'priority' && 'rotate-180',
-                          darkMode ? 'text-[#858585]' : 'text-text-main/45',
+                          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
                         )}
                       />
                     </button>
@@ -305,7 +305,7 @@ export default function FeedbackPage() {
                                 'flex w-full items-center justify-between px-4 py-3 text-left text-sm transition-colors',
                                 active
                                   ? darkMode
-                                    ? 'bg-cyan-400/10 text-[#f2f2f2]'
+                                    ? 'bg-primary/10 text-[#f2f2f2]'
                                     : 'bg-primary/8 text-text-main'
                                   : darkMode
                                     ? 'text-[#d7d7d7] hover:bg-[#292929]'
@@ -317,7 +317,7 @@ export default function FeedbackPage() {
                                 <span
                                   className={cn(
                                     'text-[10px] font-bold uppercase tracking-[0.22em]',
-                                    darkMode ? 'text-cyan-200' : 'text-primary',
+                                    darkMode ? 'text-primary' : 'text-primary',
                                   )}
                                 >
                                   当前
@@ -347,7 +347,7 @@ export default function FeedbackPage() {
                     className={cn(
                       'h-12 w-full rounded-xl px-4.5 text-sm outline-none transition-colors focus:border-primary/60',
                       darkMode
-                        ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-cyan-300/55'
+                        ? 'border border-[#3a3a3a] bg-[#242424] text-[#f2f2f2] placeholder:text-muted-soft focus:border-primary/45'
                         : 'border border-border-subtle bg-surface-card placeholder:text-text-main/30 (255,255,255,0.72)]',
                     )}
                   />
@@ -369,7 +369,7 @@ export default function FeedbackPage() {
                     className={cn(
                       'h-12 w-full rounded-xl px-4.5 text-sm outline-none transition-colors focus:border-primary/60',
                       darkMode
-                        ? 'border border-[#303030] bg-[#202020] text-[#e0e0e0] placeholder:text-[#6b6b6b] focus:border-cyan-300/55'
+                        ? 'border border-[#3a3a3a] bg-[#242424] text-[#f2f2f2] placeholder:text-muted-soft focus:border-primary/45'
                         : 'border border-border-subtle bg-surface-card placeholder:text-text-main/30 (255,255,255,0.72)]',
                     )}
                   />
@@ -395,9 +395,9 @@ export default function FeedbackPage() {
                   className={cn(
                     'relative overflow-hidden rounded-2xl border transition-colors focus-within:border-primary/60',
                     darkMode
-                      ? 'border-[#303030] bg-[#202020] focus-within:border-cyan-300/55'
+                      ? 'border-[#3a3a3a] bg-[#242424] focus-within:border-primary/45'
                       : 'border-border-subtle bg-surface-card (255,255,255,0.72)]',
-                    draggingAttachment && (darkMode ? 'border-cyan-300/60' : 'border-primary/60'),
+                    draggingAttachment && (darkMode ? 'border-primary/60' : 'border-primary/60'),
                   )}
                 >
                   <textarea
@@ -408,7 +408,7 @@ export default function FeedbackPage() {
                     placeholder=" "
                     className={cn(
                       'w-full resize-none bg-transparent px-4.5 py-4.5 text-sm leading-7 outline-none placeholder-transparent',
-                      darkMode ? 'text-[#e0e0e0]' : '',
+                      darkMode ? 'text-[#f2f2f2]' : '',
                     )}
                   />
 
@@ -418,7 +418,7 @@ export default function FeedbackPage() {
                         <p
                           className={cn(
                             'max-w-[420px] text-sm leading-7',
-                            darkMode ? 'text-[#e0e0e0]/72' : 'text-text-main/50',
+                            darkMode ? 'text-[#f2f2f2]/72' : 'text-text-main/50',
                           )}
                         >
                           描述现象、预期结果、复现步骤或你希望看到的改进
@@ -428,8 +428,8 @@ export default function FeedbackPage() {
                             'pointer-events-auto flex h-24 w-full max-w-[420px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm transition-colors',
                             darkMode
                               ? draggingAttachment
-                                ? 'border-cyan-300/70 bg-cyan-400/8'
-                                : 'border-[#4a4a4a] hover:border-cyan-300/55 hover:bg-[#252525]'
+                                ? 'border-primary/65 bg-primary/8'
+                                : 'border-[#4a4a4a] hover:border-primary/45 hover:bg-[#2b2b2b]'
                               : draggingAttachment
                                 ? 'border-primary/70 bg-primary/8'
                                 : 'border-text-main/20 hover:border-primary/55 hover:bg-bg-base/70',
@@ -447,7 +447,7 @@ export default function FeedbackPage() {
                           <span
                             className={cn(
                               'flex h-9 w-9 items-center justify-center rounded-xl',
-                              darkMode ? 'bg-cyan-400/10 text-cyan-300' : 'bg-primary/10 text-primary',
+                              darkMode ? 'bg-primary/10 text-primary' : 'bg-primary/10 text-primary',
                             )}
                           >
                             <FileUp size={18} />
@@ -465,8 +465,8 @@ export default function FeedbackPage() {
                           'flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed text-sm transition-colors',
                           darkMode
                             ? draggingAttachment
-                              ? 'border-cyan-300/70 bg-cyan-400/8'
-                              : 'border-[#4a4a4a] hover:border-cyan-300/55 hover:bg-[#252525]'
+                              ? 'border-primary/65 bg-primary/8'
+                              : 'border-[#4a4a4a] hover:border-primary/45 hover:bg-[#2b2b2b]'
                             : draggingAttachment
                               ? 'border-primary/70 bg-primary/8'
                               : 'border-text-main/20 hover:border-primary/55 hover:bg-bg-base/70',
@@ -484,7 +484,7 @@ export default function FeedbackPage() {
                         <span
                           className={cn(
                             'flex h-9 w-9 items-center justify-center rounded-xl',
-                            darkMode ? 'bg-cyan-400/10 text-cyan-300' : 'bg-primary/10 text-primary',
+                            darkMode ? 'bg-primary/10 text-primary' : 'bg-primary/10 text-primary',
                           )}
                         >
                           <FileUp size={18} />
@@ -501,16 +501,16 @@ export default function FeedbackPage() {
                               key={`${file.name}-${file.size}-${file.lastModified}`}
                               className={cn(
                                 'flex max-w-full items-center gap-2 rounded-lg px-3 py-2 text-sm',
-                                darkMode ? 'bg-[#252525]' : 'bg-bg-base/70',
+                                darkMode ? 'bg-[#2b2b2b]' : 'bg-bg-base/70',
                               )}
                             >
                               <div className="flex min-w-0 items-center gap-2">
-                                <Paperclip size={14} className={darkMode ? 'text-cyan-300' : 'text-primary'} />
+                                <Paperclip size={14} className={darkMode ? 'text-primary' : 'text-primary'} />
                                 <span className="max-w-[220px] truncate">{file.name}</span>
                                 <span
                                   className={cn(
                                     'shrink-0 font-mono text-[10px]',
-                                    darkMode ? 'text-[#858585]' : 'text-text-main/42',
+                                    darkMode ? 'text-[#a6a6a6]' : 'text-text-main/42',
                                   )}
                                 >
                                   {formatFileSize(file.size)}
@@ -522,7 +522,7 @@ export default function FeedbackPage() {
                                 className={cn(
                                   'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
                                   darkMode
-                                    ? 'text-[#858585] hover:bg-[#2d2d2d] hover:text-[#e0e0e0]'
+                                    ? 'text-[#a6a6a6] hover:bg-[#303030] hover:text-[#f2f2f2]'
                                     : 'text-text-main/40 hover:bg-white hover:text-text-main',
                                 )}
                                 aria-label={`移除 ${file.name}`}
@@ -542,7 +542,7 @@ export default function FeedbackPage() {
                 type="submit"
                 className={cn(
                   'flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold uppercase tracking-[0.24em] transition-opacity',
-                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
+                  darkMode ? 'bg-primary text-white hover:bg-primary' : 'bg-primary text-white hover:opacity-90',
                 )}
               >
                 提交反馈

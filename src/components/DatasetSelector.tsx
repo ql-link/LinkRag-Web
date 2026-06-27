@@ -83,21 +83,21 @@ export function DatasetSelector({
           single ? 'flex items-center justify-between gap-2' : 'flex items-center flex-wrap gap-2',
           open
             ? darkMode
-              ? 'border-[#4a4a4a] bg-[#2d2d2d]'
+              ? 'border-[#4a4a4a] bg-[#303030]'
               : 'border-border-subtle bg-white'
             : darkMode
-              ? 'border-[#3c3c3c] bg-[#2d2d2d]/60 hover:border-[#4a4a4a]'
+              ? 'border-[#3a3a3a] bg-[#303030]/60 hover:border-[#4a4a4a]'
               : 'border-border-subtle bg-bg-base/30 hover:border-[#c9c9c9]',
         )}
       >
         {single && selectedSingleName ? (
-          <span className={cn('truncate text-sm font-semibold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
+          <span className={cn('truncate text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
             {selectedSingleName}
           </span>
         ) : selectedKbInfo.length > 0 ? (
           <DatasetBadgeList items={selectedKbInfo} darkMode={darkMode} onRemove={removeDataset} />
         ) : (
-          <span className={cn(single ? 'text-sm' : 'mono-label', darkMode ? 'text-gray-400' : 'text-text-main/40')}>
+          <span className={cn(single ? 'text-sm' : 'mono-label', darkMode ? 'text-muted' : 'text-text-main/40')}>
             {placeholder}
           </span>
         )}
@@ -106,7 +106,7 @@ export function DatasetSelector({
           className={cn(
             'ml-auto shrink-0 transition-transform',
             open && 'rotate-180',
-            darkMode ? 'text-gray-400' : 'text-text-main/30',
+            darkMode ? 'text-muted' : 'text-text-main/30',
           )}
         />
       </div>
@@ -116,11 +116,11 @@ export function DatasetSelector({
         <div
           className={cn(
             'absolute top-full left-0 right-0 mt-2 rounded-xl  border overflow-hidden z-[70] origin-top animate-[datasetDropdownIn_140ms_ease-out] will-change-transform',
-            darkMode ? 'bg-[#2d2d2d] border-[#3c3c3c]' : 'bg-white border-border-subtle',
+            darkMode ? 'border-[#3a3a3a] bg-[#303030]' : 'border-border-subtle bg-white',
           )}
         >
           {/* Search */}
-          <div className="p-3 border-b border-border-subtle">
+          <div className="border-b border-border-subtle p-3">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/30" />
               <input
@@ -129,9 +129,9 @@ export function DatasetSelector({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className={cn(
-                  'w-full pl-9 pr-4 py-2 rounded-lg text-xs focus:outline-none focus:border-border-subtle',
+                  'w-full rounded-lg py-2 pl-9 pr-4 text-xs focus:border-border-subtle focus:outline-none',
                   darkMode
-                    ? 'bg-[#1e1e1e] border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
+                    ? 'bg-[#1f1f1f] border-[#3a3a3a] text-[#f2f2f2] placeholder:text-muted-soft'
                     : 'bg-bg-base/50 border-border-subtle',
                 )}
               />
@@ -147,13 +147,13 @@ export function DatasetSelector({
                   key={dataset.id}
                   onClick={() => toggleDataset(dataset.id)}
                   className={cn(
-                    'w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors',
+                    'flex w-full items-center gap-3 rounded-lg p-2.5 transition-colors',
                     isSelected
                       ? darkMode
-                        ? 'bg-[#1e1e1e] text-[#e0e0e0] border border-[#3c3c3c]'
+                        ? 'bg-[#1f1f1f] text-[#f2f2f2] border border-[#3a3a3a]'
                         : 'bg-bg-base/70 text-text-main border border-border-subtle'
                       : darkMode
-                        ? 'text-gray-300 hover:bg-[#383838]'
+                        ? 'text-text-secondary hover:bg-surface-card'
                         : 'text-text-main hover:bg-bg-base/60',
                   )}
                 >
@@ -162,14 +162,14 @@ export function DatasetSelector({
                   {isSelected && (
                     <div
                       className={cn(
-                        'w-4 h-4 rounded-full flex items-center justify-center',
-                        darkMode ? 'bg-[#e0e0e0]' : 'bg-text-main',
+                        'flex h-4 w-4 items-center justify-center rounded-full',
+                        darkMode ? 'bg-[#f2f2f2]' : 'bg-text-main',
                       )}
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                         <path
                           d="M2 5L4 7L8 3"
-                          stroke={darkMode ? '#1e1e1e' : '#ffffff'}
+                          stroke={darkMode ? '#1f1f1f' : '#ffffff'}
                           strokeWidth="1.5"
                           strokeLinecap="round"
                         />

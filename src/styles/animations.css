@@ -135,6 +135,30 @@
   }
 }
 
+@keyframes chatConversationSwap {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes chatSidePanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
 @keyframes datasetTabIn {
   from {
     opacity: 0;
@@ -221,6 +245,14 @@
 
 .chat-rise {
   animation: chatRise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.chat-conversation-swap {
+  animation: chatConversationSwap 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.chat-side-panel-in {
+  animation: chatSidePanelIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .chat-thinking-dot {

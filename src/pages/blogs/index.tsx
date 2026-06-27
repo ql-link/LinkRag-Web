@@ -25,7 +25,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
       <div
         className={cn(
           'relative h-[160px] w-full shrink-0 overflow-hidden rounded-xl border transition-all duration-700 ease-out group-hover:scale-[1.015] sm:w-[240px]',
-          darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+          darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
         )}
       >
         <img src={article.coverPublicUrl} alt={article.title} className="absolute inset-0 h-full w-full object-cover" />
@@ -38,7 +38,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
     <div
       className={cn(
         'relative h-[160px] w-full shrink-0 overflow-hidden rounded-xl border transition-all duration-500 sm:w-[240px] flex items-center justify-center select-none',
-        darkMode ? 'border-[#3c3c3c] bg-[#222223]' : 'border-border-subtle bg-bg-base/40',
+        darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]' : 'border-border-subtle bg-bg-base/40',
       )}
       style={{
         backgroundImage: darkMode
@@ -67,7 +67,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
           stroke="currentColor"
           strokeWidth="1"
           strokeDasharray="3 3"
-          className={darkMode ? 'text-[#444]' : 'text-text-main/20'}
+          className={darkMode ? 'text-[#4a4a4a]' : 'text-text-main/20'}
         />
         <line
           x1="50"
@@ -77,7 +77,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
           stroke="currentColor"
           strokeWidth="1"
           strokeDasharray="3 3"
-          className={darkMode ? 'text-[#444]' : 'text-text-main/20'}
+          className={darkMode ? 'text-[#4a4a4a]' : 'text-text-main/20'}
         />
         <line
           x1="30"
@@ -87,7 +87,7 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
           stroke="currentColor"
           strokeWidth="1"
           strokeDasharray="3 3"
-          className={darkMode ? 'text-[#444]' : 'text-text-main/20'}
+          className={darkMode ? 'text-[#4a4a4a]' : 'text-text-main/20'}
         />
 
         {/* 节点圆形 */}
@@ -95,14 +95,14 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
           cx="30"
           cy="70"
           r="4"
-          className={darkMode ? 'fill-[#333] stroke-[#555]' : 'fill-white stroke-text-main/20'}
+          className={darkMode ? 'fill-[#3a3a3a] stroke-[#4a4a4a]' : 'fill-white stroke-text-main/20'}
           strokeWidth="1"
         />
         <circle
           cx="70"
           cy="60"
           r="5"
-          className={darkMode ? 'fill-[#333] stroke-[#555]' : 'fill-white stroke-text-main/20'}
+          className={darkMode ? 'fill-[#3a3a3a] stroke-[#4a4a4a]' : 'fill-white stroke-text-main/20'}
           strokeWidth="1"
         />
 
@@ -186,10 +186,10 @@ export default function BlogsPage() {
           <h2
             className={cn(
               'flex items-center gap-2 text-xl font-semibold tracking-tight',
-              darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
+              darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
             )}
           >
-            <BookOpenText size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+            <BookOpenText size={20} className={darkMode ? 'text-primary' : 'text-primary'} />
             博客与更新
           </h2>
         </div>
@@ -200,14 +200,14 @@ export default function BlogsPage() {
             className={cn(
               'group flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-300',
               darkMode
-                ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0] hover:border-[#3b82f6]'
-                : 'border-border-subtle bg-white text-text-main hover:border-primary',
+                ? 'border-[#3a3a3a] bg-[#303030] text-[#f2f2f2] hover:border-primary'
+                : 'rounded-md border-border-subtle bg-surface-soft text-text-main hover:border-primary hover:bg-surface-card',
             )}
           >
             <Settings
               size={14}
               className={cn(
-                darkMode ? 'text-[#858585] group-hover:text-[#3b82f6]' : 'text-text-main/50 group-hover:text-primary',
+                darkMode ? 'text-[#a6a6a6] group-hover:text-primary' : 'text-text-main/50 group-hover:text-primary',
               )}
             />
             创作者中心
@@ -281,7 +281,7 @@ export default function BlogsPage() {
                       className={cn(
                         'mb-2 line-clamp-2 text-xl leading-tight transition-colors serif-heading not-italic font-bold',
                         darkMode
-                          ? 'text-[#e0e0e0] group-hover:text-primary'
+                          ? 'text-[#f2f2f2] group-hover:text-primary'
                           : 'text-text-main group-hover:text-primary',
                       )}
                     >
