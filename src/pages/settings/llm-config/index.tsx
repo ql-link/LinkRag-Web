@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Box, ChevronDown, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { Box, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
 import chatIconUrl from '@/assets/icons/color/chat.svg';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import rerankIconUrl from '@/assets/icons/color/rerank.svg';
@@ -7,6 +7,8 @@ import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import speechIconUrl from '@/assets/icons/color/speech.svg';
 import visionIconUrl from '@/assets/icons/color/vision.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { useTheme } from '@/contexts/ThemeContext';
+import { getModelDisplayName } from '@/lib/model-display';
 import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -26,6 +28,7 @@ import type {
 } from '@/types/api';
 
 const PROVIDER_PRIORITY: Array<[number, string[]]> = [
+  [-1, ['linkrag']],
   [0, ['openai', 'openaiapi', 'openaiapicompatible']],
   [1, ['anthropic', 'claude']],
   [2, ['google', 'gemini', 'googlecloud']],
@@ -72,10 +75,11 @@ interface ConfigView extends LLMConfigDTO {
 
 interface ModelGroup {
   modelName: string;
+  displayName?: string | null;
   configs: ConfigView[];
-  selfConfigs: ConfigView[];
-  presetConfigs: ConfigView[];
-  isSelfActive: boolean;
+  editableConfigs: ConfigView[];
+  readonlyConfigs: ConfigView[];
+  isEditableActive: boolean;
 }
 
 interface ProviderGroup {
@@ -90,7 +94,48 @@ interface SetupTarget {
   mode: 'create' | 'update';
 }
 
-type ModelSourceFilter = 'preset' | 'self';
+const LINKRAG_PROVIDER_TYPE = 'linkrag';
+
+function isLinkRagProvider(providerType: string) {
+  return normalizeProviderToken(providerType) === LINKRAG_PROVIDER_TYPE;
+}
+
+function isConfigEditable(config: LLMConfigDTO) {
+  return config.isEditable !== false && !isLinkRagProvider(config.providerType);
+}
+
+function compareConfigOptions(a: ConfigView, b: ConfigView) {
+  const aReadonly = !isConfigEditable(a);
+  const bReadonly = !isConfigEditable(b);
+  if (aReadonly !== bReadonly) {
+    return aReadonly ? -1 : 1;
+  }
+  if (a.isDefault !== b.isDefault) {
+    return a.isDefault ? -1 : 1;
+  }
+  return `${a.providerName}${getModelDisplayName(a)}`.localeCompare(`${b.providerName}${getModelDisplayName(b)}`);
+}
+
+function getConfigProviderIcon(config: ConfigView | null | undefined, darkMode: boolean) {
+  if (!config) return '';
+  const isSystemConfiguredModel = config.isSystemPreset || config.isEditable === false;
+  return getProviderIcon(
+    isSystemConfiguredModel ? 'linkrag' : config.providerType,
+    isSystemConfiguredModel ? 'LinkRag' : config.providerName,
+    config.modelName,
+    { darkMode },
+  );
+}
+
+function getProviderGroupIcon(group: ProviderGroup, darkMode: boolean) {
+  const hasSystemConfiguredModel = group.configs.some((config) => config.isSystemPreset || config.isEditable === false);
+  return getProviderIcon(
+    hasSystemConfiguredModel ? 'linkrag' : group.providerType,
+    hasSystemConfiguredModel ? 'LinkRag' : group.providerName,
+    undefined,
+    { darkMode },
+  );
+}
 
 function isSupportedCapability(capability: LLMCapabilityValue): capability is LLMCapability {
   return CAPABILITIES.some((item) => item.value === capability);
@@ -125,6 +170,13 @@ function capabilitySort(a: LLMCapabilityValue, b: LLMCapabilityValue) {
   return a.localeCompare(b);
 }
 
+function modelCapabilitySortRank(model: ModelGroup) {
+  return model.configs.reduce((rank, config) => {
+    const index = CAPABILITIES.findIndex((item) => item.value === config.capability);
+    return Math.min(rank, index === -1 ? Number.MAX_SAFE_INTEGER : index);
+  }, Number.MAX_SAFE_INTEGER);
+}
+
 function getCapabilityValue(capability: ModelCapabilityDTO['capabilities'][number]): LLMCapabilityValue {
   return typeof capability === 'string' ? capability : capability.capability;
 }
@@ -134,7 +186,7 @@ function getModelCapabilityValues(model: ModelCapabilityDTO) {
 }
 
 function getModelSearchTokens(model: ModelCapabilityDTO) {
-  return [model.modelName];
+  return [model.modelName, model.displayName || ''];
 }
 
 function getProviderSortRank(providerType: string, providerName?: string) {
@@ -180,12 +232,12 @@ function invalidateLLMPageCache() {
 }
 
 export default function LLMPage() {
+  const { darkMode } = useTheme();
   const [configs, setConfigs] = useState<LLMConfigDTO[]>(() => llmPageCache.configs ?? []);
   const [providers, setProviders] = useState<ProviderModelDTO[]>(() => llmPageCache.providers ?? []);
   const [loading, setLoading] = useState(() => !isCacheValid());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
-  const [selectedModelSourceFilter, setSelectedModelSourceFilter] = useState<ModelSourceFilter>('preset');
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [setupTarget, setSetupTarget] = useState<SetupTarget | null>(null);
 
@@ -200,12 +252,14 @@ export default function LLMPage() {
   const viewConfigs = useMemo<ConfigView[]>(() => {
     return configs.map((config) => ({
       ...config,
-      providerName: providerNameByType.get(config.providerType) || config.providerType,
+      providerName:
+        providerNameByType.get(config.providerType) ||
+        (isLinkRagProvider(config.providerType) ? 'LinkRag' : config.providerType),
     }));
   }, [configs, providerNameByType]);
 
   const configuredProviderTypes = useMemo(() => {
-    return new Set(viewConfigs.filter((config) => !config.isSystemPreset).map((config) => config.providerType));
+    return new Set(viewConfigs.filter(isConfigEditable).map((config) => config.providerType));
   }, [viewConfigs]);
 
   const defaultByCapability = useMemo(() => {
@@ -227,12 +281,7 @@ export default function LLMPage() {
       }
     });
     map.forEach((items) => {
-      items.sort((a, b) => {
-        if (a.isSystemPreset !== b.isSystemPreset) {
-          return a.isSystemPreset ? 1 : -1;
-        }
-        return `${a.providerName}${a.modelName}`.localeCompare(`${b.providerName}${b.modelName}`);
-      });
+      items.sort(compareConfigOptions);
     });
     return map;
   }, [viewConfigs]);
@@ -257,16 +306,23 @@ export default function LLMPage() {
         const models = Array.from(modelMap.entries())
           .map(([modelName, modelConfigs]) => {
             const sortedConfigs = [...modelConfigs].sort((a, b) => capabilitySort(a.capability, b.capability));
-            const selfConfigs = sortedConfigs.filter((config) => !config.isSystemPreset);
+            const editableConfigs = sortedConfigs.filter(isConfigEditable);
             return {
               modelName,
+              displayName: sortedConfigs.find((config) => config.displayName?.trim())?.displayName ?? null,
               configs: sortedConfigs,
-              selfConfigs,
-              presetConfigs: sortedConfigs.filter((config) => config.isSystemPreset),
-              isSelfActive: selfConfigs.some((config) => config.isActive),
+              editableConfigs,
+              readonlyConfigs: sortedConfigs.filter((config) => !isConfigEditable(config)),
+              isEditableActive: editableConfigs.some((config) => config.isActive),
             };
           })
-          .sort((a, b) => a.modelName.localeCompare(b.modelName));
+          .sort((a, b) => {
+            const rankDiff = modelCapabilitySortRank(a) - modelCapabilitySortRank(b);
+            if (rankDiff !== 0) {
+              return rankDiff;
+            }
+            return getModelDisplayName(a).localeCompare(getModelDisplayName(b));
+          });
 
         return {
           providerType,
@@ -275,58 +331,15 @@ export default function LLMPage() {
           models,
         };
       })
-      .sort((a, b) => compareProviders(a, b));
+      .sort((a, b) => {
+        const aHasReadonlyConfig = a.configs.some((config) => !isConfigEditable(config));
+        const bHasReadonlyConfig = b.configs.some((config) => !isConfigEditable(config));
+        if (aHasReadonlyConfig !== bHasReadonlyConfig) {
+          return aHasReadonlyConfig ? -1 : 1;
+        }
+        return compareProviders(a, b);
+      });
   }, [viewConfigs]);
-
-  const filteredProviderGroups = useMemo(() => {
-    const includePreset = selectedModelSourceFilter === 'preset';
-    const includeSelf = selectedModelSourceFilter === 'self';
-
-    return providerGroups
-      .map((group) => {
-        const models = group.models
-          .map((model) => {
-            const selfConfigs = includeSelf ? model.selfConfigs : [];
-            const presetConfigs = includePreset ? model.presetConfigs : [];
-            const configs = model.configs.filter((config) => (config.isSystemPreset ? includePreset : includeSelf));
-
-            return {
-              ...model,
-              configs,
-              selfConfigs,
-              presetConfigs,
-              isSelfActive: selfConfigs.some((config) => config.isActive),
-            };
-          })
-          .filter((model) => model.configs.length > 0);
-
-        return {
-          ...group,
-          configs: group.configs.filter((config) => (config.isSystemPreset ? includePreset : includeSelf)),
-          models,
-        };
-      })
-      .filter((group) => group.models.length > 0);
-  }, [providerGroups, selectedModelSourceFilter]);
-
-  const modelSourceCounts = useMemo(() => {
-    const presetProviderTypes = new Set<string>();
-    const selfProviderTypes = new Set<string>();
-
-    providerGroups.forEach((group) => {
-      if (group.configs.some((config) => config.isSystemPreset)) {
-        presetProviderTypes.add(group.providerType);
-      }
-      if (group.configs.some((config) => !config.isSystemPreset)) {
-        selfProviderTypes.add(group.providerType);
-      }
-    });
-
-    return {
-      preset: presetProviderTypes.size,
-      self: selfProviderTypes.size,
-    };
-  }, [providerGroups]);
 
   const filteredProviders = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -411,7 +424,6 @@ export default function LLMPage() {
     try {
       const nextConfigs = await setupLLMProvider({ providerType, apiKey });
       setConfigs(nextConfigs);
-      setSelectedModelSourceFilter('self');
       setSetupTarget(null);
       void revalidate();
     } catch (error) {
@@ -445,39 +457,24 @@ export default function LLMPage() {
     }
   }
 
-  async function handleToggleModel(group: ProviderGroup, model: ModelGroup) {
-    if (model.selfConfigs.length === 0) {
+  async function handleToggleConfig(config: ConfigView) {
+    if (!isConfigEditable(config) || !isSupportedCapability(config.capability)) {
       return;
     }
-    const nextActive = !model.isSelfActive;
-    setConfigs((prev) =>
-      prev.map((config) =>
-        config.providerType === group.providerType && config.modelName === model.modelName && !config.isSystemPreset
-          ? { ...config, isActive: nextActive }
-          : config,
-      ),
-    );
+    const nextActive = !config.isActive;
+    setConfigs((prev) => prev.map((item) => (item.id === config.id ? { ...item, isActive: nextActive } : item)));
     try {
       await toggleLLMModel({
-        providerType: group.providerType,
-        modelName: model.modelName,
+        providerType: config.providerType,
+        modelName: config.modelName,
+        capability: config.capability,
         enabled: nextActive,
       });
       void revalidate();
     } catch (error) {
       console.error('Failed to toggle model:', error);
-      setConfigs((prev) =>
-        prev.map((config) =>
-          config.providerType === group.providerType && config.modelName === model.modelName && !config.isSystemPreset
-            ? { ...config, isActive: model.isSelfActive }
-            : config,
-        ),
-      );
+      setConfigs((prev) => prev.map((item) => (item.id === config.id ? { ...item, isActive: config.isActive } : item)));
     }
-  }
-
-  function handleModelSourceFilterToggle(source: ModelSourceFilter) {
-    setSelectedModelSourceFilter(source);
   }
 
   return (
@@ -516,16 +513,15 @@ export default function LLMPage() {
               loading={loading && defaultByCapability.size === 0}
               defaultByCapability={defaultByCapability}
               candidatesByCapability={candidatesByCapability}
+              darkMode={darkMode}
               onSelect={handleSelectDefault}
             />
 
             <ConfiguredProvidersPanel
               loading={loading && providerGroups.length === 0}
-              groups={filteredProviderGroups}
-              sourceFilter={selectedModelSourceFilter}
-              sourceCounts={modelSourceCounts}
-              onSourceFilterToggle={handleModelSourceFilterToggle}
-              onToggleModel={handleToggleModel}
+              groups={providerGroups}
+              darkMode={darkMode}
+              onToggleConfig={handleToggleConfig}
               onUpdateProvider={(provider) => setSetupTarget({ provider, mode: 'update' })}
             />
           </div>
@@ -565,11 +561,13 @@ function EffectiveModelsPanel({
   loading,
   defaultByCapability,
   candidatesByCapability,
+  darkMode,
   onSelect,
 }: {
   loading?: boolean;
   defaultByCapability: Map<LLMCapability, ConfigView>;
   candidatesByCapability: Map<LLMCapability, ConfigView[]>;
+  darkMode: boolean;
   onSelect: (capability: LLMCapability, configId: string) => void;
 }) {
   const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
@@ -606,9 +604,7 @@ function EffectiveModelsPanel({
             const current = defaultByCapability.get(capability.value);
             const candidates = candidatesByCapability.get(capability.value) || [];
             const isOpen = openCapability === capability.value;
-            const selectedIcon = current
-              ? getProviderIcon(current.providerType, current.providerName, current.modelName)
-              : '';
+            const selectedIcon = getConfigProviderIcon(current, darkMode);
             return (
               <div
                 key={capability.value}
@@ -645,7 +641,7 @@ function EffectiveModelsPanel({
                     ) : null}
                     <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
                   </div>
-                  {current ? <SourcePill preset={current.isSystemPreset} compact quiet /> : null}
+                  {current ? <ConfigAccessPill config={current} compact quiet /> : null}
                 </div>
 
                 <div className="flex min-w-0 items-start justify-between gap-3">
@@ -653,7 +649,7 @@ function EffectiveModelsPanel({
                     <ProviderIcon iconUrl={selectedIcon} name={current?.providerName || capability.label} size="md" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold leading-5 text-ink">
-                        {current ? current.modelName : '未设置'}
+                        {current ? getModelDisplayName(current) : '未设置'}
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
                         {current ? current.providerName : '暂无生效模型'}
@@ -670,7 +666,7 @@ function EffectiveModelsPanel({
                   >
                     <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
                       {candidates.map((config) => {
-                        const optionIcon = getProviderIcon(config.providerType, config.providerName, config.modelName);
+                        const optionIcon = getConfigProviderIcon(config, darkMode);
                         return (
                           <button
                             type="button"
@@ -685,9 +681,9 @@ function EffectiveModelsPanel({
                             <div className="flex items-center gap-2.5">
                               <ProviderIcon iconUrl={optionIcon} name={config.providerName} size="sm" />
                               <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold truncate text-ink">{config.modelName}</p>
+                                <p className="text-xs font-bold truncate text-ink">{getModelDisplayName(config)}</p>
                               </div>
-                              <SourcePill preset={config.isSystemPreset} compact />
+                              <ConfigAccessPill config={config} compact />
                             </div>
                           </button>
                         );
@@ -707,65 +703,44 @@ function EffectiveModelsPanel({
 function ConfiguredProvidersPanel({
   loading,
   groups,
-  sourceFilter,
-  sourceCounts,
-  onSourceFilterToggle,
-  onToggleModel,
+  darkMode,
+  onToggleConfig,
   onUpdateProvider,
 }: {
   loading: boolean;
   groups: ProviderGroup[];
-  sourceFilter: ModelSourceFilter;
-  sourceCounts: { preset: number; self: number };
-  onSourceFilterToggle: (source: ModelSourceFilter) => void;
-  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+  darkMode: boolean;
+  onToggleConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
+  const modelCount = groups.reduce((total, group) => total + group.models.length, 0);
+  const configCount = groups.reduce((total, group) => total + group.configs.length, 0);
+
   return (
     <section className="min-w-0">
       <div className="flex items-center justify-between gap-3 px-1 pb-2">
         <h3 className="text-base font-bold text-ink">模型管理</h3>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onSourceFilterToggle('preset')}
-            aria-pressed={sourceFilter === 'preset'}
-            className={cn(
-              'inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-semibold transition-colors',
-              sourceFilter === 'preset'
-                ? 'border-primary/40 bg-primary/10 text-ink'
-                : 'border-hairline bg-transparent text-text-secondary hover:border-primary/30 hover:text-ink',
-            )}
-          >
-            系统预设
-            <span className="ml-1.5 text-[10px] font-bold opacity-70">{sourceCounts.preset}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSourceFilterToggle('self')}
-            aria-pressed={sourceFilter === 'self'}
-            className={cn(
-              'inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-semibold transition-colors',
-              sourceFilter === 'self'
-                ? 'border-primary/40 bg-primary/10 text-ink'
-                : 'border-hairline bg-transparent text-text-secondary hover:border-primary/30 hover:text-ink',
-            )}
-          >
-            自配
-            <span className="ml-1.5 text-[10px] font-bold opacity-70">{sourceCounts.self}</span>
-          </button>
+        <div className="flex items-center gap-3 text-[11px] font-semibold text-muted">
+          <span>{groups.length} 厂商</span>
+          <span>{modelCount} 模型</span>
+          <span>{configCount} 配置</span>
         </div>
       </div>
 
       {loading ? (
         <LoadingState label="加载模型配置..." />
       ) : groups.length === 0 ? (
-        <EmptyConfiguredState sourceFilter={sourceFilter} />
+        <EmptyConfiguredState />
       ) : (
         <div className="overflow-hidden rounded-md border border-border-subtle bg-bg-card-solid">
           {groups.map((group) => (
             <Fragment key={group.providerType}>
-              <ProviderConfigCard group={group} onToggleModel={onToggleModel} onUpdateProvider={onUpdateProvider} />
+              <ProviderConfigCard
+                group={group}
+                darkMode={darkMode}
+                onToggleConfig={onToggleConfig}
+                onUpdateProvider={onUpdateProvider}
+              />
             </Fragment>
           ))}
         </div>
@@ -776,112 +751,174 @@ function ConfiguredProvidersPanel({
 
 function ProviderConfigCard({
   group,
-  onToggleModel,
+  darkMode,
+  onToggleConfig,
   onUpdateProvider,
 }: {
   group: ProviderGroup;
-  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+  darkMode: boolean;
+  onToggleConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
-  const iconUrl = getProviderIcon(group.providerType, group.providerName);
-  const selfCount = group.configs.filter((config) => !config.isSystemPreset).length;
-  const presetCount = group.configs.length - selfCount;
+  const iconUrl = getProviderGroupIcon(group, darkMode);
+  const editableCount = group.configs.filter(isConfigEditable).length;
+  const canUpdateProvider = editableCount > 0;
   const [collapsed, setCollapsed] = useState(true);
 
+  function toggleCollapsed() {
+    setCollapsed((prev) => !prev);
+  }
+
+  function handleHeaderKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if ((event.target as HTMLElement).closest('button')) {
+      return;
+    }
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+    event.preventDefault();
+    toggleCollapsed();
+  }
+
   return (
-    <article className="border-b border-border-subtle px-3 py-3 last:border-b-0">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-2 py-1.5">
+    <article className="border-b border-border-subtle px-3 py-3 transition-colors duration-200 last:border-b-0">
+      <header
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        onClick={toggleCollapsed}
+        onKeyDown={handleHeaderKeyDown}
+        className={cn(
+          '-mx-3 -mt-3 flex cursor-pointer flex-col justify-between gap-3 px-5 py-4 outline-none transition-colors duration-200 hover:bg-ink/[0.028] focus-visible:bg-ink/[0.035] md:flex-row md:items-center',
+          collapsed && '-mb-3',
+        )}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <ProviderIcon iconUrl={iconUrl} name={group.providerName} size="sm" />
           <div className="min-w-0">
             <h4 className="text-sm font-bold truncate tracking-wide text-ink">{group.providerName}</h4>
+            <p className="mt-0.5 text-[11px] font-medium text-muted">
+              {group.models.length} 个模型 · {group.configs.length} 个配置
+            </p>
           </div>
         </div>
-        <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 w-full md:w-auto">
-          <div className="text-[10px] font-mono uppercase tracking-widest font-semibold text-muted">
-            <span>
-              {group.models.length} MODELS
-              {selfCount > 0 ? ` · ${selfCount} SELF` : ''}
-              {presetCount > 0 ? ` · ${presetCount} PRESET` : ''}
-            </span>
-          </div>
+        <div className="flex w-full shrink-0 items-center justify-between gap-4 md:w-auto md:justify-end">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                onUpdateProvider({
-                  providerType: group.providerType,
-                  providerName: group.providerName,
-                  models: [],
-                })
-              }
-              className="inline-flex h-8 items-center justify-center rounded-md border border-border-subtle bg-surface-soft px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:bg-surface-card hover:text-ink"
-              title="更新密钥"
-              aria-label="更新密钥"
-            >
-              更新密钥
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollapsed((prev) => !prev)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-surface-soft px-3 text-[11px] font-bold text-text-secondary transition-all duration-300 hover:border-primary/30 hover:bg-surface-card hover:text-ink"
-              title={collapsed ? '展开' : '收起'}
-              aria-label={collapsed ? '展开' : '收起'}
-            >
-              <ChevronDown size={12} className={cn('transition-transform duration-300', !collapsed && 'rotate-180')} />
-              {collapsed ? '展开' : '收起'}
-            </button>
+            {canUpdateProvider ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onUpdateProvider({
+                    providerType: group.providerType,
+                    providerName: group.providerName,
+                    models: [],
+                  });
+                }}
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-[11px] font-bold text-muted transition-[background-color,border-color,color] duration-200 hover:border-primary/20 hover:bg-primary/6 hover:text-primary"
+                title="更新密钥"
+                aria-label="更新密钥"
+              >
+                <Key size={12} />
+                更新密钥
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
 
-      {!collapsed ? (
-        <div className="mt-2 pl-5 md:pl-8 space-y-1.5 border-l border-border-subtle ml-6 md:ml-7">
-          {group.models.map((model) => (
-            <Fragment key={model.modelName}>
-              <ModelConfigBlock group={group} model={model} onToggleModel={onToggleModel} />
-            </Fragment>
-          ))}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows,opacity,transform,margin] duration-[260ms] ease-out',
+          collapsed
+            ? 'mt-0 grid-rows-[0fr] -translate-y-1 opacity-0'
+            : 'mt-3 grid-rows-[1fr] translate-y-0 opacity-100',
+        )}
+        aria-hidden={collapsed}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="grid gap-x-6 gap-y-4 px-2 pb-1 sm:grid-cols-2 xl:grid-cols-3">
+            {group.models.map((model) => (
+              <ModelConfigBlock key={model.modelName} model={model} onToggleConfig={onToggleConfig} />
+            ))}
+          </div>
         </div>
-      ) : null}
+      </div>
     </article>
   );
 }
 
 function ModelConfigBlock({
-  group,
   model,
-  onToggleModel,
+  onToggleConfig,
 }: {
-  group: ProviderGroup;
   model: ModelGroup;
-  onToggleModel: (group: ProviderGroup, model: ModelGroup) => void;
+  onToggleConfig: (config: ConfigView) => void;
 }) {
-  const capabilityText = model.configs.map((config) => getCapabilityMeta(config.capability).label).join(' · ');
+  const capabilityConfigs = [...model.configs].sort((a, b) => capabilitySort(a.capability, b.capability));
+  const activeConfigCount = model.configs.filter((config) => config.isActive).length;
+  const isSystemOnly = model.editableConfigs.length === 0;
 
   return (
-    <section className="py-2.5 px-3 rounded-xl hover:bg-primary/5 transition-colors duration-300">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex flex-col gap-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-bold tracking-wide text-ink">{model.modelName}</p>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {model.selfConfigs.length > 0 ? <SourcePill preset={false} compact /> : null}
-              {model.presetConfigs.length > 0 ? <SourcePill preset compact /> : null}
-            </div>
-          </div>
-          <p className="text-[10px] font-mono uppercase tracking-wider text-muted">{capabilityText}</p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <StateSwitch
-            checked={model.isSelfActive}
-            label={model.selfConfigs.length === 0 ? '仅预设' : model.isSelfActive ? '启用中' : '已停用'}
-            disabled={model.selfConfigs.length === 0}
-            onClick={() => onToggleModel(group, model)}
-          />
+    <section className="group min-w-0 rounded-md border border-border-subtle bg-bg-card-solid p-3 transition-[border-color,background-color] duration-200 ease-out hover:border-primary/30 hover:bg-ink/[0.018]">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <p className="line-clamp-2 min-w-0 flex-1 break-all text-sm font-bold leading-5 tracking-wide text-ink">
+          {getModelDisplayName(model)}
+        </p>
+
+        <div className="flex max-w-[56%] shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+          {capabilityConfigs.map((config) => (
+            <CapabilityControl key={config.id} config={config} onToggle={() => onToggleConfig(config)} />
+          ))}
         </div>
       </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 pl-px">
+        {isSystemOnly ? (
+          <div className="flex items-center gap-2 text-[11px] font-bold text-muted">
+            <span>LinkRAG 默认配置</span>
+            <span className="h-1 w-1 rounded-full bg-muted-soft" />
+            <span>无法更改</span>
+          </div>
+        ) : (
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted">
+            {model.editableConfigs.length} configurable
+          </span>
+        )}
+        <p className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted">
+          {activeConfigCount}/{model.configs.length}
+        </p>
+      </div>
     </section>
+  );
+}
+
+function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle: () => void }) {
+  const capability = getCapabilityMeta(config.capability);
+  const editable = isConfigEditable(config);
+  const label = editable
+    ? `${capability.label}${config.isActive ? '已启用，点击停用' : '已停用，点击启用'}`
+    : `${capability.label}LinkRAG 默认配置，无法更改`;
+
+  return (
+    <span
+      className={cn(
+        'inline-flex h-7 min-w-0 shrink-0 items-center gap-2 text-[11px] font-bold transition-colors',
+        config.isActive ? 'text-ink' : 'text-muted',
+        editable ? 'hover:text-ink' : 'opacity-75',
+      )}
+    >
+      {capability.iconUrl ? (
+        <img
+          src={capability.iconUrl}
+          alt=""
+          aria-hidden="true"
+          className={cn('h-4 w-4 shrink-0 object-contain', !config.isActive && 'opacity-55')}
+        />
+      ) : null}
+      <span className="whitespace-nowrap leading-none">{capability.label}</span>
+      {editable ? <MiniCapabilitySwitch checked={config.isActive} label={label} onClick={onToggle} /> : null}
+    </span>
   );
 }
 
@@ -938,6 +975,13 @@ function ProviderPickerModal({
           <div className="relative mt-5">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
+              type="search"
+              name="llm-provider-search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="搜索厂商、模型或能力"
@@ -1099,6 +1143,12 @@ function SetupProviderModal({
         <div className="p-6 space-y-4">
           <input
             type="password"
+            name={`llm-provider-api-key-${target.provider.providerType}`}
+            autoComplete="new-password"
+            autoCorrect="off"
+            spellCheck={false}
+            data-lpignore="true"
+            data-1p-ignore="true"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             placeholder="输入 API KEY"
@@ -1139,52 +1189,37 @@ function LoadingState({ label }: { label: string }) {
   );
 }
 
-function EmptyConfiguredState({ sourceFilter }: { sourceFilter: ModelSourceFilter }) {
-  const title = sourceFilter === 'preset' ? '暂无系统预设模型' : '暂无自配模型';
-
+function EmptyConfiguredState() {
   return (
     <div className="text-center py-16 text-muted">
       <Key size={38} className="mx-auto mb-4 text-muted-soft" />
-      <p className="text-sm font-bold text-ink">{title}</p>
-      <p className="mt-1 text-xs">切换上方按钮查看另一类模型。</p>
+      <p className="text-sm font-bold text-ink">暂无模型配置</p>
+      <p className="mt-1 text-xs">配置厂商后会在这里显示可用模型，LinkRag 会作为平台默认配置展示。</p>
     </div>
   );
 }
 
-function StateSwitch({
-  checked,
-  label,
-  disabled,
-  onClick,
-}: {
-  checked: boolean;
-  label: string;
-  disabled?: boolean;
-  onClick?: () => void;
-}) {
-  if (disabled) {
-    return (
-      <span className="inline-flex h-6 items-center justify-center rounded-full border border-dashed border-hairline bg-surface-soft px-2.5 text-[10px] font-bold font-mono tracking-wide text-muted-soft">
-        {label}
-      </span>
-    );
-  }
-
+function MiniCapabilitySwitch({ checked, label, onClick }: { checked: boolean; label: string; onClick?: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={checked}
       className={cn(
-        'group relative inline-flex h-6 w-[88px] items-center justify-center rounded-full border text-[10px] font-bold font-mono tracking-wide transition-all duration-300 outline-none cursor-pointer',
+        'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border px-[2px] outline-none transition-[background-color,border-color,box-shadow] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary/20',
         checked
-          ? 'border-success/35 bg-success/10 text-success hover:bg-success/15 hover:border-success/50'
-          : 'border-hairline bg-surface-soft text-muted hover:bg-surface-card hover:border-hairline',
+          ? 'border-primary/40 bg-primary/85 shadow-[0_3px_10px_rgba(204,107,79,0.20)] hover:bg-primary'
+          : 'border-border-subtle bg-surface-soft hover:border-primary/30 hover:bg-surface-card',
       )}
     >
-      <span className="inline-block group-hover:hidden transition-all duration-200">{label}</span>
-      <span className="hidden group-hover:inline-block transition-all duration-200 text-[10px]">
-        {checked ? '点击停用' : '点击启用'}
-      </span>
+      <span
+        className={cn(
+          'h-4 w-4 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[background-color,transform] duration-200 ease-out',
+          checked ? 'translate-x-4 bg-white' : 'translate-x-0 bg-muted-soft',
+        )}
+      />
     </button>
   );
 }
@@ -1230,16 +1265,24 @@ function CountPill({ label }: { label: string }) {
   return <span className="inline-flex items-center text-[10px] font-bold text-muted">{label}</span>;
 }
 
-function SourcePill({ preset, compact, quiet }: { preset: boolean; compact?: boolean; quiet?: boolean }) {
+function ConfigTypePill({ label, compact, quiet }: { label: string; compact?: boolean; quiet?: boolean }) {
   return (
     <span
       className={cn(
         compact ? 'h-5 px-1.5 text-[10px]' : 'h-6 px-2 text-[10px]',
         'w-fit rounded-md inline-flex items-center justify-center font-bold',
-        quiet ? 'bg-transparent text-muted' : preset ? 'bg-primary/10 text-primary' : 'bg-surface-soft text-muted',
+        quiet
+          ? 'bg-transparent text-muted'
+          : label === '平台'
+            ? 'bg-primary/10 text-primary'
+            : 'bg-surface-soft text-muted',
       )}
     >
-      {preset ? '系统预设' : '自配'}
+      {label}
     </span>
   );
+}
+
+function ConfigAccessPill({ config, compact, quiet }: { config: ConfigView; compact?: boolean; quiet?: boolean }) {
+  return <ConfigTypePill label={isConfigEditable(config) ? '自定义' : '平台'} compact={compact} quiet={quiet} />;
 }

@@ -40,6 +40,7 @@ export async function setupLLMProvider(data: { providerType: string; apiKey: str
 export async function toggleLLMModel(data: {
   providerType: string;
   modelName: string;
+  capability?: LLMCapability;
   enabled: boolean;
 }): Promise<void> {
   await apiClient.patch('/api/v1/llm/configs/toggle-model', data);
@@ -131,6 +132,10 @@ export async function updateAdminSystemPreset(id: number, data: UpdatePresetRequ
 
 export async function toggleAdminSystemPreset(id: number, isActive: boolean): Promise<void> {
   await apiClient.patch(`/api/v1/admin/system-presets/${id}/active?isActive=${encodeURIComponent(String(isActive))}`);
+}
+
+export async function setAdminSystemPresetDefault(id: number): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/system-presets/${id}/default`);
 }
 
 export async function deleteAdminSystemPreset(id: number): Promise<void> {
