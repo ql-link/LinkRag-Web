@@ -7,6 +7,7 @@ import pdfParseIconUrl from '@/assets/icons/color/pdf-parse.svg';
 import recallIconUrl from '@/assets/icons/color/recall.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useToast } from '@/contexts/ToastContext';
+import { getModelDisplayName } from '@/lib/model-display';
 import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -71,6 +72,7 @@ type DefaultModelInfo = {
   providerType: string;
   providerName: string;
   modelName: string;
+  displayName?: string | null;
 };
 
 interface ParamSpec {
@@ -1070,7 +1072,7 @@ function ReadonlyModelField({ model, hint }: { model?: DefaultModelInfo | null; 
         <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} />
         <div className="min-w-0 flex-1">
           <p className={cn('truncate font-mono text-[12.5px] font-semibold', model ? 'text-ink' : 'text-error')}>
-            {model?.modelName || DISPLAY_MODEL_FALLBACK}
+            {getModelDisplayName(model) || DISPLAY_MODEL_FALLBACK}
           </p>
           <p className="mt-1 truncate text-[10.5px] text-muted">
             {model ? `${model.providerName} · ${hint || '跟随用户默认模型'}` : hint || '跟随用户默认模型'}

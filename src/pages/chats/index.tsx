@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type DragEvent,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { Copy, Files, Info, Loader2, MessageSquare, Search, Send, Upload, X } from 'lucide-react';
@@ -27,6 +28,7 @@ import {
   limitRagQueryLength,
 } from '@/lib/rag-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
 import {
   createConversation,
@@ -38,7 +40,7 @@ import {
 } from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
 import { getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
-import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
+import { getLLMConfigs } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
 import {
   KNOWLEDGE_FILE_ACCEPT,
@@ -49,7 +51,7 @@ import {
 import { usePublishChatWorkspace, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 import { getCachedConversations, setCachedConversations } from '@/lib/conversationsCache';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
-import { copyTextToClipboard } from '@/lib/clipboard';
+import { getModelDisplayName } from '@/lib/model-display';
 import type {
   ConversationDTO,
   DatasetDTO,
@@ -63,8 +65,11 @@ import type {
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
 const SIDE_PANEL_ANIMATION_MS = 180;
+const RIGHT_PANEL_LAYOUT_RELEASE_DELAY_MS = 60;
 const RIGHT_PANEL_WIDTH = 333;
 const RIGHT_PANEL_OFFSET = RIGHT_PANEL_WIDTH + 16;
+const RIGHT_PANEL_MIN_SPLIT_RATIO = 0.28;
+const RIGHT_PANEL_MAX_SPLIT_RATIO = 0.72;
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -211,8 +216,24 @@ function shouldInsetModelIcon(model: LLMConfigDTO | null | undefined, iconUrl: s
   return INSET_MODEL_ICON_KEYS.some((key) => token.includes(key));
 }
 
-function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null | undefined; size?: 'xs' | 'sm' }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerType, model.modelName) : '';
+function ModelProviderIcon({
+  model,
+  size = 'sm',
+  darkMode = false,
+}: {
+  model: LLMConfigDTO | null | undefined;
+  size?: 'xs' | 'sm';
+  darkMode?: boolean;
+}) {
+  const isSystemConfiguredModel = Boolean(model?.isSystemPreset || model?.isEditable === false);
+  const iconUrl = model
+    ? getProviderIcon(
+        isSystemConfiguredModel ? 'linkrag' : model.providerType,
+        isSystemConfiguredModel ? 'LinkRag' : model.providerType,
+        model.modelName,
+        { darkMode },
+      )
+    : '';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
   const sizeClass = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconInsetClass = shouldInsetModelIcon(model, iconUrl) ? 'p-1' : 'p-0';
@@ -319,13 +340,16 @@ function RecallEvidencePopover({
   open,
   message,
   onClose,
+  closeSignal = 0,
 }: {
   open: boolean;
   message: LocalMessage | null;
   onClose: () => void;
+  closeSignal?: number;
 }) {
   const [shouldRender, setShouldRender] = useState(open);
   const [closing, setClosing] = useState(open);
+  const closeSignalRef = useRef(closeSignal);
 
   useEffect(() => {
     if (open) {
@@ -341,9 +365,16 @@ function RecallEvidencePopover({
     return () => window.clearTimeout(timeoutId);
   }, [open, shouldRender]);
 
+  useEffect(() => {
+    if (closeSignalRef.current === closeSignal) return;
+    closeSignalRef.current = closeSignal;
+    if (!open || !shouldRender) return;
+    setClosing(true);
+  }, [closeSignal, open, shouldRender]);
+
   const closeWithAnimation = useCallback(() => {
     setClosing(true);
-    window.setTimeout(onClose, SIDE_PANEL_ANIMATION_MS);
+    onClose();
   }, [onClose]);
 
   if (!shouldRender) return null;
@@ -407,6 +438,7 @@ function AiGeneratingIcon({ active = false }: { active?: boolean }) {
   const [replayNonce, setReplayNonce] = useState(0);
   const [isReplaying, setIsReplaying] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+  const { darkMode } = useTheme();
 
   useEffect(() => {
     if (!isReplaying || active) return;
@@ -428,6 +460,8 @@ function AiGeneratingIcon({ active = false }: { active?: boolean }) {
 
   const showActiveIcon = active || (isReplaying && !isSettling);
   const showStaticIcon = !active && (!isReplaying || isSettling);
+  const staticIconUrl = darkMode ? aiGeneratingOnDarkIconUrl : aiGeneratingIconUrl;
+  const activeIconUrl = darkMode ? aiGeneratingActiveOnDarkIconUrl : aiGeneratingActiveIconUrl;
 
   return (
     <button
@@ -442,39 +476,20 @@ function AiGeneratingIcon({ active = false }: { active?: boolean }) {
       }}
     >
       <img
-        src={aiGeneratingIconUrl}
+        src={staticIconUrl}
         alt=""
         className={cn(
-          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:hidden',
+          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out',
           showStaticIcon ? 'opacity-100' : 'opacity-0',
         )}
         draggable={false}
       />
       <img
-        src={aiGeneratingOnDarkIconUrl}
+        key={`${darkMode ? 'dark' : 'light'}-active-${replayNonce}`}
+        src={activeIconUrl}
         alt=""
         className={cn(
-          'absolute hidden h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:block',
-          showStaticIcon ? 'opacity-100' : 'opacity-0',
-        )}
-        draggable={false}
-      />
-      <img
-        key={`light-active-${replayNonce}`}
-        src={aiGeneratingActiveIconUrl}
-        alt=""
-        className={cn(
-          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:hidden',
-          showActiveIcon ? 'opacity-100' : 'opacity-0',
-        )}
-        draggable={false}
-      />
-      <img
-        key={`dark-active-${replayNonce}`}
-        src={aiGeneratingActiveOnDarkIconUrl}
-        alt=""
-        className={cn(
-          'absolute hidden h-[34px] w-[34px] transition-opacity duration-200 ease-out dark:block',
+          'absolute h-[34px] w-[34px] transition-opacity duration-200 ease-out',
           showActiveIcon ? 'opacity-100' : 'opacity-0',
         )}
         draggable={false}
@@ -561,11 +576,11 @@ function MessageAnchorRail({
       <div
         role="tooltip"
         className={cn(
-          'absolute right-12 top-1/2 w-96 -translate-y-1/2 translate-x-2 rounded-2xl border border-hairline bg-canvas/98 p-1.5 text-left opacity-0 shadow-xl shadow-black/10 ring-1 ring-black/[0.03] backdrop-blur transition-[opacity,transform] duration-200 ease-out',
+          'absolute right-12 top-1/2 w-64 -translate-y-1/2 translate-x-2 rounded-xl border border-hairline bg-canvas/98 p-1 text-left opacity-0 shadow-xl shadow-black/10 ring-1 ring-black/[0.03] backdrop-blur transition-[opacity,transform] duration-200 ease-out',
           'pointer-events-none group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100',
         )}
       >
-        <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
+        <div className="max-h-64 space-y-0.5 overflow-y-auto pr-1">
           {items.map((item) => {
             const active = item.id === activeId;
 
@@ -575,7 +590,7 @@ function MessageAnchorRail({
                 type="button"
                 onClick={() => onSelect(item.id)}
                 className={cn(
-                  'block w-full truncate rounded-xl px-3 py-2 text-left text-sm leading-6 transition-colors',
+                  'block w-full truncate rounded-lg px-2.5 py-1.5 text-left text-xs leading-5 transition-colors',
                   active ? 'bg-surface-soft text-ink' : 'text-text-main hover:bg-surface-soft/70',
                 )}
                 title={item.content}
@@ -619,6 +634,7 @@ export default function ChatsPage() {
   const routeState = location.state as ChatRouteState | null;
   const routeDatasetId = parseRouteDatasetId(routeState?.datasetId);
   const { user } = useAuth();
+  const { darkMode } = useTheme();
   const { addToast } = useToast();
   const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -646,6 +662,7 @@ export default function ChatsPage() {
   const [uploading, setUploading] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(false);
   const [filesPanelRendered, setFilesPanelRendered] = useState(false);
+  const [filesPanelClosing, setFilesPanelClosing] = useState(false);
   const [resourcePanelMode, setResourcePanelMode] = useState<ResourcePanelMode>(() =>
     routeDatasetId ? 'files' : 'datasets',
   );
@@ -662,8 +679,12 @@ export default function ChatsPage() {
   const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
   const [recallPanelOpen, setRecallPanelOpen] = useState(false);
   const [recallPanelRendered, setRecallPanelRendered] = useState(false);
+  const [recallCloseSignal, setRecallCloseSignal] = useState(0);
   const [rightPanelLayoutOpen, setRightPanelLayoutOpen] = useState(false);
+  const [rightPanelSplitRatio, setRightPanelSplitRatio] = useState(0.3);
   const [activeMessageAnchorId, setActiveMessageAnchorId] = useState<string | null>(null);
+  const filesCloseTimeoutRef = useRef<number | null>(null);
+  const recallCloseTimeoutRef = useRef<number | null>(null);
 
   const activeConversationId = id ? Number(id) : null;
   const rightPanelActive = recallPanelOpen || filesPanelOpen;
@@ -704,6 +725,13 @@ export default function ChatsPage() {
   }, [modelOpen]);
 
   useEffect(() => {
+    return () => {
+      if (filesCloseTimeoutRef.current !== null) window.clearTimeout(filesCloseTimeoutRef.current);
+      if (recallCloseTimeoutRef.current !== null) window.clearTimeout(recallCloseTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (filesPanelOpen) {
       setFilesPanelRendered(true);
       return;
@@ -732,7 +760,7 @@ export default function ChatsPage() {
     }
 
     if (!rightPanelLayoutOpen) return;
-    const timeoutId = window.setTimeout(() => setRightPanelLayoutOpen(false), SIDE_PANEL_ANIMATION_MS);
+    const timeoutId = window.setTimeout(() => setRightPanelLayoutOpen(false), RIGHT_PANEL_LAYOUT_RELEASE_DELAY_MS);
     return () => window.clearTimeout(timeoutId);
   }, [rightPanelActive, rightPanelLayoutOpen]);
 
@@ -845,22 +873,15 @@ export default function ChatsPage() {
     // 数据集与模型配置：仅影响主区域（知识库/模型选择），与历史列表互不阻塞
     const loadWorkspace = async () => {
       try {
-        const [dsResult, modelResult, defaultChatModel] = await Promise.all([
+        const [dsResult, modelResult] = await Promise.all([
           getDatasets(1, 100),
           getLLMConfigs({ capability: 'CHAT', isActive: true }),
-          getDefaultLLMConfig('CHAT').catch(() => null),
         ]);
         if (cancelled) return;
         setDatasets(dsResult.items);
-        const chatModelItems =
-          defaultChatModel && !modelResult.some((model) => model.id === defaultChatModel.id)
-            ? [defaultChatModel, ...modelResult]
-            : modelResult;
+        const chatModelItems = modelResult;
         setChatModels(chatModelItems);
-        const defaultModel =
-          (defaultChatModel ? chatModelItems.find((model) => model.id === defaultChatModel.id) : null) ??
-          chatModelItems.find((model) => model.isDefault) ??
-          chatModelItems[0];
+        const defaultModel = chatModelItems.find((model) => model.isDefault) ?? chatModelItems[0];
         cachedChatWorkspace = {
           datasets: dsResult.items,
           chatModels: chatModelItems,
@@ -1084,7 +1105,7 @@ export default function ChatsPage() {
       if (!text) return;
 
       try {
-        await copyTextToClipboard(text);
+        await navigator.clipboard.writeText(text);
         addToast('success', '已复制');
       } catch (error) {
         console.error('Failed to copy message:', error);
@@ -1508,19 +1529,104 @@ export default function ChatsPage() {
       ? (evidenceMessage?.recallChunks?.length ?? 0)
       : (evidenceMessage?.references?.length ?? 0);
 
-  const toggleFilesPanel = useCallback(() => {
-    setFilesPanelOpen((open) => {
-      const nextOpen = !open;
-      if (nextOpen && !selectedDatasetId) {
-        setResourcePanelMode('datasets');
-      }
-      return nextOpen;
-    });
+  const openFilesPanel = useCallback(() => {
+    if (filesCloseTimeoutRef.current !== null) {
+      window.clearTimeout(filesCloseTimeoutRef.current);
+      filesCloseTimeoutRef.current = null;
+    }
+    if (!selectedDatasetId) {
+      setResourcePanelMode('datasets');
+    }
+    setFilesPanelClosing(false);
+    setFilesPanelOpen(true);
   }, [selectedDatasetId]);
 
-  const toggleRecallPanel = useCallback(() => {
-    setRecallPanelOpen((open) => !open);
+  const closeFilesPanelWithAnimation = useCallback(() => {
+    if (!filesPanelOpen) return;
+    if (filesCloseTimeoutRef.current !== null) {
+      window.clearTimeout(filesCloseTimeoutRef.current);
+    }
+    setFilesPanelClosing(true);
+    filesCloseTimeoutRef.current = window.setTimeout(() => {
+      setFilesPanelOpen(false);
+      setFilesPanelClosing(false);
+      filesCloseTimeoutRef.current = null;
+    }, SIDE_PANEL_ANIMATION_MS);
+  }, [filesPanelOpen]);
+
+  const toggleFilesPanel = useCallback(() => {
+    if (filesPanelOpen) {
+      closeFilesPanelWithAnimation();
+      return;
+    }
+    openFilesPanel();
+  }, [closeFilesPanelWithAnimation, filesPanelOpen, openFilesPanel]);
+
+  const openRecallPanel = useCallback(() => {
+    if (recallCloseTimeoutRef.current !== null) {
+      window.clearTimeout(recallCloseTimeoutRef.current);
+      recallCloseTimeoutRef.current = null;
+    }
+    setRecallPanelOpen(true);
   }, []);
+
+  const closeRecallPanelWithAnimation = useCallback(() => {
+    if (!recallPanelOpen) return;
+    if (recallCloseTimeoutRef.current !== null) {
+      window.clearTimeout(recallCloseTimeoutRef.current);
+    }
+    setRecallCloseSignal((signal) => signal + 1);
+    recallCloseTimeoutRef.current = window.setTimeout(() => {
+      setRecallPanelOpen(false);
+      recallCloseTimeoutRef.current = null;
+    }, SIDE_PANEL_ANIMATION_MS);
+  }, [recallPanelOpen]);
+
+  const toggleRecallPanel = useCallback(() => {
+    if (recallPanelOpen) {
+      closeRecallPanelWithAnimation();
+      return;
+    }
+    openRecallPanel();
+  }, [closeRecallPanelWithAnimation, openRecallPanel, recallPanelOpen]);
+
+  const resizeRightPanelSplit = useCallback((clientY: number) => {
+    const panel = rightPanelsRef.current;
+    if (!panel) return;
+
+    const rect = panel.getBoundingClientRect();
+    if (rect.height <= 0) return;
+
+    const ratio = (clientY - rect.top) / rect.height;
+    setRightPanelSplitRatio(Math.min(RIGHT_PANEL_MAX_SPLIT_RATIO, Math.max(RIGHT_PANEL_MIN_SPLIT_RATIO, ratio)));
+  }, []);
+
+  const beginRightPanelSplitResize = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      resizeRightPanelSplit(event.clientY);
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        moveEvent.preventDefault();
+        resizeRightPanelSplit(moveEvent.clientY);
+      };
+
+      const handlePointerEnd = () => {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerEnd);
+        window.removeEventListener('pointercancel', handlePointerEnd);
+      };
+
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerEnd);
+      window.addEventListener('pointercancel', handlePointerEnd);
+    },
+    [resizeRightPanelSplit],
+  );
 
   // 兼容仍通过 ChatWorkspaceContext 读取历史快照的外层能力；右侧面板直接使用本页快照。
   useEffect(() => {
@@ -1538,12 +1644,14 @@ export default function ChatsPage() {
   const rightPanelRendered = recallPanelRendered || filesPanelRendered;
   const effectiveRecallPanelOpen = rightPanelActive ? recallPanelOpen : recallPanelRendered;
   const effectiveFilesPanelOpen = rightPanelActive ? filesPanelOpen : filesPanelRendered;
-  const rightPanelVisibleCount = [effectiveRecallPanelOpen, effectiveFilesPanelOpen].filter(Boolean).length;
+  const rightPanelSplitResizable = effectiveFilesPanelOpen && effectiveRecallPanelOpen;
+  const filesPanelRowSize = rightPanelSplitResizable ? rightPanelSplitRatio : effectiveFilesPanelOpen ? 1 : 0;
+  const recallPanelRowSize = rightPanelSplitResizable ? 1 - rightPanelSplitRatio : effectiveRecallPanelOpen ? 1 : 0;
   const rightPanelRows = [
-    `minmax(0, ${effectiveFilesPanelOpen ? 1 : 0}fr)`,
-    `minmax(0, ${effectiveRecallPanelOpen ? 1 : 0}fr)`,
+    `minmax(0, ${filesPanelRowSize}fr)`,
+    `${rightPanelSplitResizable ? 12 : 0}px`,
+    `minmax(0, ${recallPanelRowSize}fr)`,
   ].join(' ');
-  const rightPanelGap = rightPanelVisibleCount > 1 ? 12 : 0;
   const showResourceDatasetList = resourcePanelMode === 'datasets' || !selectedDatasetId;
   const chatContentOffsetClass = rightPanelOpen ? '' : 'lg:-translate-x-8';
   const showInlineComposer = !loadingConversation && messages.length === 0;
@@ -1573,18 +1681,18 @@ export default function ChatsPage() {
               'flex h-10 shrink-0 items-center overflow-hidden rounded-lg text-xs font-medium text-text-secondary transition-[width,color] duration-180 ease-out hover:text-ink',
               modelOpen ? 'w-[132px] justify-start gap-2 px-2 sm:w-[164px]' : 'w-10 justify-center gap-0 px-0',
             )}
-            title={selectedModel?.modelName ?? '选择模型'}
-            aria-label={selectedModel?.modelName ?? '选择模型'}
+            title={getModelDisplayName(selectedModel) || '选择模型'}
+            aria-label={getModelDisplayName(selectedModel) || '选择模型'}
             aria-expanded={modelOpen}
           >
-            <ModelProviderIcon model={selectedModel} size="sm" />
+            <ModelProviderIcon model={selectedModel} size="sm" darkMode={darkMode} />
             <span
               className={cn(
                 'min-w-0 truncate transition-[opacity,transform] duration-150 ease-out',
                 modelOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-1 opacity-0',
               )}
             >
-              {selectedModel?.modelName ?? '选择模型'}
+              {getModelDisplayName(selectedModel) || '选择模型'}
             </span>
           </button>
           {modelOpen && (
@@ -1608,8 +1716,8 @@ export default function ChatsPage() {
                       : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
                   )}
                 >
-                  <ModelProviderIcon model={model} size="xs" />
-                  <span className="min-w-0 flex-1 truncate">{model.modelName}</span>
+                  <ModelProviderIcon model={model} size="xs" darkMode={darkMode} />
+                  <span className="min-w-0 flex-1 truncate">{getModelDisplayName(model)}</span>
                 </button>
               ))}
             </div>
@@ -1665,12 +1773,11 @@ export default function ChatsPage() {
       {rightPanelRendered && (
         <div
           ref={rightPanelsRef}
-          className="fixed bottom-3 right-3 top-20 z-40 grid w-[min(var(--chat-right-panel-width),calc(100vw-24px))] transition-[grid-template-rows,row-gap] duration-180 ease-out lg:top-3"
+          className="fixed bottom-3 right-3 top-20 z-40 grid w-[min(var(--chat-right-panel-width),calc(100vw-24px))] transition-[grid-template-rows] duration-180 ease-out lg:top-3"
           style={
             {
               '--chat-right-panel-width': `${RIGHT_PANEL_WIDTH}px`,
               gridTemplateRows: rightPanelRows,
-              rowGap: rightPanelGap,
             } as React.CSSProperties
           }
         >
@@ -1678,10 +1785,11 @@ export default function ChatsPage() {
             {filesPanelRendered && (
               <section
                 ref={filesPanelRef}
-                className="chat-side-panel-in flex h-full min-h-0 origin-right flex-col overflow-hidden rounded-[12px] border border-hairline bg-bg-card-solid transition-[opacity,transform] duration-180 ease-out"
+                className="chat-side-panel-in flex h-full min-h-0 origin-top flex-col overflow-hidden rounded-[12px] border border-hairline bg-bg-card-solid transition-[opacity,transform] duration-180 ease-out"
                 style={{
-                  opacity: filesPanelOpen ? 1 : 0,
-                  transform: filesPanelOpen ? 'translateX(0) scale(1)' : 'translateX(18px) scale(0.985)',
+                  opacity: filesPanelOpen && !filesPanelClosing ? 1 : 0,
+                  transform:
+                    filesPanelOpen && !filesPanelClosing ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.985)',
                 }}
                 role="dialog"
                 aria-modal="false"
@@ -1695,7 +1803,7 @@ export default function ChatsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setFilesPanelOpen(false)}
+                    onClick={closeFilesPanelWithAnimation}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/[0.035] hover:text-ink"
                     aria-label="关闭资料"
                     title="关闭资料"
@@ -1704,7 +1812,7 @@ export default function ChatsPage() {
                   </button>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col px-2.5 pb-2.5">
-                  <div className="mb-2.5 flex shrink-0 border-b border-border-subtle/70 pb-2.5">
+                  <div className="mb-2.5 flex shrink-0 items-center gap-2 border-b border-border-subtle/70 pb-2.5">
                     <button
                       type="button"
                       onClick={() => setResourcePanelMode(showResourceDatasetList ? 'files' : 'datasets')}
@@ -1716,6 +1824,17 @@ export default function ChatsPage() {
                         {selectedDataset?.name ?? '未选择'}
                       </p>
                     </button>
+                    {!showResourceDatasetList && (
+                      <div className="flex h-8 w-[126px] shrink-0 items-center gap-1.5 rounded-md border border-transparent bg-ink/[0.035] px-2 transition-colors focus-within:border-primary/25 focus-within:bg-bg-card-solid">
+                        <Search size={13} className="shrink-0 text-muted" />
+                        <input
+                          value={fileSearch}
+                          onChange={(e) => setFileSearch(e.target.value)}
+                          placeholder="搜索"
+                          className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {showResourceDatasetList ? (
@@ -1767,15 +1886,6 @@ export default function ChatsPage() {
                     </div>
                   ) : (
                     <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-                      <div className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-transparent bg-ink/[0.035] px-2.5 transition-colors focus-within:border-primary/25 focus-within:bg-bg-card-solid">
-                        <Search size={13} className="text-muted" />
-                        <input
-                          value={fileSearch}
-                          onChange={(e) => setFileSearch(e.target.value)}
-                          placeholder="搜索文件..."
-                          className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
-                        />
-                      </div>
                       {loadingFiles ? (
                         <div className="flex h-24 items-center justify-center text-muted">
                           <Loader2 size={16} className="animate-spin" />
@@ -1862,12 +1972,30 @@ export default function ChatsPage() {
             )}
           </div>
 
+          <div
+            className={cn(
+              'flex min-h-0 items-center justify-center overflow-hidden transition-opacity duration-150',
+              rightPanelSplitResizable ? 'opacity-100' : 'pointer-events-none opacity-0',
+            )}
+          >
+            <button
+              type="button"
+              onPointerDown={beginRightPanelSplitResize}
+              className="group flex h-full w-full cursor-row-resize items-center justify-center rounded-md"
+              aria-label="调整资料和召回面板高度"
+              title="拖拽调整高度"
+            >
+              <span className="h-px w-16 rounded-full bg-border-subtle transition-colors group-hover:bg-primary/45" />
+            </button>
+          </div>
+
           <div className="min-h-0 overflow-hidden">
             {recallPanelRendered && (
               <RecallEvidencePopover
                 open={recallPanelOpen}
                 message={evidenceMessage}
-                onClose={() => setRecallPanelOpen(false)}
+                closeSignal={recallCloseSignal}
+                onClose={closeRecallPanelWithAnimation}
               />
             )}
           </div>

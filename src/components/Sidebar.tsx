@@ -11,6 +11,8 @@ import {
   Cpu,
   BarChart3,
   ShieldCheck,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { Routes } from '@/routes';
 import { Link, useLocation, useNavigate } from 'react-router';
@@ -19,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 import { LinkRagMark } from '@/components/LinkRagMark';
 import { ChatWorkspacePanel } from '@/components/ChatWorkspacePanel';
+import { useTheme } from '@/contexts/ThemeContext';
 import linkRagLogoCreamUrl from '@/assets/brand/linkrag-logo-cream.png';
 import linkRagLogoInkUrl from '@/assets/brand/linkrag-logo-ink.png';
 
@@ -64,6 +67,7 @@ export function Sidebar({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { darkMode, toggleTheme } = useTheme();
   const isCollapsed = forceCollapsed || collapsed;
 
   const updateUserMenuPosition = useCallback(() => {
@@ -141,18 +145,26 @@ export function Sidebar({
           onNavigate?.();
         }}
         className={cn(
-          'group relative flex h-11 w-full items-center justify-start gap-3 rounded-lg px-3 transition-[background-color,color] duration-200 ease-out',
-          isActive ? 'text-ink' : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
+          'group relative flex h-11 w-full items-center rounded-lg transition-[background-color,color] duration-200 ease-out',
+          isActive
+            ? darkMode
+              ? 'text-[#f2f2f2]'
+              : 'text-ink'
+            : darkMode
+              ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+              : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
         )}
       >
-        <Icon
-          size={18}
-          strokeWidth={isActive ? 2.35 : 2}
-          className={cn('shrink-0', isActive ? 'text-ink' : 'text-muted')}
-        />
+        <span className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+          <Icon
+            size={18}
+            strokeWidth={isActive ? 2.35 : 2}
+            className={cn('shrink-0', isActive ? (darkMode ? 'text-[#f2f2f2]' : 'text-ink') : 'text-muted')}
+          />
+        </span>
         <span
           className={cn(
-            'whitespace-nowrap text-sm transition-[opacity,transform] duration-150',
+            'absolute left-[52px] right-2 whitespace-nowrap text-sm transition-[opacity,transform] duration-150',
             isActive ? 'font-bold' : 'font-medium',
             showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
           )}
@@ -160,7 +172,7 @@ export function Sidebar({
           {name}
         </span>
         {isCollapsed && (
-          <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-on-dark opacity-0  transition-opacity group-hover:opacity-100">
+          <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-on-dark opacity-0 transition-opacity group-hover:opacity-100">
             {name}
           </span>
         )}
@@ -174,11 +186,18 @@ export function Sidebar({
           <div
             ref={userMenuRef}
             style={userMenuPosition}
-            className="fixed z-[100] overflow-hidden rounded-xl border border-hairline bg-canvas/92 shadow-lg backdrop-blur-xl"
+            className={cn(
+              'fixed z-[100] overflow-hidden rounded-xl border shadow-lg backdrop-blur-xl',
+              darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]/94' : 'border-hairline bg-canvas/92',
+            )}
           >
-            <div className="border-b border-hairline px-3 py-2.5">
-              <p className="truncate text-sm font-medium text-ink">{displayName}</p>
-              <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
+            <div className={cn('border-b px-3 py-2.5', darkMode ? 'border-[#3a3a3a]' : 'border-hairline')}>
+              <p className={cn('truncate text-sm font-medium', darkMode ? 'text-[#f2f2f2]' : 'text-ink')}>
+                {displayName}
+              </p>
+              <p className={cn('truncate text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-muted-soft')}>
+                {displayEmail}
+              </p>
             </div>
             <div className="py-1">
               <button
@@ -187,7 +206,12 @@ export function Sidebar({
                   onNavigate?.();
                   navigate(Routes.ProfilePage);
                 }}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-text-secondary transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink"
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-md px-3 py-2 transition-[background-color,color] duration-200 ease-out',
+                  darkMode
+                    ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+                    : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
+                )}
               >
                 <User size={15} />
                 <span className="text-sm font-medium">个人信息</span>
@@ -199,7 +223,12 @@ export function Sidebar({
                     onNavigate?.();
                     navigate(Routes.AdminBlogs);
                   }}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-text-secondary transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink"
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-md px-3 py-2 transition-[background-color,color] duration-200 ease-out',
+                    darkMode
+                      ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+                      : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
+                  )}
                 >
                   <ShieldCheck size={15} />
                   <span className="text-sm font-medium">后台管理</span>
@@ -233,11 +262,19 @@ export function Sidebar({
     <img
       src={user.avatarUrl}
       alt="用户头像"
-      className="h-8 w-8 min-w-8 max-w-8 shrink-0 rounded-full border border-hairline object-cover"
+      className={cn(
+        'h-8 w-8 min-w-8 max-w-8 shrink-0 rounded-full border object-cover',
+        darkMode ? 'border-[#3a3a3a]' : 'border-hairline',
+      )}
     />
   ) : (
-    <div className="flex h-8 w-8 min-w-8 max-w-8 shrink-0 items-center justify-center rounded-full bg-surface-soft text-xs font-bold text-ink">
-      {userInitial || <User size={14} className="text-muted" />}
+    <div
+      className={cn(
+        'flex h-8 w-8 min-w-8 max-w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+        darkMode ? 'bg-[#303030] text-[#f2f2f2]' : 'bg-surface-soft text-ink',
+      )}
+    >
+      {userInitial || <User size={14} className={darkMode ? 'text-[#a6a6a6]' : 'text-muted'} />}
     </div>
   );
 
@@ -245,16 +282,17 @@ export function Sidebar({
     <aside
       ref={sidebarRef}
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl transition-[width] duration-[140ms] ease-out',
+        'flex shrink-0 flex-col overflow-hidden rounded-[12px] border shadow-sm backdrop-blur-xl transition-[width] duration-[140ms] ease-out',
+        darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]/92' : 'border-border-subtle bg-bg-frosted',
         forceCollapsed ? 'w-[64px] min-w-[64px]' : allowCollapse ? (collapsed ? 'w-[72px]' : 'w-[224px]') : 'w-[224px]',
         className,
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center overflow-hidden bg-white/35 px-5">
+      <div className={cn('flex h-16 items-center overflow-hidden px-5', !darkMode && 'bg-white/35')}>
         <div className="flex min-w-max items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center overflow-hidden">
-            <LinkRagMark />
+            <LinkRagMark darkMode={darkMode} />
           </div>
           <div
             className={cn(
@@ -262,8 +300,12 @@ export function Sidebar({
               showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
             )}
           >
-            <img src={linkRagLogoInkUrl} alt="LinkRag" className="h-7 w-auto dark:hidden" draggable={false} />
-            <img src={linkRagLogoCreamUrl} alt="LinkRag" className="hidden h-7 w-auto dark:block" draggable={false} />
+            <img
+              src={darkMode ? linkRagLogoCreamUrl : linkRagLogoInkUrl}
+              alt="LinkRag"
+              className="h-7 w-auto"
+              draggable={false}
+            />
           </div>
         </div>
       </div>
@@ -295,7 +337,8 @@ export function Sidebar({
               setShowUserMenu((open) => !open);
             }}
             className={cn(
-              'relative flex h-11 w-full min-w-0 items-center rounded-lg transition-colors duration-200 ease-out hover:text-ink',
+              'relative flex h-11 w-full min-w-0 items-center rounded-lg transition-colors duration-200 ease-out',
+              darkMode ? 'hover:text-[#f2f2f2]' : 'hover:text-ink',
             )}
           >
             <span className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
@@ -307,13 +350,46 @@ export function Sidebar({
                 showExpandedContent ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
             >
-              <p className="truncate text-sm font-medium text-ink">{displayName}</p>
-              <p className="truncate text-[11px] text-muted-soft">{displayEmail}</p>
+              <p className={cn('truncate text-sm font-medium', darkMode ? 'text-[#f2f2f2]' : 'text-ink')}>
+                {displayName}
+              </p>
+              <p className={cn('truncate text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-muted-soft')}>
+                {displayEmail}
+              </p>
             </div>
           </button>
 
           {userMenuPortal}
         </div>
+
+        <button
+          onClick={() => {
+            setShowUserMenu(false);
+            toggleTheme();
+          }}
+          className={cn(
+            'group relative mt-2 flex h-9 w-full items-center rounded-lg transition-[background-color,color] duration-200 ease-out',
+            darkMode
+              ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+              : 'text-muted hover:bg-ink/[0.035] hover:text-ink',
+          )}
+          aria-label={darkMode ? '切换到白天模式' : '切换到夜间模式'}
+          aria-pressed={darkMode}
+        >
+          <span className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+            {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+          </span>
+          {!isCollapsed && (
+            <span
+              className={cn(
+                'absolute left-[52px] right-2 whitespace-nowrap text-left text-xs font-medium transition-opacity duration-150',
+                showExpandedContent ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+            >
+              {darkMode ? '白天模式' : '夜间模式'}
+            </span>
+          )}
+        </button>
 
         {allowCollapse && !forceCollapsed && (
           <button
@@ -322,17 +398,19 @@ export function Sidebar({
               setCollapsed(!collapsed);
             }}
             className={cn(
-              'mt-2 flex h-9 items-center rounded-lg text-muted transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink',
-              collapsed ? 'mx-auto w-11 justify-center p-0' : 'w-full justify-center gap-2 px-3',
+              'relative mt-2 flex h-9 w-full items-center rounded-lg text-muted transition-[background-color,color] duration-200 ease-out hover:bg-ink/[0.035] hover:text-ink',
+              darkMode && 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]',
             )}
             aria-label={collapsed ? '展开导航栏' : '收起导航栏'}
           >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={17} />}
+            <span className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={17} />}
+            </span>
             {!collapsed && (
               <span
                 className={cn(
-                  'whitespace-nowrap text-xs font-medium transition-[opacity,transform] duration-150',
-                  showExpandedContent ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-1 opacity-0',
+                  'absolute left-[52px] right-2 whitespace-nowrap text-left text-xs font-medium transition-opacity duration-150',
+                  showExpandedContent ? 'opacity-100' : 'pointer-events-none opacity-0',
                 )}
               >
                 收起

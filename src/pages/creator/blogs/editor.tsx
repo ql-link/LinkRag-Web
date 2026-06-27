@@ -14,7 +14,6 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { copyTextToClipboard } from '@/lib/clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import {
@@ -255,7 +254,7 @@ export default function CreatorBlogEditor() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await copyTextToClipboard(text);
+      await navigator.clipboard.writeText(text);
     } catch (e) {
       console.error(e);
     }
@@ -404,7 +403,7 @@ export default function CreatorBlogEditor() {
                 className={cn(
                   'flex items-center gap-1.5 px-2 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider',
                   postDetail.status === 'PUBLISHED'
-                    ? 'border border-green-500/20 text-green-600 dark:text-green-400'
+                    ? 'border border-success/20 text-success dark:text-success'
                     : 'border border-yellow-500/25 text-yellow-700 dark:text-yellow-400',
                 )}
               >
@@ -418,7 +417,7 @@ export default function CreatorBlogEditor() {
                   'rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-all disabled:opacity-50',
                   postDetail.status === 'PUBLISHED'
                     ? 'bg-yellow-500 hover:bg-yellow-600'
-                    : 'bg-green-600 hover:bg-green-500',
+                    : 'bg-success hover:bg-success/85',
                 )}
               >
                 {postDetail.status === 'PUBLISHED' ? '下架文章' : '发布文章'}
@@ -528,12 +527,12 @@ export default function CreatorBlogEditor() {
           <div
             className={cn(
               'relative w-full max-w-md rounded-2xl  overflow-hidden flex flex-col',
-              darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
+              darkMode ? 'bg-[#1f1f1f]' : 'bg-white',
             )}
           >
             <div className="flex items-center justify-between p-6 border-b border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <ImageIcon size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                <ImageIcon size={18} className={darkMode ? 'text-primary' : 'text-primary'} />
                 <h2 className="text-lg font-bold">文章封面</h2>
               </div>
               <button
@@ -561,8 +560,8 @@ export default function CreatorBlogEditor() {
                 className={cn(
                   'group relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300 cursor-pointer',
                   darkMode
-                    ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#3b82f6]'
-                    : 'border-black/10 bg-gray-50 hover:border-primary',
+                    ? 'border-[#3a3a3a] bg-[#1f1f1f] hover:border-primary'
+                    : 'border-border-subtle bg-surface-soft hover:border-primary',
                 )}
               >
                 <input
@@ -587,8 +586,8 @@ export default function CreatorBlogEditor() {
                 ) : postDetail?.coverAssetId ? (
                   <div className="absolute inset-0 rounded-xl overflow-hidden p-1">
                     <div className="w-full h-full bg-black/5 dark:bg-surface-card rounded-lg flex items-center justify-center flex-col gap-2">
-                      <CheckCircle size={32} className="text-green-500" />
-                      <span className="text-sm font-bold text-green-500">已成功设置封面</span>
+                      <CheckCircle size={32} className="text-success" />
+                      <span className="text-sm font-bold text-success">已成功设置封面</span>
                       <span className="text-xs opacity-50 mt-1 hover:underline">点击重新上传替换</span>
                     </div>
                   </div>
@@ -598,7 +597,7 @@ export default function CreatorBlogEditor() {
                       size={32}
                       className={cn(
                         'mb-3 transition-transform group-hover:scale-110',
-                        darkMode ? 'text-[#858585]' : 'text-text-main/40',
+                        darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40',
                       )}
                     />
                     <p className="text-sm font-bold">点击上传封面图</p>
@@ -611,7 +610,7 @@ export default function CreatorBlogEditor() {
                   <button
                     onClick={handleDelete}
                     disabled={loading}
-                    className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-500/10 transition-colors"
+                    className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-error hover:bg-error/10 transition-colors"
                   >
                     <Trash size={14} /> 彻底删除该文章
                   </button>
@@ -629,12 +628,12 @@ export default function CreatorBlogEditor() {
           <div
             className={cn(
               'relative w-full max-w-lg rounded-2xl  overflow-hidden flex flex-col max-h-[85vh]',
-              darkMode ? 'bg-[#1e1e1e]' : 'bg-white',
+              darkMode ? 'bg-[#1f1f1f]' : 'bg-white',
             )}
           >
             <div className="flex items-center justify-between p-6 border-b border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <ImageIcon size={18} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
+                <ImageIcon size={18} className={darkMode ? 'text-primary' : 'text-primary'} />
                 <h2 className="text-lg font-bold">文章内插图</h2>
               </div>
               <button
@@ -664,7 +663,7 @@ export default function CreatorBlogEditor() {
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border ',
                     darkMode
-                      ? 'bg-[#3b82f6] border-[#3b82f6] text-white hover:bg-[#2563eb]'
+                      ? 'bg-primary border-primary text-white hover:bg-primary-active'
                       : 'bg-primary border-primary text-white hover:bg-primary/90',
                   )}
                 >
@@ -684,7 +683,7 @@ export default function CreatorBlogEditor() {
                 <div
                   className={cn(
                     'flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed py-12',
-                    darkMode ? 'border-[#3c3c3c] bg-[#1e1e1e]/50' : 'border-black/10 bg-gray-50/50',
+                    darkMode ? 'border-[#3a3a3a] bg-[#1f1f1f]/50' : 'border-border-subtle bg-surface-soft/50',
                   )}
                 >
                   <ImageIcon size={24} className="opacity-20 mb-2" />
@@ -700,8 +699,8 @@ export default function CreatorBlogEditor() {
                         className={cn(
                           'group flex items-center justify-between gap-3 rounded-xl border p-2.5 transition-colors',
                           darkMode
-                            ? 'border-[#3c3c3c] bg-[#1e1e1e] hover:border-[#444]'
-                            : 'border-border-subtle bg-gray-50 hover:border-black/20',
+                            ? 'border-[#3a3a3a] bg-[#1f1f1f] hover:border-[#4a4a4a]'
+                            : 'border-border-subtle bg-surface-soft hover:border-border-medium',
                         )}
                       >
                         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-black/5 border border-black/5 dark:border-white/5">
@@ -720,7 +719,7 @@ export default function CreatorBlogEditor() {
                             className={cn(
                               'flex items-center gap-1 px-2.5 py-1.5 rounded-md transition-colors text-xs font-bold',
                               darkMode
-                                ? 'bg-[#333] hover:bg-[#3b82f6] hover:text-white'
+                                ? 'bg-[#3a3a3a] hover:bg-primary hover:text-white'
                                 : 'bg-white border hover:bg-primary hover:text-white hover:border-primary',
                             )}
                             title="复制 Markdown 代码"
@@ -729,7 +728,7 @@ export default function CreatorBlogEditor() {
                           </button>
                           <button
                             onClick={() => handleDeleteAsset(asset.id)}
-                            className="p-1.5 rounded-md text-red-500 transition-colors hover:bg-red-500/10"
+                            className="p-1.5 rounded-md text-error transition-colors hover:bg-error/10"
                             title="删除"
                           >
                             <Trash size={14} />

@@ -16,6 +16,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { getProviderIcon } from '@/lib/provider-icons';
+import { getModelDisplayName } from '@/lib/model-display';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDailyUsage, getUsageByModel, getUsageLogs, getUsageSummary, getUsageTrend } from '@/services/llm';
@@ -183,7 +185,7 @@ export default function UsagePage() {
 
   return (
     <div className="h-full flex flex-col bg-canvas">
-      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
+      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0">
         <div>
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} />
         </div>
@@ -388,12 +390,9 @@ function UsageHero({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
-        {secondaryItems.map((item, index) => (
-          <div
-            key={item.label}
-            className={cn('min-w-0', index > 0 && 'xl:border-l xl:border-border-subtle', index > 0 ? 'xl:pl-5' : '')}
-          >
+      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 xl:grid-cols-4">
+        {secondaryItems.map((item) => (
+          <div key={item.label} className="min-w-0">
             <div className="flex items-center gap-2">
               {item.icon}
               <span className="text-sm font-bold text-text-secondary">{item.label}</span>
@@ -403,7 +402,7 @@ function UsageHero({
         ))}
       </div>
 
-      <div className="mt-4 border-t border-border-subtle pt-3 mono-label text-muted-soft">
+      <div className="mt-4 mono-label text-muted-soft">
         成功 {formatNumber(summary?.successCalls ?? 0)} · 失败 {formatNumber(summary?.failedCalls ?? 0)}
       </div>
     </div>
@@ -513,7 +512,7 @@ function RangePicker({
             })}
           </div>
 
-          <div className="border-t border-border-subtle pt-3">
+          <div className="pt-1">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="min-w-0">
                 <span className="mono-label mb-1 block text-muted-soft">开始日期</span>
@@ -590,7 +589,7 @@ function GrowthPill({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-const MODEL_COLORS = ['#4f7fa8', '#5db8a6', '#5db872', '#e8a55a', '#8e8b82', '#ddd4c8'];
+const MODEL_COLORS = ['#4f7fa8', '#5db8a6', '#72a85d', '#d68a5f', '#a97ac7', '#c6a24a'];
 
 function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
   const topItems = data.slice(0, 5);
@@ -616,7 +615,7 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
               strokeWidth="24"
             >
               <title>
-                {segment.item.modelName} ·{' '}
+                {getModelDisplayName(segment.item)} ·{' '}
                 {formatPercent(totalTokens > 0 ? segment.item.totalTokens / totalTokens : 0, 1)} ·{' '}
                 {formatNumber(segment.item.totalTokens)} Token
               </title>
@@ -634,19 +633,35 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
           const percent = totalTokens > 0 ? item.totalTokens / totalTokens : 0;
           return (
             <div key={`${item.providerType}-${item.modelName}`} className="flex min-w-0 items-center gap-3">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
-              />
+              <UsageProviderIcon item={item} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink">{item.modelName}</p>
+                <p className="truncate text-sm font-bold text-ink">{getModelDisplayName(item)}</p>
               </div>
-              <span className="shrink-0 text-sm font-bold text-ink">{formatPercent(percent, 1)}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-sm font-bold text-ink">{formatPercent(percent, 1)}</span>
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
+                />
+              </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function UsageProviderIcon({ item }: { item: ModelUsageDTO }) {
+  const iconUrl = getProviderIcon(item.providerType, item.providerType, item.modelName);
+  if (!iconUrl) {
+    return null;
+  }
+
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+      <img src={iconUrl} alt="" aria-hidden="true" className="h-5 w-5 object-contain" />
+    </span>
   );
 }
 
@@ -699,19 +714,16 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleInDegrees
 
 function RecentCallsList({ logs }: { logs: UsageLogDTO[] }) {
   return (
-    <div className="popover-scrollbar h-full overflow-y-auto pr-1">
+    <div className="popover-scrollbar h-full space-y-1 overflow-y-auto pr-1">
       {logs.map((log) => (
-        <div
-          key={log.id}
-          className="flex items-center justify-between gap-4 border-b border-border-subtle/70 py-3 last:border-b-0"
-        >
+        <div key={log.id} className="flex items-center justify-between gap-4 rounded-md px-2 py-2.5">
           <div className="flex min-w-0 items-center gap-3">
             <span
               className={cn('h-2 w-2 shrink-0 rounded-full', isSuccessStatus(log.status) ? 'bg-success' : 'bg-error')}
               title={getStatusLabel(log.status)}
             />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-ink">{log.modelName}</p>
+              <p className="truncate text-sm font-bold text-ink">{getModelDisplayName(log)}</p>
               <p className="mono-label mt-1 truncate text-muted-soft">
                 {log.errorMessage ? getErrorLabel(log.errorMessage) : formatTime(log.createdAt)}
               </p>
@@ -896,7 +908,7 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
 
 function EmptyBlock({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-hairline px-4 py-10 text-center text-sm text-muted">
+    <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg px-4 py-10 text-center text-sm text-muted">
       {icon}
       <span>{text}</span>
     </div>

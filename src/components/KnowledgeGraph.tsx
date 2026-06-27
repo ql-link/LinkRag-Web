@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { Minus, Plus } from 'lucide-react';
 import { GraphNode, GraphLink } from '../types';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const INITIAL_NODES: GraphNode[] = [
   { id: '1', label: '大模型', group: 'tech', value: 30 },
@@ -26,12 +27,18 @@ const INITIAL_LINKS: GraphLink[] = [
 
 export const KnowledgeGraph: React.FC = () => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const { darkMode } = useTheme();
 
   useEffect(() => {
     if (!svgRef.current) return;
 
     const width = 400;
     const height = 300;
+    const styles = getComputedStyle(document.documentElement);
+    const ink = styles.getPropertyValue('--color-ink').trim() || '#141413';
+    const canvas = styles.getPropertyValue('--color-canvas').trim() || '#faf9f5';
+    const card = styles.getPropertyValue('--color-bg-card-solid').trim() || '#ffffff';
+    const border = styles.getPropertyValue('--color-border-subtle').trim() || '#e6dfd8';
 
     const svg = d3.select(svgRef.current).attr('viewBox', [0, 0, width, height]);
 
@@ -54,8 +61,8 @@ export const KnowledgeGraph: React.FC = () => {
       .selectAll('line')
       .data(INITIAL_LINKS)
       .join('line')
-      .attr('stroke', '#1A1A1A')
-      .attr('stroke-opacity', 0.1)
+      .attr('stroke', ink)
+      .attr('stroke-opacity', darkMode ? 0.18 : 0.1)
       .attr('stroke-width', 1)
       .attr('stroke-dasharray', '2,2');
 
@@ -74,8 +81,8 @@ export const KnowledgeGraph: React.FC = () => {
       .attr('y', -10)
       .attr('rx', 10)
       .attr('ry', 10)
-      .attr('fill', (d) => (d.group === 'tech' ? '#1A1A1A' : '#F4F1ED'))
-      .attr('stroke', '#1A1A1A')
+      .attr('fill', (d) => (d.group === 'tech' ? ink : darkMode ? card : canvas))
+      .attr('stroke', border)
       .attr('stroke-width', 1)
       .attr('class', 'cursor-pointer hover:fill-primary transition-colors');
 
@@ -89,7 +96,7 @@ export const KnowledgeGraph: React.FC = () => {
         'font-family',
         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       )
-      .attr('fill', (d) => (d.group === 'tech' ? '#F4F1ED' : '#1A1A1A'))
+      .attr('fill', (d) => (d.group === 'tech' ? canvas : ink))
       .text((d) => d.label.toUpperCase());
 
     simulation.on('tick', () => {
@@ -126,30 +133,30 @@ export const KnowledgeGraph: React.FC = () => {
     return () => {
       simulation.stop();
     };
-  }, []);
+  }, [darkMode]);
 
   return (
-    <div className="h-full flex flex-col relative overflow-hidden bg-bg-base/30 art-border rounded-2xl">
-      <div className="flex-1 min-h-0">
-        <svg ref={svgRef} className="w-full h-full" />
+    <div className="relative flex h-full flex-col overflow-hidden rounded-2xl bg-bg-base/30 art-border">
+      <div className="min-h-0 flex-1">
+        <svg ref={svgRef} className="h-full w-full" />
       </div>
 
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
-        <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all">
+      <div className="absolute right-4 top-4 flex flex-col gap-2">
+        <button className="flex h-8 w-8 items-center justify-center bg-bg-card-solid art-border transition-all hover:bg-text-main hover:text-bg-base">
           <Plus size={14} />
         </button>
-        <button className="w-8 h-8 art-border bg-white flex items-center justify-center hover:bg-text-main hover:text-white transition-all">
+        <button className="flex h-8 w-8 items-center justify-center bg-bg-card-solid art-border transition-all hover:bg-text-main hover:text-bg-base">
           <Minus size={14} />
         </button>
       </div>
 
       <div className="absolute bottom-4 left-4 flex gap-4">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-text-main" />
+          <div className="h-2 w-2 bg-text-main" />
           <span className="mono-label italic">Core Node</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 border border-text-main" />
+          <div className="h-2 w-2 border border-text-main" />
           <span className="mono-label italic">Entity</span>
         </div>
       </div>

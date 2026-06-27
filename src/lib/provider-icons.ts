@@ -15,6 +15,14 @@ const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
   }),
 );
 
+const STATIC_PROVIDER_ICON_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2.png',
+};
+
+const STATIC_PROVIDER_ICON_DARK_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2-dark.png',
+};
+
 const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
   [
     'anthropic',
@@ -81,8 +89,19 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
 
 const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
 
-export function getProviderIcon(providerType: string, providerName?: string, modelName?: string) {
+export function getProviderIcon(
+  providerType: string,
+  providerName?: string,
+  modelName?: string,
+  options?: { darkMode?: boolean },
+) {
   const keys = [providerType, providerName || '', modelName || ''].map(normalizeProviderToken);
+  const staticIconUrls = options?.darkMode ? STATIC_PROVIDER_ICON_DARK_URLS : STATIC_PROVIDER_ICON_URLS;
+  const matchedStaticUrl = keys.map((key) => staticIconUrls[key] || STATIC_PROVIDER_ICON_URLS[key]).find(Boolean);
+  if (matchedStaticUrl) {
+    return matchedStaticUrl;
+  }
+
   const matchedAliasKey = keys
     .map((key) => PROVIDER_ICON_ALIASES[key])
     .find((iconKey) => typeof iconKey === 'string' && iconKey.length > 0);

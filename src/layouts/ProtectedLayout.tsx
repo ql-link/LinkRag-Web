@@ -43,8 +43,6 @@ const pageMotion = {
   exit: { opacity: 0, y: -6 },
   transition: { duration: 0.22, ease: 'easeOut' } as const,
 };
-const SIDEBAR_LAYOUT_COLLAPSE_DELAY_MS = 140;
-
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -152,7 +150,6 @@ export function ProtectedLayout() {
   const location = useLocation();
   const isDesktop = useIsDesktop();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarLayoutCollapsed, setSidebarLayoutCollapsed] = useState(false);
   const pageKey = location.pathname.startsWith(`${RoutePaths.Chats}/`)
     ? RoutePaths.Chats
     : `${location.pathname}${location.search}`;
@@ -160,19 +157,6 @@ export function ProtectedLayout() {
   useEffect(() => {
     preloadProviderIcons();
   }, []);
-
-  useEffect(() => {
-    if (!sidebarCollapsed) {
-      setSidebarLayoutCollapsed(false);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSidebarLayoutCollapsed(true);
-    }, SIDEBAR_LAYOUT_COLLAPSE_DELAY_MS);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [sidebarCollapsed]);
 
   const content = (
     <ErrorBoundary>
@@ -207,7 +191,7 @@ export function ProtectedLayout() {
         <div
           className={cn(
             'relative h-full shrink-0 transition-[width] duration-[140ms] ease-out',
-            sidebarLayoutCollapsed ? 'w-[72px]' : 'w-[224px]',
+            sidebarCollapsed ? 'w-[72px]' : 'w-[224px]',
           )}
         >
           <Sidebar onCollapsedChange={setSidebarCollapsed} className="absolute inset-y-0 left-0" />

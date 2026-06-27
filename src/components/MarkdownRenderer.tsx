@@ -26,7 +26,6 @@ import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
-import { copyTextToClipboard } from '@/lib/clipboard';
 
 interface MarkdownRendererProps {
   content: string;
@@ -204,27 +203,23 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
   const { darkMode } = useTheme();
 
   const handleCopy = async () => {
-    try {
-      await copyTextToClipboard(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy code block:', error);
-    }
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div
       className={cn(
         'not-prose group relative overflow-hidden border border-border-subtle transition-colors',
-        compact ? 'bg-surface-soft/80 dark:bg-surface-card' : 'bg-surface-card dark:bg-[#2d2d2d]',
+        compact ? 'bg-surface-soft/80 dark:bg-surface-card' : 'bg-surface-card dark:bg-[#303030]',
         compact ? 'my-2 rounded-lg' : 'my-8 rounded-2xl',
       )}
     >
       <div
         className={cn(
           'flex items-center justify-between border-b border-border-subtle',
-          compact ? 'bg-canvas/70 dark:bg-white/[0.03]' : 'bg-bg-base/30 dark:bg-[#252526]',
+          compact ? 'bg-canvas/70 dark:bg-white/[0.03]' : 'bg-bg-base/30 dark:bg-[#2b2b2b]',
           compact ? 'px-2.5 py-1.5' : 'px-4 py-3',
         )}
       >
@@ -250,7 +245,7 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
           )}
           title="复制代码"
         >
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
           {copied ? '已复制' : '复制'}
         </button>
       </div>
@@ -325,7 +320,7 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 
   return (
     <div
-      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1e1e1e] [&_svg]:h-auto [&_svg]:max-w-none"
+      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1f1f1f] [&_svg]:h-auto [&_svg]:max-w-none"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
@@ -584,7 +579,7 @@ export function MarkdownRenderer({
         'prose-blockquote:border-l-primary/45 prose-blockquote:bg-transparent prose-blockquote:py-1 prose-blockquote:pl-4 prose-blockquote:pr-0 prose-blockquote:text-text-main prose-blockquote:not-italic',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&
-          'prose-headings:text-[#f2f2f2] prose-p:text-[#cccccc] prose-li:text-[#cccccc] prose-strong:text-[#f2f2f2]',
+          'prose-headings:text-[#f2f2f2] prose-p:text-[#d6d6d6] prose-li:text-[#d6d6d6] prose-strong:text-[#f2f2f2]',
         className,
       )}
     >
