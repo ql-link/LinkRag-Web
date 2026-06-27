@@ -15,6 +15,14 @@ const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
   }),
 );
 
+const STATIC_PROVIDER_ICON_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2.png',
+};
+
+const STATIC_PROVIDER_ICON_DARK_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2-dark.png',
+};
+
 const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
   [
     'anthropic',
@@ -37,6 +45,7 @@ const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
 const PROVIDER_ICON_MONOCHROME_BY_URL = new Map(
   Object.entries(PROVIDER_ICON_URLS).map(([key, url]) => [url, MONOCHROME_PROVIDER_ICON_KEYS.has(key)]),
 );
+let providerIconsPreloaded = false;
 
 function firstAvailableIconKey(...keys: string[]) {
   return keys.map(normalizeProviderToken).find((key) => PROVIDER_ICON_URLS[key]) || '';
@@ -80,8 +89,19 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
 
 const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
 
-export function getProviderIcon(providerType: string, providerName?: string, modelName?: string) {
+export function getProviderIcon(
+  providerType: string,
+  providerName?: string,
+  modelName?: string,
+  options?: { darkMode?: boolean },
+) {
   const keys = [providerType, providerName || '', modelName || ''].map(normalizeProviderToken);
+  const staticIconUrls = options?.darkMode ? STATIC_PROVIDER_ICON_DARK_URLS : STATIC_PROVIDER_ICON_URLS;
+  const matchedStaticUrl = keys.map((key) => staticIconUrls[key] || STATIC_PROVIDER_ICON_URLS[key]).find(Boolean);
+  if (matchedStaticUrl) {
+    return matchedStaticUrl;
+  }
+
   const matchedAliasKey = keys
     .map((key) => PROVIDER_ICON_ALIASES[key])
     .find((iconKey) => typeof iconKey === 'string' && iconKey.length > 0);
@@ -102,4 +122,14 @@ export function getProviderIcon(providerType: string, providerName?: string, mod
 
 export function isProviderIconMonochrome(iconUrl: string) {
   return PROVIDER_ICON_MONOCHROME_BY_URL.get(iconUrl) ?? false;
+}
+
+export function preloadProviderIcons() {
+  if (providerIconsPreloaded || typeof window === 'undefined') return;
+  providerIconsPreloaded = true;
+  Object.values(PROVIDER_ICON_URLS).forEach((url) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+  });
 }
