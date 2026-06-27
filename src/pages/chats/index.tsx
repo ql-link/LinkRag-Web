@@ -49,6 +49,7 @@ import {
 import { usePublishChatWorkspace, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 import { getCachedConversations, setCachedConversations } from '@/lib/conversationsCache';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import type {
   ConversationDTO,
   DatasetDTO,
@@ -1083,7 +1084,7 @@ export default function ChatsPage() {
       if (!text) return;
 
       try {
-        await navigator.clipboard.writeText(text);
+        await copyTextToClipboard(text);
         addToast('success', '已复制');
       } catch (error) {
         console.error('Failed to copy message:', error);

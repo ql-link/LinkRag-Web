@@ -72,12 +72,18 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value || 0);
 }
 
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getRangeDates(days: number) {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - (days - 1));
-  const toIso = (date: Date) => date.toISOString().slice(0, 10);
-  return { startDate: toIso(start), endDate: toIso(end) };
+  return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
 }
 
 function datasetName(datasets: DatasetDTO[], id: number) {
@@ -129,7 +135,7 @@ export default function HomePage() {
           getDatasets(1, 100),
           getRecentKnowledgeFiles(8),
           getConversations(1, 100),
-          getUsageSummary(usageRange.startDate, usageRange.endDate).catch((error) => {
+          getUsageSummary(usageRange.startDate, usageRange.endDate, 'all').catch((error) => {
             console.error('Failed to load home usage summary:', error);
             return null;
           }),

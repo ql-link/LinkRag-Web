@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 import type { ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
 
 type ConversationItem = ChatWorkspaceSnapshot['conversations'][number];
+const MENU_WIDTH = 132;
+const MENU_GAP = 6;
+const VIEWPORT_PADDING = 8;
 
 function getConversationTitle(item: ConversationItem | null | undefined) {
   return (item?.title ?? '新对话').trim() || '新对话';
@@ -173,9 +176,9 @@ export function ChatWorkspacePanel({
           <div
             ref={menuRef}
             role="menu"
-            style={{ ...menuPosition, width: 132, boxShadow: '0 8px 24px rgba(20, 20, 19, 0.12)' }}
+            style={{ ...menuPosition, width: MENU_WIDTH, boxShadow: '0 8px 24px rgba(20, 20, 19, 0.12)' }}
             className={cn(
-              'fixed z-[100] origin-top-right rounded-[9px] border border-hairline bg-canvas p-1 transition-all duration-150 ease-out',
+              'fixed z-[100] origin-top-left rounded-[9px] border border-hairline bg-canvas p-1 transition-all duration-150 ease-out',
               openMenuId === menuTarget.id
                 ? 'translate-y-0 scale-100 opacity-100'
                 : '-translate-y-1 scale-[0.98] opacity-0',
@@ -339,7 +342,10 @@ export function ChatWorkspacePanel({
                     }
                     const rect = event.currentTarget.getBoundingClientRect();
                     setMenuPosition({
-                      left: Math.max(8, Math.min(rect.right - 132, window.innerWidth - 132 - 8)),
+                      left: Math.max(
+                        VIEWPORT_PADDING,
+                        Math.min(rect.right + MENU_GAP, window.innerWidth - MENU_WIDTH - VIEWPORT_PADDING),
+                      ),
                       top: Math.min(rect.bottom + 4, window.innerHeight - 96),
                     });
                     setOpenMenuId(item.id);

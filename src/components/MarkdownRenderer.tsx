@@ -26,6 +26,7 @@ import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
+import { copyTextToClipboard } from '@/lib/clipboard';
 
 interface MarkdownRendererProps {
   content: string;
@@ -203,9 +204,13 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
   const { darkMode } = useTheme();
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    try {
+      await copyTextToClipboard(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy code block:', error);
+    }
   };
 
   return (
