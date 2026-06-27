@@ -1,0 +1,32 @@
+<!-- @dsCard group="Colors" name="Text — Ink on Cream" subtitle="Warm ink scale + on-dark / on-coral" viewport="680x250" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 26px 30px; font-family: var(--font-sans); }
+  .stack { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
+  .line { font-size: 18px; font-weight: 500; display: flex; align-items: baseline; gap: 14px; }
+  .tag { font-family: var(--font-mono); font-size: 11px; color: #8e8b82; min-width: 132px; }
+  .swrow { display: flex; gap: 10px; }
+  .chip { flex: 1; border-radius: 8px; padding: 12px 12px; font-family: var(--font-mono); font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="stack">
+    <div class="line" style="color:#141413;"><span class="tag">Ink · #141413</span>The considered, warm voice</div>
+    <div class="line" style="color:#252523;"><span class="tag">Body Strong · #252523</span>Emphasized lead paragraph</div>
+    <div class="line" style="color:#3d3d3a;"><span class="tag">Body · #3d3d3a</span>Default running text</div>
+    <div class="line" style="color:#6c6a64;"><span class="tag">Muted · #6c6a64</span>Sub-headings, breadcrumbs</div>
+    <div class="line" style="color:#8e8b82;"><span class="tag">Muted Soft · #8e8b82</span>Captions, fine print</div>
+  </div>
+  <div class="swrow">
+    <div class="chip" style="background:#cc785c; color:#ffffff;">On Primary · #ffffff</div>
+    <div class="chip" style="background:#181715; color:#faf9f5;">On Dark · #faf9f5</div>
+    <div class="chip" style="background:#181715; color:#a09d96;">On Dark Soft · #a09d96</div>
+  </div>
+</body>
+</html>

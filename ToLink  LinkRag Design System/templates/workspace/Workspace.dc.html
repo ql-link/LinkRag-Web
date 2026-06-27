@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Knowledge Workspace" description="Unified product shell — one app frame divided by hairlines: nav, Knowledge Synthesis Q&A, and a quiet context rail (graph + vault). Cream/coral/serif." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--surface-soft); font-family: var(--font-sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .nav-item:hover { background: var(--surface-soft); }
+  .vault-row:hover { background: var(--surface-soft); }
+  .vault-row:hover .vault-go { opacity: 1; }
+</style>
+</helmet>
+
+<div style="height:100vh;padding:20px;display:flex;">
+  <!-- One unified app shell — three zones share a single frame, split by hairlines -->
+  <div style="flex:1;min-width:0;display:flex;background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;overflow:hidden;">
+
+    <!-- Left nav -->
+    <aside style="width:224px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--hairline);">
+      <div style="height:72px;display:flex;align-items:center;gap:10px;padding:0 22px;border-bottom:1px solid var(--hairline);">
+        <img src="../../assets/linkrag-mark-v2.png" alt="" style="width:26px;height:26px;object-fit:contain;">
+        <span style="font-family:var(--font-serif);font-weight:600;font-size:19px;letter-spacing:-0.02em;">LinkRag</span>
+      </div>
+      <nav style="flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;">
+        <a href="#" class="nav-item" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:var(--surface-cream-strong);color:var(--ink);position:relative;text-decoration:none;">
+          <span style="color:var(--primary);display:flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg></span>
+          <span style="font-size:14px;font-weight:500;">首页</span>
+          <span style="position:absolute;right:14px;width:6px;height:6px;border-radius:50%;background:var(--primary);"></span>
+        </a>
+        <a href="#" class="nav-item" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;color:var(--body);text-decoration:none;">
+          <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M8 8l4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg></span>
+          <span style="font-size:14px;font-weight:500;">文件上传</span>
+        </a>
+        <a href="#" class="nav-item" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;color:var(--body);text-decoration:none;">
+          <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+          <span style="font-size:14px;font-weight:500;">知识问答</span>
+        </a>
+        <a href="#" class="nav-item" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;color:var(--body);text-decoration:none;">
+          <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg></span>
+          <span style="font-size:14px;font-weight:500;">知识图谱</span>
+        </a>
+      </nav>
+      <div style="padding:14px;border-top:1px solid var(--hairline);">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--primary);opacity:0.9;flex-shrink:0;"></div>
+          <div style="min-width:0;">
+            <p style="margin:0;font-size:13px;font-weight:500;">Alex Chen</p>
+            <p style="margin:0;font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Pro Member</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Knowledge Synthesis -->
+    <main style="flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--hairline);">
+      <header style="height:72px;padding:0 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hairline);">
+        <div>
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--primary);">Active Intelligence</div>
+          <h2 style="margin:2px 0 0;font-family:var(--font-serif);font-weight:500;font-size:24px;letter-spacing:-0.015em;">Knowledge Synthesis</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:20px;color:var(--muted);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+          <span style="width:1px;height:16px;background:var(--hairline);"></span>
+          <span style="position:relative;display:flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg><span style="position:absolute;top:-2px;right:-2px;width:6px;height:6px;border-radius:50%;background:var(--primary);"></span></span>
+        </div>
+      </header>
+      <div style="flex:1;overflow-y:auto;padding:40px 48px;display:flex;flex-direction:column;gap:36px;">
+        <div style="display:flex;justify-content:center;">
+          <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);border:1px solid var(--hairline);border-radius:9999px;padding:7px 16px;">System Initiated // Node Analysis</span>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          <div style="background:rgba(204,120,92,0.1);border:1px solid rgba(204,120,92,0.22);color:var(--ink);font-size:14px;padding:14px 18px;border-radius:14px 14px 2px 14px;max-width:78%;">大模型在自然语言处理中的应用有哪些？</div>
+          <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">User Query // 09:24</span>
+        </div>
+        <div style="display:flex;gap:20px;">
+          <div style="width:40px;height:40px;border-radius:10px;border:1px solid var(--hairline);background:var(--surface-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.8L18 9.4l-4.4 1.6L12 16l-1.6-5L6 9.4l4.4-1.6z"></path></svg></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:20px;">
+            <div style="font-family:var(--font-serif);font-weight:500;font-size:24px;line-height:1.35;letter-spacing:-0.01em;border-left:2px solid var(--primary);padding-left:22px;">大模型已广泛应用于文本生成、理解、翻译与问答系统</div>
+            <div style="background:var(--surface-soft);border:1px solid var(--hairline);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--body);line-height:1.5;">
+              <div>01 — 文本生成：文章写作、摘要、对话系统</div>
+              <div>02 — 文本理解：情感分析、文本分类、实体识别</div>
+              <div>03 — 问答系统：基于知识库的智能问答</div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button style="font-size:13px;font-weight:500;color:var(--body);background:transparent;border:1px solid var(--hairline);border-radius:9999px;padding:7px 14px;cursor:pointer;">大模型训练的关键技术是什么？</button>
+              <button style="font-size:13px;font-weight:500;color:var(--body);background:transparent;border:1px solid var(--hairline);border-radius:9999px;padding:7px 14px;cursor:pointer;">如何评估大模型的性能？</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:20px 48px;border-top:1px solid var(--hairline);">
+        <div style="position:relative;">
+          <input placeholder="输入你的问题…" style="width:100%;background:var(--surface-soft);border:1px solid var(--hairline);border-radius:12px;padding:18px 64px 18px 20px;font-family:var(--font-sans);font-size:14px;color:var(--ink);outline:none;">
+          <button style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:8px;background:var(--primary);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></button>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">
+          <span>Engine · Claude-Opus-4</span><span>Press Enter to Transmit</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right: quiet context rail — graph + vault, no nested boxes -->
+    <aside style="width:328px;flex-shrink:0;display:flex;flex-direction:column;">
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div style="padding:24px 24px 12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Spatial Intelligence Map</span>
+          <button style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);background:none;border:none;cursor:pointer;">Expand</button>
+        </div>
+        <div style="flex:1;min-height:0;padding:4px 20px 20px;">
+          <div style="position:relative;height:100%;min-height:220px;">
+            <svg style="position:absolute;inset:0;width:100%;height:100%;">
+              <line x1="50%" y1="28%" x2="22%" y2="14%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+              <line x1="50%" y1="28%" x2="80%" y2="16%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+              <line x1="50%" y1="28%" x2="84%" y2="52%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+              <line x1="50%" y1="28%" x2="18%" y2="56%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+              <line x1="22%" y1="14%" x2="40%" y2="74%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+              <line x1="84%" y1="52%" x2="70%" y2="80%" stroke="#141413" stroke-opacity="0.12" stroke-width="1" stroke-dasharray="2,2"></line>
+            </svg>
+            <div style="position:absolute;left:50%;top:28%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:0.04em;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--primary);background:var(--primary);color:#fff;">大模型</div>
+            <div style="position:absolute;left:22%;top:14%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">自然语言处理</div>
+            <div style="position:absolute;left:80%;top:16%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">核心技术</div>
+            <div style="position:absolute;left:84%;top:52%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">应用场景</div>
+            <div style="position:absolute;left:18%;top:56%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">评估方法</div>
+            <div style="position:absolute;left:40%;top:74%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">文本生成</div>
+            <div style="position:absolute;left:70%;top:80%;transform:translate(-50%,-50%);font-family:var(--font-mono);font-size:9px;font-weight:700;white-space:nowrap;padding:4px 9px;border-radius:9999px;border:1px solid var(--hairline);background:var(--canvas);">对话系统</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:44%;display:flex;flex-direction:column;border-top:1px solid var(--hairline);">
+        <div style="padding:20px 24px 12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Knowledge Vault</span>
+          <button style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);background:none;border:none;cursor:pointer;">See Archive</button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:0 14px 14px;display:flex;flex-direction:column;gap:2px;">
+          <div class="vault-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:10px;transition:background 0.12s;">
+            <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+              <span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">PDF</span>
+              <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">人工智能发展报告.pdf</span>
+            </div>
+            <span class="vault-go" style="color:var(--muted);flex-shrink:0;opacity:0;transition:opacity 0.12s;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+          </div>
+          <div class="vault-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:10px;transition:background 0.12s;">
+            <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+              <span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">DOCX</span>
+              <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">大模型技术综述.docx</span>
+            </div>
+            <span class="vault-go" style="color:var(--muted);flex-shrink:0;opacity:0;transition:opacity 0.12s;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+          </div>
+          <div class="vault-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:10px;transition:background 0.12s;">
+            <div style="display:flex;align-items:center;gap:11px;min-width:0;">
+              <span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">PPTX</span>
+              <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">自然语言处理导论.pptx</span>
+            </div>
+            <span class="vault-go" style="color:var(--muted);flex-shrink:0;opacity:0;transition:opacity 0.12s;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
