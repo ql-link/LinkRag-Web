@@ -1,0 +1,62 @@
+<!-- @dsCard group="Components" name="Navigation" subtitle="Sidebar nav items & breadcrumbs" viewport="680x340" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 16px; font-family: var(--font-sans); display: flex; gap: 14px; }
+  .sidebar { width: 170px; background: rgba(255,255,255,0.80); backdrop-filter: blur(12px); border: 1px solid rgba(26,26,26,0.10); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; }
+  .sidebar-logo { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: rgba(255,255,255,0.50); }
+  .sidebar-logo img { height: 22px; width: 22px; object-fit: contain; border-radius: 6px; }
+  .sidebar-logo span { font-family: var(--font-serif); font-style: normal; font-size: 14px; letter-spacing: -0.03em; color: #1A1A1A; }
+  .nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 3px; }
+  .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 14px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(26,26,26,0.50); cursor: pointer; transition: all 0.2s; position: relative; }
+  .nav-item:hover { background: rgba(204,120,92,0.05); color: #1A1A1A; }
+  .nav-item.active { background: rgba(255,255,255,0.85); color: #1A1A1A; border: 1px solid rgba(255,255,255,0.80); box-shadow: 0 1px 3px rgba(26,26,26,0.06); }
+  .nav-item.active .dot { width: 5px; height: 5px; border-radius: 50%; background: #cc785c; position: absolute; right: 12px; }
+  .nav-icon { font-size: 14px; width: 16px; text-align: center; }
+  .breadcrumb { display: flex; align-items: center; gap: 6px; padding: 16px; }
+  .bc-item { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(26,26,26,0.45); }
+  .bc-item.current { color: rgba(26,26,26,0.70); }
+  .bc-sep { color: rgba(26,26,26,0.25); font-size: 10px; }
+  .header-bar { background: rgba(255,255,255,0.80); backdrop-filter: blur(12px); border: 1px solid rgba(26,26,26,0.10); border-radius: 20px; flex: 1; display: flex; flex-direction: column; }
+  .header-top { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 54px; border-bottom: 1px solid rgba(26,26,26,0.06); }
+  .header-title { font-family: var(--font-serif); font-style: normal; font-size: 17px; letter-spacing: -0.03em; color: #1A1A1A; }
+  .header-actions { display: flex; gap: 14px; align-items: center; }
+  .header-icon { color: rgba(26,26,26,0.35); font-size: 15px; cursor: pointer; }
+  .header-divider { width: 1px; height: 14px; background: rgba(26,26,26,0.10); }
+</style>
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img src="../assets/linkrag-mark-v2.png" alt="">
+      <span>LinkRag</span>
+    </div>
+    <div class="nav">
+      <div class="nav-item active"><span class="nav-icon">⌂</span> 首页 <span class="dot"></span></div>
+      <div class="nav-item"><span class="nav-icon">◈</span> 知识库</div>
+      <div class="nav-item"><span class="nav-icon">◻</span> 对话</div>
+      <div class="nav-item"><span class="nav-icon">▤</span> 文件</div>
+    </div>
+  </div>
+  <div class="header-bar">
+    <div class="breadcrumb">
+      <span class="bc-item">首页</span>
+      <span class="bc-sep">›</span>
+      <span class="bc-item current">知识库</span>
+    </div>
+    <div class="header-top">
+      <span class="header-title">知识库</span>
+      <div class="header-actions">
+        <span class="header-icon">?</span>
+        <span class="header-divider"></span>
+        <span class="header-icon" style="position: relative;">🔔<span style="position: absolute; top: -1px; right: -1px; width: 5px; height: 5px; background: #cc785c; border-radius: 50%;"></span></span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

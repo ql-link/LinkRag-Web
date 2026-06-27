@@ -1,0 +1,126 @@
+/* ============================================================
+   Claude (Anthropic) editorial system — Color tokens
+   Light = warm cream canvas + coral. "Dark" = dark-navy surface.
+   Coral is an ACCENT, never a large fill: buttons, links, thin
+   accent rules, small marks/badges — not full-bleed panels.
+   Page depth comes from the cream <-> dark-navy surface contrast,
+   which is the product-chrome surface mode (code editors, footers).
+   ============================================================ */
+
+:root {
+  /* ─ Brand & accent ─ */
+  --primary: #cc785c; /* signature coral — ACCENT ONLY: buttons, links, thin rules, marks. Never a large fill. */
+  --primary-active: #a9583e; /* press / darker */
+  --primary-disabled: #e6dfd8; /* cream-tinted disabled */
+  --accent-teal: #5db8a6; /* sparse: status dots, connections */
+  --accent-amber: #e8a55a; /* sparse: category badges, highlights */
+
+  /* ─ Surfaces (cream trinity + dark navy) ─ */
+  --canvas: #faf9f5; /* default page floor — warm cream */
+  --surface-soft: #f5f0e8; /* soft band / divider */
+  --surface-card: #efe9de; /* feature / content cards */
+  --surface-cream-strong: #e8e0d2; /* selected tabs, emphasized bands */
+  --surface-dark: #2c2520; /* warm espresso — code mockups, footer, featured tier */
+  --surface-dark-elevated: #3a322b; /* elevated cards inside dark */
+  --surface-dark-soft: #251f1a; /* code-block fill inside dark cards */
+
+  /* ─ Text ─ */
+  --ink: #141413; /* headlines + primary text */
+  --body-strong: #252523; /* emphasized / lead paragraphs */
+  --body: #3d3d3a; /* default running text */
+  --muted: #6c6a64; /* sub-heads, breadcrumbs */
+  --muted-soft: #8e8b82; /* captions, fine print */
+  --on-primary: #ffffff; /* text on coral */
+  --on-dark: #faf9f5; /* cream-white on dark surfaces */
+  --on-dark-soft: #a09d96; /* secondary text on dark */
+
+  /* ─ Hairlines ─ */
+  --hairline: #e6dfd8; /* 1px border on cream surfaces */
+  --hairline-soft: #ebe6df; /* in-band divider */
+
+  /* ─ Semantic ─ */
+  --success: #5db872;
+  --warning: #d4a017;
+  --error: #c64545;
+  --info: #5b7fb8;
+
+  /* ─────────────────────────────────────────────────────────
+     Legacy aliases — keep existing components / UI kit working.
+     Mapped onto the Claude palette above.
+     ───────────────────────────────────────────────────────── */
+  --color-primary: var(--primary);
+  --color-primary-light: rgba(204, 120, 92, 0.1);
+  --color-primary-mid: rgba(204, 120, 92, 0.2);
+  --color-primary-hover: rgba(204, 120, 92, 0.06);
+
+  --color-bg-base: var(--canvas);
+  --color-bg-card: var(--surface-card);
+  --color-bg-card-solid: #ffffff;
+  --color-bg-frosted: rgba(250, 249, 245, 0.85);
+  --color-bg-inset: var(--surface-soft);
+
+  --color-text-main: var(--ink);
+  --color-text-secondary: var(--body);
+  --color-text-tertiary: var(--muted);
+  --color-text-muted: var(--muted-soft);
+  --color-text-faint: rgba(20, 20, 19, 0.3);
+
+  --color-border-subtle: var(--hairline);
+  --color-border-medium: rgba(20, 20, 19, 0.14);
+
+  --color-error: var(--error);
+  --color-success: var(--success);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+
+  --color-btn-primary: var(--primary);
+  --color-btn-text: var(--on-primary);
+}
+
+/* ── Dark-navy surface mode (Claude product chrome / footer) ── */
+.dark {
+  --canvas: #221c18;
+  --surface-soft: #2a231e;
+  --surface-card: #322a24;
+  --surface-cream-strong: #3c332c;
+  --surface-dark: #1b1614;
+  --surface-dark-elevated: #322a24;
+  --surface-dark-soft: #2a231e;
+
+  --ink: #faf9f5;
+  --body-strong: #ece8e0;
+  --body: #d8d4cc;
+  --muted: #a09d96;
+  --muted-soft: #8e8b82;
+
+  --hairline: rgba(255, 255, 255, 0.1);
+  --hairline-soft: rgba(255, 255, 255, 0.06);
+
+  /* coral accent stays — the brand voltage never goes blue */
+  --primary: #cc785c;
+  --primary-active: #d98a6f;
+
+  /* legacy aliases re-point onto dark surfaces */
+  --color-bg-base: #221c18;
+  --color-bg-card: #322a24;
+  --color-bg-card-solid: #322a24;
+  --color-bg-frosted: rgba(34, 28, 24, 0.85);
+  --color-bg-inset: #2a231e;
+
+  --color-text-main: #faf9f5;
+  --color-text-secondary: #d8d4cc;
+  --color-text-tertiary: #a09d96;
+  --color-text-muted: #8e8b82;
+  --color-text-faint: rgba(255, 255, 255, 0.28);
+
+  --color-border-subtle: rgba(255, 255, 255, 0.1);
+  --color-border-medium: rgba(255, 255, 255, 0.16);
+
+  --color-primary: #cc785c;
+  --color-primary-light: rgba(204, 120, 92, 0.14);
+  --color-primary-mid: rgba(204, 120, 92, 0.26);
+  --color-primary-hover: rgba(204, 120, 92, 0.08);
+
+  --color-btn-primary: #cc785c;
+  --color-btn-text: #ffffff;
+}

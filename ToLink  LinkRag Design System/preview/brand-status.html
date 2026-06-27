@@ -1,0 +1,53 @@
+<!-- @dsCard group="Brand" name="Parse-status Pills" subtitle="排队中 · 解析中 · 已完成 · 失败 — 胶囊徽章,纯 HTML/CSS" viewport="560x220" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 36px; display: flex; flex-direction: column; gap: 16px; align-items: center; justify-content: center;
+         font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+  .pill {
+    display: inline-flex; align-items: center; justify-content: flex-start; gap: 7px;
+    width: 92px; padding: 6px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; line-height: 1;
+    border: 1px solid; white-space: nowrap;
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* 未上传 — neutral grey */
+  .empty   { background: #8e8b8218; border-color: #8e8b8238; color: #6b6860; }
+  .empty   .dot { background: #a8a49a; }
+
+  /* 排队中 — info blue */
+  .queued  { background: #5b7fb81f; border-color: #5b7fb840; color: #3f5c8c; }
+  .queued  .dot { background: #5b7fb8; }
+
+  /* 解析中 — amber, pulsing */
+  .parsing { background: #e8a55a24; border-color: #d4901f45; color: #9a6b18; }
+  .parsing .dot { background: #d4901f; animation: pulse 1.2s ease-in-out infinite; }
+
+  /* 已完成 — success green */
+  .done    { background: #5db8721f; border-color: #5db87240; color: #3f8a55; }
+  .done    .dot { background: #5db872; }
+
+  /* 失败 — error red */
+  .failed  { background: #c645451c; border-color: #c6454540; color: #a83838; }
+  .failed  .dot { background: #c64545; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.7); } }
+
+  .label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; text-transform: uppercase;
+           letter-spacing: 0.12em; color: rgba(20,20,19,0.34); margin-top: 14px; }
+</style>
+</head>
+<body>
+  <span class="pill empty"><span class="dot"></span>未上传</span>
+  <span class="pill queued"><span class="dot"></span>排队中</span>
+  <span class="pill parsing"><span class="dot"></span>解析中</span>
+  <span class="pill done"><span class="dot"></span>已完成</span>
+  <span class="pill failed"><span class="dot"></span>失败</span>
+  <span class="label">capsule · tinted fill + dot keyed to semantic color</span>
+</body>
+</html>

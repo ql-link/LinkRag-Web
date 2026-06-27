@@ -1,0 +1,29 @@
+<!-- @dsCard group="Type" name="Type Scale" subtitle="Serif display → sans titles → body → mono" viewport="680x480" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 24px 32px; font-family: var(--font-sans); color: #141413; }
+  .row { display: flex; align-items: baseline; gap: 16px; margin-bottom: 11px; padding-bottom: 11px; border-bottom: 1px solid #ebe6df; }
+  .row:last-child { border-bottom: none; margin-bottom: 0; }
+  .meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em; color: #8e8b82; min-width: 124px; flex-shrink: 0; }
+  .sample { flex: 1; }
+  .serif { font-family: var(--font-serif); font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="row"><span class="meta">Display XL · 64</span><span class="sample serif" style="font-size: 40px; letter-spacing: -0.022em; line-height: 1.05;">Build with Claude</span></div>
+  <div class="row"><span class="meta">Display LG · 48</span><span class="sample serif" style="font-size: 34px; letter-spacing: -0.02em; line-height: 1.1;">Models that ship</span></div>
+  <div class="row"><span class="meta">Display MD · 36</span><span class="sample serif" style="font-size: 28px; letter-spacing: -0.015em;">Choose your plan</span></div>
+  <div class="row"><span class="meta">Title LG · 22 / 500</span><span class="sample" style="font-size: 20px; font-weight: 500;">Claude Opus 4</span></div>
+  <div class="row"><span class="meta">Title MD · 18 / 500</span><span class="sample" style="font-size: 18px; font-weight: 500;">Feature card heading</span></div>
+  <div class="row"><span class="meta">Body MD · 16</span><span class="sample" style="font-size: 16px; line-height: 1.55; color:#3d3d3a;">Default running text, set in a humanist sans for long-form reading.</span></div>
+  <div class="row"><span class="meta">Caption · 13 / 500</span><span class="sample" style="font-size: 13px; font-weight: 500; color:#6c6a64;">Badge & caption label</span></div>
+  <div class="row"><span class="meta">Caption Caps · 12</span><span class="sample" style="font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.125em; color:#6c6a64;">Research preview</span></div>
+  <div class="row"><span class="meta">Code · 14 mono</span><span class="sample" style="font-family: var(--font-mono); font-size: 14px; color:#3d3d3a;">claude.messages.create()</span></div>
+</body>
+</html>

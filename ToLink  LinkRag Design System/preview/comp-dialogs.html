@@ -1,0 +1,47 @@
+<!-- @dsCard group="Components" name="Dialogs" subtitle="Modal overlay + create dialog" viewport="680x420" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: rgba(0,0,0,0.35); padding: 24px 28px; font-family: var(--font-sans); display: flex; align-items: center; justify-content: center; min-height: 200px; backdrop-filter: blur(4px); }
+  .dialog { width: 380px; background: #fff; border: 1px solid rgba(26,26,26,0.10); border-radius: 16px; box-shadow: 0 16px 48px rgba(26,26,26,0.18); overflow: hidden; }
+  .dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid rgba(26,26,26,0.08); }
+  .dialog-title { font-size: 15px; font-weight: 700; color: #1A1A1A; }
+  .dialog-close { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgba(26,26,26,0.40); cursor: pointer; font-size: 14px; background: none; border: none; }
+  .dialog-close:hover { background: rgba(26,26,26,0.05); }
+  .dialog-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #1A1A1A; margin-bottom: 6px; }
+  .field-input { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(26,26,26,0.10); font-size: 13px; font-family: var(--font-sans); color: #1A1A1A; outline: none; background: rgba(244,241,237,0.50); }
+  .field-input::placeholder { color: rgba(26,26,26,0.25); }
+  .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid rgba(26,26,26,0.06); background: rgba(244,241,237,0.30); }
+  .btn-cancel { padding: 8px 16px; border-radius: 12px; border: none; background: transparent; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(26,26,26,0.65); cursor: pointer; font-family: var(--font-sans); }
+  .btn-confirm { padding: 8px 16px; border-radius: 12px; border: none; background: #cc785c; color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; font-family: var(--font-sans); }
+</style>
+</head>
+<body>
+  <div class="dialog">
+    <div class="dialog-header">
+      <span class="dialog-title">新建知识库</span>
+      <button class="dialog-close">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div>
+        <div class="field-label">知识库名称</div>
+        <input class="field-input" placeholder="输入知识库名称" value="AI 研究知识库">
+      </div>
+      <div>
+        <div class="field-label">描述（可选）</div>
+        <input class="field-input" placeholder="输入知识库描述">
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn-cancel">取消</button>
+      <button class="btn-confirm">创建</button>
+    </div>
+  </div>
+</body>
+</html>
