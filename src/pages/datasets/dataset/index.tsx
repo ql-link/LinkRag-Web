@@ -50,7 +50,7 @@ const fileStatusMeta: Record<FileStatusVariant, { label: string; className: stri
     dotClassName: 'bg-[#a8a49a]',
   },
   queued: {
-    label: '排队中',
+    label: '待解析',
     className: 'border-[#5b7fb840] bg-[#5b7fb81f] text-[#3f5c8c]',
     dotClassName: 'bg-[#5b7fb8]',
   },
