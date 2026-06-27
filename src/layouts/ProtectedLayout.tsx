@@ -11,6 +11,8 @@ import type { ConversationDTO } from '@/types/api';
 import { Routes as RoutePaths } from '@/routes';
 import { DesktopOnlyRoute } from '@/components/DesktopOnlyRoute';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
+import { cn } from '@/lib/utils';
+import { preloadProviderIcons } from '@/lib/provider-icons';
 import { MobileAppShell } from './MobileAppShell';
 
 // Lazy-loaded page components for code splitting
@@ -41,7 +43,6 @@ const pageMotion = {
   exit: { opacity: 0, y: -6 },
   transition: { duration: 0.22, ease: 'easeOut' } as const,
 };
-
 function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -148,9 +149,14 @@ function ChatWorkspaceProvider({ children }: { children: ReactNode }) {
 export function ProtectedLayout() {
   const location = useLocation();
   const isDesktop = useIsDesktop();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pageKey = location.pathname.startsWith(`${RoutePaths.Chats}/`)
     ? RoutePaths.Chats
     : `${location.pathname}${location.search}`;
+
+  useEffect(() => {
+    preloadProviderIcons();
+  }, []);
 
   const content = (
     <ErrorBoundary>
@@ -178,14 +184,19 @@ export function ProtectedLayout() {
     );
   }
 
-  // 桌面端（≥1024px）：保持原侧边栏 + 主内容布局
+  // 桌面端（≥1024px）：侧栏悬浮在页面内，主内容不再使用卡片边框。
   return (
     <ChatWorkspaceProvider>
-      <div className="relative flex h-screen min-h-0 overflow-hidden bg-bg-base font-sans text-text-main">
-        <Sidebar />
-        <main className="min-h-0 flex-1 overflow-hidden rounded-l-[24px] border-l border-white/60 bg-bg-card shadow-sm backdrop-blur-xl">
-          {content}
-        </main>
+      <div className="relative flex h-screen min-h-0 gap-4 overflow-hidden bg-bg-base p-3 font-sans text-text-main">
+        <div
+          className={cn(
+            'relative h-full shrink-0 transition-[width] duration-[140ms] ease-out',
+            sidebarCollapsed ? 'w-[72px]' : 'w-[224px]',
+          )}
+        >
+          <Sidebar onCollapsedChange={setSidebarCollapsed} className="absolute inset-y-0 left-0" />
+        </div>
+        <main className="min-h-0 flex-1 overflow-hidden">{content}</main>
       </div>
     </ChatWorkspaceProvider>
   );

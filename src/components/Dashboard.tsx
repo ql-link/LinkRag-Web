@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen bg-bg-base text-text-main font-sans overflow-hidden p-4 gap-4">
+    <div className="flex h-screen gap-4 overflow-hidden bg-bg-base p-4 font-sans text-text-main">
       {/* 1. Left Sidebar: Independent flex child, NOT inside PanelGroup */}
       <aside
         className={cn(
@@ -65,8 +65,8 @@ export default function Dashboard() {
       <Group orientation="horizontal" className="flex-1 min-w-0">
         {/* Center Column: AI Q&A */}
         <Panel defaultSize={65} minSize={40}>
-          <main className="h-full flex flex-col bg-white border border-border-subtle rounded-3xl  overflow-hidden">
-            <header className="h-20 px-8 flex items-center justify-between border-b border-border-subtle bg-surface-card ">
+          <main className="flex h-full flex-col overflow-hidden rounded-3xl border border-border-subtle bg-bg-card-solid">
+            <header className="flex h-20 items-center justify-between border-b border-border-subtle bg-surface-card px-8">
               <div className="flex flex-col">
                 <span className="mono-label text-primary">Active Intelligence</span>
                 <h2 className="text-xl serif-heading">Knowledge Synthesis</h2>
@@ -124,7 +124,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Drag Overlay Prompt */}
-                <div className="absolute inset-0 bg-primary/5 ] opacity-0 group-hover/upload:opacity-100 transition-opacity pointer-events-none flex flex-col items-center justify-center border-t border-primary/20">
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center border-t border-primary/20 bg-primary/5 opacity-0 transition-opacity group-hover/upload:opacity-100">
                   <Upload size={20} className="text-primary mb-2 animate-bounce" />
                   <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-primary">
                     Drop to Ingest Documents
@@ -167,7 +167,7 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false }: NavIt
       className={cn(
         'flex items-center gap-3 px-4 py-3 transition-all duration-300 group relative rounded-2xl mx-1',
         active
-          ? 'bg-[#7B6B5D] text-white  -[#7B6B5D]/10'
+          ? 'bg-primary text-white'
           : 'text-text-main/50 hover:bg-primary/5 hover:text-text-main border border-transparent',
       )}
     >
@@ -179,7 +179,7 @@ function NavItem({ icon: Icon, label, active = false, collapsed = false }: NavIt
       {active && !collapsed && <div className="absolute right-4 w-1 h-1 bg-primary rounded-full animate-pulse" />}
 
       {collapsed && (
-        <div className="absolute left-full ml-4 px-3 py-1 bg-[#7B6B5D] text-white text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 rounded-lg ">
+        <div className="pointer-events-none absolute left-full z-50 ml-4 whitespace-nowrap rounded-lg bg-primary px-3 py-1 text-[10px] uppercase tracking-widest text-white opacity-0 transition-all group-hover:opacity-100">
           {label}
         </div>
       )}

@@ -50,7 +50,7 @@ const fileStatusMeta: Record<FileStatusVariant, { label: string; className: stri
     dotClassName: 'bg-[#a8a49a]',
   },
   queued: {
-    label: '待解析',
+    label: '排队中',
     className: 'border-[#5b7fb840] bg-[#5b7fb81f] text-[#3f5c8c]',
     dotClassName: 'bg-[#5b7fb8]',
   },
@@ -438,27 +438,20 @@ export default function DatasetPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
-            onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary-active hover:shadow-sm active:translate-y-0 active:scale-[0.98]"
-          >
-            <Settings size={14} />
-            解析配置
-          </button>
-          <button
             onClick={openFilePicker}
             disabled={uploading || choosingFiles}
-            className="group inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+            className="group inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink disabled:cursor-wait disabled:opacity-70"
           >
             {uploading || choosingFiles ? (
               <Loader2 size={14} className="animate-spin text-muted" />
             ) : (
-              <Upload size={14} className="text-muted transition-transform duration-200 group-hover:scale-105" />
+              <Upload size={14} className="text-muted" />
             )}
             {uploading ? '上传中' : choosingFiles ? '选择中' : '上传文件'}
           </button>
           <button
             onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98]"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink"
           >
             <MessageSquare size={14} className="text-muted" />
             新建对话
@@ -467,13 +460,20 @@ export default function DatasetPage() {
             onClick={() => void loadDataset(true)}
             disabled={refreshing}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:text-ink hover:shadow-sm active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none',
+              'inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink disabled:cursor-not-allowed',
               refreshing && 'opacity-60',
             )}
             title="刷新知识库"
           >
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             刷新
+          </button>
+          <button
+            onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active"
+          >
+            <Settings size={14} />
+            解析配置
           </button>
           <input
             ref={fileInputRef}
