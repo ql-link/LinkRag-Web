@@ -211,37 +211,33 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
   return (
     <div
       className={cn(
-        'not-prose group relative overflow-hidden border border-border-subtle transition-colors',
-        compact ? 'bg-surface-soft/80 dark:bg-surface-card' : 'bg-surface-card dark:bg-[#303030]',
-        compact ? 'my-2 rounded-lg' : 'my-8 rounded-2xl',
+        'not-prose group relative overflow-hidden rounded-lg border border-border-subtle bg-bg-card-solid shadow-sm shadow-black/[0.03] transition-colors',
+        compact ? 'my-2' : 'my-6',
       )}
     >
       <div
         className={cn(
-          'flex items-center justify-between border-b border-border-subtle',
-          compact ? 'bg-canvas/70 dark:bg-white/[0.03]' : 'bg-bg-base/30 dark:bg-[#2b2b2b]',
-          compact ? 'px-2.5 py-1.5' : 'px-4 py-3',
+          'flex items-center justify-between border-b border-border-subtle bg-surface-soft/55',
+          compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
         )}
       >
         <div className="flex items-center gap-2">
           <span
             className={cn(
-              'flex items-center justify-center bg-primary/10 text-primary',
-              compact ? 'size-5 rounded-md' : 'size-7 rounded-xl',
+              'flex items-center justify-center rounded-md border border-border-subtle bg-canvas text-muted',
+              compact ? 'size-5' : 'size-6',
             )}
           >
-            <FileCode2 size={compact ? 12 : 15} strokeWidth={1.8} />
+            <FileCode2 size={compact ? 12 : 14} strokeWidth={1.8} />
           </span>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
-            {language || 'text'}
-          </span>
+          <span className="font-mono text-[11px] font-semibold text-muted">{language || 'text'}</span>
         </div>
         <button
           type="button"
           onClick={handleCopy}
           className={cn(
-            'inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
-            compact ? 'rounded-md px-2 py-1' : 'rounded-xl px-2.5 py-1.5',
+            'inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium text-muted opacity-100 transition-colors hover:bg-primary/8 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
+            compact ? 'px-2 py-1' : 'px-2.5 py-1.5',
           )}
           title="复制代码"
         >
@@ -255,20 +251,21 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
         </div>
       )}
       <SyntaxHighlighter
-        style={(compact ? oneLight : darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
+        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
         language={language || 'text'}
         PreTag="div"
+        wrapLongLines={false}
         customStyle={{
           margin: 0,
-          padding: compact ? '0.625rem 0.75rem' : '1.125rem 1rem',
+          padding: compact ? '0.625rem 0.75rem' : '0.875rem 1rem',
           background: 'transparent',
-          fontSize: compact ? '0.75rem' : '0.875rem',
-          lineHeight: compact ? '1.55' : '1.65',
+          fontSize: compact ? '0.75rem' : '0.8125rem',
+          lineHeight: compact ? '1.55' : '1.7',
+          overflowX: 'auto',
         }}
         codeTagProps={{
           style: {
-            color: compact ? 'var(--color-text-main, #24292f)' : undefined,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
           },
         }}
       >
@@ -387,7 +384,7 @@ const CodeRenderer = ({ className, children, node: _node, compact: _compact, ...
   return (
     <code
       className={cn(
-        'rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] text-[#b42318] dark:bg-surface-card dark:text-[#ff7b72]',
+        'rounded-md border border-primary/18 bg-primary/8 px-1.5 py-[0.12rem] font-mono text-[0.86em] font-semibold text-primary',
         className,
       )}
       {...props}
