@@ -532,6 +532,7 @@ export default function DatasetParseConfigPage() {
   const [initial, setInitial] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [defaultModels, setDefaultModels] = useState<DefaultModels>({ chat: null, vision: null });
   const [activeGroup, setActiveGroup] = useState(GROUPS[0].id);
+  const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -542,6 +543,8 @@ export default function DatasetParseConfigPage() {
   const errorCount = Object.keys(errors).length;
   const dirty = getComparable(values) !== getComparable(initial);
   const saveDisabled = !dirty || errorCount > 0 || saving;
+  const mobileGroup = GROUPS.find((group) => group.id === mobileGroupId) ?? null;
+  const MobileGroupIcon = mobileGroup?.icon;
 
   useBeforeUnload(
     useCallback(
@@ -725,8 +728,8 @@ export default function DatasetParseConfigPage() {
 
   return (
     <div className="flex h-full flex-col bg-canvas text-text-main">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 sm:px-6 lg:px-8">
-        <div className="min-w-0">
+      <header className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
+        <div className="hidden min-w-0 lg:block">
           <Breadcrumb
             items={[
               { label: '首页', path: Routes.Home },
@@ -737,7 +740,7 @@ export default function DatasetParseConfigPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex min-w-0 items-center gap-1.5 lg:shrink-0 lg:gap-2">
           {dirty && (
             <span className="hidden h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary lg:inline-flex">
               未保存改动
@@ -748,33 +751,33 @@ export default function DatasetParseConfigPage() {
               type="button"
               onClick={handleDiscard}
               disabled={saving}
-              className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
             >
-              放弃改动
+              放弃
             </button>
           )}
           <button
             type="button"
             onClick={handleRestoreDefault}
             disabled={saving}
-            className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
           >
-            恢复默认
+            默认
           </button>
           <button
             type="button"
             onClick={() => void handleSave()}
             disabled={saveDisabled}
-            className="inline-flex h-9 min-w-[82px] items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-9 min-w-[64px] items-center justify-center rounded-lg bg-primary px-3 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-45 lg:min-w-[82px] lg:px-4"
           >
-            {saving ? '保存中' : '保存配置'}
+            {saving ? '保存中' : '保存'}
           </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:pb-8">
+      <main className="flex-1 overflow-y-auto px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
         {errorCount > 0 && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-error/30 bg-bg-card-solid px-4 py-3 text-text-secondary">
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-error/30 bg-bg-card-solid px-3 py-2.5 text-text-secondary lg:px-4 lg:py-3">
             <AlertCircle size={16} className="shrink-0 text-error" />
             <span className="text-sm">
               有 <strong className="text-error">{errorCount}</strong> 项参数待修正，修正后才能保存。
@@ -783,8 +786,53 @@ export default function DatasetParseConfigPage() {
         )}
 
         <div className="flex flex-col items-start gap-5 lg:flex-row">
-          <aside className="w-full shrink-0 rounded-xl border border-hairline bg-bg-card-solid p-2 (--)] lg:sticky lg:top-0 lg:w-[196px]">
+          <aside className="w-full shrink-0 lg:hidden">
             <div className="grid grid-cols-2 gap-1 lg:grid-cols-1">
+              {GROUPS.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveGroup(group.id);
+                    setMobileGroupId(group.id);
+                  }}
+                  className={cn(
+                    'flex items-center justify-between gap-2 px-1 py-2 text-sm transition-colors',
+                    mobileGroupId === group.id ? 'text-ink' : 'text-text-secondary hover:text-ink',
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={cn('h-2 w-2 shrink-0 rounded-full', group.dotClass)} />
+                    <span className="truncate font-semibold">{group.name}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {mobileGroup && MobileGroupIcon && (
+              <div className="mt-4 px-1 py-1 [animation:datasetTabIn_220ms_ease-out]">
+                <div className="mb-3 flex min-w-0 items-center gap-2">
+                  <MobileGroupIcon size={18} className={mobileGroup.colorClass} />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-base font-bold text-ink">{mobileGroup.name}</h2>
+                    <p className="truncate text-[11px] text-muted">{mobileGroup.note}</p>
+                  </div>
+                </div>
+                <ConfigGroup
+                  group={mobileGroup}
+                  values={values}
+                  errors={errors}
+                  disabled={saving}
+                  displayModels={defaultModels}
+                  embedded
+                  onFocus={() => setActiveGroup(mobileGroup.id)}
+                  onChange={updateValue}
+                />
+              </div>
+            )}
+          </aside>
+
+          <aside className="hidden w-full shrink-0 lg:sticky lg:top-0 lg:block lg:w-[196px] lg:rounded-xl lg:border lg:border-hairline lg:bg-bg-card-solid lg:p-2">
+            <div className="grid grid-cols-1 gap-1">
               {GROUPS.map((group) => (
                 <a
                   key={group.id}
@@ -807,7 +855,7 @@ export default function DatasetParseConfigPage() {
             </div>
           </aside>
 
-          <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="hidden min-w-0 flex-1 flex-col gap-4 lg:flex">
             {GROUPS.map((group) => (
               <ConfigGroup
                 key={group.id}
@@ -833,6 +881,7 @@ function ConfigGroup({
   errors,
   disabled,
   displayModels,
+  embedded = false,
   onFocus,
   onChange,
 }: {
@@ -841,6 +890,7 @@ function ConfigGroup({
   errors: Partial<Record<EditableParamKey, string>>;
   disabled: boolean;
   displayModels: DefaultModels;
+  embedded?: boolean;
   onFocus: () => void;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
@@ -848,12 +898,17 @@ function ConfigGroup({
 
   return (
     <section
-      id={group.id}
+      id={embedded ? undefined : group.id}
       onMouseEnter={onFocus}
-      className="scroll-mt-8 overflow-hidden rounded-xl border border-hairline bg-bg-card-solid (--)]"
+      className="scroll-mt-8 overflow-hidden lg:rounded-xl lg:border lg:border-hairline lg:bg-bg-card-solid"
     >
-      <header className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent">
+      <header
+        className={cn(
+          'flex items-center gap-2 px-1 py-2 lg:gap-3 lg:border-b lg:border-border-subtle lg:px-5 lg:py-4',
+          embedded && 'hidden lg:flex',
+        )}
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-transparent lg:h-8 lg:w-8">
           <Icon size={18} className={group.colorClass} />
         </span>
         <div className="min-w-0">
@@ -862,7 +917,7 @@ function ConfigGroup({
       </header>
       <div
         className={cn(
-          'grid gap-x-8 gap-y-6 p-5',
+          'grid gap-x-8 gap-y-4 px-1 pb-4 pt-2 lg:gap-y-6 lg:p-5',
           group.columns === 'single' ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2',
         )}
       >
@@ -929,9 +984,9 @@ function ParamField({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col gap-2.5',
+        'flex min-w-0 flex-col gap-2',
         spanFull && 'xl:col-span-2',
-        param.type === 'multiselect' && 'gap-3 border-b border-border-subtle pb-5',
+        param.type === 'multiselect' && 'gap-3 lg:border-b lg:border-border-subtle lg:pb-5',
         disabled && 'pointer-events-none opacity-40',
       )}
       title={[param.envKey, param.description].filter(Boolean).join(' · ')}

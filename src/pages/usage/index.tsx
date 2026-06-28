@@ -184,9 +184,9 @@ export default function UsagePage() {
   const showSkeleton = loading && summary === null;
 
   return (
-    <div className="h-full flex flex-col bg-canvas">
-      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0">
-        <div>
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="flex shrink-0 items-center justify-end px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:px-8 lg:py-0">
+        <div className="hidden lg:block">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} />
         </div>
         <div className="flex items-center gap-2">
@@ -196,20 +196,20 @@ export default function UsagePage() {
             className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-ink/20 hover:bg-surface-card hover:text-ink"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            刷新
+            <span className="hidden lg:inline">刷新</span>
           </button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="space-y-6 px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
+        <section className="space-y-5 px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:space-y-6 lg:px-8 lg:py-6 lg:pb-6">
           {showSkeleton ? (
             <UsageSkeleton />
           ) : (
             <>
               <UsageHero summary={summary} range={range} />
 
-              <section className="border-t border-border-subtle/80 pt-5">
+              <section className="hidden border-t border-border-subtle/80 pt-5 lg:block">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
@@ -230,9 +230,9 @@ export default function UsagePage() {
                 )}
               </section>
 
-              <div className="grid grid-cols-1 gap-5 border-t border-border-subtle/80 pt-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <div className="grid grid-cols-1 gap-5 lg:border-t lg:border-border-subtle/80 lg:pt-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <section className="flex min-h-0 flex-col">
-                  <h3 className="mb-4 text-sm font-bold text-ink">模型用量</h3>
+                  <h3 className="mb-3 text-sm font-bold text-ink lg:mb-4">模型用量</h3>
                   <div className="min-h-0 flex-1">
                     {topModels.length === 0 ? (
                       <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
@@ -243,7 +243,7 @@ export default function UsagePage() {
                 </section>
 
                 <section className="flex min-h-0 flex-col">
-                  <h3 className="mb-4 text-sm font-bold text-ink">最近调用</h3>
+                  <h3 className="mb-3 text-sm font-bold text-ink lg:mb-4">最近调用</h3>
                   <div className="min-h-0 flex-1">
                     {logs.length === 0 ? (
                       <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
@@ -348,10 +348,10 @@ function UsageHero({
   ];
 
   return (
-    <div className="py-5">
+    <div className="py-2 lg:py-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-3 lg:flex">
             <div className="rounded-md bg-transparent p-2">
               <Zap size={18} className="text-info" />
             </div>
@@ -362,35 +362,36 @@ function UsageHero({
               </p>
             </div>
           </div>
-          <div className="mt-4 break-words text-4xl font-bold leading-none tracking-normal text-ink sm:text-5xl">
+          <div className="break-words text-4xl font-bold leading-none tracking-normal text-ink sm:text-5xl lg:mt-4">
             {formatNumber(summary?.totalTokens ?? 0)}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm font-semibold text-text-secondary">
               ≈ {formatCompactTokens(summary?.totalTokens ?? 0)}
             </p>
+            <p className="text-xs font-medium text-muted lg:hidden">{getRangeLabel(range)}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:min-w-[260px] lg:pt-1">
+        <div className="grid grid-cols-2 gap-3 lg:min-w-[260px] lg:gap-5 lg:pt-1">
           <div className="min-w-0 text-ink">
-            <div className="mb-1.5 text-xs font-bold text-muted">总调用</div>
-            <div className="flex items-center gap-2 text-xl font-bold">
-              <Activity size={17} className="text-muted" />
+            <div className="mb-1 text-xs font-bold text-muted lg:mb-1.5">总调用</div>
+            <div className="flex items-center gap-2 text-lg font-bold lg:text-xl">
+              <Activity size={17} className="hidden text-muted lg:block" />
               {formatNumber(summary?.totalCalls ?? 0)}
             </div>
           </div>
           <div className="min-w-0 text-ink">
-            <div className="mb-1.5 text-xs font-bold text-muted">成功率</div>
-            <div className="flex items-center gap-2 text-xl font-bold text-success">
-              <CircleCheck size={17} />
+            <div className="mb-1 text-xs font-bold text-muted lg:mb-1.5">成功率</div>
+            <div className="flex items-center gap-2 text-lg font-bold text-success lg:text-xl">
+              <CircleCheck size={17} className="hidden lg:block" />
               {formatPercent(summary?.successRate, 1)}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 xl:grid-cols-4">
+      <div className="mt-5 hidden grid-cols-2 gap-x-5 gap-y-3 lg:grid xl:grid-cols-4">
         {secondaryItems.map((item) => (
           <div key={item.label} className="min-w-0">
             <div className="flex items-center gap-2">
@@ -402,7 +403,7 @@ function UsageHero({
         ))}
       </div>
 
-      <div className="mt-4 mono-label text-muted-soft">
+      <div className="mt-4 hidden mono-label text-muted-soft lg:block">
         成功 {formatNumber(summary?.successCalls ?? 0)} · 失败 {formatNumber(summary?.failedCalls ?? 0)}
       </div>
     </div>
@@ -605,7 +606,7 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
 
   return (
     <div className="grid h-full content-center items-center gap-5 md:grid-cols-[160px_minmax(0,1fr)]">
-      <div className="relative mx-auto h-[164px] w-[164px]">
+      <div className="relative mx-auto hidden h-[164px] w-[164px] md:block">
         <svg viewBox="0 0 170 170" className="h-full w-full" role="img" aria-label="模型用量饼图">
           <circle cx="85" cy="85" r="59" fill="none" stroke="var(--color-surface-soft)" strokeWidth="24" />
           <g className="[filter:drop-shadow(0_2px_3px_rgba(20,20,19,0.08))]">
@@ -636,13 +637,16 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
         </div>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-1 lg:space-y-2.5">
         {chartItems.map((item, index) => {
           const percent = totalTokens > 0 ? item.totalTokens / totalTokens : 0;
           return (
             <div
               key={`${item.providerType}-${item.modelName}`}
-              className="flex min-w-0 items-center gap-3 rounded-md px-1.5 py-1.5 transition-colors hover:bg-ink/[0.025]"
+              className={cn(
+                'flex min-w-0 items-center gap-3 rounded-md px-1 py-1.5 transition-colors hover:bg-ink/[0.025] lg:px-1.5',
+                index >= 3 && 'hidden lg:flex',
+              )}
             >
               <UsageProviderIcon item={item} />
               <div className="min-w-0 flex-1">
@@ -738,9 +742,15 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleInDegrees
 
 function RecentCallsList({ logs }: { logs: UsageLogDTO[] }) {
   return (
-    <div className="popover-scrollbar h-full space-y-1 overflow-y-auto pr-1">
-      {logs.map((log) => (
-        <div key={log.id} className="flex items-center justify-between gap-4 rounded-md px-2 py-2.5">
+    <div className="popover-scrollbar h-full space-y-0.5 overflow-y-auto pr-1 lg:space-y-1">
+      {logs.map((log, index) => (
+        <div
+          key={log.id}
+          className={cn(
+            'flex items-center justify-between gap-4 rounded-md px-1 py-2 transition-colors hover:bg-ink/[0.025] lg:px-2 lg:py-2.5',
+            index >= 4 && 'hidden lg:flex',
+          )}
+        >
           <div className="flex min-w-0 items-center gap-3">
             <span
               className={cn('h-2 w-2 shrink-0 rounded-full', isSuccessStatus(log.status) ? 'bg-success' : 'bg-error')}
@@ -755,7 +765,7 @@ function RecentCallsList({ logs }: { logs: UsageLogDTO[] }) {
           </div>
           <div className="shrink-0 text-right">
             <p className="text-sm font-bold text-ink">{formatCompactTokens(log.totalTokens).replace(' tokens', '')}</p>
-            <p className="mono-label mt-1 text-muted-soft">{formatTime(log.createdAt)}</p>
+            <p className="mono-label mt-1 hidden text-muted-soft lg:block">{formatTime(log.createdAt)}</p>
           </div>
         </div>
       ))}

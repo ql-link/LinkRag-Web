@@ -43,11 +43,13 @@ const pageMotion = {
   exit: { opacity: 0, y: -6 },
   transition: { duration: 0.22, ease: 'easeOut' } as const,
 };
-function AppRoutesContent({ location }: { location: ReturnType<typeof useLocation> }) {
+function AppRoutesContent({ isDesktop, location }: { isDesktop: boolean; location: ReturnType<typeof useLocation> }) {
+  const defaultRoute = isDesktop ? RoutePaths.Home : RoutePaths.Chats;
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes location={location}>
-        <Route path={RoutePaths.Home} element={<HomePage />} />
+        <Route path={RoutePaths.Home} element={isDesktop ? <HomePage /> : <Navigate to={RoutePaths.Chats} replace />} />
         <Route path={RoutePaths.Datasets} element={<DatasetsPage />} />
         <Route path={RoutePaths.DatasetParseConfig} element={<DatasetParseConfigPage />} />
         <Route path={RoutePaths.DatasetDetail} element={<DatasetPage />} />
@@ -67,8 +69,8 @@ function AppRoutesContent({ location }: { location: ReturnType<typeof useLocatio
             </DesktopOnlyRoute>
           }
         />
-        <Route path={RoutePaths.Welcome} element={<Navigate to={RoutePaths.Home} replace />} />
-        <Route path="*" element={<Navigate to={RoutePaths.Home} replace />} />
+        <Route path={RoutePaths.Welcome} element={<Navigate to={defaultRoute} replace />} />
+        <Route path="*" element={<Navigate to={defaultRoute} replace />} />
       </Routes>
     </Suspense>
   );
@@ -169,7 +171,7 @@ export function ProtectedLayout() {
           exit={pageMotion.exit}
           transition={pageMotion.transition}
         >
-          <AppRoutesContent location={location} />
+          <AppRoutesContent isDesktop={isDesktop} location={location} />
         </motion.div>
       </AnimatePresence>
     </ErrorBoundary>
