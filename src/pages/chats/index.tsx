@@ -38,7 +38,7 @@ import {
   toUiMessages,
 } from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
-import { getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
+import { getDatasetParseConfig, getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
 import {
@@ -1073,6 +1073,17 @@ export default function ChatsPage() {
       if (!selectedModelConfigId) {
         addToast('error', '请先选择对话模型');
         setModelOpen(true);
+        return false;
+      }
+
+      try {
+        const parseConfig = await getDatasetParseConfig(selectedDatasetId);
+        if (!parseConfig.sparse_embedding_config_id || !parseConfig.dense_embedding_config_id) {
+          addToast('error', '该知识库缺少向量模型绑定，请先到知识库解析配置页补全');
+          return false;
+        }
+      } catch (error) {
+        console.error('Failed to verify dataset embedding binding:', error);
         return false;
       }
 

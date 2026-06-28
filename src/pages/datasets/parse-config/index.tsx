@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ChangeEvent } from 'react';
 import { useBeforeUnload, useNavigate, useParams } from 'react-router';
-import { AlertCircle, Box, Check, FileText, Layers3, Loader2, Search, Sparkles } from 'lucide-react';
+import { AlertCircle, Box, BrainCircuit, Check, FileText, Layers3, Loader2, Search, Sparkles } from 'lucide-react';
+import denseIconUrl from '@/assets/icons/color/dense.svg';
+import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { EmbeddingModelSelect } from '@/components/EmbeddingModelSelect';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
 import {
   createProviderModelDisplayNameMap,
@@ -12,7 +16,7 @@ import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
-import { getDefaultLLMConfig, getLLMProviders } from '@/services/llm';
+import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
 import type {
   DatasetDTO,
   DatasetParseConfigDTO,
@@ -46,6 +50,8 @@ type ParamKey =
 type EditableParamKey = Exclude<ParamKey, 'table_model' | 'vision_model'>;
 
 type ParseConfigValues = {
+  sparse_embedding_config_id: number | null;
+  dense_embedding_config_id: number | null;
   heading_break_level: number | null;
   min_candidate_chunk_tokens: number | null;
   overlap_tokens: number | null;
@@ -106,6 +112,8 @@ interface ParamGroup {
 }
 
 const DEFAULT_VALUES: ParseConfigValues = {
+  sparse_embedding_config_id: null,
+  dense_embedding_config_id: null,
   heading_break_level: 5,
   min_candidate_chunk_tokens: 128,
   overlap_tokens: 64,
@@ -130,6 +138,7 @@ const RECALL_SOURCE_OPTIONS: Array<{ label: string; value: RecallSource }> = [
 ];
 
 const ALLOWED_RECALL_SOURCES = new Set<RecallSource>(RECALL_SOURCE_OPTIONS.map((option) => option.value));
+const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
 
 const GROUPS: ParamGroup[] = [
   {
@@ -380,6 +389,10 @@ function readNumber(raw: unknown, fallback: number | null) {
   return typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback;
 }
 
+function readConfigId(raw: unknown) {
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+}
+
 function readBoolean(raw: unknown, fallback: boolean) {
   return typeof raw === 'boolean' ? raw : fallback;
 }
@@ -400,6 +413,8 @@ function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
   const recall = config.recall ?? {};
 
   return {
+    sparse_embedding_config_id: readConfigId(config.sparse_embedding_config_id),
+    dense_embedding_config_id: readConfigId(config.dense_embedding_config_id),
     heading_break_level: readNumber(chunking.heading_break_level, DEFAULT_VALUES.heading_break_level),
     min_candidate_chunk_tokens: readNumber(
       chunking.min_candidate_chunk_tokens,
@@ -432,6 +447,8 @@ function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
 
 function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
   return {
+    sparse_embedding_config_id: values.sparse_embedding_config_id,
+    dense_embedding_config_id: values.dense_embedding_config_id,
     chunking: {
       heading_break_level: values.heading_break_level,
       min_candidate_chunk_tokens: values.min_candidate_chunk_tokens,
@@ -531,8 +548,9 @@ export default function DatasetParseConfigPage() {
   const [values, setValues] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [initial, setInitial] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [defaultModels, setDefaultModels] = useState<DefaultModels>({ chat: null, vision: null });
-  const [activeGroup, setActiveGroup] = useState(GROUPS[0].id);
-  const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
+  const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -540,11 +558,19 @@ export default function DatasetParseConfigPage() {
   const datasetId = Number(id);
   const allParams = useMemo(() => GROUPS.flatMap((group) => group.params), []);
   const errors = useMemo(() => validateValues(values, allParams, defaultModels), [allParams, defaultModels, values]);
-  const errorCount = Object.keys(errors).length;
+  const bindingErrors = useMemo(
+    () => ({
+      ...(values.sparse_embedding_config_id ? {} : { sparse_embedding_config_id: '请选择稀疏向量模型' }),
+      ...(values.dense_embedding_config_id ? {} : { dense_embedding_config_id: '请选择稠密向量模型' }),
+    }),
+    [values.dense_embedding_config_id, values.sparse_embedding_config_id],
+  );
+  const errorCount = Object.keys(errors).length + Object.keys(bindingErrors).length;
   const dirty = getComparable(values) !== getComparable(initial);
   const saveDisabled = !dirty || errorCount > 0 || saving;
-  const mobileGroup = GROUPS.find((group) => group.id === mobileGroupId) ?? null;
-  const MobileGroupIcon = mobileGroup?.icon;
+  const embeddingBindingChanged =
+    values.sparse_embedding_config_id !== initial.sparse_embedding_config_id ||
+    values.dense_embedding_config_id !== initial.dense_embedding_config_id;
 
   useBeforeUnload(
     useCallback(
@@ -608,6 +634,7 @@ export default function DatasetParseConfigPage() {
 
     async function load() {
       setLoading(true);
+      setEmbeddingConfigsLoading(true);
       setErrorMessage('');
 
       try {
@@ -617,6 +644,10 @@ export default function DatasetParseConfigPage() {
           getDefaultLLMConfig('CHAT'),
           getDefaultLLMConfig('VISION'),
           getLLMProviders(),
+        ]);
+        const [sparseConfigsResult, denseConfigsResult] = await Promise.allSettled([
+          getLLMConfigs({ capability: 'SPARSE_EMBEDDING', isActive: true }),
+          getLLMConfigs({ capability: 'EMBEDDING', isActive: true }),
         ]);
 
         if (cancelled) return;
@@ -637,6 +668,16 @@ export default function DatasetParseConfigPage() {
           chat: chatResult.status === 'fulfilled' ? createDefaultModelInfo(chatResult.value, providers) : null,
           vision: visionResult.status === 'fulfilled' ? createDefaultModelInfo(visionResult.value, providers) : null,
         });
+        setSparseEmbeddingConfigs(
+          sparseConfigsResult.status === 'fulfilled'
+            ? sparseConfigsResult.value.filter((config) => config.capability === 'SPARSE_EMBEDDING' && config.isActive)
+            : [],
+        );
+        setDenseEmbeddingConfigs(
+          denseConfigsResult.status === 'fulfilled'
+            ? denseConfigsResult.value.filter((config) => config.capability === 'EMBEDDING' && config.isActive)
+            : [],
+        );
       } catch (error) {
         console.error('Failed to load dataset parse config:', error);
         if (!cancelled) {
@@ -645,6 +686,7 @@ export default function DatasetParseConfigPage() {
         }
       } finally {
         if (!cancelled) {
+          setEmbeddingConfigsLoading(false);
           setLoading(false);
         }
       }
@@ -671,12 +713,21 @@ export default function DatasetParseConfigPage() {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
+  function updateEmbeddingBinding(
+    key: 'sparse_embedding_config_id' | 'dense_embedding_config_id',
+    value: number | null,
+  ) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
   function handleRestoreDefault() {
-    setValues({
+    setValues((prev) => ({
       ...DEFAULT_VALUES,
+      sparse_embedding_config_id: prev.sparse_embedding_config_id,
+      dense_embedding_config_id: prev.dense_embedding_config_id,
       enable_table_enhancement: !!defaultModels.chat,
       enable_image_enhancement: !!defaultModels.vision,
-    });
+    }));
   }
 
   function handleDiscard() {
@@ -685,6 +736,10 @@ export default function DatasetParseConfigPage() {
 
   async function handleSave() {
     if (!dataset || saveDisabled) return;
+    if (!values.sparse_embedding_config_id || !values.dense_embedding_config_id) {
+      addToast('error', '该数据集缺少向量模型绑定，请补全后再保存');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -728,7 +783,7 @@ export default function DatasetParseConfigPage() {
 
   return (
     <div className="flex h-full flex-col bg-canvas text-text-main">
-      <header className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
+      <header className="flex shrink-0 items-center justify-end gap-2 px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:px-8 lg:py-0">
         <div className="hidden min-w-0 lg:block">
           <Breadcrumb
             items={[
@@ -742,7 +797,7 @@ export default function DatasetParseConfigPage() {
 
         <div className="flex min-w-0 items-center gap-1.5 lg:shrink-0 lg:gap-2">
           {dirty && (
-            <span className="hidden h-9 items-center rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary lg:inline-flex">
+            <span className="hidden h-9 items-center rounded-lg bg-primary/8 px-3 text-xs font-bold text-text-secondary lg:inline-flex">
               未保存改动
             </span>
           )}
@@ -751,7 +806,7 @@ export default function DatasetParseConfigPage() {
               type="button"
               onClick={handleDiscard}
               disabled={saving}
-              className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
+              className="inline-flex h-9 items-center rounded-lg bg-transparent px-2.5 text-xs font-bold text-text-secondary transition-colors hover:bg-primary/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
             >
               放弃
             </button>
@@ -760,7 +815,7 @@ export default function DatasetParseConfigPage() {
             type="button"
             onClick={handleRestoreDefault}
             disabled={saving}
-            className="inline-flex h-9 items-center rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
+            className="inline-flex h-9 items-center rounded-lg bg-transparent px-2.5 text-xs font-bold text-text-secondary transition-colors hover:bg-primary/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
           >
             默认
           </button>
@@ -776,86 +831,20 @@ export default function DatasetParseConfigPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
-        {errorCount > 0 && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-error/30 bg-bg-card-solid px-3 py-2.5 text-text-secondary lg:px-4 lg:py-3">
-            <AlertCircle size={16} className="shrink-0 text-error" />
-            <span className="text-sm">
-              有 <strong className="text-error">{errorCount}</strong> 项参数待修正，修正后才能保存。
-            </span>
-          </div>
-        )}
-
-        <div className="flex flex-col items-start gap-5 lg:flex-row">
-          <aside className="w-full shrink-0 lg:hidden">
-            <div className="grid grid-cols-2 gap-1 lg:grid-cols-1">
-              {GROUPS.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveGroup(group.id);
-                    setMobileGroupId(group.id);
-                  }}
-                  className={cn(
-                    'flex items-center justify-between gap-2 px-1 py-2 text-sm transition-colors',
-                    mobileGroupId === group.id ? 'text-ink' : 'text-text-secondary hover:text-ink',
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn('h-2 w-2 shrink-0 rounded-full', group.dotClass)} />
-                    <span className="truncate font-semibold">{group.name}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            {mobileGroup && MobileGroupIcon && (
-              <div className="mt-4 px-1 py-1 [animation:datasetTabIn_220ms_ease-out]">
-                <div className="mb-3 flex min-w-0 items-center gap-2">
-                  <MobileGroupIcon size={18} className={mobileGroup.colorClass} />
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-bold text-ink">{mobileGroup.name}</h2>
-                    <p className="truncate text-[11px] text-muted">{mobileGroup.note}</p>
-                  </div>
-                </div>
-                <ConfigGroup
-                  group={mobileGroup}
-                  values={values}
-                  errors={errors}
-                  disabled={saving}
-                  displayModels={defaultModels}
-                  embedded
-                  onFocus={() => setActiveGroup(mobileGroup.id)}
-                  onChange={updateValue}
-                />
-              </div>
-            )}
-          </aside>
-
-          <aside className="hidden w-full shrink-0 lg:sticky lg:top-0 lg:block lg:w-[196px] lg:rounded-xl lg:border lg:border-hairline lg:bg-bg-card-solid lg:p-2">
-            <div className="grid grid-cols-1 gap-1">
-              {GROUPS.map((group) => (
-                <a
-                  key={group.id}
-                  href={`#${group.id}`}
-                  onClick={() => setActiveGroup(group.id)}
-                  className={cn(
-                    'flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition-colors',
-                    activeGroup === group.id
-                      ? 'border-primary/40 bg-primary/10 text-ink'
-                      : 'border-transparent text-text-secondary hover:bg-surface-soft hover:text-ink',
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn('h-2 w-2 shrink-0 rounded-full', group.dotClass)} />
-                    <span className="truncate font-semibold">{group.name}</span>
-                  </span>
-                  <span className="font-mono text-[11px] opacity-60">{group.count}</span>
-                </a>
-              ))}
-            </div>
-          </aside>
-
-          <div className="hidden min-w-0 flex-1 flex-col gap-4 lg:flex">
+        <div className="w-full">
+          <div className="flex min-w-0 flex-col gap-0">
+            <EmbeddingBindingSection
+              sparseConfigs={sparseEmbeddingConfigs}
+              denseConfigs={denseEmbeddingConfigs}
+              sparseValue={values.sparse_embedding_config_id}
+              denseValue={values.dense_embedding_config_id}
+              sparseError={bindingErrors.sparse_embedding_config_id}
+              denseError={bindingErrors.dense_embedding_config_id}
+              loading={embeddingConfigsLoading}
+              disabled={saving}
+              changed={embeddingBindingChanged}
+              onChange={updateEmbeddingBinding}
+            />
             {GROUPS.map((group) => (
               <ConfigGroup
                 key={group.id}
@@ -864,7 +853,6 @@ export default function DatasetParseConfigPage() {
                 errors={errors}
                 disabled={saving}
                 displayModels={defaultModels}
-                onFocus={() => setActiveGroup(group.id)}
                 onChange={updateValue}
               />
             ))}
@@ -875,6 +863,77 @@ export default function DatasetParseConfigPage() {
   );
 }
 
+function EmbeddingBindingSection({
+  sparseConfigs,
+  denseConfigs,
+  sparseValue,
+  denseValue,
+  sparseError,
+  denseError,
+  loading,
+  disabled,
+  changed,
+  onChange,
+}: {
+  sparseConfigs: LLMConfigDTO[];
+  denseConfigs: LLMConfigDTO[];
+  sparseValue: number | null;
+  denseValue: number | null;
+  sparseError?: string;
+  denseError?: string;
+  loading: boolean;
+  disabled: boolean;
+  changed: boolean;
+  onChange: (key: 'sparse_embedding_config_id' | 'dense_embedding_config_id', value: number | null) => void;
+}) {
+  const sparseUnavailable = !loading && sparseConfigs.length === 0;
+  const denseUnavailable = !loading && denseConfigs.length === 0;
+
+  return (
+    <section id={EMBEDDING_BINDING_SECTION_ID} className="scroll-mt-8 border-b border-border-subtle pb-8">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2 lg:gap-3">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center bg-transparent">
+            <BrainCircuit size={18} className="text-primary" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[15.5px] font-bold text-ink">向量模型绑定</h2>
+            <p className="mt-0.5 text-[11.5px] leading-5 text-muted">绑定召回使用的稀疏与稠密向量模型</p>
+          </div>
+        </div>
+        {changed && <span className="shrink-0 text-[11px] font-semibold text-primary">已修改</span>}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <EmbeddingModelSelect
+          label="稀疏向量模型"
+          iconUrl={sparseIconUrl}
+          value={sparseValue}
+          configs={sparseConfigs}
+          error={sparseError}
+          unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
+          loading={loading}
+          disabled={disabled}
+          helperText={sparseUnavailable ? '暂无可用配置' : ''}
+          onChange={(value) => onChange('sparse_embedding_config_id', value)}
+        />
+        <EmbeddingModelSelect
+          label="稠密向量模型"
+          iconUrl={denseIconUrl}
+          value={denseValue}
+          configs={denseConfigs}
+          error={denseError}
+          unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
+          loading={loading}
+          disabled={disabled}
+          helperText={denseUnavailable ? '暂无可用配置' : ''}
+          onChange={(value) => onChange('dense_embedding_config_id', value)}
+        />
+      </div>
+      {changed && <p className="mt-1 text-[11px] leading-5 text-muted">重绑后，历史文件可能需要重新解析或重建向量。</p>}
+    </section>
+  );
+}
+
 function ConfigGroup({
   group,
   values,
@@ -882,7 +941,6 @@ function ConfigGroup({
   disabled,
   displayModels,
   embedded = false,
-  onFocus,
   onChange,
 }: {
   group: ParamGroup;
@@ -891,7 +949,6 @@ function ConfigGroup({
   disabled: boolean;
   displayModels: DefaultModels;
   embedded?: boolean;
-  onFocus: () => void;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
   const Icon = group.icon;
@@ -899,25 +956,20 @@ function ConfigGroup({
   return (
     <section
       id={embedded ? undefined : group.id}
-      onMouseEnter={onFocus}
-      className="scroll-mt-8 overflow-hidden lg:rounded-xl lg:border lg:border-hairline lg:bg-bg-card-solid"
+      className="scroll-mt-8 border-b border-border-subtle py-8 last:border-b-0"
     >
-      <header
-        className={cn(
-          'flex items-center gap-2 px-1 py-2 lg:gap-3 lg:border-b lg:border-border-subtle lg:px-5 lg:py-4',
-          embedded && 'hidden lg:flex',
-        )}
-      >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-transparent lg:h-8 lg:w-8">
+      <header className={cn('flex items-start gap-2 px-1 pb-5 pt-0 lg:gap-3 lg:px-0', embedded && 'hidden lg:flex')}>
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center bg-transparent">
           <Icon size={18} className={group.colorClass} />
         </span>
         <div className="min-w-0">
           <h2 className="text-[15.5px] font-bold text-ink">{group.name}</h2>
+          <p className="mt-0.5 text-[11.5px] leading-5 text-muted">{group.note}</p>
         </div>
       </header>
       <div
         className={cn(
-          'grid gap-x-8 gap-y-4 px-1 pb-4 pt-2 lg:gap-y-6 lg:p-5',
+          'grid gap-x-10 gap-y-4 px-1 pb-2 pt-0 lg:px-0 lg:pb-0',
           group.columns === 'single' ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2',
         )}
       >
@@ -984,9 +1036,9 @@ function ParamField({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col gap-2',
+        'flex min-w-0 flex-col gap-2 pb-3 last:pb-0',
         spanFull && 'xl:col-span-2',
-        param.type === 'multiselect' && 'gap-3 lg:border-b lg:border-border-subtle lg:pb-5',
+        param.type === 'multiselect' && 'gap-3',
         disabled && 'pointer-events-none opacity-40',
       )}
       title={[param.envKey, param.description].filter(Boolean).join(' · ')}
@@ -1023,18 +1075,18 @@ function ParamField({
               step={param.step ?? 1}
               onChange={handleNumberChange}
               className={cn(
-                'h-8 w-[84px] rounded-lg border border-hairline bg-bg-card-solid px-2.5 font-mono text-[13px] font-medium text-text-main outline-none transition-colors focus:border-primary/40',
-                error && 'border-error focus:border-error',
+                'h-8 w-[84px] rounded-md bg-primary/[0.04] px-2 text-right font-mono text-[13px] font-medium text-text-main outline-none transition-colors focus:bg-primary/[0.08]',
+                error && 'bg-error/10 text-error focus:bg-error/10',
               )}
             />
           )}
           {param.type === 'slider' && (
-            <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-mono text-[13px] font-semibold text-ink">
+            <span className="font-mono text-[13px] font-semibold text-ink">
               {numericValue === null ? '-' : formatValue(numericValue)}
             </span>
           )}
           {param.type === 'multiselect' && (
-            <span className="rounded-lg bg-primary/10 px-2.5 py-1 font-mono text-[12px] font-semibold text-text-secondary">
+            <span className="font-mono text-[12px] font-semibold text-text-secondary">
               {arrayValue.length}/{param.options?.length ?? 0}
             </span>
           )}
@@ -1055,12 +1107,7 @@ function ParamField({
       )}
 
       {param.type === 'segment' && editableKey && (
-        <div
-          className={cn(
-            'grid gap-1 rounded-xl bg-surface-soft p-1',
-            compactOptions ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4',
-          )}
-        >
+        <div className={cn('grid gap-1', compactOptions ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
           {param.options?.map((option) => {
             const active = segmentValue === option.value;
             return (
@@ -1069,9 +1116,9 @@ function ParamField({
                 type="button"
                 onClick={() => onChange(editableKey, option.value as ParseConfigValues[EditableParamKey])}
                 className={cn(
-                  'min-w-0 rounded-lg text-center transition-colors',
+                  'min-w-0 rounded-md text-center transition-colors',
                   compactOptions ? 'px-1.5 py-1.5' : 'px-3 py-1.5',
-                  active ? 'bg-bg-card-solid text-ink (--)]' : 'text-muted hover:bg-bg-card-solid/70',
+                  active ? 'bg-primary/10 text-ink' : 'text-muted hover:bg-primary/[0.04]',
                 )}
               >
                 <span
@@ -1097,7 +1144,7 @@ function ParamField({
       )}
 
       {param.type === 'multiselect' && editableKey && (
-        <div className="grid grid-cols-1 gap-2 rounded-xl bg-surface-soft p-1 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {param.options?.map((option) => {
             if (typeof option.value !== 'string' || !isRecallSource(option.value)) return null;
 
@@ -1110,10 +1157,8 @@ function ParamField({
                 onClick={() => handleMultiSelectChange(source)}
                 aria-pressed={active}
                 className={cn(
-                  'rounded-lg border px-2 py-1.5 text-center transition-colors',
-                  active
-                    ? 'border-primary/40 bg-bg-card-solid text-ink (--)]'
-                    : 'border-transparent text-muted hover:bg-bg-card-solid/70',
+                  'rounded-md px-2 py-1.5 text-center transition-colors',
+                  active ? 'bg-primary/10 text-ink' : 'text-muted hover:bg-primary/[0.04]',
                 )}
               >
                 <span className="flex items-center justify-center gap-1 text-xs font-semibold">
@@ -1144,20 +1189,19 @@ function ParamField({
 }
 
 function ReadonlyModelField({ model, hint }: { model?: DefaultModelInfo | null; hint?: string }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName) : '';
+  const { darkMode } = useTheme();
+  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName, { darkMode }) : '';
 
   return (
-    <div className="rounded-xl bg-surface-soft px-3 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} />
-        <div className="min-w-0 flex-1">
-          <p className={cn('truncate font-mono text-[12.5px] font-semibold', model ? 'text-ink' : 'text-error')}>
-            {getModelDisplayName(model) || DISPLAY_MODEL_FALLBACK}
-          </p>
-          <p className="mt-1 truncate text-[10.5px] text-muted">
-            {model ? `${model.providerName} · ${hint || '跟随用户默认模型'}` : hint || '跟随用户默认模型'}
-          </p>
-        </div>
+    <div className="flex min-w-0 items-center gap-2 py-2">
+      <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} />
+      <div className="min-w-0 flex-1">
+        <p className={cn('truncate font-mono text-[12.5px] font-semibold', model ? 'text-ink' : 'text-error')}>
+          {getModelDisplayName(model) || DISPLAY_MODEL_FALLBACK}
+        </p>
+        <p className="mt-0.5 truncate text-[10.5px] text-muted">
+          {model ? `${model.providerName} · ${hint || '跟随用户默认模型'}` : hint || '跟随用户默认模型'}
+        </p>
       </div>
     </div>
   );
@@ -1175,14 +1219,14 @@ function ProviderIcon({ iconUrl, name }: { iconUrl: string; name: string }) {
 
   if (iconUrl) {
     return (
-      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg border-0 bg-transparent">
+      <div className="h-6 w-6 shrink-0 overflow-hidden border-0 bg-transparent">
         <img src={iconUrl} alt={name} className={cn('h-full w-full object-contain', iconInsetClass)} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-0 bg-transparent">
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center border-0 bg-transparent">
       <Box size={14} className="text-ink" />
     </div>
   );

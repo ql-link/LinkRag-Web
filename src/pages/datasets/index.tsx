@@ -13,13 +13,22 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import denseIconUrl from '@/assets/icons/color/dense.svg';
+import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import { Routes } from '@/routes';
+import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { EmbeddingModelSelect } from '@/components/EmbeddingModelSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
+import { getLLMConfigs } from '@/services/llm';
 import { useToast } from '@/contexts/ToastContext';
-import type { DatasetDTO } from '@/types/api';
+import type { DatasetDTO, LLMConfigDTO } from '@/types/api';
+
+function getInitialModelConfigId(configs: LLMConfigDTO[]) {
+  return configs.find((config) => config.isDefault)?.id ?? configs[0]?.id ?? null;
+}
 
 export default function DatasetsPage() {
   const navigate = useNavigate();
@@ -32,6 +41,15 @@ export default function DatasetsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newDatasetName, setNewDatasetName] = useState('');
   const [newDatasetDesc, setNewDatasetDesc] = useState('');
+  const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
+  const [selectedSparseEmbeddingConfigId, setSelectedSparseEmbeddingConfigId] = useState<number | null>(null);
+  const [selectedDenseEmbeddingConfigId, setSelectedDenseEmbeddingConfigId] = useState<number | null>(null);
+  const [createFieldErrors, setCreateFieldErrors] = useState<{
+    sparseEmbeddingConfigId?: string;
+    denseEmbeddingConfigId?: string;
+  }>({});
   const [creating, setCreating] = useState(false);
   const [editingDataset, setEditingDataset] = useState<DatasetDTO | null>(null);
   const [editDatasetName, setEditDatasetName] = useState('');
@@ -42,7 +60,14 @@ export default function DatasetsPage() {
 
   useEffect(() => {
     loadDatasets();
+    loadEmbeddingConfigs();
   }, []);
+
+  useEffect(() => {
+    if (!createDialogOpen) return;
+    setSelectedSparseEmbeddingConfigId((current) => current ?? getInitialModelConfigId(sparseEmbeddingConfigs));
+    setSelectedDenseEmbeddingConfigId((current) => current ?? getInitialModelConfigId(denseEmbeddingConfigs));
+  }, [createDialogOpen, denseEmbeddingConfigs, sparseEmbeddingConfigs]);
 
   const loadDatasets = async () => {
     setLoading(true);
@@ -58,23 +83,84 @@ export default function DatasetsPage() {
     }
   };
 
+  const loadEmbeddingConfigs = async () => {
+    setEmbeddingConfigsLoading(true);
+    try {
+      const [sparseConfigs, denseConfigs] = await Promise.all([
+        getLLMConfigs({ capability: 'SPARSE_EMBEDDING', isActive: true }),
+        getLLMConfigs({ capability: 'EMBEDDING', isActive: true }),
+      ]);
+      setSparseEmbeddingConfigs(
+        sparseConfigs.filter((config) => config.capability === 'SPARSE_EMBEDDING' && config.isActive),
+      );
+      setDenseEmbeddingConfigs(denseConfigs.filter((config) => config.capability === 'EMBEDDING' && config.isActive));
+    } catch (error) {
+      console.error('Failed to load embedding configs:', error);
+      setSparseEmbeddingConfigs([]);
+      setDenseEmbeddingConfigs([]);
+    } finally {
+      setEmbeddingConfigsLoading(false);
+    }
+  };
+
+  const openCreateDialog = () => {
+    setCreateFieldErrors({});
+    setSelectedSparseEmbeddingConfigId(getInitialModelConfigId(sparseEmbeddingConfigs));
+    setSelectedDenseEmbeddingConfigId(getInitialModelConfigId(denseEmbeddingConfigs));
+    setCreateDialogOpen(true);
+  };
+
+  const closeCreateDialog = () => {
+    if (creating) return;
+    setCreateDialogOpen(false);
+    setCreateFieldErrors({});
+  };
+
   const handleCreateDataset = async () => {
     const name = newDatasetName.trim();
     const description = newDatasetDesc.trim();
     if (!name || creating) return;
+    const nextErrors: typeof createFieldErrors = {};
+    if (!selectedSparseEmbeddingConfigId) {
+      nextErrors.sparseEmbeddingConfigId = '请选择稀疏向量模型';
+    }
+    if (!selectedDenseEmbeddingConfigId) {
+      nextErrors.denseEmbeddingConfigId = '请选择稠密向量模型';
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setCreateFieldErrors(nextErrors);
+      addToast('error', '请补全向量模型绑定');
+      return;
+    }
+
     setCreating(true);
     try {
       const ds = await createDataset({
         name,
         ...(description ? { description } : {}),
+        sparse_embedding_config_id: selectedSparseEmbeddingConfigId,
+        dense_embedding_config_id: selectedDenseEmbeddingConfigId,
       });
       setDatasets((prev) => [ds, ...prev]);
       setNewDatasetName('');
       setNewDatasetDesc('');
       setCreateDialogOpen(false);
+      setCreateFieldErrors({});
       addToast('success', '知识库已创建');
     } catch (error) {
       console.error('Failed to create dataset:', error);
+      if (error instanceof ApiError && error.code === 400) {
+        const nextErrors: typeof createFieldErrors = {};
+        if (error.message.includes('稀疏向量模型配置')) {
+          nextErrors.sparseEmbeddingConfigId = error.message;
+        }
+        if (error.message.includes('稠密向量模型配置')) {
+          nextErrors.denseEmbeddingConfigId = error.message;
+        }
+        if (Object.keys(nextErrors).length > 0) {
+          setCreateFieldErrors(nextErrors);
+        }
+      }
     } finally {
       setCreating(false);
     }
@@ -153,6 +239,16 @@ export default function DatasetsPage() {
   const showInitialLoading = loading && datasets.length === 0;
   const showBlockingError = Boolean(errorMessage) && datasets.length === 0;
   const deletingPendingDataset = datasetPendingDelete ? deletingDatasetIds.includes(datasetPendingDelete.id) : false;
+  const sparseModelUnavailable = !embeddingConfigsLoading && sparseEmbeddingConfigs.length === 0;
+  const denseModelUnavailable = !embeddingConfigsLoading && denseEmbeddingConfigs.length === 0;
+  const createDisabled =
+    !newDatasetName.trim() ||
+    creating ||
+    embeddingConfigsLoading ||
+    sparseModelUnavailable ||
+    denseModelUnavailable ||
+    !selectedSparseEmbeddingConfigId ||
+    !selectedDenseEmbeddingConfigId;
 
   const formatDatasetTime = (value: string) => {
     if (!value) return '-';
@@ -212,7 +308,7 @@ export default function DatasetsPage() {
             </button>
             <button
               type="button"
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={openCreateDialog}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-active lg:hidden"
               aria-label="新建知识库"
             >
@@ -255,7 +351,7 @@ export default function DatasetsPage() {
             </p>
             {!hasSearch && (
               <button
-                onClick={() => setCreateDialogOpen(true)}
+                onClick={openCreateDialog}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
               >
                 <Plus size={14} />
@@ -357,7 +453,7 @@ export default function DatasetsPage() {
 
             {/* Add New */}
             <div
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={openCreateDialog}
               className="hidden h-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/25 bg-primary/[0.035] p-5 text-muted transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/[0.07] hover:text-ink hover:shadow-card active:translate-y-0 active:scale-[0.99] lg:flex"
             >
               <Plus size={24} className="mb-2" />
@@ -369,65 +465,95 @@ export default function DatasetsPage() {
         {/* Create Dataset Dialog */}
         {createDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-[max(2rem,env(safe-area-inset-top))]">
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-              onClick={() => setCreateDialogOpen(false)}
-            />
-            <div className="relative w-full max-w-[480px] rounded-2xl border border-hairline bg-bg-card-solid p-5 shadow-dialog lg:w-[min(100vw-2rem,480px)] lg:rounded-xl lg:p-6 (--)]">
-              <div className="flex items-start justify-between gap-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" onClick={closeCreateDialog} />
+            <div className="relative w-full max-w-[560px] rounded-2xl bg-bg-card-solid shadow-dialog lg:w-[min(100vw-2rem,560px)] lg:rounded-xl (--)]">
+              <div className="flex items-start justify-between gap-4 px-5 pb-2 pt-5 lg:px-6">
                 <div>
                   <h3 className="text-lg font-bold text-ink">新建知识库</h3>
-                  <p className="mt-1 text-xs text-muted">创建后即可上传文件并开始问答。</p>
+                  <p className="mt-1 text-xs text-muted">填写基础信息并选择向量模型。</p>
                 </div>
                 <button
-                  onClick={() => setCreateDialogOpen(false)}
-                  className="-mr-2 -mt-2 p-2 text-muted transition-colors hover:text-ink"
+                  onClick={closeCreateDialog}
+                  className="-mr-2 -mt-2 rounded-lg p-2 text-muted transition-colors hover:bg-primary/[0.08] hover:text-ink"
                   aria-label="关闭"
                 >
                   <X size={18} />
                 </button>
               </div>
-              <div className="mt-6 space-y-5">
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-text-secondary">
-                    知识库名称
-                  </label>
-                  <input
-                    type="text"
-                    value={newDatasetName}
-                    onChange={(e) => setNewDatasetName(e.target.value)}
-                    maxLength={128}
-                    placeholder="输入知识库名称"
-                    className="w-full rounded-lg border border-border-subtle bg-surface-soft px-3 py-3 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:bg-canvas focus:outline-none lg:rounded-none lg:border-0 lg:border-b lg:bg-transparent lg:px-0 lg:py-2.5"
-                  />
+              <div className="space-y-5 px-5 py-4 lg:px-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-text-secondary">
+                      知识库名称
+                    </label>
+                    <input
+                      type="text"
+                      value={newDatasetName}
+                      onChange={(e) => setNewDatasetName(e.target.value)}
+                      maxLength={128}
+                      placeholder="输入知识库名称"
+                      className="h-10 w-full border-0 border-b border-hairline bg-transparent px-0 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-text-secondary">
+                      描述（可选）
+                    </label>
+                    <input
+                      type="text"
+                      value={newDatasetDesc}
+                      onChange={(e) => setNewDatasetDesc(e.target.value)}
+                      maxLength={512}
+                      placeholder="用于知识问答、产品文档..."
+                      className="h-10 w-full border-0 border-b border-hairline bg-transparent px-0 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:outline-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-text-secondary">
-                    描述（可选）
-                  </label>
-                  <textarea
-                    value={newDatasetDesc}
-                    onChange={(e) => setNewDatasetDesc(e.target.value)}
-                    maxLength={512}
-                    placeholder="输入知识库描述"
-                    rows={3}
-                    className="w-full resize-none rounded-lg border border-border-subtle bg-surface-soft px-3 py-3 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:bg-canvas focus:outline-none lg:rounded-none lg:border-0 lg:border-b lg:bg-transparent lg:px-0 lg:py-2.5"
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <EmbeddingModelSelect
+                    label="稀疏向量模型"
+                    iconUrl={sparseIconUrl}
+                    value={selectedSparseEmbeddingConfigId}
+                    configs={sparseEmbeddingConfigs}
+                    loading={embeddingConfigsLoading}
+                    error={createFieldErrors.sparseEmbeddingConfigId}
+                    unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
+                    helperText=""
+                    onChange={(value) => {
+                      setSelectedSparseEmbeddingConfigId(value);
+                      setCreateFieldErrors((prev) => ({ ...prev, sparseEmbeddingConfigId: undefined }));
+                    }}
+                  />
+                  <EmbeddingModelSelect
+                    label="稠密向量模型"
+                    iconUrl={denseIconUrl}
+                    value={selectedDenseEmbeddingConfigId}
+                    configs={denseEmbeddingConfigs}
+                    loading={embeddingConfigsLoading}
+                    error={createFieldErrors.denseEmbeddingConfigId}
+                    unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
+                    helperText=""
+                    onChange={(value) => {
+                      setSelectedDenseEmbeddingConfigId(value);
+                      setCreateFieldErrors((prev) => ({ ...prev, denseEmbeddingConfigId: undefined }));
+                    }}
                   />
                 </div>
               </div>
-              <div className="mt-7 grid grid-cols-2 gap-3 lg:flex lg:items-center lg:justify-end">
+              <div className="grid grid-cols-2 gap-3 px-5 pb-5 pt-3 lg:flex lg:items-center lg:justify-end lg:px-6">
                 <button
-                  onClick={() => setCreateDialogOpen(false)}
+                  onClick={closeCreateDialog}
                   className="h-11 rounded-lg bg-surface-soft px-3 text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:text-ink lg:h-auto lg:bg-transparent lg:py-2"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleCreateDataset}
-                  disabled={!newDatasetName.trim() || creating}
+                  disabled={createDisabled}
                   className="h-11 rounded-lg bg-primary px-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60 lg:h-auto lg:py-2"
                 >
-                  {creating ? '创建中' : '创建'}
+                  {creating ? '创建中' : embeddingConfigsLoading ? '加载模型' : '创建'}
                 </button>
               </div>
             </div>
