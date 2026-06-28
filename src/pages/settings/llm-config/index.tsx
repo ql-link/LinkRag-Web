@@ -8,7 +8,11 @@ import speechIconUrl from '@/assets/icons/color/speech.svg';
 import visionIconUrl from '@/assets/icons/color/vision.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getModelDisplayName } from '@/lib/model-display';
+import {
+  createProviderModelDisplayNameMap,
+  getModelDisplayName,
+  getProviderModelDisplayName,
+} from '@/lib/model-display';
 import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -249,14 +253,20 @@ export default function LLMPage() {
     return new Map(providers.map((provider) => [provider.providerType, provider.providerName]));
   }, [providers]);
 
+  const providerModelDisplayNameByKey = useMemo(() => createProviderModelDisplayNameMap(providers), [providers]);
+
   const viewConfigs = useMemo<ConfigView[]>(() => {
     return configs.map((config) => ({
       ...config,
+      displayName:
+        config.displayName?.trim() ||
+        getProviderModelDisplayName(providerModelDisplayNameByKey, config.providerType, config.modelName) ||
+        config.displayName,
       providerName:
         providerNameByType.get(config.providerType) ||
         (isLinkRagProvider(config.providerType) ? 'LinkRag' : config.providerType),
     }));
-  }, [configs, providerNameByType]);
+  }, [configs, providerModelDisplayNameByKey, providerNameByType]);
 
   const configuredProviderTypes = useMemo(() => {
     return new Set(viewConfigs.filter(isConfigEditable).map((config) => config.providerType));
