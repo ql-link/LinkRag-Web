@@ -38,17 +38,17 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 " onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Dialog */}
-      <div className={cn('relative w-[480px] rounded-2xl  overflow-hidden', 'bg-white border border-border-subtle')}>
+      <div className="relative w-[480px] overflow-hidden rounded-2xl border border-border-subtle bg-bg-card-solid shadow-dialog">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+        <div className="flex items-center justify-between border-b border-border-subtle px-6 py-4">
           <div>
             <h3 className="text-lg font-bold text-text-main">关联到数据集</h3>
-            <p className="text-xs text-text-main/50 mt-0.5">选择该文件所属的数据集</p>
+            <p className="mt-0.5 text-xs text-text-main/50">选择该文件所属的数据集</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+          <button onClick={onClose} className="rounded-xl p-2 transition-colors hover:bg-surface-soft">
             <X size={18} className="text-text-main/50" />
           </button>
         </div>
@@ -62,13 +62,13 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
               placeholder="搜索数据集..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-bg-base/50 border border-border-subtle text-xs focus:outline-none focus:border-primary"
+              className="w-full rounded-xl border border-border-subtle bg-bg-base/50 py-2.5 pl-9 pr-4 text-xs text-text-main outline-none transition-colors placeholder:text-text-main/35 focus:border-primary"
             />
           </div>
         </div>
 
         {/* Dataset List */}
-        <div className="px-6 pb-4 max-h-[300px] overflow-y-auto">
+        <div className="max-h-[300px] overflow-y-auto px-6 pb-4">
           <div className="space-y-2">
             {filteredDatasets.map((dataset) => {
               const datasetId = String(dataset.id);
@@ -78,7 +78,7 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
                   key={dataset.id}
                   onClick={() => toggleDataset(datasetId)}
                   className={cn(
-                    'w-full flex items-center gap-3 p-3 rounded-xl transition-all',
+                    'flex w-full items-center gap-3 rounded-xl p-3 transition-all',
                     isSelected
                       ? 'bg-primary/10 border border-primary/30'
                       : 'bg-bg-base/30 border border-transparent hover:border-border-subtle',
@@ -86,8 +86,8 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
                 >
                   <div
                     className={cn(
-                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                      isSelected ? 'bg-primary/20' : 'bg-gray-100',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      isSelected ? 'bg-primary/20' : 'bg-surface-soft',
                     )}
                   >
                     <Database size={14} className={isSelected ? 'text-primary' : 'text-text-main/40'} />
@@ -100,8 +100,8 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
                   </div>
                   <div
                     className={cn(
-                      'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
-                      isSelected ? 'bg-[#7B6B5D] text-white' : 'border border-gray-300',
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors',
+                      isSelected ? 'bg-primary text-white' : 'border border-border-medium',
                     )}
                   >
                     {isSelected && <Check size={12} />}
@@ -111,7 +111,7 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
             })}
             {filteredDatasets.length === 0 && (
               <div className="py-8 text-center">
-                <Database size={24} className="mx-auto text-text-main/20 mb-2" />
+                <Database size={24} className="mx-auto mb-2 text-text-main/20" />
                 <p className="text-sm text-text-main/40">未找到数据集</p>
               </div>
             )}
@@ -119,18 +119,18 @@ export function LinkToDatasetDialog({ open, onClose, onConfirm, datasets, curren
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-border-subtle bg-bg-base/30">
+        <div className="flex items-center justify-between border-t border-border-subtle bg-bg-base/30 px-6 py-4">
           <p className="mono-label text-[10px] text-text-main/40">已选择 {selectedIds.length} 个数据集</p>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors"
+              className="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors hover:bg-surface-soft"
             >
               取消
             </button>
             <button
               onClick={handleConfirm}
-              className="px-4 py-2 rounded-xl bg-[#7B6B5D] text-white text-xs font-bold uppercase tracking-wider hover:opacity-90 transition-opacity"
+              className="rounded-xl bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-opacity hover:opacity-90"
             >
               确认关联
             </button>

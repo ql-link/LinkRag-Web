@@ -1,17 +1,31 @@
 import React, { useEffect, useId, useMemo, useState, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Check, Copy, FileCode2 } from 'lucide-react';
+import 'katex/dist/katex.min.css';
+import {
+  Check,
+  CircleX,
+  Copy,
+  FileCode2,
+  Lightbulb,
+  PencilLine,
+  Pin,
+  Search,
+  Sparkles,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react';
 import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
-import { copyTextToClipboard } from '@/lib/clipboard';
 
 interface MarkdownRendererProps {
   content: string;
@@ -24,6 +38,7 @@ const sanitizeSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^language-./, 'math-inline', 'math-display']],
     input: [...(defaultSchema.attributes?.input ?? []), ['checked', true]],
   },
 };
@@ -45,8 +60,136 @@ const getPlainTextChildren = (children: React.ReactNode): string | null => {
 };
 
 const INLINE_MARKDOWN_PATTERN = /(\*\*[^*\n]+?\*\*|__[^_\n]+?__|~~[^~\n]+?~~|`[^`\n]+?`|\[[^\]\n]+?\]\([^)]+?\))/;
+const STATUS_SYMBOL_PATTERN = /(✅|☑️|☑|✔️|✔|❌|✖️|✖|⚠️|⚠|💡|📌|🔍|📝|🚀)/gu;
 
 const isExternalHref = (href?: string) => Boolean(href && /^(https?:)?\/\//.test(href));
+
+type InlineStatusSymbolConfig = {
+  label: string;
+  icon: LucideIcon;
+  className: string;
+};
+
+const getInlineStatusSymbolConfig = (symbol: string): InlineStatusSymbolConfig | null => {
+  const normalized = symbol.replace(/\uFE0F/g, '');
+
+  if (normalized === '✅' || normalized === '☑' || normalized === '✔') {
+    return {
+      label: '完成',
+      icon: Check,
+      className: 'border-[#2f7d62]/20 bg-[#2f7d62]/10 text-[#2f7d62]',
+    };
+  }
+
+  if (normalized === '❌' || normalized === '✖') {
+    return {
+      label: '错误',
+      icon: CircleX,
+      className: 'border-state-error/20 bg-state-error/10 text-state-error',
+    };
+  }
+
+  if (normalized === '⚠') {
+    return {
+      label: '注意',
+      icon: TriangleAlert,
+      className: 'border-[#b7791f]/20 bg-[#b7791f]/10 text-[#9a640f]',
+    };
+  }
+
+  if (normalized === '💡') {
+    return {
+      label: '提示',
+      icon: Lightbulb,
+      className: 'border-primary/20 bg-primary/10 text-primary',
+    };
+  }
+
+  if (normalized === '📌') {
+    return {
+      label: '重点',
+      icon: Pin,
+      className: 'border-[#8a6f4d]/20 bg-[#8a6f4d]/10 text-[#755f42]',
+    };
+  }
+
+  if (normalized === '🔍') {
+    return {
+      label: '检索',
+      icon: Search,
+      className: 'border-[#5f7284]/20 bg-[#5f7284]/10 text-[#526579]',
+    };
+  }
+
+  if (normalized === '📝') {
+    return {
+      label: '记录',
+      icon: PencilLine,
+      className: 'border-[#6f6a8f]/20 bg-[#6f6a8f]/10 text-[#5f5a7f]',
+    };
+  }
+
+  if (normalized === '🚀') {
+    return {
+      label: '推进',
+      icon: Sparkles,
+      className: 'border-[#cc785c]/20 bg-[#cc785c]/10 text-[#ad6048]',
+    };
+  }
+
+  return null;
+};
+
+const InlineStatusSymbol = ({ symbol }: { symbol: string }) => {
+  const config = getInlineStatusSymbolConfig(symbol);
+  if (!config) return <>{symbol}</>;
+
+  const Icon = config.icon;
+  return (
+    <span
+      aria-label={config.label}
+      title={config.label}
+      className={cn(
+        'not-prose mx-0.5 inline-flex size-[1.15em] translate-y-[0.14em] items-center justify-center rounded-[5px] border align-baseline',
+        config.className,
+      )}
+    >
+      <Icon size="0.78em" strokeWidth={2.2} />
+    </span>
+  );
+};
+
+const renderStatusSymbolsInText = (text: string, keyPrefix: string): React.ReactNode[] => {
+  STATUS_SYMBOL_PATTERN.lastIndex = 0;
+
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = STATUS_SYMBOL_PATTERN.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    nodes.push(<InlineStatusSymbol key={`${keyPrefix}-${match.index}-${match[0]}`} symbol={match[0]} />);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+};
+
+const renderStatusSymbols = (children: React.ReactNode, keyPrefix = 'status-symbol'): React.ReactNode => {
+  if (typeof children === 'string') return renderStatusSymbolsInText(children, keyPrefix);
+  if (typeof children === 'number') return children;
+  if (Array.isArray(children)) {
+    return children.flatMap((child, index) => renderStatusSymbols(child, `${keyPrefix}-${index}`));
+  }
+  return children;
+};
 
 type CodeBlockFrameProps = {
   code: string;
@@ -60,53 +203,45 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
   const { darkMode } = useTheme();
 
   const handleCopy = async () => {
-    try {
-      await copyTextToClipboard(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy code block:', error);
-    }
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div
       className={cn(
-        'not-prose group relative overflow-hidden border border-border-subtle transition-colors',
-        compact ? 'bg-surface-soft/80 dark:bg-surface-card' : 'bg-surface-card dark:bg-[#2d2d2d]',
-        compact ? 'my-2 rounded-lg' : 'my-8 rounded-2xl',
+        'not-prose group relative overflow-hidden rounded-lg border border-border-subtle bg-bg-card-solid shadow-sm shadow-black/[0.03] transition-colors',
+        compact ? 'my-2' : 'my-6',
       )}
     >
       <div
         className={cn(
-          'flex items-center justify-between border-b border-border-subtle',
-          compact ? 'bg-canvas/70 dark:bg-white/[0.03]' : 'bg-bg-base/30 dark:bg-[#252526]',
-          compact ? 'px-2.5 py-1.5' : 'px-4 py-3',
+          'flex items-center justify-between border-b border-border-subtle bg-surface-soft/55',
+          compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
         )}
       >
         <div className="flex items-center gap-2">
           <span
             className={cn(
-              'flex items-center justify-center bg-primary/10 text-primary',
-              compact ? 'size-5 rounded-md' : 'size-7 rounded-xl',
+              'flex items-center justify-center rounded-md border border-border-subtle bg-canvas text-muted',
+              compact ? 'size-5' : 'size-6',
             )}
           >
-            <FileCode2 size={compact ? 12 : 15} strokeWidth={1.8} />
+            <FileCode2 size={compact ? 12 : 14} strokeWidth={1.8} />
           </span>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-main/50">
-            {language || 'text'}
-          </span>
+          <span className="font-mono text-[11px] font-semibold text-muted">{language || 'text'}</span>
         </div>
         <button
           type="button"
           onClick={handleCopy}
           className={cn(
-            'inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-main/50 opacity-100 transition-colors hover:bg-primary/5 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
-            compact ? 'rounded-md px-2 py-1' : 'rounded-xl px-2.5 py-1.5',
+            'inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium text-muted opacity-100 transition-colors hover:bg-primary/8 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
+            compact ? 'px-2 py-1' : 'px-2.5 py-1.5',
           )}
           title="复制代码"
         >
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
           {copied ? '已复制' : '复制'}
         </button>
       </div>
@@ -116,20 +251,21 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
         </div>
       )}
       <SyntaxHighlighter
-        style={(compact ? oneLight : darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
+        style={(darkMode ? vscDarkPlus : oneLight) as Record<string, React.CSSProperties>}
         language={language || 'text'}
         PreTag="div"
+        wrapLongLines={false}
         customStyle={{
           margin: 0,
-          padding: compact ? '0.625rem 0.75rem' : '1.125rem 1rem',
+          padding: compact ? '0.625rem 0.75rem' : '0.875rem 1rem',
           background: 'transparent',
-          fontSize: compact ? '0.75rem' : '0.875rem',
-          lineHeight: compact ? '1.55' : '1.65',
+          fontSize: compact ? '0.75rem' : '0.8125rem',
+          lineHeight: compact ? '1.55' : '1.7',
+          overflowX: 'auto',
         }}
         codeTagProps={{
           style: {
-            color: compact ? 'var(--color-text-main, #24292f)' : undefined,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
           },
         }}
       >
@@ -181,7 +317,7 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
 
   return (
     <div
-      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1e1e1e] [&_svg]:h-auto [&_svg]:max-w-none"
+      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1f1f1f] [&_svg]:h-auto [&_svg]:max-w-none"
       dangerouslySetInnerHTML={{ __html: svgContent }}
     />
   );
@@ -248,7 +384,7 @@ const CodeRenderer = ({ className, children, node: _node, compact: _compact, ...
   return (
     <code
       className={cn(
-        'rounded bg-black/5 px-1.5 py-0.5 font-mono text-[0.9em] text-[#b42318] dark:bg-surface-card dark:text-[#ff7b72]',
+        'rounded-md border border-primary/18 bg-primary/8 px-1.5 py-[0.12rem] font-mono text-[0.86em] font-semibold text-primary',
         className,
       )}
       {...props}
@@ -294,8 +430,8 @@ const BlockquoteRenderer = ({
   return (
     <blockquote
       className={cn(
-        'not-prose my-8 rounded-r-lg border-l-2 border-primary bg-black/5 px-5 py-3 text-text-main dark:bg-surface-card',
-        '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main',
+        'not-prose my-6 border-l-2 border-primary/45 bg-transparent py-1 pl-4 pr-0 text-text-main',
+        '[&_p]:my-0 [&_p]:leading-8 [&_p]:text-text-main/85',
         className,
       )}
       {...props}
@@ -306,9 +442,9 @@ const BlockquoteRenderer = ({
 function InlineMarkdown({ content }: { content: string }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
       components={{
-        p: ({ node: _node, children }) => <>{children}</>,
+        p: ({ node: _node, children }) => <>{renderStatusSymbols(children)}</>,
         code: CodeRenderer as Components['code'],
         a: ({ node: _node, href, className: linkClassName, ...props }) => (
           <a
@@ -331,7 +467,7 @@ function TableCellContent({ children }: { children: React.ReactNode }) {
   if (plainText && INLINE_MARKDOWN_PATTERN.test(plainText)) {
     return <InlineMarkdown content={plainText} />;
   }
-  return <>{children}</>;
+  return <>{renderStatusSymbols(children)}</>;
 }
 
 function FrontmatterBlock({ data }: { data: Record<string, unknown> }) {
@@ -375,6 +511,8 @@ export function MarkdownRenderer({
     code: (props) => <CodeRenderer compact={compact} {...props} />,
     pre: (props) => <PreRenderer compact={compact} {...props} />,
     blockquote: BlockquoteRenderer as Components['blockquote'],
+    p: ({ node: _node, children, ...props }) => <p {...props}>{renderStatusSymbols(children)}</p>,
+    li: ({ node: _node, children, ...props }) => <li {...props}>{renderStatusSymbols(children)}</li>,
     h1: (props) => <HeadingRenderer level={1} getHeadingId={getHeadingId} {...props} />,
     h2: (props) => <HeadingRenderer level={2} getHeadingId={getHeadingId} {...props} />,
     h3: (props) => <HeadingRenderer level={3} getHeadingId={getHeadingId} {...props} />,
@@ -435,17 +573,17 @@ export function MarkdownRenderer({
         'prose-em:text-text-main prose-td:text-text-main prose-th:text-text-main',
         'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
         'prose-strong:font-extrabold prose-strong:text-text-main prose-code:before:content-none prose-code:after:content-none',
-        'prose-blockquote:rounded-r-lg prose-blockquote:border-l-primary prose-blockquote:bg-black/5 prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:text-text-main prose-blockquote:not-italic dark:prose-blockquote:bg-surface-card',
+        'prose-blockquote:border-l-primary/45 prose-blockquote:bg-transparent prose-blockquote:py-1 prose-blockquote:pl-4 prose-blockquote:pr-0 prose-blockquote:text-text-main prose-blockquote:not-italic',
         'prose-hr:border-border-subtle prose-img:my-8',
         darkMode &&
-          'prose-headings:text-[#f2f2f2] prose-p:text-[#cccccc] prose-li:text-[#cccccc] prose-strong:text-[#f2f2f2]',
+          'prose-headings:text-[#f2f2f2] prose-p:text-[#d6d6d6] prose-li:text-[#d6d6d6] prose-strong:text-[#f2f2f2]',
         className,
       )}
     >
       {showFrontmatter && <FrontmatterBlock data={parsed.frontmatter} />}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
         components={components}
       >
         {parsed.content}

@@ -24,6 +24,12 @@ function normalizeInlineMarkdown(text: string): string {
     .replace(new RegExp(`\\*\\*([^*\\n|]+?)\\*\\*([${CJK_CHAR_CLASS}])`, 'gu'), '<strong>$1</strong>$2');
 }
 
+function normalizeLatexDelimiters(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, expression: string) => `\n\n$$\n${expression.trim()}\n$$\n\n`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, expression: string) => `$${expression.trim()}$`);
+}
+
 function normalizeMarkdownContent(content: string): string {
   return content
     .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
@@ -32,7 +38,7 @@ function normalizeMarkdownContent(content: string): string {
 
       return block
         .split(/(`[^`\n]*`)/g)
-        .map((part) => (part.startsWith('`') ? part : normalizeInlineMarkdown(part)))
+        .map((part) => (part.startsWith('`') ? part : normalizeLatexDelimiters(normalizeInlineMarkdown(part))))
         .join('');
     })
     .join('')

@@ -24,10 +24,10 @@ function Toast({ toast, onClose }: ToastProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 px-4 py-3 rounded-xl  animate-slide-in',
-        toast.type === 'error' && 'bg-red-500 text-white',
-        toast.type === 'success' && 'bg-green-500 text-white',
-        toast.type === 'info' && 'bg-blue-500 text-white',
+        'flex items-center gap-3 rounded-xl border px-4 py-3 shadow-card animate-slide-in',
+        toast.type === 'error' && 'border-error/25 bg-bg-card-solid text-error',
+        toast.type === 'success' && 'border-success/25 bg-bg-card-solid text-success',
+        toast.type === 'info' && 'border-info/25 bg-bg-card-solid text-info',
       )}
     >
       <AlertCircle size={16} />

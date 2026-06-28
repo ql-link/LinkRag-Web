@@ -183,28 +183,27 @@ export default function DatasetsPage() {
               placeholder="搜索知识库..."
               value={searchString}
               onChange={(e) => setSearchString(e.target.value)}
-              className="h-9 w-full lg:w-48 rounded-lg border border-hairline bg-canvas pl-9 pr-4 text-xs text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
+              className="h-9 w-full lg:w-72 rounded-md border border-border-subtle bg-surface-soft pl-9 pr-4 text-xs text-text-main placeholder:text-muted-soft transition-colors focus:outline-none focus:border-primary/35 focus:bg-canvas"
             />
           </div>
-          <div className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3">
-            <button
-              type="button"
-              onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
-              className="flex items-center gap-2 text-xs text-text-secondary bg-transparent focus:outline-none"
-              title="点击切换排序方式"
-            >
-              <ArrowUpDown size={14} className="text-muted" />
-              <span className="hidden lg:inline">{sortLabel}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSortBy((prev) => (prev === 'createdAt' ? 'updatedAt' : 'createdAt'))}
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink focus:outline-none"
+            title="点击切换排序方式"
+          >
+            <ArrowUpDown size={14} className="text-muted" />
+            <span className="hidden lg:inline">{sortLabel}</span>
+          </button>
           <button
             onClick={() => void loadDatasets()}
             disabled={loading}
             className={cn(
-              'inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink disabled:cursor-not-allowed',
+              'inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-card hover:text-ink disabled:cursor-not-allowed',
               loading && 'opacity-60',
             )}
             title="刷新知识库"
+            aria-label="刷新知识库"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span className="hidden lg:inline">刷新</span>
@@ -231,7 +230,7 @@ export default function DatasetsPage() {
             <p className="text-sm mb-4 text-ink">{errorMessage}</p>
             <button
               onClick={() => void loadDatasets()}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
+              className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
             >
               重试
             </button>
@@ -246,7 +245,7 @@ export default function DatasetsPage() {
             {!hasSearch && (
               <button
                 onClick={() => setCreateDialogOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active"
               >
                 <Plus size={14} />
                 新建知识库
@@ -262,7 +261,7 @@ export default function DatasetsPage() {
                 <div
                   key={dataset.id}
                   onClick={() => navigate(`/datasets/${dataset.id}`)}
-                  className="rounded-2xl h-full p-4 border border-hairline bg-bg-card-solid (--)] transition-colors cursor-pointer group flex flex-col overflow-hidden hover:border-primary/40"
+                  className="rounded-2xl h-full p-4 border border-hairline bg-bg-card-solid (--)] transition-all duration-200 ease-out cursor-pointer group flex flex-col overflow-hidden hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/[0.025] hover:shadow-card active:translate-y-0 active:scale-[0.99]"
                 >
                   <div className="mb-2">
                     <div className="flex h-7 w-7 items-center justify-center bg-transparent">
@@ -285,7 +284,7 @@ export default function DatasetsPage() {
                     <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={(event) => handleEditDataset(dataset, event)}
-                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+                        className="p-2 rounded-lg text-muted transition-colors hover:bg-primary/[0.08] hover:text-ink"
                         title="编辑知识库"
                       >
                         <Pencil size={14} />
@@ -295,7 +294,7 @@ export default function DatasetsPage() {
                           event.stopPropagation();
                           navigate(`/datasets/${dataset.id}/parse-config`);
                         }}
-                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+                        className="p-2 rounded-lg text-muted transition-colors hover:bg-primary/[0.08] hover:text-ink"
                         title="解析配置"
                       >
                         <Settings size={14} />
@@ -303,7 +302,7 @@ export default function DatasetsPage() {
                       <button
                         onClick={(event) => requestDeleteDataset(dataset, event)}
                         disabled={deleting}
-                        className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
+                        className="p-2 rounded-lg text-muted transition-colors hover:bg-error/[0.08] hover:text-error disabled:cursor-not-allowed disabled:opacity-60"
                         title="删除知识库"
                       >
                         {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
@@ -317,7 +316,7 @@ export default function DatasetsPage() {
             {/* Add New */}
             <div
               onClick={() => setCreateDialogOpen(true)}
-              className="rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-colors border border-dashed border-hairline bg-surface-soft text-muted hover:border-primary/40 hover:text-ink"
+              className="rounded-2xl flex h-full flex-col items-center justify-center p-5 cursor-pointer transition-all duration-200 ease-out border border-dashed border-primary/25 bg-primary/[0.035] text-muted hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/[0.07] hover:text-ink hover:shadow-card active:translate-y-0 active:scale-[0.99]"
             >
               <Plus size={24} className="mb-2" />
               <span className="text-xs font-bold uppercase tracking-wider">添加知识库</span>
@@ -329,17 +328,21 @@ export default function DatasetsPage() {
         {createDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50 " onClick={() => setCreateDialogOpen(false)} />
-            <div className="relative w-[min(100vw-2rem,480px)] rounded-2xl border border-hairline bg-bg-card-solid (--)] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-                <h3 className="text-lg font-bold text-ink">新建知识库</h3>
+            <div className="relative w-[min(100vw-2rem,480px)] rounded-xl border border-hairline bg-bg-card-solid p-6 (--)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-ink">新建知识库</h3>
+                  <p className="mt-1 text-xs text-muted">创建后即可上传文件并开始问答。</p>
+                </div>
                 <button
                   onClick={() => setCreateDialogOpen(false)}
-                  className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+                  className="-mr-2 -mt-2 p-2 text-muted transition-colors hover:text-ink"
+                  aria-label="关闭"
                 >
                   <X size={18} />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="mt-6 space-y-5">
                 <div>
                   <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
                     知识库名称
@@ -350,7 +353,7 @@ export default function DatasetsPage() {
                     onChange={(e) => setNewDatasetName(e.target.value)}
                     maxLength={128}
                     placeholder="输入知识库名称"
-                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
+                    className="w-full border-0 border-b border-border-subtle bg-transparent px-0 py-2.5 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -363,21 +366,21 @@ export default function DatasetsPage() {
                     maxLength={512}
                     placeholder="输入知识库描述"
                     rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40 resize-none"
+                    className="w-full resize-none border-0 border-b border-border-subtle bg-transparent px-0 py-2.5 text-sm text-text-main placeholder:text-muted-soft transition-colors focus:border-primary/50 focus:outline-none"
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-subtle bg-surface-soft">
+              <div className="mt-7 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setCreateDialogOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-card hover:text-ink"
+                  className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:text-ink"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleCreateDataset}
                   disabled={!newDatasetName.trim() || creating}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
+                  className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {creating ? '创建中' : '创建'}
                 </button>
@@ -396,7 +399,7 @@ export default function DatasetsPage() {
                 <button
                   onClick={handleCloseEditDialog}
                   disabled={updating}
-                  className="p-2 rounded-xl text-muted transition-colors hover:bg-surface-soft hover:text-ink disabled:opacity-60"
+                  className="p-2 rounded-lg text-muted transition-colors hover:bg-primary/[0.08] hover:text-ink disabled:opacity-60"
                 >
                   <X size={18} />
                 </button>
@@ -415,7 +418,7 @@ export default function DatasetsPage() {
                     }}
                     maxLength={128}
                     placeholder="输入知识库名称"
-                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
+                    className="w-full px-4 py-2.5 rounded-lg border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40"
                   />
                 </div>
                 <div>
@@ -428,7 +431,7 @@ export default function DatasetsPage() {
                     maxLength={512}
                     placeholder="输入知识库描述"
                     rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40 resize-none"
+                    className="w-full px-4 py-2.5 rounded-lg border border-hairline bg-surface-soft text-sm text-text-main placeholder:text-muted-soft focus:outline-none focus:border-primary/40 resize-none"
                   />
                 </div>
               </div>
@@ -436,14 +439,14 @@ export default function DatasetsPage() {
                 <button
                   onClick={handleCloseEditDialog}
                   disabled={updating}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-card hover:text-ink disabled:opacity-60"
+                  className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider text-text-secondary transition-colors hover:bg-primary/[0.08] hover:text-ink disabled:opacity-60"
                 >
                   取消
                 </button>
                 <button
                   onClick={() => void handleUpdateDataset()}
                   disabled={!editDatasetName.trim() || updating}
-                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
+                  className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-primary text-white hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {updating ? '保存中' : '保存'}
                 </button>
