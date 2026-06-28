@@ -242,6 +242,7 @@ export default function LLMPage() {
   const [loading, setLoading] = useState(() => !isCacheValid());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
+  const [selectedCapability, setSelectedCapability] = useState<LLMCapability>('CHAT');
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [setupTarget, setSetupTarget] = useState<SetupTarget | null>(null);
 
@@ -488,9 +489,9 @@ export default function LLMPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-canvas">
-      <header className="h-16 px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
-        <div>
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="flex shrink-0 items-center justify-end px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
+        <div className="hidden lg:block">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '模型配置' }]} />
         </div>
         <div className="flex items-center gap-2">
@@ -499,16 +500,16 @@ export default function LLMPage() {
               invalidateLLMPageCache();
               void loadPageData();
             }}
-            className="h-9 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold inline-flex items-center gap-2 text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
             title="刷新"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            刷新
+            <span className="hidden lg:inline">刷新</span>
           </button>
           <button
             type="button"
             onClick={() => setProviderPickerOpen(true)}
-            className="h-9 w-fit rounded-lg bg-primary px-4 text-xs font-bold inline-flex items-center gap-2 text-white transition-colors hover:bg-primary-active"
+            className="inline-flex h-9 w-fit items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active"
           >
             <Plus size={15} />
             配置厂商
@@ -517,13 +518,15 @@ export default function LLMPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
-          <div className="space-y-5 min-w-0">
+        <section className="px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-6 lg:pb-6">
+          <div className="min-w-0 space-y-5">
             <EffectiveModelsPanel
               loading={loading && defaultByCapability.size === 0}
               defaultByCapability={defaultByCapability}
               candidatesByCapability={candidatesByCapability}
               darkMode={darkMode}
+              selectedCapability={selectedCapability}
+              onCapabilityChange={setSelectedCapability}
               onSelect={handleSelectDefault}
             />
 
@@ -531,6 +534,7 @@ export default function LLMPage() {
               loading={loading && providerGroups.length === 0}
               groups={providerGroups}
               darkMode={darkMode}
+              selectedCapability={selectedCapability}
               onToggleConfig={handleToggleConfig}
               onUpdateProvider={(provider) => setSetupTarget({ provider, mode: 'update' })}
             />
@@ -572,15 +576,24 @@ function EffectiveModelsPanel({
   defaultByCapability,
   candidatesByCapability,
   darkMode,
+  selectedCapability,
+  onCapabilityChange,
   onSelect,
 }: {
   loading?: boolean;
   defaultByCapability: Map<LLMCapability, ConfigView>;
   candidatesByCapability: Map<LLMCapability, ConfigView[]>;
   darkMode: boolean;
+  selectedCapability: LLMCapability;
+  onCapabilityChange: (capability: LLMCapability) => void;
   onSelect: (capability: LLMCapability, configId: string) => void;
 }) {
   const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
+  const currentCapability = CAPABILITIES.find((item) => item.value === selectedCapability) ?? CAPABILITIES[0];
+  const current = defaultByCapability.get(currentCapability.value);
+  const candidates = candidatesByCapability.get(currentCapability.value) || [];
+  const isOpen = openCapability === currentCapability.value;
+  const selectedIcon = getConfigProviderIcon(current, darkMode);
 
   useEffect(() => {
     if (openCapability === null) {
@@ -609,102 +622,230 @@ function EffectiveModelsPanel({
       {loading ? (
         <LoadingState label="加载生效模型..." />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
-            const current = defaultByCapability.get(capability.value);
-            const candidates = candidatesByCapability.get(capability.value) || [];
-            const isOpen = openCapability === capability.value;
-            const selectedIcon = getConfigProviderIcon(current, darkMode);
-            return (
-              <div
-                key={capability.value}
-                className={cn(
-                  'relative flex h-full min-h-[132px] flex-col gap-4 overflow-visible rounded-md border border-border-subtle bg-bg-card-solid p-3 outline-none transition-[background-color,border-color] duration-200',
-                  candidates.length > 0
-                    ? 'cursor-pointer hover:border-primary/35 hover:bg-ink/[0.025] focus-visible:border-primary/50 focus-visible:bg-ink/[0.035]'
-                    : 'cursor-default opacity-70',
-                  isOpen && 'z-20 border-primary/45 bg-primary/5',
-                )}
-                data-capability={capability.value}
-                data-model-selector={capability.value}
-                role={candidates.length > 0 ? 'button' : undefined}
-                tabIndex={candidates.length > 0 ? 0 : undefined}
-                onClick={() => {
-                  if (candidates.length === 0) return;
-                  setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
-                }}
-                onKeyDown={(event) => {
-                  if (candidates.length === 0 || (event.key !== 'Enter' && event.key !== ' ')) return;
-                  event.preventDefault();
-                  setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
-                }}
-              >
-                <div className="flex min-w-0 items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
+        <>
+          <div className="space-y-3 lg:hidden">
+            <div className="grid grid-cols-3 gap-2 lg:grid-cols-6">
+              {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
+                const active = capability.value === selectedCapability;
+                return (
+                  <button
+                    type="button"
+                    key={capability.value}
+                    className={cn(
+                      'flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-bold transition-colors',
+                      active
+                        ? 'bg-primary/10 text-ink'
+                        : 'bg-surface-soft text-text-secondary hover:bg-primary/5 hover:text-ink',
+                    )}
+                    onClick={() => {
+                      onCapabilityChange(capability.value);
+                      setOpenCapability(null);
+                    }}
+                  >
                     {capability.iconUrl ? (
                       <img
                         src={capability.iconUrl}
                         alt=""
                         aria-hidden="true"
-                        className="h-6 w-6 shrink-0 object-contain"
+                        className="h-4 w-4 shrink-0 object-contain"
                       />
                     ) : null}
-                    <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
-                  </div>
-                  {current ? <ConfigAccessPill config={current} compact quiet /> : null}
-                </div>
+                    <span className="truncate">{capability.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <ProviderIcon iconUrl={selectedIcon} name={current?.providerName || capability.label} size="md" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold leading-5 text-ink">
-                        {current ? getModelDisplayName(current) : '未设置'}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
-                        {current ? current.providerName : '暂无生效模型'}
-                      </p>
-                    </div>
-                  </div>
+            <div
+              className={cn(
+                'relative flex min-h-[72px] flex-col justify-center gap-3 overflow-visible rounded-lg px-1 py-2 outline-none transition-[background-color,border-color] duration-200 lg:min-h-[112px] lg:justify-start lg:gap-4 lg:rounded-md lg:border lg:border-border-subtle lg:bg-bg-card-solid lg:p-4',
+                candidates.length > 0
+                  ? 'cursor-pointer hover:bg-surface-soft/55 focus-visible:bg-surface-soft/55 lg:hover:bg-ink/[0.025] lg:focus-visible:bg-ink/[0.035] lg:hover:border-primary/35 lg:focus-visible:border-primary/50'
+                  : 'cursor-default opacity-70',
+                isOpen && 'z-20 bg-surface-soft/55 lg:bg-primary/5 lg:border-primary/45',
+              )}
+              data-capability={currentCapability.value}
+              data-model-selector={currentCapability.value}
+              role={candidates.length > 0 ? 'button' : undefined}
+              tabIndex={candidates.length > 0 ? 0 : undefined}
+              onClick={() => {
+                if (candidates.length === 0) return;
+                setOpenCapability((prev) => (prev === currentCapability.value ? null : currentCapability.value));
+              }}
+              onKeyDown={(event) => {
+                if (candidates.length === 0 || (event.key !== 'Enter' && event.key !== ' ')) return;
+                event.preventDefault();
+                setOpenCapability((prev) => (prev === currentCapability.value ? null : currentCapability.value));
+              }}
+            >
+              <div className="hidden min-w-0 items-center justify-between gap-3 lg:flex">
+                <div className="flex min-w-0 items-center gap-2">
+                  {currentCapability.iconUrl ? (
+                    <img
+                      src={currentCapability.iconUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-6 w-6 shrink-0 object-contain"
+                    />
+                  ) : null}
+                  <span className="truncate text-sm font-bold text-text-secondary">{currentCapability.label}</span>
                 </div>
-
-                {isOpen && candidates.length > 0 ? (
-                  <div
-                    data-model-selector={capability.value}
-                    onClick={(event) => event.stopPropagation()}
-                    className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
-                  >
-                    <div className="max-h-[156px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
-                      {candidates.map((config) => {
-                        const optionIcon = getConfigProviderIcon(config, darkMode);
-                        return (
-                          <button
-                            type="button"
-                            key={config.id}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onSelect(capability.value, `${config.id}`);
-                              setOpenCapability(null);
-                            }}
-                            className="w-full rounded-lg px-2.5 py-2 text-left transition-all duration-200 border border-transparent hover:bg-surface-soft hover:border-hairline"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <ProviderIcon iconUrl={optionIcon} name={config.providerName} size="sm" />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold truncate text-ink">{getModelDisplayName(config)}</p>
-                              </div>
-                              <ConfigAccessPill config={config} compact />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
+                {current ? <ConfigAccessPill config={current} compact quiet /> : null}
               </div>
-            );
-          })}
-        </div>
+
+              <div className="flex min-w-0 items-center gap-3">
+                <ProviderIcon
+                  iconUrl={selectedIcon}
+                  name={current?.providerName || currentCapability.label}
+                  size="md"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-base font-bold leading-6 text-ink">
+                    {current ? getModelDisplayName(current) : '未设置'}
+                  </p>
+                  <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
+                    {current ? current.providerName : '暂无生效模型'}
+                  </p>
+                </div>
+              </div>
+
+              {isOpen && candidates.length > 0 ? (
+                <div
+                  data-model-selector={currentCapability.value}
+                  onClick={(event) => event.stopPropagation()}
+                  className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
+                >
+                  <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                    {candidates.map((config) => {
+                      const optionIcon = getConfigProviderIcon(config, darkMode);
+                      return (
+                        <button
+                          type="button"
+                          key={config.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSelect(currentCapability.value, `${config.id}`);
+                            setOpenCapability(null);
+                          }}
+                          className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ProviderIcon iconUrl={optionIcon} name={config.providerName} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
+                              <p className="mt-0.5 truncate text-[11px] text-muted">{config.providerName}</p>
+                            </div>
+                            <ConfigAccessPill config={config} compact />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="hidden gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3">
+            {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
+              const desktopCurrent = defaultByCapability.get(capability.value);
+              const desktopCandidates = candidatesByCapability.get(capability.value) || [];
+              const desktopOpen = openCapability === capability.value;
+              const desktopIcon = getConfigProviderIcon(desktopCurrent, darkMode);
+              return (
+                <div
+                  key={capability.value}
+                  className={cn(
+                    'relative flex h-full min-h-[132px] flex-col gap-4 overflow-visible rounded-md border border-border-subtle bg-bg-card-solid p-3 outline-none transition-[background-color,border-color] duration-200',
+                    desktopCandidates.length > 0
+                      ? 'cursor-pointer hover:border-primary/35 hover:bg-ink/[0.025] focus-visible:border-primary/50 focus-visible:bg-ink/[0.035]'
+                      : 'cursor-default opacity-70',
+                    desktopOpen && 'z-20 border-primary/45 bg-primary/5',
+                  )}
+                  data-capability={capability.value}
+                  data-model-selector={capability.value}
+                  role={desktopCandidates.length > 0 ? 'button' : undefined}
+                  tabIndex={desktopCandidates.length > 0 ? 0 : undefined}
+                  onClick={() => {
+                    if (desktopCandidates.length === 0) return;
+                    setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
+                  }}
+                  onKeyDown={(event) => {
+                    if (desktopCandidates.length === 0 || (event.key !== 'Enter' && event.key !== ' ')) return;
+                    event.preventDefault();
+                    setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
+                  }}
+                >
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {capability.iconUrl ? (
+                        <img
+                          src={capability.iconUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="h-6 w-6 shrink-0 object-contain"
+                        />
+                      ) : null}
+                      <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
+                    </div>
+                    {desktopCurrent ? <ConfigAccessPill config={desktopCurrent} compact quiet /> : null}
+                  </div>
+
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <ProviderIcon
+                        iconUrl={desktopIcon}
+                        name={desktopCurrent?.providerName || capability.label}
+                        size="md"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold leading-5 text-ink">
+                          {desktopCurrent ? getModelDisplayName(desktopCurrent) : '未设置'}
+                        </p>
+                        <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
+                          {desktopCurrent ? desktopCurrent.providerName : '暂无生效模型'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {desktopOpen && desktopCandidates.length > 0 ? (
+                    <div
+                      data-model-selector={capability.value}
+                      onClick={(event) => event.stopPropagation()}
+                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
+                    >
+                      <div className="max-h-[156px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                        {desktopCandidates.map((config) => {
+                          const optionIcon = getConfigProviderIcon(config, darkMode);
+                          return (
+                            <button
+                              type="button"
+                              key={config.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onSelect(capability.value, `${config.id}`);
+                                setOpenCapability(null);
+                              }}
+                              className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <ProviderIcon iconUrl={optionIcon} name={config.providerName} size="sm" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
+                                </div>
+                                <ConfigAccessPill config={config} compact />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </section>
   );
@@ -714,21 +855,58 @@ function ConfiguredProvidersPanel({
   loading,
   groups,
   darkMode,
+  selectedCapability,
   onToggleConfig,
   onUpdateProvider,
 }: {
   loading: boolean;
   groups: ProviderGroup[];
   darkMode: boolean;
+  selectedCapability: LLMCapability;
   onToggleConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
+  const selectedCapabilityMeta = getCapabilityMeta(selectedCapability);
+  const capabilityGroups = useMemo<ProviderGroup[]>(() => {
+    return groups
+      .map((group) => {
+        const models = group.models
+          .map((model) => {
+            const configs = model.configs.filter((config) => config.capability === selectedCapability);
+            if (configs.length === 0) return null;
+            const editableConfigs = configs.filter(isConfigEditable);
+            return {
+              ...model,
+              configs,
+              editableConfigs,
+              readonlyConfigs: configs.filter((config) => !isConfigEditable(config)),
+              isEditableActive: editableConfigs.some((config) => config.isActive),
+            };
+          })
+          .filter((model): model is ModelGroup => Boolean(model));
+
+        if (models.length === 0) return null;
+        const configs = models.flatMap((model) => model.configs);
+        return { ...group, models, configs };
+      })
+      .filter((group): group is ProviderGroup => Boolean(group));
+  }, [groups, selectedCapability]);
+  const mobileModelCount = capabilityGroups.reduce((total, group) => total + group.models.length, 0);
+  const mobileConfigCount = capabilityGroups.reduce((total, group) => total + group.configs.length, 0);
   const modelCount = groups.reduce((total, group) => total + group.models.length, 0);
   const configCount = groups.reduce((total, group) => total + group.configs.length, 0);
 
   return (
     <section className="min-w-0">
-      <div className="flex items-center justify-between gap-3 px-1 pb-2">
+      <div className="flex items-center justify-between gap-3 px-1 pb-2 lg:hidden">
+        <h3 className="text-base font-bold text-ink">{selectedCapabilityMeta.label}模型</h3>
+        <div className="hidden items-center gap-3 text-[11px] font-semibold text-muted">
+          <span>{capabilityGroups.length} 厂商</span>
+          <span>{mobileModelCount} 模型</span>
+          <span>{mobileConfigCount} 配置</span>
+        </div>
+      </div>
+      <div className="hidden items-center justify-between gap-3 px-1 pb-2 lg:flex">
         <h3 className="text-base font-bold text-ink">模型管理</h3>
         <div className="flex items-center gap-3 text-[11px] font-semibold text-muted">
           <span>{groups.length} 厂商</span>
@@ -742,18 +920,40 @@ function ConfiguredProvidersPanel({
       ) : groups.length === 0 ? (
         <EmptyConfiguredState />
       ) : (
-        <div className="overflow-hidden rounded-md border border-border-subtle bg-bg-card-solid">
-          {groups.map((group) => (
-            <Fragment key={group.providerType}>
-              <ProviderConfigCard
-                group={group}
-                darkMode={darkMode}
-                onToggleConfig={onToggleConfig}
-                onUpdateProvider={onUpdateProvider}
-              />
-            </Fragment>
-          ))}
-        </div>
+        <>
+          {capabilityGroups.length === 0 ? (
+            <div className="lg:hidden">
+              <EmptyConfiguredState />
+            </div>
+          ) : (
+            <div className="overflow-hidden lg:hidden">
+              {capabilityGroups.map((group) => (
+                <Fragment key={group.providerType}>
+                  <ProviderConfigCard
+                    group={group}
+                    darkMode={darkMode}
+                    defaultCollapsed={false}
+                    onToggleConfig={onToggleConfig}
+                    onUpdateProvider={onUpdateProvider}
+                  />
+                </Fragment>
+              ))}
+            </div>
+          )}
+          <div className="hidden overflow-hidden rounded-md border border-border-subtle bg-bg-card-solid lg:block">
+            {groups.map((group) => (
+              <Fragment key={group.providerType}>
+                <ProviderConfigCard
+                  group={group}
+                  darkMode={darkMode}
+                  defaultCollapsed
+                  onToggleConfig={onToggleConfig}
+                  onUpdateProvider={onUpdateProvider}
+                />
+              </Fragment>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
@@ -762,18 +962,20 @@ function ConfiguredProvidersPanel({
 function ProviderConfigCard({
   group,
   darkMode,
+  defaultCollapsed = true,
   onToggleConfig,
   onUpdateProvider,
 }: {
   group: ProviderGroup;
   darkMode: boolean;
+  defaultCollapsed?: boolean;
   onToggleConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   const iconUrl = getProviderGroupIcon(group, darkMode);
   const editableCount = group.configs.filter(isConfigEditable).length;
   const canUpdateProvider = editableCount > 0;
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   function toggleCollapsed() {
     setCollapsed((prev) => !prev);
@@ -791,7 +993,7 @@ function ProviderConfigCard({
   }
 
   return (
-    <article className="border-b border-border-subtle px-3 py-3 transition-colors duration-200 last:border-b-0">
+    <article className="px-0 py-1 transition-colors duration-200 lg:border-b lg:border-border-subtle lg:px-3 lg:py-3 lg:last:border-b-0">
       <header
         role="button"
         tabIndex={0}
@@ -799,21 +1001,21 @@ function ProviderConfigCard({
         onClick={toggleCollapsed}
         onKeyDown={handleHeaderKeyDown}
         className={cn(
-          '-mx-3 -mt-3 flex cursor-pointer flex-col justify-between gap-3 px-5 py-4 outline-none transition-colors duration-200 hover:bg-ink/[0.028] focus-visible:bg-ink/[0.035] md:flex-row md:items-center',
-          collapsed && '-mb-3',
+          'flex cursor-pointer items-center justify-between gap-3 rounded-lg px-1 py-1.5 outline-none transition-colors duration-200 hover:bg-ink/[0.028] focus-visible:bg-ink/[0.035] lg:-mx-3 lg:-mt-3 lg:rounded-none lg:px-5 lg:py-4',
+          collapsed && 'lg:-mb-3',
         )}
       >
         <div className="flex items-center gap-3 min-w-0">
           <ProviderIcon iconUrl={iconUrl} name={group.providerName} size="sm" />
           <div className="min-w-0">
             <h4 className="text-sm font-bold truncate tracking-wide text-ink">{group.providerName}</h4>
-            <p className="mt-0.5 text-[11px] font-medium text-muted">
+            <p className="mt-0.5 hidden text-[11px] font-medium text-muted lg:block">
               {group.models.length} 个模型 · {group.configs.length} 个配置
             </p>
           </div>
         </div>
-        <div className="flex w-full shrink-0 items-center justify-between gap-4 md:w-auto md:justify-end">
-          <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          <div className="flex items-center">
             {canUpdateProvider ? (
               <button
                 type="button"
@@ -825,12 +1027,12 @@ function ProviderConfigCard({
                     models: [],
                   });
                 }}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-[11px] font-bold text-muted transition-[background-color,border-color,color] duration-200 hover:border-primary/20 hover:bg-primary/6 hover:text-primary"
+                className="inline-flex h-8 w-8 items-center justify-center gap-1.5 rounded-md border border-transparent bg-transparent text-[11px] font-bold text-muted transition-[background-color,border-color,color] duration-200 hover:border-primary/20 hover:bg-primary/6 hover:text-primary lg:w-auto lg:px-2.5"
                 title="更新密钥"
                 aria-label="更新密钥"
               >
                 <Key size={12} />
-                更新密钥
+                <span className="hidden lg:inline">更新密钥</span>
               </button>
             ) : null}
           </div>
@@ -842,12 +1044,12 @@ function ProviderConfigCard({
           'grid transition-[grid-template-rows,opacity,transform,margin] duration-[260ms] ease-out',
           collapsed
             ? 'mt-0 grid-rows-[0fr] -translate-y-1 opacity-0'
-            : 'mt-3 grid-rows-[1fr] translate-y-0 opacity-100',
+            : 'mt-1 grid-rows-[1fr] translate-y-0 opacity-100 lg:mt-3',
         )}
         aria-hidden={collapsed}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="grid gap-x-6 gap-y-4 px-2 pb-1 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-0.5 px-0 pb-1 lg:grid lg:gap-x-6 lg:gap-y-4 lg:space-y-0 lg:px-2 lg:sm:grid-cols-2 lg:xl:grid-cols-3">
             {group.models.map((model) => (
               <ModelConfigBlock key={model.modelName} model={model} onToggleConfig={onToggleConfig} />
             ))}
@@ -870,22 +1072,22 @@ function ModelConfigBlock({
   const isSystemOnly = model.editableConfigs.length === 0;
 
   return (
-    <section className="group min-w-0 rounded-md border border-border-subtle bg-bg-card-solid p-3 transition-[border-color,background-color] duration-200 ease-out hover:border-primary/30 hover:bg-ink/[0.018]">
+    <section className="group min-w-0 rounded-lg px-1 py-1.5 transition-[border-color,background-color] duration-200 ease-out active:bg-surface-soft/55 lg:rounded-md lg:border lg:border-border-subtle lg:bg-bg-card-solid lg:p-3 lg:hover:border-primary/30 lg:hover:bg-ink/[0.018]">
       <div className="flex min-w-0 items-start justify-between gap-3">
-        <p className="line-clamp-2 min-w-0 flex-1 break-all text-sm font-bold leading-5 tracking-wide text-ink">
+        <p className="line-clamp-2 min-w-0 flex-1 break-all text-sm font-bold leading-5 text-ink lg:tracking-wide">
           {getModelDisplayName(model)}
         </p>
 
-        <div className="flex max-w-[56%] shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+        <div className="flex max-w-[52%] shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1.5 lg:max-w-[56%] lg:gap-x-3">
           {capabilityConfigs.map((config) => (
             <CapabilityControl key={config.id} config={config} onToggle={() => onToggleConfig(config)} />
           ))}
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 pl-px">
+      <div className="mt-2 hidden items-center justify-between gap-3 pl-px lg:mt-3 lg:flex">
         {isSystemOnly ? (
-          <div className="flex items-center gap-2 text-[11px] font-bold text-muted">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-muted lg:font-bold">
             <span>LinkRAG 默认配置</span>
             <span className="h-1 w-1 rounded-full bg-muted-soft" />
             <span>无法更改</span>
@@ -913,7 +1115,7 @@ function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle:
   return (
     <span
       className={cn(
-        'inline-flex h-7 min-w-0 shrink-0 items-center gap-2 text-[11px] font-bold transition-colors',
+        'inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 text-[11px] font-bold transition-colors lg:gap-2',
         config.isActive ? 'text-ink' : 'text-muted',
         editable ? 'hover:text-ink' : 'opacity-75',
       )}
@@ -926,7 +1128,7 @@ function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle:
           className={cn('h-4 w-4 shrink-0 object-contain', !config.isActive && 'opacity-55')}
         />
       ) : null}
-      <span className="whitespace-nowrap leading-none">{capability.label}</span>
+      <span className="hidden whitespace-nowrap leading-none lg:inline">{capability.label}</span>
       {editable ? <MiniCapabilitySwitch checked={config.isActive} label={label} onClick={onToggle} /> : null}
     </span>
   );
@@ -965,13 +1167,16 @@ function ProviderPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <section className="relative flex h-[min(760px,calc(100vh-64px))] w-full max-w-[min(100vw-2rem,880px)] flex-col overflow-hidden rounded-xl border border-hairline bg-bg-card-solid (--)]">
-        <header className="px-6 pb-4 pt-5">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px] lg:bg-black/50 lg:backdrop-blur-0"
+        onClick={onClose}
+      />
+      <section className="relative flex h-[min(78vh,680px)] w-full max-w-[min(100vw-2rem,880px)] flex-col overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid shadow-dialog lg:h-[min(760px,calc(100vh-64px))] lg:rounded-xl (--)]">
+        <header className="px-4 pb-3 pt-4 lg:px-6 lg:pb-4 lg:pt-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-lg font-bold tracking-wide text-ink">配置厂商</h3>
-              <p className="text-xs mt-1 text-muted">选择一个厂商后填写厂商级 API Key。</p>
+              <p className="mt-1 hidden text-xs text-muted lg:block">选择一个厂商后填写厂商级 API Key。</p>
             </div>
             <button
               type="button"
@@ -982,7 +1187,7 @@ function ProviderPickerModal({
               <X size={18} />
             </button>
           </div>
-          <div className="relative mt-5">
+          <div className="relative mt-4 lg:mt-5">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="search"
@@ -995,10 +1200,10 @@ function ProviderPickerModal({
               value={searchTerm}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="搜索厂商、模型或能力"
-              className="h-10 w-full rounded-md border border-border-subtle bg-transparent pl-9 pr-3 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40"
+              className="h-10 w-full rounded-lg border border-border-subtle bg-surface-soft pl-9 pr-3 text-sm text-ink outline-none transition-colors duration-200 placeholder:text-muted-soft placeholder:tracking-wider focus:border-primary/40 focus:bg-canvas lg:rounded-md lg:bg-transparent"
             />
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-1.5 lg:mt-4 lg:flex lg:flex-wrap lg:gap-2">
             {CAPABILITIES.map((capability) => {
               const active = filterSet.has(capability.value);
               return (
@@ -1007,16 +1212,16 @@ function ProviderPickerModal({
                   key={capability.value}
                   onClick={() => toggleCapabilityFilter(capability.value)}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold transition-colors duration-200',
+                    'inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition-colors duration-200 lg:h-auto lg:justify-start lg:rounded-md lg:border lg:px-2.5 lg:py-1',
                     active
-                      ? 'border-primary/40 bg-transparent text-ink'
-                      : 'border-transparent bg-transparent text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
+                      ? 'bg-primary/10 text-ink lg:border-primary/40 lg:bg-transparent'
+                      : 'bg-surface-soft text-text-secondary hover:bg-ink/[0.035] hover:text-ink lg:border-transparent lg:bg-transparent',
                   )}
                 >
                   {capability.iconUrl ? (
                     <img src={capability.iconUrl} alt="" aria-hidden="true" className="h-4 w-4 object-contain" />
                   ) : null}
-                  {capability.label}
+                  <span className="truncate">{capability.label}</span>
                 </button>
               );
             })}
@@ -1029,7 +1234,7 @@ function ProviderPickerModal({
           ) : providers.length === 0 ? (
             <div className="px-6 py-16 text-center text-sm text-muted">没有匹配的厂商</div>
           ) : (
-            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-2.5 px-4 pb-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
+            <div className="grid min-h-[260px] auto-rows-max content-start items-start gap-1.5 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:gap-2.5 lg:px-4 lg:pb-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3">
               {providers.map((provider) => {
                 const configured = configuredProviderTypes.has(provider.providerType);
                 return (
@@ -1067,18 +1272,27 @@ function AvailableProviderCard({
     <button
       type="button"
       onClick={onSetup}
-      className="group h-fit w-full rounded-md border border-border-subtle bg-transparent p-3.5 text-left transition-[background-color,border-color] duration-200 hover:border-primary/35 hover:bg-ink/[0.025]"
+      className="group h-fit w-full rounded-lg px-1 py-2 text-left transition-[background-color,border-color] duration-200 hover:bg-ink/[0.025] lg:rounded-md lg:border lg:border-border-subtle lg:bg-transparent lg:p-3.5 lg:hover:border-primary/35"
     >
       <div className="flex min-h-8 items-center gap-2.5">
         <ProviderIcon iconUrl={iconUrl} name={provider.providerName} size="sm" />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="text-sm font-bold truncate tracking-wide text-ink">{provider.providerName}</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="truncate text-sm font-bold tracking-wide text-ink">{provider.providerName}</h4>
             {configured && <CountPill label="已配置" />}
           </div>
+          <p className="mt-0.5 truncate text-[11px] text-muted lg:hidden">
+            {sortedCapabilities
+              .slice(0, 3)
+              .map((capability) => getCapabilityMeta(capability).label)
+              .join(' / ')}
+          </p>
         </div>
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-white transition-colors duration-200 group-hover:bg-primary-active lg:hidden">
+          {configured ? '更新' : '配置'}
+        </span>
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="mt-3 hidden items-center justify-between gap-3 lg:flex">
         <p className="truncate text-xs leading-relaxed font-mono uppercase tracking-wider text-muted">
           {sortedCapabilities.map((capability, index) => (
             <span key={capability}>

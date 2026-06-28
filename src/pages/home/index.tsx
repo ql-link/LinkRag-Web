@@ -264,7 +264,13 @@ export default function HomePage() {
               <div className="flex flex-col gap-5">
                 <div className="min-w-0">
                   <h1 className="mb-2 text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">
-                    {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
+                    <span className="lg:hidden">
+                      <span className="block font-serif not-italic">{displayName}</span>
+                      <span className="mt-1 block">{getGreeting()}</span>
+                    </span>
+                    <span className="hidden lg:inline">
+                      {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
+                    </span>
                   </h1>
                   <p className="text-[13px] text-muted">查看最近工作、资料状态和系统用量。</p>
                 </div>
@@ -273,7 +279,13 @@ export default function HomePage() {
                   onSubmit={handleSubmit}
                   className="flex h-14 w-full max-w-[760px] items-center gap-3 rounded-2xl border border-hairline bg-canvas p-2 transition-colors focus-within:border-primary/35"
                 >
-                  <Search size={20} className="ml-2 shrink-0 text-muted" />
+                  <img
+                    src={darkMode ? '/linkrag-mark-v2-dark.png' : '/linkrag-mark-v2.png'}
+                    alt=""
+                    className="ml-1 h-8 w-8 shrink-0 object-contain lg:hidden"
+                    aria-hidden="true"
+                  />
+                  <Search size={20} className="ml-2 hidden shrink-0 text-muted lg:block" />
                   <input
                     value={searchTerm}
                     onChange={handleSearchChange}

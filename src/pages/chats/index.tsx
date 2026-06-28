@@ -11,7 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { Copy, Database, Files, Info, Loader2, MessageSquare, Search, Send, Upload, X } from 'lucide-react';
+import { Copy, Database, Files, Info, Loader2, MessageSquare, Search, Send, SquarePen, Upload, X } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
@@ -53,6 +53,7 @@ import { getCachedConversations, setCachedConversations } from '@/lib/conversati
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { getModelDisplayName, hydrateModelDisplayNames } from '@/lib/model-display';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
 import type {
   ConversationDTO,
   DatasetDTO,
@@ -549,6 +550,7 @@ export default function ChatsPage() {
   const routeDatasetId = parseRouteDatasetId(routeState?.datasetId);
   const { user } = useAuth();
   const { addToast } = useToast();
+  const isDesktop = useIsDesktop();
   const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
@@ -559,6 +561,7 @@ export default function ChatsPage() {
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
+  const mobileKbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
@@ -621,6 +624,7 @@ export default function ChatsPage() {
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (kbSelectorRef.current?.contains(target)) return;
+      if (mobileKbSelectorRef.current?.contains(target)) return;
       if (modelSelectorRef.current?.contains(target)) return;
       setKbOpen(false);
       setModelOpen(false);
@@ -1405,19 +1409,38 @@ export default function ChatsPage() {
     setFilesPanelOpen((open) => {
       const nextOpen = !open;
       setKbOpen(false);
+      if (nextOpen && !isDesktop) {
+        setRecallPanelOpen(false);
+      }
       return nextOpen;
     });
-  }, []);
+  }, [isDesktop]);
 
   const toggleRecallPanel = useCallback(() => {
     setRecallPanelOpen((open) => {
       const nextOpen = !open;
       if (nextOpen) {
         setKbOpen(false);
+        if (!isDesktop) {
+          setFilesPanelOpen(false);
+        }
       }
       return nextOpen;
     });
-  }, []);
+  }, [isDesktop]);
+
+  const toggleMobileSourcePanel = useCallback(() => {
+    const nextOpen = !(filesPanelOpen || recallPanelOpen);
+    setKbOpen(false);
+    setFilesPanelOpen(false);
+    setRecallPanelOpen(nextOpen);
+  }, [filesPanelOpen, recallPanelOpen]);
+
+  useEffect(() => {
+    if (!isDesktop && filesPanelOpen && recallPanelOpen) {
+      setRecallPanelOpen(false);
+    }
+  }, [filesPanelOpen, isDesktop, recallPanelOpen]);
 
   const toggleDatasetSelector = useCallback(() => {
     setKbOpen((open) => !open);
@@ -1520,16 +1543,16 @@ export default function ChatsPage() {
           onKeyDown={handleComposerKeyDown}
           rows={1}
           disabled={sending}
-          placeholder="输入提问，回车开始召回…"
-          className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft"
+          placeholder="输入问题"
+          className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft lg:placeholder:text-muted-soft"
         />
         <div ref={modelSelectorRef} className="relative shrink-0">
           <button
             type="button"
             onClick={() => setModelOpen((value) => !value)}
             className={cn(
-              'group/model flex h-10 w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[width,color] duration-200 hover:w-48 hover:text-ink focus-visible:w-48 focus-visible:text-ink',
-              modelOpen && 'w-48 text-ink',
+              'group/model flex h-10 w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[width,color] duration-200 hover:text-ink focus-visible:text-ink lg:hover:w-48 lg:focus-visible:w-48',
+              modelOpen && 'text-ink lg:w-48',
             )}
             title={getChatModelDisplayName(selectedModel)}
             aria-label={getChatModelDisplayName(selectedModel)}
@@ -1538,8 +1561,8 @@ export default function ChatsPage() {
             <span
               className={cn(
                 'min-w-0 max-w-0 overflow-hidden truncate whitespace-nowrap text-xs font-medium opacity-0 transition-[max-width,opacity] duration-200',
-                'group-hover/model:max-w-36 group-hover/model:opacity-100 group-focus-visible/model:max-w-36 group-focus-visible/model:opacity-100',
-                modelOpen && 'max-w-36 opacity-100',
+                'hidden lg:block lg:group-hover/model:max-w-36 lg:group-hover/model:opacity-100 lg:group-focus-visible/model:max-w-36 lg:group-focus-visible/model:opacity-100',
+                modelOpen && 'lg:max-w-36 lg:opacity-100',
               )}
             >
               {getChatModelDisplayName(selectedModel)}
@@ -1548,8 +1571,10 @@ export default function ChatsPage() {
           {modelOpen && (
             <div
               className={cn(
-                'popover-scrollbar absolute right-0 z-20 max-h-72 w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-[10px] border border-hairline bg-canvas p-2 pr-1.5 (--)]',
-                placement === 'bottom' ? 'bottom-full mb-2' : 'top-full mt-2',
+                'popover-scrollbar absolute right-[-3rem] z-50 max-h-[156px] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-canvas p-1.5 shadow-lg shadow-ink/12 animate-[modelMenuIn_160ms_ease-out] lg:right-0 lg:z-20 lg:max-h-72 lg:w-[min(22rem,calc(100vw-2rem))] lg:rounded-[10px] lg:border lg:border-hairline lg:p-2 lg:shadow-none',
+                placement === 'bottom'
+                  ? 'top-[calc(100%+0.85rem)] lg:top-auto lg:bottom-full lg:mb-2'
+                  : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
               )}
             >
               {chatModels.map((model) => (
@@ -1561,7 +1586,7 @@ export default function ChatsPage() {
                     setModelOpen(false);
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                    'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
                     model.id === selectedModelConfigId
                       ? 'bg-primary/10 text-ink'
                       : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
@@ -1588,16 +1613,11 @@ export default function ChatsPage() {
           {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
         </button>
       </div>
-      <div
-        className={cn(
-          'mt-1 flex justify-end px-2 text-[11px] leading-5',
-          inputQueryTooLong ? 'text-error' : 'text-muted-soft',
-        )}
-      >
-        {inputQueryTooLong
-          ? `${RAG_QUERY_MAX_LENGTH_MESSAGE} · ${inputLength}/${RAG_QUERY_MAX_LENGTH}`
-          : `${inputLength}/${RAG_QUERY_MAX_LENGTH}`}
-      </div>
+      {inputQueryTooLong && (
+        <div className="mt-1 flex justify-end px-2 text-[11px] leading-5 text-error">
+          {RAG_QUERY_MAX_LENGTH_MESSAGE} · {inputLength}/{RAG_QUERY_MAX_LENGTH}
+        </div>
+      )}
     </div>
   );
 
@@ -1608,18 +1628,51 @@ export default function ChatsPage() {
         rightPanelOpen && 'lg:mr-[356px]',
       )}
     >
-      <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6">
+      {activeConversationId ? (
+        <div className="fixed right-2 z-30 flex h-10 items-center gap-0.5 rounded-xl bg-canvas/92 p-0.5 shadow-sm shadow-ink/5 backdrop-blur-md lg:hidden [top:calc(env(safe-area-inset-top)+0.5rem)]">
+          <button
+            type="button"
+            onClick={() => {
+              setFilesPanelOpen(false);
+              setRecallPanelOpen(false);
+              beginNewConversation();
+            }}
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-primary/6 hover:text-ink"
+            title="新建对话"
+            aria-label="新建对话"
+          >
+            <SquarePen size={14} className="text-muted" />
+            新建
+          </button>
+          <button
+            type="button"
+            onClick={toggleMobileSourcePanel}
+            className={cn(
+              'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors',
+              rightPanelOpen ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/6 hover:text-ink',
+            )}
+            title="显示或隐藏来源"
+            aria-label="显示或隐藏来源"
+          >
+            <Files size={14} className={cn(rightPanelOpen ? 'text-primary' : 'text-muted')} />
+            来源
+          </button>
+        </div>
+      ) : null}
+      <header className="hidden min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6 lg:flex">
         {/* 面包屑：桌面端显示；移动端由外壳顶栏承担标题 */}
         <div className="hidden items-center gap-3 min-w-0 flex-1 lg:flex">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <HeaderButton active={filesPanelOpen} icon={Files} onClick={toggleFilesPanel}>
-            文件 {files.length}
-          </HeaderButton>
-          <HeaderButton active={recallPanelOpen} icon={Search} onClick={toggleRecallPanel} title="显示或隐藏召回片段">
-            召回 {evidenceCount}
-          </HeaderButton>
+          <div className="hidden items-center gap-2 lg:flex">
+            <HeaderButton active={filesPanelOpen} icon={Files} onClick={toggleFilesPanel}>
+              文件 {files.length}
+            </HeaderButton>
+            <HeaderButton active={recallPanelOpen} icon={Search} onClick={toggleRecallPanel} title="显示或隐藏召回片段">
+              召回 {evidenceCount}
+            </HeaderButton>
+          </div>
         </div>
       </header>
 
@@ -1635,11 +1688,20 @@ export default function ChatsPage() {
             ) : messages.length === 0 ? (
               <div className="flex h-full items-center justify-center">
                 <div className="w-full max-w-[760px] text-center lg:-translate-x-8">
-                  <h2 className="text-3xl text-ink">
-                    <span className="serif-heading">{displayName}</span>，今天想聊点什么？
+                  <h2 className="text-3xl leading-tight text-ink">
+                    <span className="lg:hidden">
+                      <span className="serif-heading block">{displayName}</span>
+                      <span className="mt-2 block">今天想聊点什么？</span>
+                    </span>
+                    <span className="hidden lg:inline">
+                      <span className="serif-heading">{displayName}</span>，今天想聊点什么？
+                    </span>
                   </h2>
-                  <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-                    基于已关联的知识库召回片段作答，资料可在右上角「文件」中管理。
+                  <p className="mx-auto mt-3 max-w-xl truncate text-sm leading-relaxed text-muted lg:whitespace-normal">
+                    <span className="lg:hidden">基于知识库资料回答</span>
+                    <span className="hidden lg:inline">
+                      基于已关联的知识库召回片段作答，资料可在右上角「文件」中管理。
+                    </span>
                   </p>
                   {renderComposer('center')}
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -1658,7 +1720,7 @@ export default function ChatsPage() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5">
+              <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5 lg:gap-5">
                 {messages.map((message) =>
                   message.role === 'user' ? (
                     <div
@@ -1676,7 +1738,7 @@ export default function ChatsPage() {
                       >
                         <Copy size={14} />
                       </button>
-                      <div className="max-w-[88%] rounded-[18px_18px_4px_18px] bg-surface-cream-strong px-4 py-3 text-sm leading-relaxed text-ink">
+                      <div className="max-w-[92%] rounded-[18px_18px_4px_18px] bg-surface-cream-strong px-3.5 py-2.5 text-[14px] leading-6 text-ink lg:max-w-[88%] lg:px-4 lg:py-3 lg:text-sm lg:leading-relaxed">
                         {message.content ?? ''}
                       </div>
                     </div>
@@ -1686,23 +1748,34 @@ export default function ChatsPage() {
                     <div
                       key={message.id}
                       data-message-turn-id={messageTurnIdById.get(message.id)}
-                      className="group/message chat-rise flex items-start gap-3"
+                      className="group/message chat-rise flex flex-col gap-2 lg:flex-row lg:items-start lg:gap-3"
                     >
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center">
-                        <LinkRagMessageMark className="h-8 w-8" />
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center lg:mt-1 lg:h-8 lg:w-8">
+                        <LinkRagMessageMark className="h-7 w-7 lg:h-8 lg:w-8" />
                       </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="min-w-0 flex-1 lg:pt-0.5">
                         <MessageStatusNotice status={message.status} />
                         <MarkdownRenderer
                           content={message.content ?? ''}
                           className={cn(
-                            'text-base leading-8 text-text-main',
-                            '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-3',
-                            'prose-p:text-base prose-li:text-base',
-                            '[&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1',
-                            '[&_pre]:my-3 [&_blockquote]:my-3',
+                            'text-[15px] leading-7 text-text-main lg:text-base lg:leading-8',
+                            '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2.5 lg:[&_p]:my-3',
+                            'prose-p:text-[15px] prose-li:text-[15px] lg:prose-p:text-base lg:prose-li:text-base',
+                            '[&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-1 lg:[&_ul]:my-3 lg:[&_ol]:my-3',
+                            '[&_pre]:my-2.5 [&_blockquote]:my-2.5 lg:[&_pre]:my-3 lg:[&_blockquote]:my-3',
+                            '[&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:min-w-max',
+                            'lg:max-w-[780px] lg:prose-p:leading-7 lg:prose-li:leading-7',
+                            'lg:prose-headings:mb-2 lg:prose-headings:mt-6 lg:prose-headings:leading-snug',
+                            'lg:prose-h1:text-[22px] lg:prose-h2:text-[19px] lg:prose-h3:text-[17px]',
+                            'lg:prose-h2:border-b lg:prose-h2:border-border-subtle lg:prose-h2:pb-2',
+                            'lg:[&_ul]:pl-5 lg:[&_ol]:pl-5 lg:[&_li]:pl-1 lg:[&_li]:my-1.5',
+                            'lg:[&_blockquote]:rounded-r-lg lg:[&_blockquote]:bg-surface-soft/45 lg:[&_blockquote]:py-2.5 lg:[&_blockquote]:pr-4',
+                            'lg:[&_.not-prose]:my-4 lg:[&_table]:text-sm',
                           )}
                         />
+                        <p className="mt-3 text-[11px] leading-5 text-muted-soft lg:mt-4 lg:border-t lg:border-border-subtle lg:pt-3 lg:text-xs">
+                          AI 生成内容可能不准确，请以原文档为准并结合原文档参考。
+                        </p>
                         <button
                           type="button"
                           onClick={() => void copyMessageContent(message.content)}
@@ -1729,25 +1802,171 @@ export default function ChatsPage() {
           )}
         </section>
         <aside
+          className={cn(
+            'fixed inset-x-3 bottom-4 z-50 h-[min(68vh,560px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out lg:hidden',
+            rightPanelOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
+          )}
+          aria-label="来源"
+        >
+          <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] bg-canvas shadow-lg shadow-ink/12 dark:bg-[#2b2b2b]">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+              <div className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-surface-soft p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilesPanelOpen(false);
+                    setRecallPanelOpen(true);
+                    setKbOpen(false);
+                  }}
+                  className={cn(
+                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    recallPanelOpen ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/70 hover:text-ink',
+                  )}
+                >
+                  <Search size={13} />
+                  片段 {evidenceCount}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecallPanelOpen(false);
+                    setFilesPanelOpen(true);
+                    setKbOpen(false);
+                  }}
+                  className={cn(
+                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    filesPanelOpen ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/70 hover:text-ink',
+                  )}
+                >
+                  <Files size={13} />
+                  文件 {files.length}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilesPanelOpen(false);
+                  setRecallPanelOpen(false);
+                }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
+                aria-label="关闭来源"
+                title="关闭来源"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 px-3 pb-3">
+              {recallPanelOpen ? (
+                <RecallEvidencePanel message={evidenceMessage} showHeader={false} />
+              ) : (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div ref={mobileKbSelectorRef} className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={toggleDatasetSelector}
+                      className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]"
+                    >
+                      <Database size={13} className="shrink-0 text-muted" />
+                      <span className="min-w-0 flex-1 truncate text-left">{selectedDataset?.name ?? '选择知识库'}</span>
+                    </button>
+                    {kbOpen && (
+                      <div className="popover-scrollbar absolute left-0 right-0 top-full z-30 mt-2 max-h-52 overflow-y-auto rounded-xl bg-bg-frosted p-1.5 shadow-sm backdrop-blur-xl dark:bg-[#2b2b2b]">
+                        {datasets.length === 0 ? (
+                          <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
+                        ) : (
+                          datasets.map((dataset) => (
+                            <button
+                              key={dataset.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDatasetId(dataset.id);
+                                setKbOpen(false);
+                              }}
+                              className={cn(
+                                'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                                dataset.id === selectedDatasetId
+                                  ? 'bg-primary/10 text-ink'
+                                  : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
+                              )}
+                            >
+                              {dataset.name}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex h-8 shrink-0 items-center gap-2 px-2">
+                    <Search size={13} className="text-muted" />
+                    <input
+                      value={fileSearch}
+                      onChange={(e) => setFileSearch(e.target.value)}
+                      placeholder="搜索文件"
+                      className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
+                    />
+                  </div>
+                  {loadingFiles ? (
+                    <div className="flex h-24 items-center justify-center text-muted">
+                      <Loader2 size={16} className="animate-spin" />
+                    </div>
+                  ) : filteredFiles.length === 0 ? (
+                    <div className="px-2 py-8 text-center text-xs text-muted">
+                      <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
+                    </div>
+                  ) : (
+                    <div className="popover-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                      {filteredFiles.map((file) => (
+                        <div key={file.id} className="rounded-lg px-1 py-2">
+                          <div className="flex items-center gap-2">
+                            <KnowledgeFileIcon suffix={file.fileSuffix} compact />
+                            <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (uploading) return;
+                      if (!selectedDatasetId) {
+                        promptSelectDatasetForUpload();
+                        return;
+                      }
+                      fileInputRef.current?.click();
+                    }}
+                    className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary text-xs font-semibold text-white transition-colors hover:bg-primary-active disabled:opacity-60"
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {uploading ? '上传中' : '上传文件'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+        <aside
           ref={rightPanelRef}
           className={cn(
-            'fixed inset-x-3 bottom-4 top-20 z-50 grid min-h-0 origin-top-right transition-[grid-template-rows,gap,opacity,transform] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:w-[340px]',
+            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,gap,opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
             'gap-0',
             rightPanelOpen
-              ? 'translate-x-0 scale-100 opacity-100'
-              : 'pointer-events-none translate-x-3 scale-[0.985] opacity-0',
+              ? 'translate-y-0 opacity-100 lg:translate-x-0 lg:scale-100'
+              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-3 lg:translate-y-0 lg:scale-[0.985]',
           )}
           style={{ gridTemplateRows: getRightPanelGridRowsForState(filesPanelOpen, recallPanelOpen, rightPanelSplit) }}
           aria-label="对话辅助面板"
         >
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-[opacity,transform] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]',
-              filesPanelVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-3 opacity-0',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
+              filesPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:-translate-y-3',
               !filesPanelOpen && 'pointer-events-none',
             )}
           >
-            <section className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl dark:border-[#3a3a3a] dark:bg-[#2b2b2b]/92 dark:shadow-none">
+            <section className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
               <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
                 <div className="flex min-w-0 items-center gap-2">
                   <Files size={14} className="shrink-0 text-muted" />
@@ -1893,7 +2112,7 @@ export default function ChatsPage() {
           </div>
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-opacity duration-200',
+              'hidden min-h-0 overflow-hidden transition-opacity duration-200 lg:block',
               filesPanelOpen && recallPanelOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
           >
@@ -1915,12 +2134,12 @@ export default function ChatsPage() {
           </div>
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-[opacity,transform] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]',
-              recallPanelVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
+              recallPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:translate-y-3',
               !recallPanelOpen && 'pointer-events-none',
             )}
           >
-            <div className="h-full min-h-0 overflow-hidden rounded-[12px] border border-border-subtle bg-bg-frosted shadow-sm backdrop-blur-xl dark:border-[#3a3a3a] dark:bg-[#2b2b2b]/92 dark:shadow-none">
+            <div className="h-full min-h-0 overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
               <RecallEvidencePanel message={evidenceMessage} onClose={() => setRecallPanelOpen(false)} />
             </div>
           </div>

@@ -94,7 +94,7 @@ function FileStatusPill({ file }: { file: KnowledgeFileDTO }) {
   return (
     <span
       className={cn(
-        'inline-flex h-7 w-[92px] shrink-0 items-center gap-[7px] rounded-full border px-3.5 text-[13px] font-semibold leading-none transition-transform duration-200 ease-out',
+        'inline-flex h-7 w-auto shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none transition-transform duration-200 ease-out lg:w-[92px] lg:gap-[7px] lg:px-3.5 lg:text-[13px]',
         meta.className,
       )}
     >
@@ -425,9 +425,9 @@ export default function DatasetPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 sm:px-6 lg:px-8">
-        <div className="min-w-0 shrink">
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="shrink-0 px-4 pt-3 pb-2 lg:flex lg:h-16 lg:items-center lg:justify-between lg:gap-2 lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
+        <div className="hidden min-w-0 shrink lg:block">
           <Breadcrumb
             items={[
               { label: '首页', path: Routes.Home },
@@ -436,44 +436,60 @@ export default function DatasetPage() {
             ]}
           />
         </div>
-        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
+        <div className="lg:hidden">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold leading-6 text-ink">{dataset.name}</h1>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+              <span>{files.length} 个文件</span>
+              <span className="h-1 w-1 rounded-full bg-muted-soft" aria-hidden="true" />
+              <span>{conversations.length} 个对话</span>
+            </div>
+          </div>
+          {dataset.description && (
+            <p className="mt-2 line-clamp-2 text-sm leading-5 text-text-secondary">{dataset.description}</p>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5 lg:mt-0 lg:flex lg:shrink-0 lg:gap-2 lg:overflow-x-auto">
           <button
             onClick={openFilePicker}
             disabled={uploading || choosingFiles}
-            className="group inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink disabled:cursor-wait disabled:opacity-70"
+            className="group inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active disabled:cursor-wait disabled:opacity-70 lg:h-9 lg:flex-none lg:gap-2 lg:rounded-md lg:border lg:border-border-subtle lg:bg-surface-soft lg:px-3 lg:text-text-secondary lg:hover:border-primary/30 lg:hover:bg-surface-card lg:hover:text-ink"
           >
             {uploading || choosingFiles ? (
-              <Loader2 size={14} className="animate-spin text-muted" />
+              <Loader2 size={14} className="animate-spin lg:text-muted" />
             ) : (
-              <Upload size={14} className="text-muted" />
+              <Upload size={14} className="lg:text-muted" />
             )}
             {uploading ? '上传中' : choosingFiles ? '选择中' : '上传文件'}
           </button>
           <button
             onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink"
+            className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active lg:h-9 lg:w-auto lg:gap-2 lg:rounded-md lg:border lg:border-border-subtle lg:bg-surface-soft lg:px-3 lg:text-text-secondary lg:hover:border-primary/30 lg:hover:bg-surface-card lg:hover:text-ink"
+            aria-label="新建对话"
           >
-            <MessageSquare size={14} className="text-muted" />
-            新建对话
+            <MessageSquare size={14} className="lg:text-muted" />
+            <span>新建对话</span>
           </button>
           <button
             onClick={() => void loadDataset(true)}
             disabled={refreshing}
             className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink disabled:cursor-not-allowed',
+              'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-soft text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink disabled:cursor-not-allowed lg:h-9 lg:w-auto lg:gap-2 lg:rounded-md lg:px-3 lg:text-xs lg:font-bold',
               refreshing && 'opacity-60',
             )}
             title="刷新知识库"
+            aria-label="刷新知识库"
           >
             <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-            刷新
+            <span className="hidden lg:inline">刷新</span>
           </button>
           <button
             onClick={() => navigate(`/datasets/${dataset.id}/parse-config`)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-soft text-text-secondary transition-colors duration-200 ease-out hover:border-primary/30 hover:bg-surface-card hover:text-ink lg:h-9 lg:w-auto lg:border-0 lg:bg-primary lg:px-4 lg:text-xs lg:font-bold lg:text-white lg:hover:bg-primary-active"
+            aria-label="解析配置"
           >
             <Settings size={14} />
-            解析配置
+            <span className="hidden lg:inline">解析配置</span>
           </button>
           <input
             ref={fileInputRef}
@@ -486,10 +502,10 @@ export default function DatasetPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:pb-8 bg-canvas">
-        <section className="overflow-hidden rounded-2xl border border-hairline bg-bg-card-solid (--)]">
-          <div className="flex flex-col gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
+      <main className="flex-1 overflow-y-auto bg-canvas px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
+        <section className="overflow-hidden lg:rounded-2xl lg:border lg:border-hairline lg:bg-bg-card-solid (--)]">
+          <div className="flex flex-col gap-3 px-0 py-3 lg:flex-row lg:items-center lg:justify-between lg:border-b lg:border-hairline lg:px-5 lg:py-4">
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-soft p-1 lg:flex lg:items-center lg:gap-2 lg:bg-transparent lg:p-0">
               {[
                 { key: 'files' as const, label: '知识文件', count: files.length },
                 { key: 'conversations' as const, label: '历史对话', count: conversations.length },
@@ -499,10 +515,10 @@ export default function DatasetPage() {
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
                   className={cn(
-                    'relative inline-flex h-9 items-center overflow-hidden rounded-lg px-3 text-xs font-semibold transition-all duration-200 ease-out active:scale-[0.98]',
+                    'relative inline-flex h-9 items-center justify-center overflow-hidden rounded-lg px-3 text-xs font-semibold transition-all duration-200 ease-out active:scale-[0.98]',
                     activeTab === tab.key
-                      ? 'bg-primary/10 text-ink shadow-[inset_0_0_0_1px_rgba(212,163,115,0.12)]'
-                      : 'text-muted hover:-translate-y-0.5 hover:bg-surface-soft hover:text-ink',
+                      ? 'bg-canvas text-ink shadow-sm lg:bg-primary/10 lg:shadow-[inset_0_0_0_1px_rgba(212,163,115,0.12)]'
+                      : 'text-muted hover:bg-canvas/70 hover:text-ink lg:hover:-translate-y-0.5 lg:hover:bg-surface-soft',
                   )}
                 >
                   <span className="relative z-10">{tab.label}</span>
@@ -511,25 +527,27 @@ export default function DatasetPage() {
               ))}
             </div>
             {activeTab === 'files' && (
-              <ParseAfterUploadSwitch
-                checked={parseAfterUpload}
-                onToggle={(event) => {
-                  event.stopPropagation();
-                  setParseAfterUpload((prev) => !prev);
-                }}
-              />
+              <div className="px-1 lg:px-0">
+                <ParseAfterUploadSwitch
+                  checked={parseAfterUpload}
+                  onToggle={(event) => {
+                    event.stopPropagation();
+                    setParseAfterUpload((prev) => !prev);
+                  }}
+                />
+              </div>
             )}
           </div>
 
-          <div className="p-5">
+          <div className="pt-1 lg:p-5">
             {activeTab === 'files' ? (
-              <div key="files" className="space-y-3 [animation:datasetTabIn_240ms_ease-out]">
+              <div key="files" className="space-y-2 [animation:datasetTabIn_240ms_ease-out] lg:space-y-3">
                 {files.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-hairline px-5 py-10 text-center text-sm text-muted transition-colors duration-200 hover:border-primary/25 hover:bg-surface-soft/60">
                     暂无知识文件，点击顶部上传文件添加内容。
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1 lg:space-y-2">
                     {files.map((file) => {
                       const parseSubmitting = submittingParseFileIds.includes(file.id);
                       const parseInProgress = file.frontendStatus === 'parsing';
@@ -539,15 +557,14 @@ export default function DatasetPage() {
                       return (
                         <div
                           key={file.id}
-                          className="group/file flex items-center justify-between gap-4 rounded-xl px-3 py-3 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface-soft/70"
+                          className="group/file flex items-center justify-between gap-3 rounded-lg px-1 py-2.5 transition-all duration-200 ease-out active:bg-surface-soft/55 lg:gap-4 lg:px-3 lg:py-3 lg:hover:-translate-y-0.5 lg:hover:bg-surface-soft/70"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <KnowledgeFileIcon suffix={file.fileSuffix} />
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-ink">{file.originalFilename}</p>
-                              <p className="mono-label mt-1 text-[10px] text-muted">
-                                {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)} · 上传于{' '}
-                                {formatTime(file.createdAt)}
+                              <p className="mono-label mt-1 truncate text-[10px] text-muted">
+                                {file.fileSuffix.toUpperCase()} · {formatSize(file.fileSize)}
                               </p>
                               {(file.failureReason || file.parseFailureReason) && (
                                 <p className="mt-1 text-xs text-error">
@@ -556,22 +573,25 @@ export default function DatasetPage() {
                               )}
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex shrink-0 items-center gap-1.5 lg:gap-2">
                             <FileStatusPill file={file} />
-                            <button
-                              onClick={() => void handleParseFile(file.id)}
-                              disabled={!canParse || parseSubmitting || parseInProgress}
-                              className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-all duration-200 ease-out hover:bg-primary-active hover:shadow-sm active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none"
-                            >
-                              {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
-                            </button>
-                            <button
-                              onClick={() => setFilePendingDelete(file)}
-                              disabled={deleting}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => void handleParseFile(file.id)}
+                                disabled={!canParse || parseSubmitting || parseInProgress}
+                                className="inline-flex h-8 items-center rounded-lg bg-primary px-2.5 text-xs font-semibold text-white transition-all duration-200 ease-out hover:bg-primary-active hover:shadow-sm active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none lg:px-3"
+                              >
+                                {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
+                              </button>
+                              <button
+                                onClick={() => setFilePendingDelete(file)}
+                                disabled={deleting}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-all duration-200 ease-out hover:bg-error/10 hover:text-error active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label="删除文件"
+                              >
+                                {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -580,7 +600,7 @@ export default function DatasetPage() {
                 )}
               </div>
             ) : (
-              <div key="conversations" className="space-y-2 [animation:datasetTabIn_240ms_ease-out]">
+              <div key="conversations" className="space-y-1 [animation:datasetTabIn_240ms_ease-out] lg:space-y-2">
                 {conversations.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-hairline px-5 py-10 text-center text-sm text-muted transition-colors duration-200 hover:border-primary/25 hover:bg-surface-soft/60">
                     暂无历史对话，可点击顶部新建对话。
@@ -593,7 +613,7 @@ export default function DatasetPage() {
                       <div
                         key={conversation.id}
                         onClick={() => navigate(`/chats/${conversation.id}`)}
-                        className="group/conversation flex cursor-pointer items-center justify-between gap-4 rounded-xl px-3 py-3.5 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-surface-soft/70 active:translate-y-0 active:scale-[0.995]"
+                        className="group/conversation flex cursor-pointer items-center justify-between gap-4 rounded-lg px-1 py-2.5 transition-all duration-200 ease-out active:scale-[0.995] active:bg-surface-soft/55 lg:px-3 lg:py-3.5 lg:hover:-translate-y-0.5 lg:hover:bg-surface-soft/70 lg:active:translate-y-0"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-base font-bold leading-5 text-ink">
