@@ -35,7 +35,7 @@ import {
 } from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
 import { getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
-import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
+import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
 import {
   KNOWLEDGE_FILE_ACCEPT,
@@ -47,6 +47,7 @@ import { usePublishChatWorkspace, type ChatWorkspaceSnapshot } from '@/contexts/
 import { getCachedConversations, setCachedConversations } from '@/lib/conversationsCache';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { copyTextToClipboard } from '@/lib/clipboard';
+import { hydrateModelDisplayNames } from '@/lib/model-display';
 import type {
   ConversationDTO,
   DatasetDTO,
@@ -198,8 +199,16 @@ function shouldInsetModelIcon(model: LLMConfigDTO | null | undefined, iconUrl: s
   return INSET_MODEL_ICON_KEYS.some((key) => token.includes(key));
 }
 
-function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null | undefined; size?: 'xs' | 'sm' }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerType, model.modelName) : '';
+function ModelProviderIcon({
+  model,
+  size = 'sm',
+  darkMode = false,
+}: {
+  model: LLMConfigDTO | null | undefined;
+  size?: 'xs' | 'sm';
+  darkMode?: boolean;
+}) {
+  const iconUrl = model ? getProviderIcon(model.providerType, model.providerType, model.modelName, { darkMode }) : '';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
   const sizeClass = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconInsetClass = shouldInsetModelIcon(model, iconUrl) ? 'p-1' : 'p-0';
@@ -819,17 +828,22 @@ export default function ChatsPage() {
     // 数据集与模型配置：仅影响主区域（知识库/模型选择），与历史列表互不阻塞
     const loadWorkspace = async () => {
       try {
-        const [dsResult, modelResult, defaultChatModel] = await Promise.all([
+        const [dsResult, modelResult, defaultChatModel, providerResult] = await Promise.all([
           getDatasets(1, 100),
           getLLMConfigs({ capability: 'CHAT', isActive: true }),
           getDefaultLLMConfig('CHAT').catch(() => null),
+          getLLMProviders('CHAT').catch((error) => {
+            console.error('Failed to load provider display names:', error);
+            return [];
+          }),
         ]);
         if (cancelled) return;
         setDatasets(dsResult.items);
-        const chatModelItems =
+        const rawChatModelItems =
           defaultChatModel && !modelResult.some((model) => model.id === defaultChatModel.id)
             ? [defaultChatModel, ...modelResult]
             : modelResult;
+        const chatModelItems = hydrateModelDisplayNames(rawChatModelItems, providerResult);
         setChatModels(chatModelItems);
         const defaultModel =
           (defaultChatModel ? chatModelItems.find((model) => model.id === defaultChatModel.id) : null) ??
