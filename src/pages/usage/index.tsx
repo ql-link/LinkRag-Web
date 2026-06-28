@@ -202,14 +202,14 @@ export default function UsagePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6 space-y-5">
+        <section className="space-y-6 px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
           {showSkeleton ? (
             <UsageSkeleton />
           ) : (
             <>
               <UsageHero summary={summary} range={range} />
 
-              <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+              <section className="border-t border-border-subtle/80 pt-5">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
@@ -228,10 +228,10 @@ export default function UsagePage() {
                 ) : (
                   <EmptyBlock icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
                 )}
-              </div>
+              </section>
 
-              <div className="grid grid-cols-1 gap-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                <section className="flex min-h-0 flex-col rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+              <div className="grid grid-cols-1 gap-5 border-t border-border-subtle/80 pt-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <section className="flex min-h-0 flex-col">
                   <h3 className="mb-4 text-sm font-bold text-ink">模型用量</h3>
                   <div className="min-h-0 flex-1">
                     {topModels.length === 0 ? (
@@ -242,7 +242,7 @@ export default function UsagePage() {
                   </div>
                 </section>
 
-                <section className="flex min-h-0 flex-col rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+                <section className="flex min-h-0 flex-col">
                   <h3 className="mb-4 text-sm font-bold text-ink">最近调用</h3>
                   <div className="min-h-0 flex-1">
                     {logs.length === 0 ? (
@@ -263,8 +263,8 @@ export default function UsagePage() {
 
 function UsageSkeleton() {
   return (
-    <div className="animate-pulse space-y-5" aria-busy="true" aria-label="正在加载用量数据">
-      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+    <div className="animate-pulse space-y-6" aria-busy="true" aria-label="正在加载用量数据">
+      <div className="py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1 space-y-4">
             <div className="flex items-center gap-3">
@@ -286,7 +286,7 @@ function UsageSkeleton() {
             ))}
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 pt-4 xl:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="space-y-2">
               <div className="h-3 w-20 rounded bg-surface-soft" />
@@ -296,17 +296,17 @@ function UsageSkeleton() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+      <div className="border-t border-border-subtle/80 pt-5">
         <div className="mb-4 h-4 w-24 rounded bg-surface-card" />
         <div className="h-[220px] w-full rounded-lg bg-surface-soft" />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <div className="space-y-4 rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+      <div className="grid grid-cols-1 gap-5 border-t border-border-subtle/80 pt-5 xl:grid-cols-2">
+        <div className="space-y-4 pt-5">
           <div className="h-4 w-20 rounded bg-surface-card" />
           <div className="mx-auto h-[170px] w-[170px] rounded-full bg-surface-soft" />
         </div>
-        <div className="space-y-3 rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+        <div className="space-y-3 pt-5">
           <div className="h-4 w-20 rounded bg-surface-card" />
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="h-12 w-full rounded-lg bg-surface-soft" />
@@ -348,7 +348,7 @@ function UsageHero({
   ];
 
   return (
-    <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+    <div className="py-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
@@ -485,7 +485,7 @@ function RangePicker({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-hairline bg-bg-card-solid p-3 (--)]">
+        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-hairline bg-bg-card-solid p-3">
           <div className="mb-3 flex flex-wrap gap-2">
             {presets.map((preset) => {
               const presetRange = preset.range();
@@ -574,12 +574,15 @@ function DateTextInput({
 function GrowthPill({ label, value }: { label: string; value: number | null }) {
   const Icon = value !== null && value < 0 ? TrendingDown : TrendingUp;
   const hasValue = value !== null;
+  const toneClass =
+    value === null || value === 0
+      ? 'bg-surface-soft text-muted'
+      : value > 0
+        ? 'bg-warning/10 text-warning'
+        : 'bg-info/10 text-info';
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold',
-        !hasValue ? 'bg-surface-soft text-muted' : value < 0 ? 'bg-info/10 text-info' : 'bg-success/10 text-success',
-      )}
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold', toneClass)}
       title={label}
     >
       {hasValue && <Icon size={13} />}
@@ -601,29 +604,34 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
   const segments = buildPieSegments(chartItems, totalTokens);
 
   return (
-    <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-[160px_minmax(0,1fr)]">
-      <div className="relative mx-auto h-[160px] w-[160px]">
+    <div className="grid h-full content-center items-center gap-5 md:grid-cols-[160px_minmax(0,1fr)]">
+      <div className="relative mx-auto h-[164px] w-[164px]">
         <svg viewBox="0 0 170 170" className="h-full w-full" role="img" aria-label="模型用量饼图">
-          <circle cx="85" cy="85" r="62" fill="none" stroke="var(--color-surface-card)" strokeWidth="24" />
-          {segments.map((segment, index) => (
-            <path
-              key={`${segment.item.providerType}-${segment.item.modelName}`}
-              d={describeArc(85, 85, 62, segment.startAngle, segment.endAngle)}
-              fill="none"
-              stroke={MODEL_COLORS[index % MODEL_COLORS.length]}
-              strokeLinecap="butt"
-              strokeWidth="24"
-            >
-              <title>
-                {getModelDisplayName(segment.item)} ·{' '}
-                {formatPercent(totalTokens > 0 ? segment.item.totalTokens / totalTokens : 0, 1)} ·{' '}
-                {formatNumber(segment.item.totalTokens)} Token
-              </title>
-            </path>
-          ))}
+          <circle cx="85" cy="85" r="59" fill="none" stroke="var(--color-surface-soft)" strokeWidth="24" />
+          <g className="[filter:drop-shadow(0_2px_3px_rgba(20,20,19,0.08))]">
+            {segments.map((segment, index) => (
+              <path
+                key={`${segment.item.providerType}-${segment.item.modelName}`}
+                d={describePieSegment(segment, segments.length)}
+                fill="none"
+                stroke={MODEL_COLORS[index % MODEL_COLORS.length]}
+                strokeLinecap="butt"
+                strokeWidth="24"
+              >
+                <title>
+                  {getModelDisplayName(segment.item)} ·{' '}
+                  {formatPercent(totalTokens > 0 ? segment.item.totalTokens / totalTokens : 0, 1)} ·{' '}
+                  {formatNumber(segment.item.totalTokens)} Token
+                </title>
+              </path>
+            ))}
+          </g>
+          <circle cx="85" cy="85" r="43" fill="var(--color-canvas)" stroke="var(--color-hairline-soft)" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-lg font-bold text-ink">{formatCompactTokens(totalTokens).replace(' tokens', '')}</span>
+          <span className="max-w-[94px] truncate text-lg font-bold text-ink">
+            {formatCompactTokens(totalTokens).replace(' tokens', '')}
+          </span>
           <span className="mono-label mt-1 text-muted-soft">总量</span>
         </div>
       </div>
@@ -632,7 +640,10 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
         {chartItems.map((item, index) => {
           const percent = totalTokens > 0 ? item.totalTokens / totalTokens : 0;
           return (
-            <div key={`${item.providerType}-${item.modelName}`} className="flex min-w-0 items-center gap-3">
+            <div
+              key={`${item.providerType}-${item.modelName}`}
+              className="flex min-w-0 items-center gap-3 rounded-md px-1.5 py-1.5 transition-colors hover:bg-ink/[0.025]"
+            >
               <UsageProviderIcon item={item} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-ink">{getModelDisplayName(item)}</p>
@@ -640,7 +651,7 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
               <div className="flex shrink-0 items-center gap-2">
                 <span className="text-sm font-bold text-ink">{formatPercent(percent, 1)}</span>
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full ring-2 ring-canvas"
                   style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
                 />
               </div>
@@ -688,6 +699,19 @@ function buildPieSegments(data: ModelUsageDTO[], total: number) {
     currentAngle += angle;
     return segment;
   });
+}
+
+function describePieSegment(
+  segment: {
+    startAngle: number;
+    endAngle: number;
+  },
+  segmentCount: number,
+) {
+  const angle = segment.endAngle - segment.startAngle;
+  if (angle <= 0) return '';
+  const gapAngle = segmentCount > 1 ? Math.min(3.2, angle * 0.28) : 0;
+  return describeArc(85, 85, 59, segment.startAngle + gapAngle / 2, segment.endAngle - gapAngle / 2);
 }
 
 function describeArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number) {
@@ -837,7 +861,7 @@ function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
               cx={point.x}
               cy={point.y}
               r={hoveredDate === point.date ? 5 : index === points.length - 1 ? 4 : 3}
-              fill="var(--color-bg-card-solid)"
+              fill="var(--color-canvas)"
               stroke={strokeColor}
               strokeWidth="2"
               className="transition-all"
@@ -872,7 +896,7 @@ function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
 
       {hoveredPoint && (
         <div
-          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-hairline bg-bg-card-solid px-3 py-2 text-xs text-ink (--)]"
+          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-hairline bg-bg-card-solid px-3 py-2 text-xs text-ink"
           style={{
             left: `${(hoveredPoint.x / width) * 100}%`,
             top: `${(hoveredPoint.y / height) * 100}%`,

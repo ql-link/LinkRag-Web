@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Bot, Database, FileText, FileUp, Loader2, MessageSquare, Search } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
+import { Bot, Database, FileText, MessageSquare, Search, type LucideIcon } from 'lucide-react';
+import { Link } from 'react-router';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { Routes } from '@/routes';
 import {
   RAG_QUERY_MAX_LENGTH,
@@ -13,14 +14,12 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
-import { createConversation, getConversations } from '@/services/chat';
+import { getConversations } from '@/services/chat';
 import { getDatasets, getKnowledgeFiles, getRecentKnowledgeFiles } from '@/services/dataset';
 import { getUsageSummary } from '@/services/llm';
 import type { ConversationDTO, DatasetDTO, KnowledgeFileDTO } from '@/types/api';
 
 const USAGE_RANGE_DAYS = 14;
-const presetQuestions = ['RAG 索引怎么配置', '帮我找最近的产品决策'];
-const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 
 type SearchableFile = KnowledgeFileDTO & {
   datasetName: string;
@@ -72,12 +71,18 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('zh-CN').format(value || 0);
 }
 
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function getRangeDates(days: number) {
   const end = new Date();
   const start = new Date();
   start.setDate(start.getDate() - (days - 1));
-  const toIso = (date: Date) => date.toISOString().slice(0, 10);
-  return { startDate: toIso(start), endDate: toIso(end) };
+  return { startDate: formatLocalDate(start), endDate: formatLocalDate(end) };
 }
 
 function datasetName(datasets: DatasetDTO[], id: number) {
@@ -88,24 +93,14 @@ function includesKeyword(value: string | null | undefined, keyword: string) {
   return (value ?? '').toLowerCase().includes(keyword);
 }
 
-function neutralIconTone(darkMode: boolean) {
-  return darkMode ? 'bg-[#303030] text-[#d6d6d6]' : 'bg-[#f2f2f2] text-[#1f1f1f]';
-}
-
-function neutralIconText(darkMode: boolean) {
-  return darkMode ? 'text-[#d6d6d6]' : 'text-[#1f1f1f]';
-}
-
 export default function HomePage() {
   const { darkMode } = useTheme();
   const { user } = useAuth();
   const { addToast } = useToast();
-  const navigate = useNavigate();
   const displayName = user?.nickname || user?.username || '当前用户';
   const cachedPortalData = homePortalCache;
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [datasets, setDatasets] = useState<DatasetDTO[]>(() => cachedPortalData?.datasets ?? []);
   const [recentFiles, setRecentFiles] = useState<KnowledgeFileDTO[]>(() => cachedPortalData?.recentFiles ?? []);
   const [allFiles, setAllFiles] = useState<SearchableFile[]>(() => cachedPortalData?.allFiles ?? []);
@@ -233,50 +228,8 @@ export default function HomePage() {
 
   const resultCount = searchResults.files.length + searchResults.chats.length + searchResults.datasets.length;
 
-  const quickQuestions = useMemo(() => {
-    const items: Array<{ label: string; prompt: string; featured?: boolean }> = [];
-    const recentFile = recentFiles[0];
-    if (recentFile) {
-      items.push({
-        label: '总结最近上传的文档',
-        prompt: `请总结最近上传的文档「${recentFile.originalFilename}」，提炼关键结论和待办。`,
-        featured: true,
-      });
-    }
-    presetQuestions.forEach((label) => items.push({ label, prompt: label }));
-    return items.slice(0, 4);
-  }, [recentFiles]);
-
-  const createQuestionConversation = async (value = searchTerm) => {
-    const content = value.trim();
-    if (!content || submitting) return;
-    if (isRagQueryTooLong(content)) {
-      addToast('error', RAG_QUERY_MAX_LENGTH_MESSAGE);
-      return;
-    }
-    const targetDatasetId = datasets[0]?.id;
-    if (!targetDatasetId) {
-      addToast('error', '请先创建或选择一个知识库');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const conversation = await createConversation({ datasetId: targetDatasetId });
-      sessionStorage.setItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${conversation.id}`, content);
-      navigate(`/chats/${conversation.id}`, { state: { initialQuestion: content } });
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
-      addToast('error', '创建对话失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hasSearch) return;
-    void createQuestionConversation();
   };
 
   const notifyQueryMaxLength = useCallback(() => {
@@ -297,117 +250,74 @@ export default function HomePage() {
   );
 
   return (
-    <div className={cn('flex h-full min-h-0 gap-[14px]', darkMode ? 'text-[#d6d6d6]' : 'text-text-main')}>
+    <div className="flex h-full min-h-0 gap-[14px] text-text-main">
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header
-          className={cn(
-            'flex min-h-16 shrink-0 items-center justify-between gap-4 border-b px-5 py-3 sm:px-8',
-            darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
-          )}
-        >
+        <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-border-subtle px-5 py-3 sm:px-8">
           <div className="min-w-0">
             <Breadcrumb items={[{ label: '首页' }]} darkMode={darkMode} />
           </div>
         </header>
 
-        <div className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base')}>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-canvas">
           <div className="mx-auto w-full max-w-[1120px] px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:px-8 lg:pb-16">
             <section className="mb-8">
-              <h1
-                className={cn(
-                  'mb-2 text-[24px] font-semibold leading-tight sm:text-[27px]',
-                  darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
-                )}
-              >
-                {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
-              </h1>
-              <p className={cn('text-[13px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-                搜索文件、对话、知识库，或从最近内容继续。
-              </p>
+              <div className="flex flex-col gap-5">
+                <div className="min-w-0">
+                  <h1 className="mb-2 text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">
+                    {getGreeting()}，<span className="font-serif not-italic">{displayName}</span>
+                  </h1>
+                  <p className="text-[13px] text-muted">查看最近工作、资料状态和系统用量。</p>
+                </div>
 
-              <form
-                onSubmit={handleSubmit}
-                className={cn(
-                  'mt-7 rounded-[22px] border px-5 py-5 shadow-[0_14px_34px_-28px_rgba(26,26,26,0.45)] backdrop-blur-xl sm:px-6',
-                  darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]/62' : 'border-[rgba(31,31,31,0.11)] bg-white/55',
-                )}
-              >
-                <div
-                  className={cn('flex items-center gap-3 sm:gap-4', !hasSearch && quickQuestions.length > 0 && 'mb-4')}
+                <form
+                  onSubmit={handleSubmit}
+                  className="flex h-14 w-full max-w-[760px] items-center gap-3 rounded-2xl border border-hairline bg-canvas p-2 transition-colors focus-within:border-primary/35"
                 >
-                  <Search size={23} className="shrink-0 text-primary" />
+                  <Search size={20} className="ml-2 shrink-0 text-muted" />
                   <input
                     value={searchTerm}
                     onChange={handleSearchChange}
-                    placeholder="搜索文件、对话、知识库，或输入一个问题..."
-                    className={cn(
-                      'min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-text-main/40 sm:text-[17px]',
-                      darkMode ? 'text-[#f2f2f2] placeholder:text-muted-soft' : 'text-text-main',
-                    )}
+                    placeholder="搜索文件、对话、知识库..."
+                    className="min-w-0 flex-1 bg-transparent px-1 text-[16px] text-text-main outline-none placeholder:text-muted-soft"
                   />
+                </form>
+              </div>
+
+              {hasSearch && (
+                <div
+                  className={cn(
+                    'mt-3 flex items-center justify-between gap-3 text-xs',
+                    searchQueryTooLong ? 'text-error' : 'text-muted',
+                  )}
+                >
+                  <span className="min-w-0 truncate">
+                    {searchQueryTooLong
+                      ? RAG_QUERY_MAX_LENGTH_MESSAGE
+                      : searchLoading
+                        ? '正在准备文件索引...'
+                        : `搜索结果 ${resultCount} 个`}
+                  </span>
+                  <span className="shrink-0">
+                    {searchQueryLength}/{RAG_QUERY_MAX_LENGTH}
+                  </span>
                 </div>
-                {hasSearch && (
-                  <div
-                    className={cn(
-                      'mt-3 flex items-center justify-between gap-3 text-xs',
-                      searchQueryTooLong ? 'text-error' : darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50',
-                    )}
-                  >
-                    <span className="min-w-0 truncate">
-                      {searchQueryTooLong
-                        ? RAG_QUERY_MAX_LENGTH_MESSAGE
-                        : searchLoading
-                          ? '正在准备文件索引...'
-                          : `搜索结果 ${resultCount} 个 · 回车可用这个问题新建对话`}
-                    </span>
-                    <span className="shrink-0">
-                      {searchQueryLength}/{RAG_QUERY_MAX_LENGTH}
-                    </span>
-                  </div>
-                )}
-                {!hasSearch && quickQuestions.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-[9px]">
-                    {quickQuestions.map((item) => (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => setSearchTerm(item.prompt)}
-                        className={cn(
-                          'rounded-[9px] border px-[13px] py-[7px] text-xs font-medium transition-colors',
-                          item.featured
-                            ? darkMode
-                              ? 'border-[#4a4a4a] bg-[#303030] text-[#d6d6d6]'
-                              : 'border-[#d6d6d6] bg-[#f2f2f2] text-[#1f1f1f]'
-                            : darkMode
-                              ? 'border-[#3a3a3a] bg-[#2b2b2b] text-[#d6d6d6]'
-                              : 'border-border-subtle bg-white text-text-main/70',
-                          darkMode ? 'hover:border-[#d6d6d6]' : 'hover:border-[#1f1f1f]',
-                        )}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </form>
+              )}
             </section>
 
             {hasSearch ? (
-              <div className="mx-auto max-w-[920px]">
+              <div className="w-full">
                 <SearchResults
-                  darkMode={darkMode}
                   keyword={searchTerm.trim()}
                   loading={searchLoading}
                   results={searchResults}
                   resultCount={resultCount}
-                  submitting={submitting}
-                  queryTooLong={searchQueryTooLong}
-                  onCreateQuestion={() => void createQuestionConversation()}
                 />
               </div>
             ) : (
-              <StatsPanel
-                darkMode={darkMode}
+              <WorkbenchOverview
+                datasets={datasets}
+                recentChats={recentChats}
+                recentFiles={recentFiles}
                 datasetTotal={datasets.length}
                 conversationTotal={conversationTotal}
                 fileTotal={fileTotal}
@@ -421,101 +331,166 @@ export default function HomePage() {
   );
 }
 
-function StatsPanel({
-  darkMode,
+function WorkbenchOverview({
+  datasets,
+  recentChats,
+  recentFiles,
   datasetTotal,
   conversationTotal,
   fileTotal,
   tokenTotal,
 }: {
-  darkMode: boolean;
+  datasets: DatasetDTO[];
+  recentChats: ConversationDTO[];
+  recentFiles: KnowledgeFileDTO[];
+  datasetTotal: number;
+  conversationTotal: number;
+  fileTotal: number;
+  tokenTotal: number;
+}) {
+  const latestFiles = recentFiles.slice(0, 4);
+  const latestChats = recentChats.slice(0, 4);
+
+  return (
+    <div className="space-y-6">
+      <StatsPanel
+        datasetTotal={datasetTotal}
+        conversationTotal={conversationTotal}
+        fileTotal={fileTotal}
+        tokenTotal={tokenTotal}
+      />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <section>
+          <SectionHeading title="最近继续" link={Routes.Chats} />
+          <div>
+            {latestChats.length === 0 ? (
+              <EmptyState icon={MessageSquare} title="还没有对话" text="从对话页选择知识库后开始一次检索问答。" />
+            ) : (
+              latestChats.map((chat) => (
+                <TextResultLink
+                  key={chat.id}
+                  title={chat.title || '未命名对话'}
+                  meta={`${datasetName(datasets, chat.datasetId)} · ${formatRelativeTime(chat.updatedAt)}`}
+                  to={`/chats/${chat.id}`}
+                  action="继续"
+                />
+              ))
+            )}
+          </div>
+        </section>
+
+        <section>
+          <SectionHeading title="最近资料" link={Routes.Datasets} />
+          <div>
+            {latestFiles.length === 0 ? (
+              <EmptyState icon={FileText} title="还没有资料" text="上传文档后会在这里快速回到最近文件。" />
+            ) : (
+              latestFiles.map((file) => (
+                <FileResultLink
+                  key={file.id}
+                  suffix={file.fileSuffix}
+                  title={file.originalFilename}
+                  meta={`${formatSize(file.fileSize)} · ${formatRelativeTime(file.updatedAt)}`}
+                  to={`/datasets/${file.datasetId}?tab=files`}
+                  action="打开"
+                />
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function StatsPanel({
+  datasetTotal,
+  conversationTotal,
+  fileTotal,
+  tokenTotal,
+}: {
   datasetTotal: number;
   conversationTotal: number;
   fileTotal: number;
   tokenTotal: number;
 }) {
   const stats = [
-    { label: '知识库', value: datasetTotal, icon: Database, iconClass: 'text-[#4F7FA8]' },
-    { label: '对话', value: conversationTotal, icon: MessageSquare, iconClass: 'text-primary' },
-    { label: '文件', value: fileTotal, icon: FileText, iconClass: 'text-[#5E9B73]' },
-    { label: `${USAGE_RANGE_DAYS}天 Token`, value: tokenTotal, icon: Bot, iconClass: 'text-[#D97373]' },
+    { label: '对话', value: conversationTotal, icon: MessageSquare, iconClass: 'text-primary', to: Routes.Chats },
+    { label: '知识库', value: datasetTotal, icon: Database, iconClass: 'text-info', to: Routes.Datasets },
+    { label: '文件', value: fileTotal, icon: FileText, iconClass: 'text-success', to: Routes.Datasets },
+    { label: `${USAGE_RANGE_DAYS}天 Token`, value: tokenTotal, icon: Bot, iconClass: 'text-error', to: Routes.Usage },
   ];
 
   return (
-    <section
-      className={cn(
-        'mb-8 grid grid-cols-2 gap-x-4 gap-y-4 border-y py-4 md:grid-cols-4',
-        darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle/80',
-      )}
-    >
-      {stats.map(({ label, value, icon: Icon, iconClass }) => (
-        <div key={label} className="flex h-[68px] items-center gap-3 px-1 sm:px-2 lg:px-3">
+    <section className="mb-8 grid grid-cols-2 gap-x-4 gap-y-4 py-4 md:grid-cols-4">
+      {stats.map(({ label, value, icon: Icon, iconClass, to }) => (
+        <Link
+          key={label}
+          to={to}
+          className="flex h-[68px] items-center gap-3 rounded-md px-1 transition-colors hover:bg-ink/[0.025] sm:px-2 lg:px-3"
+        >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center">
             <Icon size={18} className={iconClass} />
           </span>
           <span className="min-w-0">
-            <span
-              className={cn('block text-lg font-semibold leading-none', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}
-            >
-              {formatNumber(value)}
-            </span>
-            <span className={cn('mt-1 block truncate text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
-              {label}
-            </span>
+            <span className="block text-lg font-semibold leading-none text-ink">{formatNumber(value)}</span>
+            <span className="mt-1 block truncate text-[11px] text-muted">{label}</span>
           </span>
-        </div>
+        </Link>
       ))}
     </section>
   );
 }
 
 function SearchResults({
-  darkMode,
   keyword,
   loading,
   results,
   resultCount,
-  submitting,
-  queryTooLong,
-  onCreateQuestion,
 }: {
-  darkMode: boolean;
   keyword: string;
   loading: boolean;
   results: { files: SearchableFile[]; chats: ConversationDTO[]; datasets: DatasetDTO[] };
   resultCount: number;
-  submitting: boolean;
-  queryTooLong: boolean;
-  onCreateQuestion: () => void;
 }) {
   if (loading) {
+    const loadingGroups = [
+      { title: '文件', icon: FileText, iconClass: 'text-success' },
+      { title: '对话', icon: MessageSquare, iconClass: 'text-primary' },
+      { title: '知识库', icon: Database, iconClass: 'text-info' },
+    ];
+
     return (
-      <div className="grid grid-cols-1 gap-3">
-        {[0, 1, 2].map((item) => (
-          <SkeletonCard key={item} darkMode={darkMode} compact />
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {loadingGroups.map(({ title, icon, iconClass }) => (
+          <ResultGroup key={title} title={title} count={0} icon={icon} iconClass={iconClass} emptyText="正在搜索...">
+            {[0, 1].map((item) => (
+              <SkeletonCard key={item} compact />
+            ))}
+          </ResultGroup>
         ))}
-      </div>
+      </section>
     );
   }
 
   return (
     <section className="space-y-5">
       {resultCount === 0 ? (
-        <EmptyState
-          darkMode={darkMode}
-          icon={Search}
-          title="没有找到匹配内容"
-          text="可以换个关键词，也可以直接把当前内容作为问题开始对话。"
-        />
+        <SearchEmptyState keyword={keyword} />
       ) : (
-        <>
-          <ResultGroup darkMode={darkMode} title="文件" emptyText="没有匹配文件">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <ResultGroup
+            title="文件"
+            count={results.files.length}
+            icon={FileText}
+            iconClass="text-success"
+            emptyText="没有匹配文件"
+          >
             {results.files.map((file) => (
-              <ResultLink
+              <FileResultLink
                 key={file.id}
-                darkMode={darkMode}
-                icon={FileText}
-                iconClass="text-[#5E9B73]"
+                suffix={file.fileSuffix}
                 title={file.originalFilename}
                 meta={`${file.datasetName} · ${formatSize(file.fileSize)} · ${formatRelativeTime(file.updatedAt)}`}
                 to={`/datasets/${file.datasetId}?tab=files`}
@@ -524,13 +499,16 @@ function SearchResults({
             ))}
           </ResultGroup>
 
-          <ResultGroup darkMode={darkMode} title="对话" emptyText="没有匹配对话">
+          <ResultGroup
+            title="对话"
+            count={results.chats.length}
+            icon={MessageSquare}
+            iconClass="text-primary"
+            emptyText="没有匹配对话"
+          >
             {results.chats.map((chat) => (
-              <ResultLink
+              <TextResultLink
                 key={chat.id}
-                darkMode={darkMode}
-                icon={MessageSquare}
-                iconClass="text-primary"
                 title={chat.title || '未命名对话'}
                 meta={`${chat.lastModelName || '知识库问答'} · ${formatRelativeTime(chat.updatedAt)}`}
                 to={`/chats/${chat.id}`}
@@ -539,13 +517,18 @@ function SearchResults({
             ))}
           </ResultGroup>
 
-          <ResultGroup darkMode={darkMode} title="知识库" emptyText="没有匹配知识库">
+          <ResultGroup
+            title="知识库"
+            count={results.datasets.length}
+            icon={Database}
+            iconClass="text-info"
+            emptyText="没有匹配知识库"
+          >
             {results.datasets.map((dataset) => (
               <ResultLink
                 key={dataset.id}
-                darkMode={darkMode}
                 icon={Database}
-                iconClass="text-[#4F7FA8]"
+                iconClass="text-info"
                 title={dataset.name}
                 meta={`${dataset.description || '暂无描述'} · ${formatRelativeTime(dataset.updatedAt)}`}
                 to={`/datasets/${dataset.id}`}
@@ -553,87 +536,52 @@ function SearchResults({
               />
             ))}
           </ResultGroup>
-        </>
+        </div>
       )}
-
-      <div
-        className={cn(
-          'flex flex-col gap-3 rounded-[15px] border p-4 sm:flex-row sm:items-center sm:justify-between',
-          darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]' : 'border-border-subtle bg-white',
-        )}
-      >
-        <div className="min-w-0">
-          <h3 className={cn('text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-            没找到想要的？
-          </h3>
-          <p className={cn('mt-1 truncate text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-            使用“{keyword}”新建对话，或上传相关文档补充知识来源。
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onCreateQuestion}
-            disabled={submitting || queryTooLong}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-xs font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
-              darkMode ? 'bg-primary text-white hover:bg-primary' : 'bg-primary text-white hover:opacity-90',
-            )}
-          >
-            {submitting && <Loader2 size={14} className="animate-spin" />}
-            新建对话
-          </button>
-          <Link
-            to={Routes.Datasets}
-            state={{ openUpload: true }}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-[10px] border px-3 text-xs font-semibold transition-colors',
-              darkMode
-                ? 'border-[#3a3a3a] text-[#d6d6d6] hover:border-[#d6d6d6]'
-                : 'border-border-subtle text-text-main/70 hover:border-[#1f1f1f]',
-            )}
-          >
-            <FileUp size={14} className="text-[#5E9B73]" />
-            上传文档
-          </Link>
-        </div>
-      </div>
     </section>
   );
 }
 
 function ResultGroup({
-  darkMode,
   title,
+  count,
+  icon: Icon,
+  iconClass,
   emptyText,
   children,
 }: {
-  darkMode: boolean;
   title: string;
+  count: number;
+  icon: LucideIcon;
+  iconClass: string;
   emptyText: string;
   children: React.ReactNode[];
 }) {
   return (
-    <section>
-      <SectionHeading darkMode={darkMode} title={title} />
-      {children.length === 0 ? (
-        <p
-          className={cn(
-            'rounded-[15px] border border-dashed px-4 py-5 text-xs',
-            darkMode ? 'border-[#3a3a3a] text-[#a6a6a6]' : 'border-border-subtle text-text-main/45',
-          )}
-        >
-          {emptyText}
-        </p>
-      ) : (
-        <div className="space-y-2">{children}</div>
-      )}
+    <section className="min-w-0">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon size={15} className={cn('shrink-0', iconClass)} />
+        <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-text-secondary">{title}</h3>
+        <span className="font-mono text-[11px] text-muted-soft">{count}</span>
+      </div>
+      {children.length === 0 ? <p className="px-2.5 py-3 text-xs text-muted">{emptyText}</p> : <div>{children}</div>}
     </section>
   );
 }
 
+function SearchEmptyState({ keyword }: { keyword: string }) {
+  return (
+    <div className="py-10 text-center text-muted">
+      <Search size={24} className="mx-auto mb-3 opacity-60" />
+      <p className="text-sm font-semibold text-ink">没有找到匹配内容</p>
+      <p className="mx-auto mt-2 max-w-[420px] text-xs leading-5">
+        没有与“{keyword}”相关的文件、对话或知识库，可以换个关键词，或直接用它新建对话。
+      </p>
+    </div>
+  );
+}
+
 function ResultLink({
-  darkMode,
   icon: Icon,
   iconClass,
   title,
@@ -641,7 +589,6 @@ function ResultLink({
   to,
   action,
 }: {
-  darkMode: boolean;
   icon: typeof FileText;
   iconClass: string;
   title: string;
@@ -652,49 +599,77 @@ function ResultLink({
   return (
     <Link
       to={to}
-      className={cn(
-        'group flex items-center gap-3 rounded-[14px] border p-3 transition-all hover:-translate-y-px hover:shadow-[0_6px_18px_-8px_rgba(26,26,26,0.18)]',
-        darkMode
-          ? 'border-[#3a3a3a] bg-[#2b2b2b] hover:border-[#d6d6d6]'
-          : 'border-border-subtle bg-white hover:border-[#1f1f1f]',
-      )}
+      className="group flex items-center gap-3 rounded-md px-2.5 py-3 transition-colors hover:bg-ink/[0.025]"
     >
-      <span
-        className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]', neutralIconTone(darkMode))}
-      >
-        <Icon size={17} className={iconClass} />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+        <Icon size={16} className={iconClass} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn('block truncate text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-          {title}
-        </span>
-        <span className={cn('mt-1 block truncate text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-          {meta}
-        </span>
+        <span className="block truncate text-sm font-semibold text-ink">{title}</span>
+        <span className="mt-1 block truncate text-xs text-muted">{meta}</span>
       </span>
-      <span className={cn('shrink-0 text-xs font-semibold', neutralIconText(darkMode))}>{action}</span>
+      <span className="shrink-0 text-xs font-semibold text-text-secondary opacity-70 transition-opacity group-hover:opacity-100">
+        {action}
+      </span>
     </Link>
   );
 }
 
-function SectionHeading({ darkMode, title, link }: { darkMode: boolean; title: string; link?: string }) {
+function TextResultLink({ title, meta, to, action }: { title: string; meta: string; to: string; action: string }) {
+  return (
+    <Link
+      to={to}
+      className="group flex items-center gap-3 rounded-md px-2.5 py-3 transition-colors hover:bg-ink/[0.025]"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-ink">{title}</span>
+        <span className="mt-1 block truncate text-xs text-muted">{meta}</span>
+      </span>
+      <span className="shrink-0 text-xs font-semibold text-text-secondary opacity-70 transition-opacity group-hover:opacity-100">
+        {action}
+      </span>
+    </Link>
+  );
+}
+
+function FileResultLink({
+  suffix,
+  title,
+  meta,
+  to,
+  action,
+}: {
+  suffix?: string | null;
+  title: string;
+  meta: string;
+  to: string;
+  action: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group/file flex items-center gap-3 rounded-md px-2.5 py-3 transition-colors hover:bg-ink/[0.025]"
+    >
+      <KnowledgeFileIcon suffix={suffix} compact />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-ink">{title}</span>
+        <span className="mt-1 block truncate text-xs text-muted">{meta}</span>
+      </span>
+      <span className="shrink-0 text-xs font-semibold text-text-secondary opacity-70 transition-opacity group-hover/file:opacity-100">
+        {action}
+      </span>
+    </Link>
+  );
+}
+
+function SectionHeading({ title, link }: { title: string; link?: string }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h3
-        className={cn(
-          'font-mono text-[10px] uppercase tracking-[0.12em]',
-          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50',
-        )}
-      >
-        {title}
-      </h3>
+      <h3 className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{title}</h3>
       {link && (
         <Link
           to={link}
-          className={cn(
-            'font-mono text-[10px] uppercase tracking-[0.12em] transition-colors',
-            darkMode ? 'text-[#a6a6a6] hover:text-[#d6d6d6]' : 'text-text-main/50 hover:text-[#1f1f1f]',
-          )}
+          className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted transition-colors hover:text-ink"
         >
           查看全部
         </Link>
@@ -703,39 +678,16 @@ function SectionHeading({ darkMode, title, link }: { darkMode: boolean; title: s
   );
 }
 
-function EmptyState({
-  darkMode,
-  icon: Icon,
-  title,
-  text,
-}: {
-  darkMode: boolean;
-  icon: typeof Search;
-  title: string;
-  text: string;
-}) {
+function EmptyState({ icon: Icon, title, text }: { icon: typeof Search; title: string; text: string }) {
   return (
-    <div
-      className={cn(
-        'rounded-[15px] border border-dashed px-5 py-10 text-center',
-        darkMode ? 'border-[#3a3a3a] text-[#a6a6a6]' : 'border-border-subtle text-text-main/45',
-      )}
-    >
+    <div className="rounded-md border border-dashed border-border-subtle px-5 py-10 text-center text-muted">
       <Icon size={24} className="mx-auto mb-3 opacity-70" />
-      <p className={cn('text-sm font-semibold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>{title}</p>
+      <p className="text-sm font-semibold text-ink">{title}</p>
       <p className="mt-2 text-xs">{text}</p>
     </div>
   );
 }
 
-function SkeletonCard({ darkMode, compact = false }: { darkMode: boolean; compact?: boolean }) {
-  return (
-    <div
-      className={cn(
-        compact ? 'h-[72px]' : 'h-[138px]',
-        'animate-pulse rounded-[15px] border',
-        darkMode ? 'border-[#3a3a3a] bg-[#303030]' : 'border-border-subtle bg-bg-base/60',
-      )}
-    />
-  );
+function SkeletonCard({ compact = false }: { compact?: boolean }) {
+  return <div className={cn(compact ? 'h-[72px]' : 'h-[138px]', 'animate-pulse rounded-md bg-surface-soft')} />;
 }
