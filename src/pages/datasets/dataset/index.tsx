@@ -46,27 +46,27 @@ type FileStatusVariant = 'empty' | 'queued' | 'parsing' | 'done' | 'failed';
 const fileStatusMeta: Record<FileStatusVariant, { label: string; className: string; dotClassName: string }> = {
   empty: {
     label: '未上传',
-    className: 'border-[#8e8b8238] bg-[#8e8b8218] text-[#6b6860]',
+    className: 'text-muted',
     dotClassName: 'bg-[#a8a49a]',
   },
   queued: {
     label: '排队中',
-    className: 'border-[#5b7fb840] bg-[#5b7fb81f] text-[#3f5c8c]',
+    className: 'text-[#3f5c8c]',
     dotClassName: 'bg-[#5b7fb8]',
   },
   parsing: {
     label: '解析中',
-    className: 'border-[#d4901f45] bg-[#e8a55a24] text-[#9a6b18]',
+    className: 'text-[#9a6b18]',
     dotClassName: 'animate-pulse bg-[#d4901f]',
   },
   done: {
     label: '已完成',
-    className: 'border-[#5db87240] bg-[#5db8721f] text-[#3f8a55]',
+    className: 'text-[#3f8a55]',
     dotClassName: 'bg-[#5db872]',
   },
   failed: {
     label: '失败',
-    className: 'border-[#c6454540] bg-[#c645451c] text-[#a83838]',
+    className: 'text-[#a83838]',
     dotClassName: 'bg-[#c64545]',
   },
 };
@@ -94,7 +94,7 @@ function FileStatusPill({ file }: { file: KnowledgeFileDTO }) {
   return (
     <span
       className={cn(
-        'inline-flex h-7 w-auto shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold leading-none transition-transform duration-200 ease-out lg:w-[92px] lg:gap-[7px] lg:px-3.5 lg:text-[13px]',
+        'inline-flex h-7 w-auto shrink-0 items-center gap-1.5 px-1 text-xs font-semibold leading-none transition-colors duration-200 ease-out lg:w-[74px] lg:gap-[7px] lg:px-0 lg:text-[13px]',
         meta.className,
       )}
     >
@@ -158,7 +158,7 @@ export default function DatasetPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'files' | 'conversations'>(() =>
-    searchParams.get('tab') === 'conversations' ? 'conversations' : 'files',
+    searchParams.get('tab') === 'files' ? 'files' : 'conversations',
   );
   const [uploading, setUploading] = useState(false);
   const [choosingFiles, setChoosingFiles] = useState(false);
@@ -503,12 +503,12 @@ export default function DatasetPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
-        <section className="overflow-hidden lg:rounded-2xl lg:border lg:border-hairline lg:bg-bg-card-solid (--)]">
+        <section>
           <div className="flex flex-col gap-3 px-0 py-3 lg:flex-row lg:items-center lg:justify-between lg:border-b lg:border-hairline lg:px-5 lg:py-4">
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-soft p-1 lg:flex lg:items-center lg:gap-2 lg:bg-transparent lg:p-0">
               {[
-                { key: 'files' as const, label: '知识文件', count: files.length },
                 { key: 'conversations' as const, label: '历史对话', count: conversations.length },
+                { key: 'files' as const, label: '知识文件', count: files.length },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -579,7 +579,7 @@ export default function DatasetPage() {
                               <button
                                 onClick={() => void handleParseFile(file.id)}
                                 disabled={!canParse || parseSubmitting || parseInProgress}
-                                className="inline-flex h-8 items-center rounded-lg bg-primary px-2.5 text-xs font-semibold text-white transition-all duration-200 ease-out hover:bg-primary-active hover:shadow-sm active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:shadow-none lg:px-3"
+                                className="inline-flex h-8 items-center rounded-md bg-primary/10 px-2.5 text-xs font-semibold text-primary transition-all duration-200 ease-out hover:bg-primary/15 hover:text-primary-active active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-transparent disabled:text-muted-soft lg:px-3"
                               >
                                 {parseSubmitting ? '提交中' : parseInProgress ? '解析中' : '解析'}
                               </button>

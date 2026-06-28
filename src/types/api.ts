@@ -246,6 +246,8 @@ export interface DatasetParseRecallConfig {
 }
 
 export interface DatasetParseConfigDTO {
+  sparse_embedding_config_id?: number | null;
+  dense_embedding_config_id?: number | null;
   chunking?: DatasetParseChunkingConfig | null;
   enhancement?: DatasetParseEnhancementConfig | null;
   pdf?: DatasetParsePdfConfig | null;
@@ -405,6 +407,8 @@ export interface UpdateConversationRequest {
 export interface CreateDatasetRequest {
   name: string;
   description?: string;
+  sparse_embedding_config_id: number;
+  dense_embedding_config_id: number;
 }
 
 export interface UpdateDatasetRequest {
