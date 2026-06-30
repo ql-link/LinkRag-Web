@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ChangeEvent } from 'react';
 import { useBeforeUnload, useNavigate, useParams } from 'react-router';
-import { AlertCircle, Box, BrainCircuit, Check, FileText, Layers3, Loader2, Search, Sparkles } from 'lucide-react';
+import { AlertCircle, Box, BrainCircuit, Check, Loader2 } from 'lucide-react';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -17,57 +17,20 @@ import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
 import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
-import type {
-  DatasetDTO,
-  DatasetParseConfigDTO,
-  LLMConfigDTO,
-  PdfParserBackend,
-  ProviderModelDTO,
-  RecallSource,
-} from '@/types/api';
-
-type SegmentValue = string | null;
-type ParamType = 'toggle' | 'number' | 'slider' | 'segment' | 'multiselect' | 'display';
-type ParamKey =
-  | 'heading_break_level'
-  | 'min_candidate_chunk_tokens'
-  | 'overlap_tokens'
-  | 'enable_table_enhancement'
-  | 'enable_image_enhancement'
-  | 'pdf_parser_backend'
-  | 'recall_result_limit'
-  | 'recall_context_token_budget'
-  | 'sparse_top_k'
-  | 'sparse_score_threshold'
-  | 'dense_top_k'
-  | 'dense_score_threshold'
-  | 'recall_enabled_sources'
-  | 'rerank_top_n'
-  | 'recall_strict'
-  | 'table_model'
-  | 'vision_model';
-
-type EditableParamKey = Exclude<ParamKey, 'table_model' | 'vision_model'>;
-
-type ParseConfigValues = {
-  sparse_embedding_config_id: number | null;
-  dense_embedding_config_id: number | null;
-  heading_break_level: number | null;
-  min_candidate_chunk_tokens: number | null;
-  overlap_tokens: number | null;
-  enable_table_enhancement: boolean;
-  enable_image_enhancement: boolean;
-  pdf_parser_backend: PdfParserBackend | null;
-  recall_result_limit: number | null;
-  recall_context_token_budget: number | null;
-  sparse_top_k: number | null;
-  sparse_score_threshold: number | null;
-  dense_top_k: number | null;
-  dense_score_threshold: number | null;
-  recall_enabled_sources: RecallSource[];
-  rerank_top_n: number | null;
-  recall_strict: boolean;
-};
+import type { DatasetDTO, LLMConfigDTO, ProviderModelDTO, RecallSource } from '@/types/api';
+import {
+  DEFAULT_VALUES,
+  GROUPS,
+  isEditableKey,
+  isRecallSource,
+  normalizeConfig,
+  toRequest,
+  validateValues,
+  type EditableParamKey,
+  type ParamGroup,
+  type ParamSpec,
+  type ParseConfigValues,
+} from './config-model';
 
 type DefaultModels = {
   chat: DefaultModelInfo | null;
@@ -81,295 +44,9 @@ type DefaultModelInfo = {
   displayName?: string | null;
 };
 
-interface ParamSpec {
-  key: ParamKey;
-  type: ParamType;
-  label: string;
-  envKey: string;
-  description?: string;
-  showDescription?: boolean;
-  min?: number;
-  max?: number;
-  step?: number;
-  integer?: boolean;
-  options?: Array<{ label: string; value: SegmentValue }>;
-  displaySub?: string;
-  span?: 'full';
-  compactOptions?: boolean;
-}
-
-interface ParamGroup {
-  id: string;
-  name: string;
-  en: string;
-  note: string;
-  count: number;
-  colorClass: string;
-  dotClass: string;
-  icon: typeof Layers3;
-  columns: 'single' | 'double';
-  params: ParamSpec[];
-}
-
-const DEFAULT_VALUES: ParseConfigValues = {
-  sparse_embedding_config_id: null,
-  dense_embedding_config_id: null,
-  heading_break_level: 5,
-  min_candidate_chunk_tokens: 128,
-  overlap_tokens: 64,
-  enable_table_enhancement: true,
-  enable_image_enhancement: true,
-  pdf_parser_backend: null,
-  recall_result_limit: 20,
-  recall_context_token_budget: 4000,
-  sparse_top_k: 10,
-  sparse_score_threshold: 0,
-  dense_top_k: 10,
-  dense_score_threshold: 0,
-  recall_enabled_sources: ['bm25', 'sparse', 'dense'],
-  rerank_top_n: 8,
-  recall_strict: false,
-};
-
-const RECALL_SOURCE_OPTIONS: Array<{ label: string; value: RecallSource }> = [
-  { label: 'BM25', value: 'bm25' },
-  { label: 'Sparse', value: 'sparse' },
-  { label: 'Dense', value: 'dense' },
-];
-
-const ALLOWED_RECALL_SOURCES = new Set<RecallSource>(RECALL_SOURCE_OPTIONS.map((option) => option.value));
-const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
-
-const GROUPS: ParamGroup[] = [
-  {
-    id: 'chunking',
-    name: '分块策略',
-    en: 'Chunking',
-    note: '控制标题断层、候选块下限与块间重叠',
-    count: 3,
-    colorClass: 'text-muted',
-    dotClass: 'bg-primary/40',
-    icon: Layers3,
-    columns: 'double',
-    params: [
-      {
-        key: 'heading_break_level',
-        type: 'number',
-        label: '标题分块层级',
-        envKey: 'CHUNKING_HEADING_BREAK_LEVEL',
-        min: 1,
-        max: 6,
-        step: 1,
-        integer: true,
-        description: '纳入标题断层判定的最大层级。',
-      },
-      {
-        key: 'min_candidate_chunk_tokens',
-        type: 'number',
-        label: '候选分块最小 token',
-        envKey: 'CHUNKING_MIN_CANDIDATE_CHUNK_TOKENS',
-        min: 128,
-        max: 256,
-        step: 1,
-        integer: true,
-        description: 'Python Pydantic 约束为 128-256。',
-        showDescription: true,
-      },
-      {
-        key: 'overlap_tokens',
-        type: 'slider',
-        label: '分块重叠 token',
-        envKey: 'CHUNKING_OVERLAP_TOKENS',
-        min: 0,
-        max: 64,
-        step: 1,
-        integer: true,
-        description: '相邻 chunk 的重叠 token 数，后端即时校验 0-64。',
-        showDescription: true,
-      },
-    ],
-  },
-  {
-    id: 'enhancement',
-    name: 'Markdown 增强',
-    en: 'Enhancement',
-    note: '库级只保存增强开关，模型固定跟随用户默认模型',
-    count: 4,
-    colorClass: 'text-muted',
-    dotClass: 'bg-primary/40',
-    icon: Sparkles,
-    columns: 'double',
-    params: [
-      {
-        key: 'enable_table_enhancement',
-        type: 'toggle',
-        label: '表格 LLM 增强',
-        envKey: 'MARKDOWN_PARSER_ENABLE_TABLE_ENHANCEMENT',
-      },
-      {
-        key: 'enable_image_enhancement',
-        type: 'toggle',
-        label: '图片 LLM 增强',
-        envKey: 'MARKDOWN_PARSER_ENABLE_IMAGE_ENHANCEMENT',
-      },
-      {
-        key: 'table_model',
-        type: 'display',
-        label: '表格增强模型',
-        envKey: 'MARKDOWN_PARSER_TABLE_MODEL',
-        displaySub: '用户默认 CHAT 模型',
-      },
-      {
-        key: 'vision_model',
-        type: 'display',
-        label: '图片增强模型',
-        envKey: 'MARKDOWN_PARSER_VISION_MODEL',
-        displaySub: '用户默认 VISION 模型',
-      },
-    ],
-  },
-  {
-    id: 'pdf',
-    name: 'PDF 解析',
-    en: 'PDF Parser',
-    note: '选择 PDF 文档解析后端，系统默认当前等价 MinerU',
-    count: 1,
-    colorClass: 'text-muted',
-    dotClass: 'bg-primary/40',
-    icon: FileText,
-    columns: 'single',
-    params: [
-      {
-        key: 'pdf_parser_backend',
-        type: 'segment',
-        label: 'PDF 解析后端',
-        envKey: 'PDF_PARSER_BACKEND',
-        options: [
-          { label: '系统默认', value: null },
-          { label: '自动', value: 'auto' },
-          { label: 'MinerU', value: 'mineru' },
-          { label: 'ODL', value: 'opendataloader' },
-          { label: '朴素', value: 'naive' },
-        ],
-        description: 'null 表示跟随系统默认；当前系统默认按后端约定等价 MinerU。',
-        showDescription: true,
-        compactOptions: true,
-      },
-    ],
-  },
-  {
-    id: 'recall',
-    name: '召回检索',
-    en: 'Recall',
-    note: '控制召回路、重排条数、容错模式与上下文预算',
-    count: 9,
-    colorClass: 'text-muted',
-    dotClass: 'bg-primary/40',
-    icon: Search,
-    columns: 'double',
-    params: [
-      {
-        key: 'recall_enabled_sources',
-        type: 'multiselect',
-        label: '启用召回路',
-        envKey: 'RECALL_ENABLED_SOURCES',
-        options: RECALL_SOURCE_OPTIONS,
-        description: '启用哪几条召回路参与检索与融合；可留空，实际生效范围受系统已装配召回路限制。',
-        showDescription: true,
-        span: 'full',
-      },
-      {
-        key: 'rerank_top_n',
-        type: 'number',
-        label: '重排候选条数',
-        envKey: 'RERANK_TOP_N',
-        min: 1,
-        step: 1,
-        integer: true,
-        description: '重排后返回的候选条数上限，需为正整数。',
-        showDescription: true,
-      },
-      {
-        key: 'recall_strict',
-        type: 'toggle',
-        label: '严格容错模式',
-        envKey: 'RECALL_STRICT',
-        description: '开启后任一召回路失败即整体报错；关闭则允许单路失败降级。',
-        showDescription: true,
-      },
-      {
-        key: 'recall_result_limit',
-        type: 'slider',
-        label: '召回结果上限',
-        envKey: 'RECALL_RESULT_LIMIT',
-        min: 1,
-        max: 100,
-        step: 1,
-        integer: true,
-        description: '每次召回最多返回的候选数。',
-      },
-      {
-        key: 'recall_context_token_budget',
-        type: 'number',
-        label: '生成上下文 token 预算',
-        envKey: 'RECALL_CONTEXT_TOKEN_BUDGET',
-        min: 1,
-        max: 32000,
-        step: 100,
-        integer: true,
-        description: '生成答案时拼装上下文的 token 预算。',
-        showDescription: true,
-      },
-      {
-        key: 'sparse_top_k',
-        type: 'slider',
-        label: '稀疏召回 TopK',
-        envKey: 'SPARSE_RETRIEVAL_TOP_K',
-        min: 1,
-        max: 50,
-        step: 1,
-        integer: true,
-        description: '关键词召回单路默认返回数。',
-      },
-      {
-        key: 'sparse_score_threshold',
-        type: 'slider',
-        label: '稀疏召回分数阈值',
-        envKey: 'SPARSE_RETRIEVAL_SCORE_THRESHOLD',
-        min: 0,
-        max: 1,
-        step: 0.01,
-        description: '稀疏召回最低分数过滤阈值。',
-        showDescription: true,
-      },
-      {
-        key: 'dense_top_k',
-        type: 'slider',
-        label: '稠密召回 TopK',
-        envKey: 'DENSE_RETRIEVAL_TOP_K',
-        min: 1,
-        max: 50,
-        step: 1,
-        integer: true,
-        description: '向量召回单路默认返回数。',
-      },
-      {
-        key: 'dense_score_threshold',
-        type: 'slider',
-        label: '稠密召回分数阈值',
-        envKey: 'DENSE_RETRIEVAL_SCORE_THRESHOLD',
-        min: 0,
-        max: 1,
-        step: 0.01,
-        description: '稠密召回最低分数过滤阈值。',
-        showDescription: true,
-      },
-    ],
-  },
-];
-
 const DISPLAY_MODEL_FALLBACK = '未配置默认模型';
 const LEAVE_MESSAGE = '解析配置有未保存改动，确定离开吗？';
+const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
 
 function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDTO[]): DefaultModelInfo {
   const provider = providers.find((item) => item.providerType === config.providerType);
@@ -382,96 +59,6 @@ function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDT
       config.displayName?.trim() ||
       getProviderModelDisplayName(providerDisplayNames, config.providerType, config.modelName) ||
       config.displayName,
-  };
-}
-
-function readNumber(raw: unknown, fallback: number | null) {
-  return typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback;
-}
-
-function readConfigId(raw: unknown) {
-  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
-}
-
-function readBoolean(raw: unknown, fallback: boolean) {
-  return typeof raw === 'boolean' ? raw : fallback;
-}
-
-function isRecallSource(raw: string): raw is RecallSource {
-  return ALLOWED_RECALL_SOURCES.has(raw as RecallSource);
-}
-
-function readRecallSources(raw: unknown, fallback: RecallSource[]) {
-  if (!Array.isArray(raw)) return fallback;
-  return raw.filter((item): item is RecallSource => typeof item === 'string' && isRecallSource(item));
-}
-
-function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
-  const chunking = config.chunking ?? {};
-  const enhancement = config.enhancement ?? {};
-  const pdf = config.pdf ?? {};
-  const recall = config.recall ?? {};
-
-  return {
-    sparse_embedding_config_id: readConfigId(config.sparse_embedding_config_id),
-    dense_embedding_config_id: readConfigId(config.dense_embedding_config_id),
-    heading_break_level: readNumber(chunking.heading_break_level, DEFAULT_VALUES.heading_break_level),
-    min_candidate_chunk_tokens: readNumber(
-      chunking.min_candidate_chunk_tokens,
-      DEFAULT_VALUES.min_candidate_chunk_tokens,
-    ),
-    overlap_tokens: readNumber(chunking.overlap_tokens, DEFAULT_VALUES.overlap_tokens),
-    enable_table_enhancement: readBoolean(
-      enhancement.enable_table_enhancement,
-      DEFAULT_VALUES.enable_table_enhancement,
-    ),
-    enable_image_enhancement: readBoolean(
-      enhancement.enable_image_enhancement,
-      DEFAULT_VALUES.enable_image_enhancement,
-    ),
-    pdf_parser_backend: pdf.pdf_parser_backend ?? DEFAULT_VALUES.pdf_parser_backend,
-    recall_result_limit: readNumber(recall.recall_result_limit, DEFAULT_VALUES.recall_result_limit),
-    recall_context_token_budget: readNumber(
-      recall.recall_context_token_budget,
-      DEFAULT_VALUES.recall_context_token_budget,
-    ),
-    sparse_top_k: readNumber(recall.sparse_top_k, DEFAULT_VALUES.sparse_top_k),
-    sparse_score_threshold: readNumber(recall.sparse_score_threshold, DEFAULT_VALUES.sparse_score_threshold),
-    dense_top_k: readNumber(recall.dense_top_k, DEFAULT_VALUES.dense_top_k),
-    dense_score_threshold: readNumber(recall.dense_score_threshold, DEFAULT_VALUES.dense_score_threshold),
-    recall_enabled_sources: readRecallSources(recall.recall_enabled_sources, DEFAULT_VALUES.recall_enabled_sources),
-    rerank_top_n: readNumber(recall.rerank_top_n, DEFAULT_VALUES.rerank_top_n),
-    recall_strict: readBoolean(recall.recall_strict, DEFAULT_VALUES.recall_strict),
-  };
-}
-
-function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
-  return {
-    sparse_embedding_config_id: values.sparse_embedding_config_id,
-    dense_embedding_config_id: values.dense_embedding_config_id,
-    chunking: {
-      heading_break_level: values.heading_break_level,
-      min_candidate_chunk_tokens: values.min_candidate_chunk_tokens,
-      overlap_tokens: values.overlap_tokens,
-    },
-    enhancement: {
-      enable_table_enhancement: values.enable_table_enhancement,
-      enable_image_enhancement: values.enable_image_enhancement,
-    },
-    pdf: {
-      pdf_parser_backend: values.pdf_parser_backend,
-    },
-    recall: {
-      recall_result_limit: values.recall_result_limit,
-      recall_context_token_budget: values.recall_context_token_budget,
-      sparse_top_k: values.sparse_top_k,
-      sparse_score_threshold: values.sparse_score_threshold,
-      dense_top_k: values.dense_top_k,
-      dense_score_threshold: values.dense_score_threshold,
-      recall_enabled_sources: values.recall_enabled_sources,
-      rerank_top_n: values.rerank_top_n,
-      recall_strict: values.recall_strict,
-    },
   };
 }
 
@@ -488,50 +75,6 @@ function getRangeProgress(value: number | null, min?: number, max?: number) {
   if (value === null || min === undefined || max === undefined || max <= min) return '0%';
   const clamped = Math.min(max, Math.max(min, value));
   return `${((clamped - min) / (max - min)) * 100}%`;
-}
-
-function isEditableKey(key: ParamKey): key is EditableParamKey {
-  return key !== 'table_model' && key !== 'vision_model';
-}
-
-function validateValues(values: ParseConfigValues, params: ParamSpec[], defaultModels: DefaultModels) {
-  const errors: Partial<Record<EditableParamKey, string>> = {};
-
-  if (values.enable_table_enhancement && !defaultModels.chat) {
-    errors.enable_table_enhancement = '需先配置用户默认 CHAT 模型';
-  }
-
-  if (values.enable_image_enhancement && !defaultModels.vision) {
-    errors.enable_image_enhancement = '需先配置用户默认 VISION 模型';
-  }
-
-  for (const param of params) {
-    if (!isEditableKey(param.key) || (param.type !== 'number' && param.type !== 'slider')) {
-      continue;
-    }
-
-    const value = values[param.key];
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      errors[param.key] = '请输入有效数字';
-      continue;
-    }
-
-    if (param.integer && !Number.isInteger(value)) {
-      errors[param.key] = '必须为整数';
-      continue;
-    }
-
-    if (param.min !== undefined && value < param.min) {
-      errors[param.key] = `不能小于 ${param.min}`;
-      continue;
-    }
-
-    if (param.max !== undefined && value > param.max) {
-      errors[param.key] = `不能大于 ${param.max}`;
-    }
-  }
-
-  return errors;
 }
 
 function isDisabled(param: ParamSpec, values: ParseConfigValues) {
@@ -557,7 +100,7 @@ export default function DatasetParseConfigPage() {
 
   const datasetId = Number(id);
   const allParams = useMemo(() => GROUPS.flatMap((group) => group.params), []);
-  const errors = useMemo(() => validateValues(values, allParams, defaultModels), [allParams, defaultModels, values]);
+  const errors = useMemo(() => validateValues(values, allParams), [allParams, values]);
   const bindingErrors = useMemo(
     () => ({
       ...(values.sparse_embedding_config_id ? {} : { sparse_embedding_config_id: '请选择稀疏向量模型' }),
@@ -700,16 +243,6 @@ export default function DatasetParseConfigPage() {
   }, [datasetId, id]);
 
   function updateValue(key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) {
-    if (key === 'enable_table_enhancement' && value === true && !defaultModels.chat) {
-      addToast('error', '需先配置默认 CHAT 模型，才能开启表格增强');
-      return;
-    }
-
-    if (key === 'enable_image_enhancement' && value === true && !defaultModels.vision) {
-      addToast('error', '需先配置默认 VISION 模型，才能开启图片增强');
-      return;
-    }
-
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -717,6 +250,9 @@ export default function DatasetParseConfigPage() {
     key: 'sparse_embedding_config_id' | 'dense_embedding_config_id',
     value: number | null,
   ) {
+    if (initial[key] !== null) {
+      return;
+    }
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -840,6 +376,8 @@ export default function DatasetParseConfigPage() {
               denseValue={values.dense_embedding_config_id}
               sparseError={bindingErrors.sparse_embedding_config_id}
               denseError={bindingErrors.dense_embedding_config_id}
+              sparseLocked={initial.sparse_embedding_config_id !== null}
+              denseLocked={initial.dense_embedding_config_id !== null}
               loading={embeddingConfigsLoading}
               disabled={saving}
               changed={embeddingBindingChanged}
@@ -870,6 +408,8 @@ function EmbeddingBindingSection({
   denseValue,
   sparseError,
   denseError,
+  sparseLocked,
+  denseLocked,
   loading,
   disabled,
   changed,
@@ -881,6 +421,8 @@ function EmbeddingBindingSection({
   denseValue: number | null;
   sparseError?: string;
   denseError?: string;
+  sparseLocked: boolean;
+  denseLocked: boolean;
   loading: boolean;
   disabled: boolean;
   changed: boolean;
@@ -888,6 +430,7 @@ function EmbeddingBindingSection({
 }) {
   const sparseUnavailable = !loading && sparseConfigs.length === 0;
   const denseUnavailable = !loading && denseConfigs.length === 0;
+  const LOCKED_HINT = '已绑定，不可修改';
 
   return (
     <section id={EMBEDDING_BINDING_SECTION_ID} className="scroll-mt-8 border-b border-border-subtle pb-8">
@@ -912,8 +455,8 @@ function EmbeddingBindingSection({
           error={sparseError}
           unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
           loading={loading}
-          disabled={disabled}
-          helperText={sparseUnavailable ? '暂无可用配置' : ''}
+          disabled={disabled || sparseLocked}
+          helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('sparse_embedding_config_id', value)}
         />
         <EmbeddingModelSelect
@@ -924,12 +467,14 @@ function EmbeddingBindingSection({
           error={denseError}
           unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
           loading={loading}
-          disabled={disabled}
-          helperText={denseUnavailable ? '暂无可用配置' : ''}
+          disabled={disabled || denseLocked}
+          helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('dense_embedding_config_id', value)}
         />
       </div>
-      {changed && <p className="mt-1 text-[11px] leading-5 text-muted">重绑后，历史文件可能需要重新解析或重建向量。</p>}
+      {changed && (
+        <p className="mt-1 text-[11px] leading-5 text-muted">绑定后不可修改，历史文件可能需要重新解析或重建向量。</p>
+      )}
     </section>
   );
 }
@@ -973,24 +518,26 @@ function ConfigGroup({
           group.columns === 'single' ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2',
         )}
       >
-        {group.params.map((param) => (
-          <ParamField
-            key={param.key}
-            param={param}
-            values={values}
-            error={isEditableKey(param.key) ? errors[param.key] : undefined}
-            disabled={disabled || isDisabled(param, values)}
-            spanFull={param.span === 'full'}
-            displayModel={
-              param.key === 'table_model'
-                ? displayModels.chat
-                : param.key === 'vision_model'
-                  ? displayModels.vision
-                  : undefined
-            }
-            onChange={onChange}
-          />
-        ))}
+        {group.params
+          .filter((param) => !param.visibleWhen || param.visibleWhen(values))
+          .map((param) => (
+            <ParamField
+              key={param.key}
+              param={param}
+              values={values}
+              error={isEditableKey(param.key) ? errors[param.key] : undefined}
+              disabled={disabled || isDisabled(param, values)}
+              spanFull={param.span === 'full'}
+              displayModel={
+                param.key === 'table_model'
+                  ? displayModels.chat
+                  : param.key === 'vision_model'
+                    ? displayModels.vision
+                    : undefined
+              }
+              onChange={onChange}
+            />
+          ))}
       </div>
     </section>
   );

@@ -11,7 +11,20 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { Copy, Database, Files, Info, Loader2, MessageSquare, Search, Send, SquarePen, Upload, X } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  Database,
+  Files,
+  Info,
+  Loader2,
+  MessageSquare,
+  Search,
+  Send,
+  SquarePen,
+  Upload,
+  X,
+} from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
@@ -67,7 +80,7 @@ import type {
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
 const RIGHT_PANEL_RESIZE_ROW_PX = 6;
-const RIGHT_PANEL_TRANSITION_MS = 300;
+const RIGHT_PANEL_TRANSITION_MS = 200;
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -561,7 +574,6 @@ export default function ChatsPage() {
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
-  const mobileKbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
@@ -624,7 +636,6 @@ export default function ChatsPage() {
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (kbSelectorRef.current?.contains(target)) return;
-      if (mobileKbSelectorRef.current?.contains(target)) return;
       if (modelSelectorRef.current?.contains(target)) return;
       setKbOpen(false);
       setModelOpen(false);
@@ -1066,8 +1077,8 @@ export default function ChatsPage() {
       }
       const isFirstTurn = messages.length === 0;
       if (!selectedDatasetId) {
-        setFilesPanelOpen(true);
         setKbOpen(true);
+        addToast('error', '请先选择知识库');
         return false;
       }
       if (!selectedModelConfigId) {
@@ -1290,7 +1301,8 @@ export default function ChatsPage() {
   const promptSelectDatasetForUpload = () => {
     addToast('error', '请先选择知识库后再上传文件');
     setKbOpen(true);
-    setFilesPanelOpen(true);
+    setFilesPanelOpen(false);
+    setRecallPanelOpen(false);
     setDragging(false);
   };
 
@@ -1453,10 +1465,6 @@ export default function ChatsPage() {
     }
   }, [filesPanelOpen, isDesktop, recallPanelOpen]);
 
-  const toggleDatasetSelector = useCallback(() => {
-    setKbOpen((open) => !open);
-  }, []);
-
   useEffect(() => {
     rightPanelSplitRef.current = rightPanelSplit;
   }, [rightPanelSplit]);
@@ -1540,7 +1548,14 @@ export default function ChatsPage() {
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
   const renderComposer = (placement: 'center' | 'bottom') => (
-    <div className={cn('mx-auto w-full max-w-[900px]', placement === 'center' && 'mt-7')}>
+    <div
+      className={cn(
+        'mx-auto w-full',
+        placement === 'bottom' ? 'max-w-[840px]' : 'max-w-[900px]',
+        placement === 'center' && 'mt-7',
+        placement === 'bottom' && 'transition-transform duration-[140ms] ease-out',
+      )}
+    >
       <div
         className={cn(
           'flex items-end gap-2 rounded-2xl border bg-canvas p-2 (--)]',
@@ -1557,10 +1572,84 @@ export default function ChatsPage() {
           placeholder="输入问题"
           className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft lg:placeholder:text-muted-soft"
         />
+        <div ref={kbSelectorRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setKbOpen((value) => !value);
+              setModelOpen(false);
+            }}
+            className={cn(
+              'group/kb flex h-10 w-10 max-w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[max-width,color] duration-200 hover:text-ink focus-visible:text-ink lg:w-max lg:hover:max-w-[14rem] lg:focus-visible:max-w-[14rem]',
+              kbOpen && 'text-ink lg:max-w-[14rem]',
+            )}
+            title={selectedDataset?.name ?? '选择知识库'}
+            aria-label={selectedDataset?.name ?? '选择知识库'}
+          >
+            <Database size={18} className={cn('shrink-0', selectedDataset ? 'text-primary' : 'text-muted')} />
+            <span
+              className={cn(
+                'min-w-0 max-w-0 overflow-hidden truncate whitespace-nowrap text-xs font-medium opacity-0 transition-[max-width,opacity] duration-200',
+                'hidden lg:block lg:group-hover/kb:max-w-[9rem] lg:group-hover/kb:opacity-100 lg:group-focus-visible/kb:max-w-[9rem] lg:group-focus-visible/kb:opacity-100',
+                kbOpen && 'lg:max-w-[9rem] lg:opacity-100',
+              )}
+            >
+              {selectedDataset?.name ?? '选择知识库'}
+            </span>
+            <ChevronDown
+              size={13}
+              className={cn(
+                'hidden shrink-0 text-muted transition-transform lg:block',
+                kbOpen && 'rotate-180 text-primary',
+              )}
+            />
+          </button>
+          {kbOpen && (
+            <div
+              className={cn(
+                'popover-scrollbar absolute right-[-6rem] z-50 max-h-[180px] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-canvas p-1.5 shadow-lg shadow-ink/12 animate-[modelMenuIn_160ms_ease-out] lg:right-0 lg:z-20 lg:max-h-72 lg:w-[min(22rem,calc(100vw-2rem))] lg:rounded-[10px] lg:border lg:border-hairline lg:p-2 lg:shadow-none',
+                placement === 'bottom'
+                  ? 'top-[calc(100%+0.85rem)] lg:top-auto lg:bottom-full lg:mb-2'
+                  : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
+              )}
+            >
+              {datasets.length === 0 ? (
+                <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
+              ) : (
+                datasets.map((dataset) => (
+                  <button
+                    key={dataset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDatasetId(dataset.id);
+                      setKbOpen(false);
+                    }}
+                    className={cn(
+                      'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                      dataset.id === selectedDatasetId
+                        ? 'bg-primary/10 text-ink'
+                        : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                    )}
+                  >
+                    <span className="block truncate">{dataset.name}</span>
+                    {dataset.description && (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-soft">
+                        {dataset.description}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <div ref={modelSelectorRef} className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setModelOpen((value) => !value)}
+            onClick={() => {
+              setModelOpen((value) => !value);
+              setKbOpen(false);
+            }}
             className={cn(
               'group/model flex h-10 w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[width,color] duration-200 hover:text-ink focus-visible:text-ink lg:hover:w-48 lg:focus-visible:w-48',
               modelOpen && 'text-ink lg:w-48',
@@ -1635,7 +1724,7 @@ export default function ChatsPage() {
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden bg-canvas transition-[margin-right] duration-[220ms] ease-out',
+        'flex h-full min-h-0 flex-col overflow-hidden bg-canvas transition-[margin-right] duration-200 ease-out will-change-[margin-right]',
         rightPanelOpen && 'lg:mr-[356px]',
       )}
     >
@@ -1731,7 +1820,11 @@ export default function ChatsPage() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5 lg:gap-5">
+              <div
+                className={cn(
+                  'mx-auto flex w-full max-w-[860px] flex-col gap-5 transition-transform duration-[140ms] ease-out lg:gap-5',
+                )}
+              >
                 {messages.map((message) =>
                   message.role === 'user' ? (
                     <div
@@ -1872,42 +1965,6 @@ export default function ChatsPage() {
                 <RecallEvidencePanel message={evidenceMessage} showHeader={false} />
               ) : (
                 <div className="flex h-full min-h-0 flex-col gap-2">
-                  <div ref={mobileKbSelectorRef} className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={toggleDatasetSelector}
-                      className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]"
-                    >
-                      <Database size={13} className="shrink-0 text-muted" />
-                      <span className="min-w-0 flex-1 truncate text-left">{selectedDataset?.name ?? '选择知识库'}</span>
-                    </button>
-                    {kbOpen && (
-                      <div className="popover-scrollbar absolute left-0 right-0 top-full z-30 mt-2 max-h-52 overflow-y-auto rounded-xl bg-bg-frosted p-1.5 shadow-sm backdrop-blur-xl dark:bg-[#2b2b2b]">
-                        {datasets.length === 0 ? (
-                          <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                        ) : (
-                          datasets.map((dataset) => (
-                            <button
-                              key={dataset.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedDatasetId(dataset.id);
-                                setKbOpen(false);
-                              }}
-                              className={cn(
-                                'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                                dataset.id === selectedDatasetId
-                                  ? 'bg-primary/10 text-ink'
-                                  : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
-                              )}
-                            >
-                              {dataset.name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
                   <div className="flex h-8 shrink-0 items-center gap-2 px-2">
                     <Search size={13} className="text-muted" />
                     <input
@@ -1961,19 +2018,19 @@ export default function ChatsPage() {
         <aside
           ref={rightPanelRef}
           className={cn(
-            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,gap,opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
+            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,opacity,transform] lg:duration-200 lg:ease-out',
             'gap-0',
             rightPanelOpen
-              ? 'translate-y-0 opacity-100 lg:translate-x-0 lg:scale-100'
-              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-3 lg:translate-y-0 lg:scale-[0.985]',
+              ? 'translate-y-0 opacity-100 lg:translate-x-0'
+              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-4 lg:translate-y-0',
           )}
           style={{ gridTemplateRows: getRightPanelGridRowsForState(filesPanelOpen, recallPanelOpen, rightPanelSplit) }}
           aria-label="对话辅助面板"
         >
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
-              filesPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:-translate-y-3',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              filesPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
               !filesPanelOpen && 'pointer-events-none',
             )}
           >
@@ -1999,44 +2056,6 @@ export default function ChatsPage() {
               <div className="min-h-0 flex-1 p-3">
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="flex min-h-0 flex-1 flex-col gap-2">
-                    <div ref={kbSelectorRef} className="relative shrink-0">
-                      <button
-                        type="button"
-                        onClick={toggleDatasetSelector}
-                        className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]"
-                      >
-                        <Database size={13} className="shrink-0 text-muted" />
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {selectedDataset?.name ?? '选择知识库'}
-                        </span>
-                      </button>
-                      {kbOpen && (
-                        <div className="popover-scrollbar absolute left-0 right-0 top-full z-30 mt-2 max-h-56 overflow-y-auto rounded-xl border border-hairline bg-bg-frosted p-1.5 shadow-sm backdrop-blur-xl dark:border-[#3a3a3a] dark:bg-[#2b2b2b]">
-                          {datasets.length === 0 ? (
-                            <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                          ) : (
-                            datasets.map((dataset) => (
-                              <button
-                                key={dataset.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedDatasetId(dataset.id);
-                                  setKbOpen(false);
-                                }}
-                                className={cn(
-                                  'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                                  dataset.id === selectedDatasetId
-                                    ? 'bg-primary/10 text-ink'
-                                    : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
-                                )}
-                              >
-                                {dataset.name}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
                     <div className="flex h-8 shrink-0 items-center gap-2 border-b border-hairline px-2 pb-2">
                       <Search size={13} className="text-muted" />
                       <input
@@ -2145,8 +2164,8 @@ export default function ChatsPage() {
           </div>
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
-              recallPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:translate-y-3',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              recallPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
               !recallPanelOpen && 'pointer-events-none',
             )}
           >

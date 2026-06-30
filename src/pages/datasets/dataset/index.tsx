@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { AlertCircle, Loader2, MessageSquare, RefreshCw, Settings, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Loader2, MessageSquare, PlayCircle, RefreshCw, Settings, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -50,9 +50,9 @@ const fileStatusMeta: Record<FileStatusVariant, { label: string; className: stri
     dotClassName: 'bg-[#a8a49a]',
   },
   queued: {
-    label: '排队中',
-    className: 'text-[#3f5c8c]',
-    dotClassName: 'bg-[#5b7fb8]',
+    label: '待解析',
+    className: 'text-muted',
+    dotClassName: 'bg-muted-soft',
   },
   parsing: {
     label: '解析中',
@@ -113,6 +113,10 @@ function canSubmitParse(file: KnowledgeFileDTO) {
   );
 }
 
+function canSubmitBulkParse(file: KnowledgeFileDTO) {
+  return canSubmitParse(file) && file.frontendStatus !== 'parse_success';
+}
+
 function ParseAfterUploadSwitch({
   checked,
   onToggle,
@@ -162,7 +166,7 @@ export default function DatasetPage() {
   );
   const [uploading, setUploading] = useState(false);
   const [choosingFiles, setChoosingFiles] = useState(false);
-  const [parseAfterUpload, setParseAfterUpload] = useState(false);
+  const [parseAfterUpload, setParseAfterUpload] = useState(true);
   const [deletingFileIds, setDeletingFileIds] = useState<number[]>([]);
   const [deletingConversationIds, setDeletingConversationIds] = useState<number[]>([]);
   const [filePendingDelete, setFilePendingDelete] = useState<KnowledgeFileDTO | null>(null);
@@ -392,6 +396,46 @@ export default function DatasetPage() {
     }
   }
 
+  async function handleParseAllFiles() {
+    const candidates = files.filter(canSubmitBulkParse).filter((file) => !submittingParseFileIds.includes(file.id));
+    if (candidates.length === 0) {
+      addToast('info', '没有待解析文件');
+      return;
+    }
+
+    const candidateIds = candidates.map((file) => file.id);
+    setSubmittingParseFileIds((prev) => Array.from(new Set([...prev, ...candidateIds])));
+    try {
+      const results = await Promise.allSettled(candidates.map((file) => createParseTask(file.id)));
+      const successIds = candidates.filter((_, index) => results[index].status === 'fulfilled').map((file) => file.id);
+      const failedCount = results.length - successIds.length;
+
+      if (successIds.length > 0) {
+        setFiles((prev) =>
+          prev.map((item) =>
+            successIds.includes(item.id)
+              ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
+              : item,
+          ),
+        );
+        addPollingFiles(successIds);
+      }
+
+      if (successIds.length > 0 && failedCount === 0) {
+        addToast('success', `${successIds.length} 个解析任务已提交`);
+      } else if (successIds.length > 0) {
+        addToast('info', `${successIds.length} 个解析任务已提交，${failedCount} 个提交失败`);
+      } else {
+        addToast('error', '解析任务提交失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('Failed to create parse tasks:', error);
+      addToast('error', '解析任务提交失败，请稍后重试');
+    } finally {
+      setSubmittingParseFileIds((prev) => prev.filter((id) => !candidateIds.includes(id)));
+    }
+  }
+
   const deletingPendingFile = filePendingDelete ? deletingFileIds.includes(filePendingDelete.id) : false;
   const deletingPendingConversation = conversationPendingDelete
     ? deletingConversationIds.includes(conversationPendingDelete.id)
@@ -527,7 +571,7 @@ export default function DatasetPage() {
               ))}
             </div>
             {activeTab === 'files' && (
-              <div className="px-1 lg:px-0">
+              <div className="flex items-center gap-3 px-1 lg:px-0">
                 <ParseAfterUploadSwitch
                   checked={parseAfterUpload}
                   onToggle={(event) => {
@@ -535,6 +579,19 @@ export default function DatasetPage() {
                     setParseAfterUpload((prev) => !prev);
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => void handleParseAllFiles()}
+                  disabled={submittingParseFileIds.length > 0 || files.filter(canSubmitBulkParse).length === 0}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 text-xs font-bold text-primary transition-colors hover:bg-primary/15 hover:text-primary-active disabled:cursor-not-allowed disabled:bg-surface-soft disabled:text-muted-soft"
+                >
+                  {submittingParseFileIds.length > 0 ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <PlayCircle size={13} />
+                  )}
+                  全部解析
+                </button>
               </div>
             )}
           </div>

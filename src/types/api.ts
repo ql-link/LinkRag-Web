@@ -215,16 +215,23 @@ export interface DatasetDTO {
 }
 
 export type PdfParserBackend = 'auto' | 'mineru' | 'opendataloader' | 'naive';
+export type StageTwoAlgorithm = 'noop' | 'semantic_depth_window';
+export type RecallFusionStrategy = 'rrf' | 'weighted_score';
 
 export interface DatasetParseChunkingConfig {
   heading_break_level?: number | null;
   min_candidate_chunk_tokens?: number | null;
   overlap_tokens?: number | null;
+  max_chunk_tokens?: number | null;
+  hard_max_tokens?: number | null;
+  stage_two_algorithm?: StageTwoAlgorithm | null;
+  protected_neighbor_overlap?: boolean | null;
 }
 
 export interface DatasetParseEnhancementConfig {
   enable_table_enhancement?: boolean | null;
   enable_image_enhancement?: boolean | null;
+  enable_heading_hierarchy?: boolean | null;
 }
 
 export interface DatasetParsePdfConfig {
@@ -236,11 +243,16 @@ export type RecallSource = 'bm25' | 'sparse' | 'dense';
 export interface DatasetParseRecallConfig {
   recall_result_limit?: number | null;
   recall_context_token_budget?: number | null;
+  bm25_top_k?: number | null;
   sparse_top_k?: number | null;
   sparse_score_threshold?: number | null;
   dense_top_k?: number | null;
   dense_score_threshold?: number | null;
   recall_enabled_sources?: RecallSource[] | null;
+  recall_fusion_strategy?: RecallFusionStrategy | null;
+  fusion_bm25_weight?: number | null;
+  fusion_sparse_weight?: number | null;
+  fusion_dense_weight?: number | null;
   rerank_top_n?: number | null;
   recall_strict?: boolean | null;
 }
