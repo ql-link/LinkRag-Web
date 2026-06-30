@@ -34,14 +34,20 @@ export interface UserProfileDTO {
 
 export interface LLMConfigDTO {
   id: number;
+  configId?: number;
+  providerId?: number;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
+  protocol?: LLMProtocol;
   apiKeyMasked: string;
   apiBaseUrl: string | null;
   isActive: boolean;
   isDefault: boolean;
   isSystemPreset: boolean;
+  isEditable?: boolean;
+  source?: 'USER' | 'SYSTEM' | (string & {});
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +63,7 @@ export interface ModelCapabilityDetailDTO {
 
 export interface ModelCapabilityDTO {
   modelName: string;
+  displayName?: string | null;
   capabilities: Array<LLMCapabilityValue | ModelCapabilityDetailDTO>;
 }
 
@@ -82,6 +89,7 @@ export interface ProviderModel {
   id: number;
   providerId: number;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
   protocol: LLMProtocol;
   apiBaseUrl: string;
@@ -95,11 +103,14 @@ export interface SystemPreset {
   providerId: number;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   capability: LLMCapabilityValue;
   protocol: LLMProtocol;
   apiBaseUrl: string;
-  apiKey: string;
+  apiKey?: string;
+  apiKeyMasked?: string;
   isActive: boolean;
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +136,7 @@ export interface UpdateProviderRequest {
 
 export interface AddProviderModelRequest {
   modelName: string;
+  displayName?: string;
   capability: LLMCapability;
   protocol: LLMProtocol;
   apiBaseUrl: string;
@@ -132,6 +144,7 @@ export interface AddProviderModelRequest {
 
 export interface UpdateProviderModelRequest {
   modelName?: string;
+  displayName?: string;
   capability?: LLMCapability;
   protocol?: LLMProtocol;
   apiBaseUrl?: string;
@@ -143,6 +156,7 @@ export interface CreatePresetRequest {
   modelName: string;
   capability: LLMCapability;
   apiKey: string;
+  isDefault?: boolean;
 }
 
 export interface UpdatePresetRequest {
@@ -151,6 +165,7 @@ export interface UpdatePresetRequest {
   capability?: LLMCapability;
   apiKey?: string;
   isActive?: boolean;
+  isDefault?: boolean;
 }
 
 export interface ConversationDTO {
@@ -200,16 +215,23 @@ export interface DatasetDTO {
 }
 
 export type PdfParserBackend = 'auto' | 'mineru' | 'opendataloader' | 'naive';
+export type StageTwoAlgorithm = 'noop' | 'semantic_depth_window';
+export type RecallFusionStrategy = 'rrf' | 'weighted_score';
 
 export interface DatasetParseChunkingConfig {
   heading_break_level?: number | null;
   min_candidate_chunk_tokens?: number | null;
   overlap_tokens?: number | null;
+  max_chunk_tokens?: number | null;
+  hard_max_tokens?: number | null;
+  stage_two_algorithm?: StageTwoAlgorithm | null;
+  protected_neighbor_overlap?: boolean | null;
 }
 
 export interface DatasetParseEnhancementConfig {
   enable_table_enhancement?: boolean | null;
   enable_image_enhancement?: boolean | null;
+  enable_heading_hierarchy?: boolean | null;
 }
 
 export interface DatasetParsePdfConfig {
@@ -221,16 +243,23 @@ export type RecallSource = 'bm25' | 'sparse' | 'dense';
 export interface DatasetParseRecallConfig {
   recall_result_limit?: number | null;
   recall_context_token_budget?: number | null;
+  bm25_top_k?: number | null;
   sparse_top_k?: number | null;
   sparse_score_threshold?: number | null;
   dense_top_k?: number | null;
   dense_score_threshold?: number | null;
   recall_enabled_sources?: RecallSource[] | null;
+  recall_fusion_strategy?: RecallFusionStrategy | null;
+  fusion_bm25_weight?: number | null;
+  fusion_sparse_weight?: number | null;
+  fusion_dense_weight?: number | null;
   rerank_top_n?: number | null;
   recall_strict?: boolean | null;
 }
 
 export interface DatasetParseConfigDTO {
+  sparse_embedding_config_id?: number | null;
+  dense_embedding_config_id?: number | null;
   chunking?: DatasetParseChunkingConfig | null;
   enhancement?: DatasetParseEnhancementConfig | null;
   pdf?: DatasetParsePdfConfig | null;
@@ -316,6 +345,7 @@ export type UsageStatus = 'success' | 'partial' | 'failed' | (string & {});
 export interface ModelUsageDTO {
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   calls: number;
   promptTokens: number;
   completionTokens: number;
@@ -344,6 +374,7 @@ export interface UsageLogDTO {
   configId: number | null;
   providerType: string;
   modelName: string;
+  displayName?: string | null;
   stage: Exclude<UsageStage, 'all'> | (string & {});
   operation: UsageOperation;
   promptTokens: number;
@@ -388,6 +419,8 @@ export interface UpdateConversationRequest {
 export interface CreateDatasetRequest {
   name: string;
   description?: string;
+  sparse_embedding_config_id: number;
+  dense_embedding_config_id: number;
 }
 
 export interface UpdateDatasetRequest {
@@ -507,6 +540,7 @@ export interface BlogPostAdminListDTO {
   summary: string | null;
   contentObjectKey: string | null;
   coverAssetId: number | null;
+  coverPublicUrl?: string | null;
   status: BlogPostStatus;
   publishedAt: string | null;
   createdBy: number;

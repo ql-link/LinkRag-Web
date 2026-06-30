@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { ChevronDown, Edit2, KeyRound, Loader2, Plus, Power, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  Check,
+  ChevronDown,
+  Edit2,
+  KeyRound,
+  Loader2,
+  Plus,
+  Power,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
+import { getModelDisplayName } from '@/lib/model-display';
 import { getProviderIcon, isProviderIconMonochrome } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
@@ -18,14 +32,12 @@ import {
   listAdminSystemPresets,
   toggleAdminProvider,
   toggleAdminProviderModel,
-  toggleAdminSystemPreset,
   updateAdminProvider,
   updateAdminProviderModel,
   updateAdminSystemPreset,
 } from '@/services/llm';
 import type {
   CreateProviderRequest,
-  CreatePresetRequest,
   LLMCapability,
   LLMProtocol,
   ProviderModel,
@@ -46,7 +58,14 @@ const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
 ];
 
 const PROTOCOLS: LLMProtocol[] = ['openai', 'anthropic', 'google', 'jina', 'dashscope'];
-type TabKey = 'providers' | 'models' | 'presets';
+const LINKRAG_PROVIDER_TYPE = 'linkrag';
+type ModelStatusFilter = 'all' | 'active' | 'inactive';
+
+const MODEL_STATUS_FILTERS: Array<{ value: ModelStatusFilter; label: string; dotClassName: string }> = [
+  { value: 'all', label: '全部', dotClassName: 'bg-muted-soft' },
+  { value: 'active', label: '上架', dotClassName: 'bg-success' },
+  { value: 'inactive', label: '下架', dotClassName: 'bg-muted-soft' },
+];
 
 const providerInitialState: CreateProviderRequest = {
   providerType: '',
@@ -60,59 +79,86 @@ const providerInitialState: CreateProviderRequest = {
 const modelInitialState = {
   providerId: '',
   modelName: '',
+  displayName: '',
   capability: 'CHAT' as LLMCapability,
   protocol: 'openai' as LLMProtocol,
   apiBaseUrl: '',
   isActive: true,
-};
-
-const presetInitialState = {
-  providerId: '',
-  modelName: '',
-  capability: 'CHAT' as LLMCapability,
   apiKey: '',
-  isActive: true,
+  isDefault: false,
 };
 
 function capabilityLabel(value: string) {
   return CAPABILITIES.find((item) => item.value === value)?.label || value;
 }
 
-function providerName(providers: SystemProvider[], providerId: number) {
-  const provider = providers.find((item) => item.id === providerId);
-  return provider ? `${provider.providerName} (${provider.providerType})` : `#${providerId}`;
+function presetMaskedKey(preset: SystemPreset | null | undefined) {
+  return preset?.apiKeyMasked || preset?.apiKey || '';
 }
 
-function activeClassName(darkMode: boolean, active: boolean) {
-  if (active) return darkMode ? 'border-green-500/30 text-green-400' : 'border-green-500/25 text-green-700';
-  return darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45';
+function findPresetForModel(
+  presets: SystemPreset[],
+  model: Pick<ProviderModel, 'providerId' | 'modelName' | 'capability'>,
+) {
+  return presets.find(
+    (preset) =>
+      preset.providerId === model.providerId &&
+      preset.modelName === model.modelName &&
+      preset.capability === model.capability,
+  );
+}
+
+function normalizeProviderToken(value: string | null | undefined) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+}
+
+function isLinkRagProvider(provider: Pick<SystemProvider, 'providerType' | 'providerName'> | null | undefined) {
+  const providerType = normalizeProviderToken(provider?.providerType);
+  const providerName = normalizeProviderToken(provider?.providerName);
+  return providerType === LINKRAG_PROVIDER_TYPE || providerName === LINKRAG_PROVIDER_TYPE;
+}
+
+function matchesKeyword(values: Array<string | number | boolean | null | undefined>, keyword: string) {
+  if (!keyword) return true;
+  return values.some((value) =>
+    String(value ?? '')
+      .toLowerCase()
+      .includes(keyword),
+  );
 }
 
 export default function AdminModelsPage() {
   const { darkMode } = useTheme();
   const { addToast } = useToast();
-  const [tab, setTab] = useState<TabKey>('providers');
   const [providers, setProviders] = useState<SystemProvider[]>([]);
   const [models, setModels] = useState<ProviderModel[]>([]);
   const [presets, setPresets] = useState<SystemPreset[]>([]);
+  const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [modelFilters, setModelFilters] = useState<{
+    capability: '' | LLMCapability;
+    status: ModelStatusFilter;
+  }>({
+    capability: '',
+    status: 'all',
+  });
   const [providerForm, setProviderForm] = useState<CreateProviderRequest>(providerInitialState);
   const [editingProvider, setEditingProvider] = useState<SystemProvider | null>(null);
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [modelForm, setModelForm] = useState(modelInitialState);
   const [editingModel, setEditingModel] = useState<ProviderModel | null>(null);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const [presetForm, setPresetForm] = useState(presetInitialState);
-  const [editingPreset, setEditingPreset] = useState<SystemPreset | null>(null);
-  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [providerResult, modelResult, presetResult] = await Promise.all([
-        listAdminProviders(1, 100),
-        listAdminProviderModels({ page: 1, size: 200 }),
+        listAdminProviders(1, 500),
+        listAdminProviderModels({ page: 1, size: 500 }),
         listAdminSystemPresets(),
       ]);
       setProviders(providerResult.items || []);
@@ -130,35 +176,95 @@ export default function AdminModelsPage() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (providers.length === 0) {
+      setSelectedProviderId(null);
+      return;
+    }
+    if (!selectedProviderId || !providers.some((provider) => provider.id === selectedProviderId)) {
+      setSelectedProviderId(providers[0].id);
+    }
+  }, [providers, selectedProviderId]);
+
+  const keyword = query.trim().toLowerCase();
+  const selectedProvider = useMemo(
+    () => providers.find((provider) => provider.id === selectedProviderId) || null,
+    [providers, selectedProviderId],
+  );
+
   const filteredProviders = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return providers;
-    return providers.filter((item) =>
-      [item.providerName, item.providerType, item.apiBaseUrl, item.defaultProtocol].some((value) =>
-        value.toLowerCase().includes(keyword),
-      ),
-    );
-  }, [providers, query]);
+    return providers.filter((provider) => {
+      const providerModels = models.filter((model) => model.providerId === provider.id);
+      const providerPresets = isLinkRagProvider(provider)
+        ? presets.filter((preset) => preset.providerId === provider.id)
+        : [];
+      return matchesKeyword(
+        [
+          provider.providerName,
+          provider.providerType,
+          provider.defaultProtocol,
+          provider.apiBaseUrl,
+          ...providerModels.flatMap((model) => [
+            model.modelName,
+            model.displayName || '',
+            model.capability,
+            model.protocol,
+            model.apiBaseUrl,
+          ]),
+          ...providerPresets.flatMap((preset) => [
+            preset.modelName,
+            preset.displayName || '',
+            preset.capability,
+            preset.protocol,
+            preset.apiBaseUrl,
+            presetMaskedKey(preset),
+          ]),
+        ],
+        keyword,
+      );
+    });
+  }, [keyword, models, presets, providers]);
 
-  const filteredModels = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return models;
-    return models.filter((item) =>
-      [providerName(providers, item.providerId), item.modelName, item.capability, item.protocol, item.apiBaseUrl].some(
-        (value) => value.toLowerCase().includes(keyword),
-      ),
-    );
-  }, [models, providers, query]);
+  const selectedModels = useMemo(() => {
+    if (!selectedProvider) return [];
+    return models
+      .filter((model) => model.providerId === selectedProvider.id)
+      .filter((model) => {
+        if (modelFilters.capability && model.capability !== modelFilters.capability) return false;
+        if (modelFilters.status === 'active' && !model.isActive) return false;
+        if (modelFilters.status === 'inactive' && model.isActive) return false;
+        return matchesKeyword(
+          [model.modelName, model.displayName || '', model.capability, model.protocol, model.apiBaseUrl],
+          keyword,
+        );
+      })
+      .sort((a, b) => `${a.modelName}${a.capability}`.localeCompare(`${b.modelName}${b.capability}`));
+  }, [keyword, modelFilters.capability, modelFilters.status, models, selectedProvider]);
 
-  const filteredPresets = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return presets;
-    return presets.filter((item) =>
-      [item.providerType, item.modelName, item.capability, item.protocol, item.apiBaseUrl, item.apiKey].some((value) =>
-        value.toLowerCase().includes(keyword),
-      ),
-    );
-  }, [presets, query]);
+  const selectedPresets = useMemo(() => {
+    if (!selectedProvider || !isLinkRagProvider(selectedProvider)) return [];
+    return presets
+      .filter((preset) => preset.providerId === selectedProvider.id)
+      .filter((preset) =>
+        matchesKeyword(
+          [
+            preset.modelName,
+            preset.displayName || '',
+            preset.capability,
+            preset.protocol,
+            preset.apiBaseUrl,
+            presetMaskedKey(preset),
+          ],
+          keyword,
+        ),
+      )
+      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.capability.localeCompare(b.capability));
+  }, [keyword, presets, selectedProvider]);
+
+  const selectedProviderModels = useMemo(() => {
+    if (!selectedProvider) return [];
+    return models.filter((model) => model.providerId === selectedProvider.id);
+  }, [models, selectedProvider]);
 
   function openCreateProvider() {
     setEditingProvider(null);
@@ -209,49 +315,97 @@ export default function AdminModelsPage() {
     }
   }
 
-  function openCreateModel(provider?: SystemProvider) {
+  function openCreateModel(provider?: SystemProvider | null) {
+    const targetProvider = provider ?? selectedProvider ?? providers[0];
     setEditingModel(null);
     setModelForm({
       ...modelInitialState,
-      providerId: provider ? String(provider.id) : providers[0] ? String(providers[0].id) : '',
-      protocol: provider?.defaultProtocol ?? 'openai',
-      apiBaseUrl: provider?.apiBaseUrl ?? '',
+      providerId: targetProvider ? String(targetProvider.id) : '',
+      displayName: '',
+      protocol: targetProvider?.defaultProtocol ?? 'openai',
+      apiBaseUrl: targetProvider?.apiBaseUrl ?? '',
+      apiKey: '',
+      isDefault: false,
     });
     setModelDialogOpen(true);
   }
 
   function openEditModel(model: ProviderModel) {
+    const preset = findPresetForModel(presets, model);
     setEditingModel(model);
     setModelForm({
       providerId: String(model.providerId),
       modelName: model.modelName,
+      displayName: model.displayName ?? '',
       capability: model.capability as LLMCapability,
       protocol: model.protocol,
       apiBaseUrl: model.apiBaseUrl,
       isActive: model.isActive,
+      apiKey: '',
+      isDefault: Boolean(preset?.isDefault),
     });
     setModelDialogOpen(true);
   }
 
   async function handleSubmitModel(event: FormEvent) {
     event.preventDefault();
+    const targetProvider = providers.find((provider) => provider.id === Number(modelForm.providerId));
+    const linkRagModel = isLinkRagProvider(targetProvider);
+    const existingPreset = editingModel ? findPresetForModel(presets, editingModel) : undefined;
+    if (linkRagModel && !modelForm.apiKey.trim() && !existingPreset) {
+      addToast('error', 'LinkRAG 模型需要填写平台 API Key');
+      return;
+    }
+
     try {
       if (editingModel) {
         const payload: UpdateProviderModelRequest = {
           modelName: modelForm.modelName.trim(),
+          displayName: modelForm.displayName.trim(),
           capability: modelForm.capability,
           protocol: modelForm.protocol,
           apiBaseUrl: modelForm.apiBaseUrl.trim(),
           isActive: modelForm.isActive,
         };
         await updateAdminProviderModel(editingModel.id, payload);
+        if (linkRagModel) {
+          if (existingPreset) {
+            const presetPayload: UpdatePresetRequest = {
+              providerId: Number(modelForm.providerId),
+              modelName: modelForm.modelName.trim(),
+              capability: modelForm.capability,
+              isActive: modelForm.isActive,
+              isDefault: modelForm.isDefault,
+              ...(modelForm.apiKey.trim() ? { apiKey: modelForm.apiKey.trim() } : {}),
+            };
+            await updateAdminSystemPreset(existingPreset.id, presetPayload);
+          } else {
+            await createAdminSystemPreset({
+              providerId: Number(modelForm.providerId),
+              modelName: modelForm.modelName.trim(),
+              capability: modelForm.capability,
+              apiKey: modelForm.apiKey.trim(),
+              isDefault: modelForm.isDefault,
+            });
+          }
+        }
       } else {
-        await addAdminProviderModel(Number(modelForm.providerId), {
+        const createdModel = await addAdminProviderModel(Number(modelForm.providerId), {
           modelName: modelForm.modelName.trim(),
+          ...(modelForm.displayName.trim() ? { displayName: modelForm.displayName.trim() } : {}),
           capability: modelForm.capability,
           protocol: modelForm.protocol,
           apiBaseUrl: modelForm.apiBaseUrl.trim(),
         });
+        if (linkRagModel) {
+          await createAdminSystemPreset({
+            providerId: createdModel.providerId,
+            modelName: createdModel.modelName,
+            capability: createdModel.capability as LLMCapability,
+            apiKey: modelForm.apiKey.trim(),
+            isDefault: modelForm.isDefault,
+          });
+        }
       }
       setModelDialogOpen(false);
       addToast('success', editingModel ? '模型能力已更新' : '模型能力已新增');
@@ -259,59 +413,6 @@ export default function AdminModelsPage() {
     } catch (error) {
       console.error(error);
       addToast('error', '模型能力保存失败');
-    }
-  }
-
-  function openCreatePreset(model?: ProviderModel) {
-    setEditingPreset(null);
-    setPresetForm({
-      ...presetInitialState,
-      providerId: model ? String(model.providerId) : providers[0] ? String(providers[0].id) : '',
-      modelName: model?.modelName ?? '',
-      capability: (model?.capability as LLMCapability) ?? 'CHAT',
-    });
-    setPresetDialogOpen(true);
-  }
-
-  function openEditPreset(preset: SystemPreset) {
-    setEditingPreset(preset);
-    setPresetForm({
-      providerId: String(preset.providerId),
-      modelName: preset.modelName,
-      capability: preset.capability as LLMCapability,
-      apiKey: '',
-      isActive: preset.isActive,
-    });
-    setPresetDialogOpen(true);
-  }
-
-  async function handleSubmitPreset(event: FormEvent) {
-    event.preventDefault();
-    try {
-      if (editingPreset) {
-        const payload: UpdatePresetRequest = {
-          providerId: Number(presetForm.providerId),
-          modelName: presetForm.modelName.trim(),
-          capability: presetForm.capability,
-          isActive: presetForm.isActive,
-          ...(presetForm.apiKey.trim() ? { apiKey: presetForm.apiKey.trim() } : {}),
-        };
-        await updateAdminSystemPreset(editingPreset.id, payload);
-      } else {
-        const payload: CreatePresetRequest = {
-          providerId: Number(presetForm.providerId),
-          modelName: presetForm.modelName.trim(),
-          capability: presetForm.capability,
-          apiKey: presetForm.apiKey.trim(),
-        };
-        await createAdminSystemPreset(payload);
-      }
-      setPresetDialogOpen(false);
-      addToast('success', editingPreset ? '系统预设已更新' : '系统预设已新增');
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      addToast('error', '系统预设保存失败');
     }
   }
 
@@ -327,197 +428,126 @@ export default function AdminModelsPage() {
   }
 
   return (
-    <div className={cn('flex h-full min-h-0 flex-col', darkMode ? 'text-[#cccccc]' : 'text-text-main')}>
+    <div className={cn('flex h-full min-h-0 flex-col', darkMode ? 'text-[#d6d6d6]' : 'text-text-main')}>
       <header
         className={cn(
           'flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-3 sm:px-8',
-          darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+          darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
         )}
       >
         <Breadcrumb
           items={[{ label: '个人信息', path: Routes.ProfilePage }, { label: '后台管理' }, { label: '模型管理' }]}
           darkMode={darkMode}
         />
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2">
           <div
             className={cn(
-              'flex h-9 w-[min(320px,calc(100vw-120px))] items-center gap-2 rounded-lg border px-3 sm:w-72',
-              darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+              'flex h-9 w-[min(52vw,320px)] items-center gap-2 rounded-md px-3 transition-colors',
+              darkMode ? 'bg-white/[0.045] focus-within:bg-white/[0.07]' : 'bg-surface-soft focus-within:bg-white',
             )}
           >
-            <Search size={15} className={darkMode ? 'text-[#858585]' : 'text-text-main/40'} />
+            <Search size={15} className={darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40'} />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索厂商、模型或预设..."
+              placeholder="搜索厂商、模型或密钥"
               className={cn(
                 'min-w-0 flex-1 bg-transparent text-sm outline-none',
-                darkMode ? 'text-[#e0e0e0] placeholder:text-[#6b6b6b]' : 'text-text-main placeholder:text-text-main/35',
+                darkMode ? 'text-[#f2f2f2] placeholder:text-muted-soft' : 'text-text-main placeholder:text-muted-soft',
               )}
             />
           </div>
-          <button
-            type="button"
-            onClick={
-              tab === 'providers'
-                ? openCreateProvider
-                : tab === 'models'
-                  ? () => openCreateModel()
-                  : () => openCreatePreset()
-            }
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold text-white',
-              darkMode ? 'bg-[#094771] hover:bg-[#0d5b8f]' : 'bg-[#7B6B5D] hover:opacity-90',
-            )}
-          >
+          <HeaderAction darkMode={darkMode} primary onClick={openCreateProvider}>
             <Plus size={15} />
-            {tab === 'providers' ? '新增厂商' : tab === 'models' ? '新增模型能力' : '新增预设'}
-          </button>
+            新增厂商
+          </HeaderAction>
         </div>
       </header>
 
-      <main className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base')}>
-        <section className="mx-auto w-full max-w-6xl px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
-          <div className="mb-6">
-            <div className={cn('mono-label mb-2', darkMode && 'text-[#858585]')}>Model Management</div>
-            <h1
-              className={cn(
-                'text-[24px] font-semibold leading-tight sm:text-[27px]',
-                darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
-              )}
-            >
-              模型管理
-            </h1>
-            <p className={cn('mt-1 text-[13px]', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>
-              管理厂商、模型能力目录和系统预设。
-            </p>
-          </div>
-
-          <div
-            className={cn(
-              'mb-5 rounded-2xl border px-4 py-3 text-xs leading-6',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#252526]/62 text-[#a8a8a8]'
-                : 'border-border-subtle bg-surface-card text-text-main/60',
-            )}
-          >
-            <span className={cn('font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>厂商</span>
-            用于维护平台可用的模型服务商；
-            <span className={cn('font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}> 模型能力</span>
-            定义具体模型、能力、协议和调用入口；
-            <span className={cn('font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}> 系统预设</span>
-            绑定平台 Key，并作为新用户默认可用的内置模型配置。
-          </div>
-
-          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <MetricCard
-              darkMode={darkMode}
-              label="厂商"
-              value={providers.length}
-              active={providers.filter((item) => item.isActive).length}
-            />
-            <MetricCard
-              darkMode={darkMode}
-              label="模型能力"
-              value={models.length}
-              active={models.filter((item) => item.isActive).length}
-            />
-            <MetricCard
-              darkMode={darkMode}
-              label="系统预设"
-              value={presets.length}
-              active={presets.filter((item) => item.isActive).length}
-            />
-          </div>
-
-          <div className="mb-4 flex flex-wrap gap-2">
-            {[
-              ['providers', `厂商 ${providers.length}`],
-              ['models', `模型能力 ${models.length}`],
-              ['presets', `系统预设 ${presets.length}`],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key as TabKey)}
-                className={cn(
-                  'h-8 rounded-lg border px-3 text-xs font-bold transition-colors',
-                  tab === key
-                    ? darkMode
-                      ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0]'
-                      : 'border-border-subtle bg-white text-text-main'
-                    : darkMode
-                      ? 'border-[#3c3c3c] text-[#858585] hover:bg-[#2d2d2d]'
-                      : 'border-border-subtle text-text-main/60 hover:bg-white',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
+      <main className={cn('min-h-0 flex-1 overflow-y-auto', darkMode ? 'bg-[#1f1f1f]' : 'bg-bg-base')}>
+        <section className="mx-auto w-full max-w-[1180px] px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-6">
           {loading ? (
-            <div className="flex min-h-[260px] items-center justify-center">
-              <Loader2 size={24} className={cn('animate-spin', darkMode ? 'text-[#858585]' : 'text-text-main/40')} />
+            <div className="flex min-h-[360px] items-center justify-center">
+              <Loader2 size={24} className={cn('animate-spin', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40')} />
             </div>
-          ) : tab === 'providers' ? (
-            <ProviderTable
-              darkMode={darkMode}
-              providers={filteredProviders}
-              onEdit={openEditProvider}
-              onAddModel={openCreateModel}
-              onToggle={(provider) =>
-                withRefresh(
-                  () => toggleAdminProvider(provider.id, !provider.isActive),
-                  provider.isActive ? '厂商已禁用' : '厂商已启用',
-                  '厂商状态更新失败',
-                )
-              }
-              onDelete={(provider) =>
-                window.confirm(`确定删除厂商「${provider.providerName}」吗？`)
-                  ? void withRefresh(() => deleteAdminProvider(provider.id), '厂商已删除', '厂商删除失败')
-                  : undefined
-              }
-            />
-          ) : tab === 'models' ? (
-            <ModelTable
-              darkMode={darkMode}
-              providers={providers}
-              models={filteredModels}
-              onEdit={openEditModel}
-              onCreatePreset={openCreatePreset}
-              onToggle={(model) =>
-                withRefresh(
-                  () => toggleAdminProviderModel(model.id, !model.isActive),
-                  model.isActive ? '模型能力已下架' : '模型能力已上架',
-                  '模型能力状态更新失败',
-                )
-              }
-              onDelete={(model) =>
-                window.confirm(`确定删除模型能力「${model.modelName} / ${capabilityLabel(model.capability)}」吗？`)
-                  ? void withRefresh(() => deleteAdminProviderModel(model.id), '模型能力已删除', '模型能力删除失败')
-                  : undefined
-              }
-            />
+          ) : providers.length === 0 ? (
+            <EmptyTableState darkMode={darkMode} label="暂无厂商，请先新增厂商" />
           ) : (
-            <PresetTable
-              darkMode={darkMode}
-              providers={providers}
-              presets={filteredPresets}
-              onEdit={openEditPreset}
-              onToggle={(preset) =>
-                withRefresh(
-                  () => toggleAdminSystemPreset(preset.id, !preset.isActive),
-                  preset.isActive ? '预设已禁用' : '预设已启用',
-                  '预设状态更新失败',
-                )
-              }
-              onDelete={(preset) =>
-                window.confirm(`确定删除系统预设「${preset.modelName} / ${capabilityLabel(preset.capability)}」吗？`)
-                  ? void withRefresh(() => deleteAdminSystemPreset(preset.id), '预设已删除', '预设删除失败')
-                  : undefined
-              }
-            />
+            <div className="grid min-h-[560px] gap-y-4 xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-x-4">
+              <ProviderRail
+                darkMode={darkMode}
+                providers={filteredProviders}
+                providerTotal={providers.length}
+                activeProviderTotal={providers.filter((provider) => provider.isActive).length}
+                configTotal={models.length}
+                selectedProviderId={selectedProvider?.id ?? null}
+                onSelect={setSelectedProviderId}
+              />
+
+              {selectedProvider ? (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={selectedProvider.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.22, ease: 'easeOut' }}
+                    className="min-w-0"
+                  >
+                    <ProviderWorkspace
+                      darkMode={darkMode}
+                      provider={selectedProvider}
+                      models={selectedModels}
+                      allProviderModels={selectedProviderModels}
+                      presets={selectedPresets}
+                      modelFilters={modelFilters}
+                      setModelFilters={setModelFilters}
+                      onEditProvider={openEditProvider}
+                      onToggleProvider={(provider) =>
+                        withRefresh(
+                          () => toggleAdminProvider(provider.id, !provider.isActive),
+                          provider.isActive ? '厂商已禁用' : '厂商已启用',
+                          '厂商状态更新失败',
+                        )
+                      }
+                      onDeleteProvider={(provider) =>
+                        window.confirm(`确定删除厂商「${provider.providerName}」吗？`)
+                          ? void withRefresh(() => deleteAdminProvider(provider.id), '厂商已删除', '厂商删除失败')
+                          : undefined
+                      }
+                      onCreateModel={() => openCreateModel(selectedProvider)}
+                      onEditModel={openEditModel}
+                      onToggleModel={(model) =>
+                        withRefresh(
+                          () => toggleAdminProviderModel(model.id, !model.isActive),
+                          model.isActive ? '模型能力已下架' : '模型能力已上架',
+                          '模型能力状态更新失败',
+                        )
+                      }
+                      onDeleteModel={(model) =>
+                        window.confirm(
+                          `确定删除模型能力「${getModelDisplayName(model)} / ${capabilityLabel(model.capability)}」吗？`,
+                        )
+                          ? void withRefresh(
+                              async () => {
+                                const preset = findPresetForModel(presets, model);
+                                if (preset) {
+                                  await deleteAdminSystemPreset(preset.id);
+                                }
+                                await deleteAdminProviderModel(model.id);
+                              },
+                              '模型能力已删除',
+                              '模型能力删除失败',
+                            )
+                          : undefined
+                      }
+                    />
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <EmptyTableState darkMode={darkMode} label="没有匹配的厂商" />
+              )}
+            </div>
           )}
         </section>
       </main>
@@ -536,25 +566,477 @@ export default function AdminModelsPage() {
         <ModelDialog
           darkMode={darkMode}
           providers={providers}
+          presets={presets}
           editing={Boolean(editingModel)}
+          editingModel={editingModel}
           form={modelForm}
           setForm={setModelForm}
           onClose={() => setModelDialogOpen(false)}
           onSubmit={handleSubmitModel}
         />
       )}
-      {presetDialogOpen && (
-        <PresetDialog
-          darkMode={darkMode}
-          providers={providers}
-          models={models.filter((model) => model.isActive)}
-          editing={Boolean(editingPreset)}
-          form={presetForm}
-          setForm={setPresetForm}
-          onClose={() => setPresetDialogOpen(false)}
-          onSubmit={handleSubmitPreset}
-        />
+    </div>
+  );
+}
+
+function HeaderAction({
+  darkMode,
+  primary,
+  children,
+  onClick,
+}: {
+  darkMode: boolean;
+  primary?: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold',
+        primary
+          ? 'bg-primary text-white hover:opacity-90'
+          : darkMode
+            ? 'bg-white/[0.045] text-[#d6d6d6] hover:bg-white/[0.075]'
+            : 'bg-surface-soft text-text-main/70 hover:bg-white',
       )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProviderRail({
+  darkMode,
+  providers,
+  providerTotal,
+  activeProviderTotal,
+  configTotal,
+  selectedProviderId,
+  onSelect,
+}: {
+  darkMode: boolean;
+  providers: SystemProvider[];
+  providerTotal: number;
+  activeProviderTotal: number;
+  configTotal: number;
+  selectedProviderId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  return (
+    <aside className={cn('min-h-0 overflow-hidden', darkMode ? 'bg-transparent' : 'bg-transparent')}>
+      <div className="px-2.5 pb-7 pt-1">
+        <div className={cn('text-xl font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>厂商总览</div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            ['厂商', providerTotal],
+            ['启用', activeProviderTotal],
+            ['配置', configTotal],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <div className={cn('text-base font-bold leading-none', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                {value}
+              </div>
+              <div className={cn('mt-1 text-[11px]', darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40')}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="px-1 py-3">
+        <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>厂商</h3>
+        <p aria-hidden="true" className="invisible mt-0.5 text-[11px]">
+          列表
+        </p>
+      </div>
+      <div className="max-h-[640px] overflow-y-auto overscroll-contain p-1.5 xl:h-[calc(100vh-320px)] xl:max-h-none">
+        {providers.length === 0 ? (
+          <div className={cn('px-3 py-10 text-center text-sm', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
+            没有匹配的厂商
+          </div>
+        ) : (
+          providers.map((provider) => {
+            const selected = provider.id === selectedProviderId;
+
+            return (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => onSelect(provider.id)}
+                aria-current={selected ? 'true' : undefined}
+                className={cn(
+                  'flex w-full min-w-0 items-start gap-3 rounded-md px-2.5 py-2.5 text-left transition-colors duration-200 ease-out',
+                  darkMode ? 'hover:bg-white/[0.045]' : 'hover:bg-ink/[0.025]',
+                )}
+              >
+                <ProviderAvatar
+                  providerType={provider.providerType}
+                  providerName={provider.providerName}
+                  darkMode={darkMode}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                      {provider.providerName}
+                    </span>
+                    <span
+                      className={cn(
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                        provider.isActive ? 'bg-success' : 'bg-muted-soft',
+                      )}
+                    />
+                  </span>
+                  <span
+                    className={cn(
+                      'mt-1 block truncate font-mono text-[11px]',
+                      darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                    )}
+                  >
+                    {provider.providerType} · {provider.defaultProtocol}
+                  </span>
+                </span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function ProviderWorkspace({
+  darkMode,
+  provider,
+  models,
+  allProviderModels,
+  presets,
+  modelFilters,
+  setModelFilters,
+  onEditProvider,
+  onToggleProvider,
+  onDeleteProvider,
+  onCreateModel,
+  onEditModel,
+  onToggleModel,
+  onDeleteModel,
+}: {
+  darkMode: boolean;
+  provider: SystemProvider;
+  models: ProviderModel[];
+  allProviderModels: ProviderModel[];
+  presets: SystemPreset[];
+  modelFilters: { capability: '' | LLMCapability; status: ModelStatusFilter };
+  setModelFilters: React.Dispatch<React.SetStateAction<{ capability: '' | LLMCapability; status: ModelStatusFilter }>>;
+  onEditProvider: (provider: SystemProvider) => void;
+  onToggleProvider: (provider: SystemProvider) => void;
+  onDeleteProvider: (provider: SystemProvider) => void;
+  onCreateModel: () => void;
+  onEditModel: (model: ProviderModel) => void;
+  onToggleModel: (model: ProviderModel) => void;
+  onDeleteModel: (model: ProviderModel) => void;
+}) {
+  const isLinkRag = isLinkRagProvider(provider);
+  const activeConfigCount = allProviderModels.filter((model) => model.isActive).length;
+  const capabilityDimensionCount = new Set(allProviderModels.map((model) => model.capability)).size;
+
+  return (
+    <div className="min-w-0">
+      <section className="px-1 pb-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-w-0 gap-3">
+            <ProviderAvatar
+              providerType={provider.providerType}
+              providerName={provider.providerName}
+              darkMode={darkMode}
+              alignIconStart
+            />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className={cn('truncate text-xl font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                  {provider.providerName}
+                </h2>
+                <StatusPill darkMode={darkMode} active={provider.isActive} />
+                <SmallBadge darkMode={darkMode}>{provider.defaultProtocol}</SmallBadge>
+                <SmallBadge darkMode={darkMode}>priority {provider.priority}</SmallBadge>
+                <SmallBadge darkMode={darkMode}>
+                  配置 {activeConfigCount}/{allProviderModels.length}
+                </SmallBadge>
+                <SmallBadge darkMode={darkMode}>
+                  能力维度 {capabilityDimensionCount}/{CAPABILITIES.length}
+                </SmallBadge>
+              </div>
+              <p className={cn('mt-1 font-mono text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
+                {provider.providerType}
+              </p>
+              <p className={cn('mt-2 break-all text-xs leading-5', darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60')}>
+                模板地址：{provider.apiBaseUrl}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
+            <ActionButton onClick={() => onEditProvider(provider)}>
+              <Edit2 size={13} />
+              编辑
+            </ActionButton>
+            <ActionButton onClick={onCreateModel}>
+              <Plus size={13} />
+              能力
+            </ActionButton>
+            <ActionButton onClick={() => onToggleProvider(provider)}>
+              <Power size={13} />
+              {provider.isActive ? '禁用' : '启用'}
+            </ActionButton>
+            <ActionButton danger onClick={() => onDeleteProvider(provider)}>
+              <Trash2 size={13} />
+              删除
+            </ActionButton>
+          </div>
+        </div>
+      </section>
+
+      <section className="pt-1">
+        <SectionHeader
+          darkMode={darkMode}
+          title="模型能力目录"
+          meta={`${models.length}/${allProviderModels.length} 条`}
+          action={
+            <HeaderAction darkMode={darkMode} onClick={onCreateModel}>
+              <Plus size={14} />
+              新增能力
+            </HeaderAction>
+          }
+        />
+        <div className="flex flex-col gap-2.5 px-1 pb-4 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex min-w-0 flex-col gap-2.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <FilterLabel darkMode={darkMode} icon={<SlidersHorizontal size={13} />}>
+                能力
+              </FilterLabel>
+              <FilterChip
+                darkMode={darkMode}
+                active={!modelFilters.capability}
+                onClick={() => setModelFilters((prev) => ({ ...prev, capability: '' }))}
+              >
+                全部
+              </FilterChip>
+              {CAPABILITIES.map((capability) => (
+                <FilterChip
+                  key={capability.value}
+                  darkMode={darkMode}
+                  active={modelFilters.capability === capability.value}
+                  onClick={() => setModelFilters((prev) => ({ ...prev, capability: capability.value }))}
+                >
+                  {capability.label}
+                </FilterChip>
+              ))}
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <FilterLabel darkMode={darkMode} icon={<Power size={13} />}>
+                状态
+              </FilterLabel>
+              {MODEL_STATUS_FILTERS.map((status) => (
+                <FilterChip
+                  key={status.value}
+                  darkMode={darkMode}
+                  active={modelFilters.status === status.value}
+                  dotClassName={status.dotClassName}
+                  onClick={() => setModelFilters((prev) => ({ ...prev, status: status.value }))}
+                >
+                  {status.label}
+                </FilterChip>
+              ))}
+            </div>
+          </div>
+          <AnimatePresence initial={false}>
+            {modelFilters.capability || modelFilters.status !== 'all' ? (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                onClick={() => setModelFilters({ capability: '', status: 'all' })}
+                className={cn(
+                  'inline-flex h-8 w-fit items-center gap-1.5 rounded-md px-2.5 text-xs font-bold transition-colors sm:shrink-0',
+                  darkMode
+                    ? 'text-[#a6a6a6] hover:bg-white/[0.055] hover:text-[#f2f2f2]'
+                    : 'text-text-main/45 hover:bg-ink/[0.035] hover:text-text-main',
+                )}
+              >
+                <X size={13} />
+                清除
+              </motion.button>
+            ) : null}
+          </AnimatePresence>
+        </div>
+        <ModelCapabilityList
+          darkMode={darkMode}
+          models={models}
+          presets={presets}
+          onEdit={onEditModel}
+          showLinkRagConfig={isLinkRag}
+          onToggle={onToggleModel}
+          onDelete={onDeleteModel}
+        />
+      </section>
+    </div>
+  );
+}
+
+function SectionHeader({
+  darkMode,
+  title,
+  meta,
+  action,
+}: {
+  darkMode: boolean;
+  title: string;
+  meta: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 px-1 py-3',
+        darkMode ? 'text-[#d6d6d6]' : 'text-text-main',
+      )}
+    >
+      <div>
+        <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>{title}</h3>
+        <p className={cn('mt-0.5 text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>{meta}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function FilterLabel({ darkMode, icon, children }: { darkMode: boolean; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-8 w-12 shrink-0 items-center gap-1.5 text-[11px] font-bold',
+        darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40',
+      )}
+    >
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+function FilterChip({
+  darkMode,
+  active,
+  dotClassName,
+  children,
+  onClick,
+}: {
+  darkMode: boolean;
+  active: boolean;
+  dotClassName?: string;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]',
+        active
+          ? darkMode
+            ? 'bg-white/[0.09] text-[#f2f2f2]'
+            : 'bg-ink/[0.065] text-text-main'
+          : darkMode
+            ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+            : 'text-text-main/55 hover:bg-ink/[0.03] hover:text-text-main',
+      )}
+    >
+      {dotClassName ? <span className={cn('h-1.5 w-1.5 rounded-full', dotClassName)} /> : null}
+      {children}
+    </button>
+  );
+}
+
+function ModelCapabilityList({
+  darkMode,
+  models,
+  presets,
+  onEdit,
+  showLinkRagConfig,
+  onToggle,
+  onDelete,
+}: {
+  darkMode: boolean;
+  models: ProviderModel[];
+  presets: SystemPreset[];
+  onEdit: (model: ProviderModel) => void;
+  showLinkRagConfig: boolean;
+  onToggle: (model: ProviderModel) => void;
+  onDelete: (model: ProviderModel) => void;
+}) {
+  if (models.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无匹配的模型能力" />;
+
+  return (
+    <div className="max-h-[calc(100vh-410px)] min-h-0 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
+      {models.map((model) => {
+        const preset = showLinkRagConfig ? findPresetForModel(presets, model) : undefined;
+        return (
+          <article
+            key={model.id}
+            className={cn(
+              'flex flex-col gap-3 rounded-md px-3 py-3 xl:flex-row xl:items-start xl:justify-between',
+              darkMode ? 'hover:bg-white/[0.035]' : 'hover:bg-ink/[0.022]',
+            )}
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                  {getModelDisplayName(model)}
+                </h4>
+                <StatusPill darkMode={darkMode} active={model.isActive} />
+                {preset?.isDefault ? <SmallBadge darkMode={darkMode}>默认</SmallBadge> : null}
+                <SmallBadge darkMode={darkMode}>{capabilityLabel(model.capability)}</SmallBadge>
+                <SmallBadge darkMode={darkMode}>{model.protocol}</SmallBadge>
+              </div>
+              {model.displayName?.trim() ? (
+                <p className={cn('mt-1 font-mono text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
+                  ID: {model.modelName}
+                </p>
+              ) : null}
+              {showLinkRagConfig ? (
+                <p
+                  className={cn(
+                    'mt-2 flex items-center gap-2 font-mono text-xs',
+                    darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60',
+                  )}
+                >
+                  <KeyRound size={13} />
+                  {presetMaskedKey(preset) || '未配置 Key'}
+                </p>
+              ) : null}
+              <p className={cn('mt-3 break-all text-xs leading-5', darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60')}>
+                {model.apiBaseUrl}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
+              <ActionButton onClick={() => onEdit(model)}>
+                <Edit2 size={13} />
+                编辑
+              </ActionButton>
+              <ActionButton onClick={() => onToggle(model)}>
+                <Power size={13} />
+                {model.isActive ? '下架' : '上架'}
+              </ActionButton>
+              <ActionButton danger onClick={() => onDelete(model)}>
+                <Trash2 size={13} />
+                删除
+              </ActionButton>
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -563,41 +1045,13 @@ function StatusPill({ darkMode, active }: { darkMode: boolean; active: boolean }
   return (
     <span
       className={cn(
-        'inline-flex rounded-lg border px-2 py-0.5 text-[10px] font-bold',
-        activeClassName(darkMode, active),
+        'inline-flex items-center gap-1.5 text-[10px] font-bold',
+        active ? 'text-success' : darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
       )}
     >
+      <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-success' : 'bg-muted-soft')} />
       {active ? '启用' : '停用'}
     </span>
-  );
-}
-
-function MetricCard({
-  darkMode,
-  label,
-  value,
-  active,
-}: {
-  darkMode: boolean;
-  label: string;
-  value: number;
-  active: number;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border px-4 py-3',
-        darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-surface-card',
-      )}
-    >
-      <p className={cn('text-[11px] font-bold', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>{label}</p>
-      <div className="mt-2 flex items-end justify-between gap-3">
-        <p className={cn('text-2xl font-semibold leading-none', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-          {value}
-        </p>
-        <p className={cn('text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/50')}>{active} 启用</p>
-      </div>
-    </div>
   );
 }
 
@@ -605,20 +1059,23 @@ function ProviderAvatar({
   providerType,
   providerName,
   darkMode,
+  alignIconStart,
 }: {
   providerType: string;
   providerName?: string;
   darkMode: boolean;
+  alignIconStart?: boolean;
 }) {
-  const iconUrl = getProviderIcon(providerType, providerName);
+  const iconUrl = getProviderIcon(providerType, providerName, undefined, { darkMode });
   const monochrome = iconUrl ? isProviderIconMonochrome(iconUrl) : false;
   const initial = (providerName || providerType || '?').slice(0, 1).toUpperCase();
 
   return (
     <span
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
-        darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d]' : 'border-border-subtle bg-white',
+        'flex h-10 shrink-0 items-center rounded-lg',
+        iconUrl && alignIconStart ? 'w-6 justify-start' : 'w-10 justify-center',
+        !iconUrl && (darkMode ? 'bg-white/[0.055]' : 'bg-surface-soft'),
       )}
     >
       {iconUrl ? (
@@ -628,7 +1085,7 @@ function ProviderAvatar({
           className={cn('h-6 w-6 object-contain', monochrome && darkMode && 'invert')}
         />
       ) : (
-        <span className={cn('text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-primary')}>{initial}</span>
+        <span className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-primary')}>{initial}</span>
       )}
     </span>
   );
@@ -638,8 +1095,8 @@ function SmallBadge({ darkMode, children }: { darkMode: boolean; children: React
   return (
     <span
       className={cn(
-        'inline-flex rounded-lg border px-2 py-0.5 text-[10px] font-bold',
-        darkMode ? 'border-[#3c3c3c] text-[#cccccc]' : 'border-border-subtle bg-surface-card text-text-main/65',
+        'inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold',
+        darkMode ? 'bg-white/[0.055] text-[#d6d6d6]' : 'bg-ink/[0.035] text-text-main/65',
       )}
     >
       {children}
@@ -654,7 +1111,7 @@ function ActionButton({ children, danger, onClick }: { children: ReactNode; dang
       onClick={onClick}
       className={cn(
         'inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold transition-colors',
-        danger ? 'text-red-500 hover:bg-red-500/10' : 'text-text-main/65 hover:bg-primary/5 hover:text-text-main',
+        danger ? 'text-error hover:bg-error/10' : 'text-text-main/65 hover:bg-primary/5 hover:text-text-main',
       )}
     >
       {children}
@@ -666,365 +1123,11 @@ function EmptyTableState({ darkMode, label }: { darkMode: boolean; label: string
   return (
     <div
       className={cn(
-        'flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed text-sm',
-        darkMode ? 'border-[#3c3c3c] text-[#858585]' : 'border-border-subtle text-text-main/45',
+        'flex min-h-[160px] items-center justify-center rounded-md text-sm',
+        darkMode ? 'bg-white/[0.025] text-[#a6a6a6]' : 'bg-ink/[0.018] text-text-main/45',
       )}
     >
       {label}
-    </div>
-  );
-}
-
-function providerFromId(providers: SystemProvider[], providerId: number) {
-  return providers.find((provider) => provider.id === providerId);
-}
-
-function ProviderTable({
-  darkMode,
-  providers,
-  onEdit,
-  onAddModel,
-  onToggle,
-  onDelete,
-}: {
-  darkMode: boolean;
-  providers: SystemProvider[];
-  onEdit: (provider: SystemProvider) => void;
-  onAddModel: (provider: SystemProvider) => void;
-  onToggle: (provider: SystemProvider) => void;
-  onDelete: (provider: SystemProvider) => void;
-}) {
-  if (providers.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无匹配的厂商" />;
-
-  return (
-    <div className="space-y-3">
-      {providers.map((provider) => (
-        <article
-          key={provider.id}
-          className={cn(
-            'rounded-2xl border p-4 transition-colors',
-            darkMode
-              ? 'border-[#3c3c3c] bg-[#252526]/62 hover:bg-[#2d2d2d]/65'
-              : 'border-border-subtle bg-surface-card hover:bg-surface-card',
-          )}
-        >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex min-w-0 gap-3">
-              <ProviderAvatar
-                providerType={provider.providerType}
-                providerName={provider.providerName}
-                darkMode={darkMode}
-              />
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className={cn('truncate text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                    {provider.providerName}
-                  </h3>
-                  <StatusPill darkMode={darkMode} active={provider.isActive} />
-                  <SmallBadge darkMode={darkMode}>{provider.defaultProtocol}</SmallBadge>
-                </div>
-                <p
-                  className={cn(
-                    'mt-1 truncate font-mono text-[11px]',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                  )}
-                >
-                  {provider.providerType} · priority {provider.priority}
-                </p>
-                <p
-                  className={cn('mt-3 break-all text-xs leading-5', darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60')}
-                >
-                  {provider.apiBaseUrl}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-1 lg:justify-end">
-              <ActionButton onClick={() => onEdit(provider)}>
-                <Edit2 size={13} />
-                编辑
-              </ActionButton>
-              <ActionButton onClick={() => onAddModel(provider)}>
-                <Plus size={13} />
-                模型
-              </ActionButton>
-              <ActionButton onClick={() => onToggle(provider)}>
-                <Power size={13} />
-                {provider.isActive ? '禁用' : '启用'}
-              </ActionButton>
-              <ActionButton danger onClick={() => onDelete(provider)}>
-                <Trash2 size={13} />
-                删除
-              </ActionButton>
-            </div>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function ModelTable({
-  darkMode,
-  providers,
-  models,
-  onEdit,
-  onCreatePreset,
-  onToggle,
-  onDelete,
-}: {
-  darkMode: boolean;
-  providers: SystemProvider[];
-  models: ProviderModel[];
-  onEdit: (model: ProviderModel) => void;
-  onCreatePreset: (model: ProviderModel) => void;
-  onToggle: (model: ProviderModel) => void;
-  onDelete: (model: ProviderModel) => void;
-}) {
-  const [collapsedProviderIds, setCollapsedProviderIds] = useState<Set<number>>(() => new Set());
-
-  const groups = useMemo(() => {
-    const groupMap = new Map<number, ProviderModel[]>();
-    models.forEach((model) => {
-      const items = groupMap.get(model.providerId) || [];
-      items.push(model);
-      groupMap.set(model.providerId, items);
-    });
-
-    return Array.from(groupMap.entries())
-      .map(([providerId, items]) => ({
-        providerId,
-        provider: providerFromId(providers, providerId),
-        items: items.sort((a, b) => `${a.modelName}${a.capability}`.localeCompare(`${b.modelName}${b.capability}`)),
-      }))
-      .sort((a, b) => {
-        const aName = a.provider?.providerName || `#${a.providerId}`;
-        const bName = b.provider?.providerName || `#${b.providerId}`;
-        return aName.localeCompare(bName);
-      });
-  }, [models, providers]);
-
-  function toggleProvider(providerId: number) {
-    setCollapsedProviderIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(providerId)) {
-        next.delete(providerId);
-      } else {
-        next.add(providerId);
-      }
-      return next;
-    });
-  }
-
-  if (models.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无匹配的模型能力" />;
-
-  return (
-    <div className="space-y-3">
-      {groups.map(({ providerId, provider, items }) => {
-        const collapsed = collapsedProviderIds.has(providerId);
-        const activeCount = items.filter((model) => model.isActive).length;
-        return (
-          <section
-            key={providerId}
-            className={cn(
-              'overflow-hidden rounded-2xl border',
-              darkMode ? 'border-[#3c3c3c] bg-[#252526]/62' : 'border-border-subtle bg-surface-card',
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => toggleProvider(providerId)}
-              className={cn(
-                'flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors',
-                darkMode ? 'hover:bg-[#2d2d2d]/65' : 'hover:bg-surface-card',
-              )}
-            >
-              <span className="flex min-w-0 items-center gap-3">
-                <ProviderAvatar
-                  providerType={provider?.providerType || String(providerId)}
-                  providerName={provider?.providerName}
-                  darkMode={darkMode}
-                />
-                <span className="min-w-0">
-                  <span
-                    className={cn('block truncate text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
-                  >
-                    {provider ? provider.providerName : `厂商 #${providerId}`}
-                  </span>
-                  <span
-                    className={cn(
-                      'mt-1 block truncate font-mono text-[11px]',
-                      darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                    )}
-                  >
-                    {provider?.providerType || providerId}
-                    <span className="font-sans">
-                      {' '}
-                      · {items.length} 条能力 · {activeCount} 上架
-                    </span>
-                  </span>
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                <SmallBadge darkMode={darkMode}>{provider?.defaultProtocol || 'unknown'}</SmallBadge>
-                <ChevronDown
-                  size={16}
-                  className={cn(
-                    'transition-transform',
-                    collapsed && '-rotate-90',
-                    darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                  )}
-                />
-              </span>
-            </button>
-
-            {!collapsed && (
-              <div className={cn('border-t', darkMode ? 'border-[#3c3c3c]/70' : 'border-border-subtle/70')}>
-                {items.map((model) => (
-                  <article
-                    key={model.id}
-                    className={cn(
-                      'flex flex-col gap-4 border-b px-4 py-4 last:border-b-0 xl:flex-row xl:items-start xl:justify-between',
-                      darkMode
-                        ? 'border-[#3c3c3c]/70 hover:bg-[#2d2d2d]/45'
-                        : 'border-border-subtle/70 hover:bg-surface-card',
-                    )}
-                  >
-                    <div className="min-w-0 xl:pl-[52px]">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3
-                          className={cn('truncate text-sm font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}
-                        >
-                          {model.modelName}
-                        </h3>
-                        <StatusPill darkMode={darkMode} active={model.isActive} />
-                        <SmallBadge darkMode={darkMode}>{capabilityLabel(model.capability)}</SmallBadge>
-                        <SmallBadge darkMode={darkMode}>{model.protocol}</SmallBadge>
-                      </div>
-                      <p
-                        className={cn(
-                          'mt-3 break-all text-xs leading-5',
-                          darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60',
-                        )}
-                      >
-                        {model.apiBaseUrl}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
-                      <ActionButton onClick={() => onEdit(model)}>
-                        <Edit2 size={13} />
-                        编辑
-                      </ActionButton>
-                      <ActionButton onClick={() => onCreatePreset(model)}>
-                        <Plus size={13} />
-                        预设
-                      </ActionButton>
-                      <ActionButton onClick={() => onToggle(model)}>
-                        <Power size={13} />
-                        {model.isActive ? '下架' : '上架'}
-                      </ActionButton>
-                      <ActionButton danger onClick={() => onDelete(model)}>
-                        <Trash2 size={13} />
-                        删除
-                      </ActionButton>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
-function PresetTable({
-  darkMode,
-  providers,
-  presets,
-  onEdit,
-  onToggle,
-  onDelete,
-}: {
-  darkMode: boolean;
-  providers: SystemProvider[];
-  presets: SystemPreset[];
-  onEdit: (preset: SystemPreset) => void;
-  onToggle: (preset: SystemPreset) => void;
-  onDelete: (preset: SystemPreset) => void;
-}) {
-  if (presets.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无匹配的系统预设" />;
-
-  return (
-    <div className="space-y-3">
-      {presets.map((preset) => {
-        const provider = providerFromId(providers, preset.providerId);
-        return (
-          <article
-            key={preset.id}
-            className={cn(
-              'rounded-2xl border p-4 transition-colors',
-              darkMode
-                ? 'border-[#3c3c3c] bg-[#252526]/62 hover:bg-[#2d2d2d]/65'
-                : 'border-border-subtle bg-surface-card hover:bg-surface-card',
-            )}
-          >
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="flex min-w-0 gap-3">
-                <ProviderAvatar
-                  providerType={provider?.providerType || preset.providerType}
-                  providerName={provider?.providerName || preset.providerType}
-                  darkMode={darkMode}
-                />
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className={cn('truncate text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>
-                      {preset.modelName}
-                    </h3>
-                    <StatusPill darkMode={darkMode} active={preset.isActive} />
-                    <SmallBadge darkMode={darkMode}>{capabilityLabel(preset.capability)}</SmallBadge>
-                    <SmallBadge darkMode={darkMode}>{preset.protocol}</SmallBadge>
-                  </div>
-                  <p className={cn('mt-1 truncate text-xs', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                    {providerName(providers, preset.providerId)}
-                  </p>
-                  <p
-                    className={cn(
-                      'mt-3 flex items-center gap-2 font-mono text-xs',
-                      darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60',
-                    )}
-                  >
-                    <KeyRound size={13} />
-                    {preset.apiKey}
-                  </p>
-                  <p
-                    className={cn(
-                      'mt-2 break-all text-xs leading-5',
-                      darkMode ? 'text-[#858585]' : 'text-text-main/45',
-                    )}
-                  >
-                    {preset.apiBaseUrl}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
-                <ActionButton onClick={() => onEdit(preset)}>
-                  <Edit2 size={13} />
-                  编辑
-                </ActionButton>
-                <ActionButton onClick={() => onToggle(preset)}>
-                  <Power size={13} />
-                  {preset.isActive ? '禁用' : '启用'}
-                </ActionButton>
-                <ActionButton danger onClick={() => onDelete(preset)}>
-                  <Trash2 size={13} />
-                  删除
-                </ActionButton>
-              </div>
-            </div>
-          </article>
-        );
-      })}
     </div>
   );
 }
@@ -1046,22 +1149,22 @@ function DialogShell({
       <section
         className={cn(
           'relative max-h-[90vh] w-full max-w-[min(100vw-2rem,560px)] overflow-hidden rounded-2xl border ',
-          darkMode ? 'border-[#3c3c3c] bg-[#252526]' : 'border-border-subtle bg-white',
+          darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]' : 'border-border-subtle bg-white',
         )}
       >
         <header
           className={cn(
             'flex items-center justify-between border-b px-6 py-4',
-            darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+            darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
           )}
         >
-          <h3 className={cn('text-base font-bold', darkMode ? 'text-[#e0e0e0]' : 'text-text-main')}>{title}</h3>
+          <h3 className={cn('text-base font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>{title}</h3>
           <button
             type="button"
             onClick={onClose}
             className={cn(
               'flex h-8 w-8 items-center justify-center rounded-lg',
-              darkMode ? 'text-[#858585] hover:bg-[#2d2d2d]' : 'text-text-main/45 hover:bg-bg-base',
+              darkMode ? 'text-[#a6a6a6] hover:bg-[#303030]' : 'text-text-main/45 hover:bg-bg-base',
             )}
           >
             <X size={16} />
@@ -1076,7 +1179,7 @@ function DialogShell({
 function inputClassName(darkMode: boolean) {
   return cn(
     'h-10 w-full rounded-xl border px-3 text-sm outline-none',
-    darkMode ? 'border-[#3c3c3c] bg-[#2d2d2d] text-[#e0e0e0]' : 'border-border-subtle bg-bg-base/50 text-text-main',
+    darkMode ? 'border-[#3a3a3a] bg-[#303030] text-[#f2f2f2]' : 'border-border-subtle bg-bg-base/50 text-text-main',
   );
 }
 
@@ -1085,7 +1188,7 @@ function FormActions({ darkMode, onClose }: { darkMode: boolean; onClose: () => 
     <footer
       className={cn(
         'flex justify-end gap-3 border-t px-6 py-4',
-        darkMode ? 'border-[#3c3c3c]' : 'border-border-subtle',
+        darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
       )}
     >
       <button
@@ -1093,7 +1196,7 @@ function FormActions({ darkMode, onClose }: { darkMode: boolean; onClose: () => 
         onClick={onClose}
         className={cn(
           'h-9 rounded-xl px-4 text-xs font-bold',
-          darkMode ? 'text-[#cccccc] hover:bg-[#2d2d2d]' : 'text-text-main/65 hover:bg-bg-base',
+          darkMode ? 'text-[#d6d6d6] hover:bg-[#303030]' : 'text-text-main/65 hover:bg-bg-base',
         )}
       >
         取消
@@ -1102,12 +1205,227 @@ function FormActions({ darkMode, onClose }: { darkMode: boolean; onClose: () => 
         type="submit"
         className={cn(
           'h-9 rounded-xl px-4 text-xs font-bold text-white',
-          darkMode ? 'bg-[#094771] hover:bg-[#0d5b8f]' : 'bg-[#7B6B5D] hover:opacity-90',
+          darkMode ? 'bg-primary hover:bg-primary-active' : 'bg-primary hover:opacity-90',
         )}
       >
         保存
       </button>
     </footer>
+  );
+}
+
+function FormField({
+  darkMode,
+  label,
+  hint,
+  children,
+}: {
+  darkMode: boolean;
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="block">
+      <span className={cn('block text-xs font-bold', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/70')}>{label}</span>
+      {hint ? (
+        <span className={cn('mt-1 block text-[11px]', darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40')}>{hint}</span>
+      ) : null}
+      <span className="mt-2 block">{children}</span>
+    </div>
+  );
+}
+
+function FormChoice({
+  darkMode,
+  active,
+  children,
+  onClick,
+}: {
+  darkMode: boolean;
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-9 items-center rounded-md px-3 text-xs font-bold transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]',
+        active
+          ? darkMode
+            ? 'bg-white/[0.09] text-[#f2f2f2]'
+            : 'bg-ink/[0.065] text-text-main'
+          : darkMode
+            ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+            : 'text-text-main/55 hover:bg-ink/[0.03] hover:text-text-main',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProviderPicker({
+  darkMode,
+  providers,
+  value,
+  disabled,
+  onChange,
+}: {
+  darkMode: boolean;
+  providers: SystemProvider[];
+  value: string;
+  disabled?: boolean;
+  onChange: (providerId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const selectedProvider = providers.find((provider) => provider.id === Number(value));
+  const pickerDisabled = disabled || providers.length === 0;
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && pickerRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={pickerRef} className="relative">
+      <button
+        type="button"
+        disabled={pickerDisabled}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          'flex min-h-10 w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-sm outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-[0.995]',
+          darkMode
+            ? 'bg-white/[0.045] text-[#f2f2f2] hover:bg-white/[0.07] focus-visible:shadow-[0_0_0_2px_rgba(255,255,255,0.12)]'
+            : 'bg-bg-base/60 text-text-main hover:bg-ink/[0.035] focus-visible:shadow-[0_0_0_2px_rgba(24,24,24,0.08)]',
+          open && (darkMode ? 'bg-white/[0.075]' : 'bg-ink/[0.04]'),
+          pickerDisabled && 'cursor-not-allowed opacity-55 active:scale-100',
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          {selectedProvider ? (
+            <ProviderAvatar
+              providerType={selectedProvider.providerType}
+              providerName={selectedProvider.providerName}
+              darkMode={darkMode}
+            />
+          ) : null}
+          <span className="min-w-0">
+            <span
+              className={cn(
+                'block truncate font-bold',
+                !selectedProvider && (darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40'),
+              )}
+            >
+              {selectedProvider?.providerName || (providers.length === 0 ? '暂无厂商' : '选择厂商')}
+            </span>
+            {selectedProvider ? (
+              <span
+                className={cn(
+                  'mt-0.5 block truncate font-mono text-[11px]',
+                  darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                )}
+              >
+                {selectedProvider.providerType} · {selectedProvider.defaultProtocol}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <ChevronDown
+          size={16}
+          className={cn(
+            'shrink-0 transition-transform duration-200 ease-out',
+            open && 'rotate-180',
+            darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40',
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.985 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className={cn(
+              'absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-64 overflow-y-auto rounded-[8px] p-1 shadow-xl',
+              darkMode ? 'bg-[#303030] shadow-black/25' : 'bg-white shadow-ink/10',
+            )}
+            role="listbox"
+          >
+            {providers.map((provider) => {
+              const active = provider.id === selectedProvider?.id;
+              return (
+                <button
+                  key={provider.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(String(provider.id));
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-[6px] px-2.5 py-2 text-left transition-[background-color,color] duration-150',
+                    active
+                      ? darkMode
+                        ? 'bg-white/[0.08]'
+                        : 'bg-ink/[0.045]'
+                      : darkMode
+                        ? 'hover:bg-white/[0.055]'
+                        : 'hover:bg-ink/[0.028]',
+                  )}
+                >
+                  <ProviderAvatar
+                    providerType={provider.providerType}
+                    providerName={provider.providerName}
+                    darkMode={darkMode}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn('block truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}
+                    >
+                      {provider.providerName}
+                    </span>
+                    <span
+                      className={cn(
+                        'mt-0.5 block truncate font-mono text-[11px]',
+                        darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                      )}
+                    >
+                      {provider.providerType} · {provider.defaultProtocol}
+                    </span>
+                  </span>
+                  {active ? <Check size={15} className={darkMode ? 'text-[#f2f2f2]' : 'text-text-main/65'} /> : null}
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -1149,7 +1467,7 @@ function ProviderDialog({
             required
             value={form.apiBaseUrl}
             onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
-            placeholder="默认 API 地址"
+            placeholder="默认 API 地址，仅用于新增能力预填"
             className={inputClassName(darkMode)}
           />
           <select
@@ -1188,7 +1506,9 @@ function ProviderDialog({
 function ModelDialog({
   darkMode,
   providers,
+  presets,
   editing,
+  editingModel,
   form,
   setForm,
   onClose,
@@ -1196,158 +1516,151 @@ function ModelDialog({
 }: {
   darkMode: boolean;
   providers: SystemProvider[];
+  presets: SystemPreset[];
   editing: boolean;
+  editingModel: ProviderModel | null;
   form: typeof modelInitialState;
   setForm: (form: typeof modelInitialState) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const selectedProvider = providers.find((provider) => provider.id === Number(form.providerId));
+  const linkRagModel = isLinkRagProvider(selectedProvider);
+  const currentPreset = editingModel ? findPresetForModel(presets, editingModel) : undefined;
+  const handleProviderChange = (providerId: string) => {
+    const provider = providers.find((item) => item.id === Number(providerId));
+    setForm({
+      ...form,
+      providerId,
+      protocol: provider?.defaultProtocol ?? form.protocol,
+      apiBaseUrl: provider?.apiBaseUrl ?? form.apiBaseUrl,
+      apiKey: isLinkRagProvider(provider) ? form.apiKey : '',
+      isDefault: isLinkRagProvider(provider) ? form.isDefault : false,
+    });
+  };
+
   return (
     <DialogShell darkMode={darkMode} title={editing ? '编辑模型能力' : '新增模型能力'} onClose={onClose}>
       <form onSubmit={onSubmit}>
         <div className="space-y-4 p-6">
-          <select
-            disabled={editing}
-            required
-            value={form.providerId}
-            onChange={(e) => {
-              const provider = providers.find((item) => item.id === Number(e.target.value));
-              setForm({
-                ...form,
-                providerId: e.target.value,
-                protocol: provider?.defaultProtocol ?? form.protocol,
-                apiBaseUrl: provider?.apiBaseUrl ?? form.apiBaseUrl,
-              });
-            }}
-            className={inputClassName(darkMode)}
+          <FormField
+            darkMode={darkMode}
+            label="厂商"
+            hint={editing ? '模型能力创建后不能切换厂商。' : '选择厂商后会预填协议和 API 地址模板。'}
           >
-            <option value="">选择厂商</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.providerName}
-              </option>
-            ))}
-          </select>
-          <input
-            required
-            value={form.modelName}
-            onChange={(e) => setForm({ ...form, modelName: e.target.value })}
-            placeholder="模型名"
-            className={inputClassName(darkMode)}
-          />
-          <select
-            value={form.capability}
-            onChange={(e) => setForm({ ...form, capability: e.target.value as LLMCapability })}
-            className={inputClassName(darkMode)}
-          >
-            {CAPABILITIES.map((capability) => (
-              <option key={capability.value} value={capability.value}>
-                {capability.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={form.protocol}
-            onChange={(e) => setForm({ ...form, protocol: e.target.value as LLMProtocol })}
-            className={inputClassName(darkMode)}
-          >
-            {PROTOCOLS.map((protocol) => (
-              <option key={protocol} value={protocol}>
-                {protocol}
-              </option>
-            ))}
-          </select>
-          <input
-            required
-            value={form.apiBaseUrl}
-            onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
-            placeholder="模型能力真实调用入口，通常是完整端点 URL"
-            className={inputClassName(darkMode)}
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+            <ProviderPicker
+              darkMode={darkMode}
+              providers={providers}
+              value={form.providerId}
+              disabled={editing}
+              onChange={handleProviderChange}
             />
-            上架
-          </label>
-        </div>
-        <FormActions darkMode={darkMode} onClose={onClose} />
-      </form>
-    </DialogShell>
-  );
-}
-
-function PresetDialog({
-  darkMode,
-  providers,
-  models,
-  editing,
-  form,
-  setForm,
-  onClose,
-  onSubmit,
-}: {
-  darkMode: boolean;
-  providers: SystemProvider[];
-  models: ProviderModel[];
-  editing: boolean;
-  form: typeof presetInitialState;
-  setForm: (form: typeof presetInitialState) => void;
-  onClose: () => void;
-  onSubmit: (event: FormEvent) => void;
-}) {
-  const availableModels = models.filter((model) => !form.providerId || model.providerId === Number(form.providerId));
-  return (
-    <DialogShell darkMode={darkMode} title={editing ? '编辑系统预设' : '新增系统预设'} onClose={onClose}>
-      <form onSubmit={onSubmit}>
-        <div className="space-y-4 p-6">
-          <select
-            required
-            value={form.providerId}
-            onChange={(e) => setForm({ ...form, providerId: e.target.value, modelName: '', capability: 'CHAT' })}
-            className={inputClassName(darkMode)}
-          >
-            <option value="">选择厂商</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.providerName}
-              </option>
-            ))}
-          </select>
-          <select
-            required
-            value={`${form.modelName}::${form.capability}`}
-            onChange={(e) => {
-              const [modelName, capability] = e.target.value.split('::');
-              setForm({ ...form, modelName, capability: capability as LLMCapability });
-            }}
-            className={inputClassName(darkMode)}
-          >
-            <option value="::CHAT">选择已上架模型能力</option>
-            {availableModels.map((model) => (
-              <option key={model.id} value={`${model.modelName}::${model.capability}`}>
-                {model.modelName} / {capabilityLabel(model.capability)}
-              </option>
-            ))}
-          </select>
-          <input
-            required={!editing}
-            type="password"
-            value={form.apiKey}
-            onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-            placeholder={editing ? '不修改 Key 可留空' : '平台 API Key'}
-            className={inputClassName(darkMode)}
-          />
-          <label className="flex items-center gap-2 text-sm">
+          </FormField>
+          <FormField darkMode={darkMode} label="真实模型名" hint="传给厂商 API 的 modelName，例如 gpt-4o。">
             <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              required
+              value={form.modelName}
+              onChange={(e) => setForm({ ...form, modelName: e.target.value })}
+              placeholder="gpt-4o"
+              className={inputClassName(darkMode)}
             />
-            启用
-          </label>
+          </FormField>
+          <FormField darkMode={darkMode} label="展示名" hint="可选；为空时界面会回退显示真实模型名。">
+            <input
+              value={form.displayName}
+              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+              placeholder="GPT-4o"
+              className={inputClassName(darkMode)}
+            />
+          </FormField>
+          <FormField darkMode={darkMode} label="能力维度" hint="同一个模型支持多个能力时，需要分别新增多条配置。">
+            <div className="flex flex-wrap gap-1.5">
+              {CAPABILITIES.map((capability) => (
+                <FormChoice
+                  key={capability.value}
+                  darkMode={darkMode}
+                  active={form.capability === capability.value}
+                  onClick={() => setForm({ ...form, capability: capability.value })}
+                >
+                  {capability.label}
+                </FormChoice>
+              ))}
+            </div>
+          </FormField>
+          <FormField darkMode={darkMode} label="协议" hint="协议大小写敏感，保存时使用小写值。">
+            <div className="flex flex-wrap gap-1.5">
+              {PROTOCOLS.map((protocol) => (
+                <FormChoice
+                  key={protocol}
+                  darkMode={darkMode}
+                  active={form.protocol === protocol}
+                  onClick={() => setForm({ ...form, protocol })}
+                >
+                  {protocol}
+                </FormChoice>
+              ))}
+            </div>
+          </FormField>
+          <FormField darkMode={darkMode} label="调用入口" hint="模型能力真实调用入口，通常是完整端点 URL。">
+            <input
+              required
+              value={form.apiBaseUrl}
+              onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
+              placeholder="https://api.openai.com/v1/chat/completions"
+              className={inputClassName(darkMode)}
+            />
+          </FormField>
+          {linkRagModel ? (
+            <div className="space-y-3">
+              <FormField
+                darkMode={darkMode}
+                label="LinkRAG 平台 API Key"
+                hint={
+                  editing ? '不修改 Key 可留空；重新输入会覆盖当前 Key。' : 'LinkRAG 厂商需要同时填写模型和平台 Key。'
+                }
+              >
+                <input
+                  required={!editing || !currentPreset}
+                  type="password"
+                  value={form.apiKey}
+                  onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                  placeholder="sk-..."
+                  className={inputClassName(darkMode)}
+                />
+              </FormField>
+              {editing && currentPreset ? (
+                <p
+                  className={cn(
+                    'flex items-center gap-2 font-mono text-xs',
+                    darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                  )}
+                >
+                  <KeyRound size={13} />
+                  当前 Key：{presetMaskedKey(currentPreset)}
+                </p>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.isDefault}
+                  onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                />
+                设为默认
+              </label>
+            </div>
+          ) : null}
+          {editing ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              />
+              上架
+            </label>
+          ) : (
+            <p className={cn('text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>新增后默认上架。</p>
+          )}
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />
       </form>

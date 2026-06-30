@@ -1,0 +1,34 @@
+<!-- @dsCard group="Spacing" name="Elevation & Surfaces" subtitle="Color-block first — shadows rare & faint" viewport="680x300" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 24px 28px; font-family: var(--font-mono); }
+  .section-label { font-size: 11px; letter-spacing: 0.02em; color: #8e8b82; margin-bottom: 12px; }
+  .row { display: flex; gap: 16px; margin-bottom: 20px; }
+  .card { flex: 1; border-radius: 12px; padding: 16px 14px; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .card .name { font-size: 11px; font-weight: 600; color: #141413; margin-bottom: 2px; }
+  .card .val { font-size: 9px; color: #8e8b82; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+  <div class="section-label">Surface contrast carries depth — not shadow</div>
+  <div class="row">
+    <div class="card" style="background:#faf9f5; border:1px solid #e6dfd8;"><span class="name">Canvas</span><span class="val">flat · hairline</span></div>
+    <div class="card" style="background:#efe9de;"><span class="name">Feature Card</span><span class="val">cream · no shadow</span></div>
+    <div class="card" style="background:#181715;"><span class="name" style="color:#faf9f5;">Dark Mockup</span><span class="val" style="color:#a09d96;">navy · no shadow</span></div>
+    <div class="card" style="background:#cc785c;"><span class="name" style="color:#fff;">Coral Callout</span><span class="val" style="color:rgba(255,255,255,0.8);">full-bleed</span></div>
+  </div>
+  <div class="section-label">Shadow — reserved for hover lift & dialogs</div>
+  <div class="row">
+    <div class="card" style="background:#fff; border:1px solid #e6dfd8; box-shadow:none;"><span class="name">None</span><span class="val">default</span></div>
+    <div class="card" style="background:#fff; box-shadow:0 1px 3px rgba(20,20,19,0.06);"><span class="name">Card</span><span class="val">0 1px 3px · 6%</span></div>
+    <div class="card" style="background:#fff; box-shadow:0 4px 16px rgba(20,20,19,0.10);"><span class="name">Hover Lift</span><span class="val">0 4px 16px · 10%</span></div>
+    <div class="card" style="background:#fff; box-shadow:0 16px 48px rgba(20,20,19,0.16);"><span class="name">Dialog</span><span class="val">0 16px 48px · 16%</span></div>
+  </div>
+</body>
+</html>

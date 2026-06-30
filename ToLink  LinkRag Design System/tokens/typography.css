@@ -1,0 +1,148 @@
+/* ============================================================
+   Claude (Anthropic) editorial system — Typography tokens
+   Display = Cormorant Garamond (Copernicus substitute), upright,
+   weight 500, negative tracking. Body = Inter (StyreneB sub).
+   Code = JetBrains Mono.
+   ============================================================ */
+
+:root {
+  /* ─ Font stacks ─ */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Cormorant Garamond', 'Tiempos Headline', Garamond, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* legacy aliases */
+  --font-display-cn: var(--font-serif);
+  --font-body-cn: var(--font-sans);
+  --font-handwrite: var(--font-serif);
+}
+
+/* ── Semantic type styles ── */
+
+/* Cormorant serif display — upright, weight 500, negative tracking.
+   The literary editorial voice. NEVER bold, NEVER italic by default. */
+.serif-heading {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-style: normal;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+/* JetBrains Mono — code, metadata, system hints. */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+
+/* Inter body — humanist sans running text. */
+.body-text {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--body);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Uppercase caption — category tags, eyebrows. StyreneB/Inter 12/500/1.5px. */
+.label-bold {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.125em;
+  color: var(--muted);
+}
+
+/* ── Display scale (Cormorant serif, upright 500, negative tracking) ── */
+.display-xl {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 64px;
+  line-height: 1.05;
+  letter-spacing: -0.022em;
+  color: var(--ink);
+}
+.display-lg {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 48px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.display-md {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 36px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+.display-sm {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+/* ── Titles (Inter sans, weight 500) ── */
+.title-lg {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.title-md {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.title-sm {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+/* legacy heading aliases → remapped to Claude display/title scale */
+.heading-xl {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 48px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.heading-lg {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 32px;
+  letter-spacing: -0.015em;
+  line-height: 1.18;
+  color: var(--ink);
+}
+.heading-md {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 18px;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.heading-sm {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0;
+  line-height: 1.4;
+  color: var(--ink);
+}

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Home Dashboard" description="LinkRag 首页重构 — 统一侧边壳层 + 3 套首页方向（专注提问 / 工作台 / 编辑大开本）可切换。Cream/coral/serif，参考 Claude 编辑体。" -->
+<helmet>
+<script src="./ds-base.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&family=Noto+Sans+SC:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--surface-soft); -webkit-font-smoothing: antialiased; }
+</style>
+</helmet>
+
+<div style="display:flex;height:100vh;background:var(--surface-soft);padding:16px;gap:16px;color:var(--ink);font-family:'Inter','Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;--serif-cn:'Cormorant Garamond','Noto Serif SC',Georgia,serif;">
+
+  <!-- ════ UNIFIED SIDEBAR SHELL ════ -->
+  <aside style="width:244px;flex-shrink:0;background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="height:68px;display:flex;align-items:center;gap:11px;padding:0 22px;border-bottom:1px solid var(--hairline);">
+      <img src="../../assets/linkrag-mark-v2.png" alt="" style="width:25px;height:25px;object-fit:contain;">
+      <span style="font-family:var(--serif-cn);font-weight:600;font-size:20px;letter-spacing:-0.01em;">LinkRag</span>
+    </div>
+    <nav style="flex:1;padding:18px 12px;display:flex;flex-direction:column;gap:3px;">
+      <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:0.16em;color:var(--muted-soft);padding:4px 14px 10px;">Workspace</div>
+      <a href="#" style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:11px;background:var(--surface-cream-strong);color:var(--ink);text-decoration:none;position:relative;">
+        <span style="color:var(--primary);display:flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg></span>
+        <span style="font-size:14px;font-weight:500;">首页</span>
+        <span style="position:absolute;right:14px;width:6px;height:6px;border-radius:50%;background:var(--primary);"></span>
+      </a>
+      <a href="#" style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:11px;color:var(--body);text-decoration:none;">
+        <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path></svg></span>
+        <span style="font-size:14px;font-weight:500;">知识库</span>
+      </a>
+      <a href="#" style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:11px;color:var(--body);text-decoration:none;">
+        <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+        <span style="font-size:14px;font-weight:500;">对话</span>
+      </a>
+      <a href="#" style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:11px;color:var(--body);text-decoration:none;">
+        <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path></svg></span>
+        <span style="font-size:14px;font-weight:500;">模型配置</span>
+      </a>
+      <a href="#" style="display:flex;align-items:center;gap:13px;padding:11px 14px;border-radius:11px;color:var(--body);text-decoration:none;">
+        <span style="display:flex;color:var(--muted);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="11" width="3" height="6" rx="1"></rect><rect x="12" y="7" width="3" height="10" rx="1"></rect><rect x="17" y="13" width="3" height="4" rx="1"></rect></svg></span>
+        <span style="font-size:14px;font-weight:500;">用量</span>
+      </a>
+    </nav>
+    <div style="padding:12px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:4px;">
+      <button style="display:flex;align-items:center;gap:13px;padding:10px 14px;border-radius:11px;color:var(--body);background:transparent;border:none;cursor:pointer;text-align:left;font-family:inherit;">
+        <span style="display:flex;color:var(--muted);"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"></path></svg></span>
+        <span style="font-size:14px;font-weight:500;">夜间模式</span>
+      </button>
+      <div style="display:flex;align-items:center;gap:11px;padding:10px;border-radius:11px;background:var(--surface-soft);margin-top:4px;">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:var(--on-primary);font-size:13px;font-weight:600;flex-shrink:0;">T</div>
+        <div style="min-width:0;flex:1;">
+          <p style="margin:0;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">用户TDZUHXO</p>
+          <p style="margin:1px 0 0;font-family:var(--font-mono);font-size:9px;letter-spacing:0.04em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">jixu0090@gmail.com</p>
+        </div>
+      </div>
+      <button style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:11px;color:var(--muted);background:transparent;border:none;cursor:pointer;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;margin-top:2px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg>
+        收起
+      </button>
+    </div>
+  </aside>
+
+  <!-- ════ MAIN PANEL ════ -->
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;overflow:hidden;">
+
+    <!-- shared slim top bar -->
+    <header style="height:68px;flex-shrink:0;padding:0 30px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hairline);">
+      <div style="display:flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);">
+        <span style="color:var(--ink);">首页</span>
+        <span style="opacity:0.5;">/</span>
+        <span>Overview</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9999px;border:1px solid var(--hairline);color:var(--muted);cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg></span>
+        <button style="display:flex;align-items:center;gap:8px;background:var(--primary);color:var(--on-primary);border:none;border-radius:9px;padding:10px 16px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+          新建对话
+        </button>
+      </div>
+    </header>
+
+    <div class="tl-scroll" style="flex:1;overflow-y:auto;">
+
+      <!-- optional coral welcome callout (专注提问 / 工作台) -->
+      <sc-if value="{{ coralWelcome }}" hint-placeholder-val="">
+        <div style="margin:24px 30px 0;background:var(--primary);color:var(--on-primary);border-radius:14px;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;opacity:0.8;">Quick start</div>
+            <div style="font-family:var(--serif-cn);font-size:24px;letter-spacing:-0.01em;margin-top:4px;">开始一段新的知识探索</div>
+          </div>
+          <button style="display:flex;align-items:center;gap:8px;background:var(--on-primary);color:var(--primary);border:none;border-radius:9px;padding:11px 18px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;">上传文档<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg></button>
+        </div>
+      </sc-if>
+
+      <!-- ───────── DIRECTION 1 · 专注提问 ───────── -->
+      <sc-if value="{{ isFocus }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:760px;margin:0 auto;padding:9vh 32px 56px;">
+          <div style="text-align:center;">
+            <div style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.16em;color:var(--primary);">Late night · 01:24</div>
+            <h1 style="font-family:var(--serif-cn);font-weight:500;font-size:46px;line-height:1.2;letter-spacing:-0.02em;margin:16px 0 0;">夜深了，<span style="font-style:italic;white-space:nowrap;">用户 TDZUHXO</span></h1>
+            <p style="font-family:inherit;font-size:16px;color:var(--muted);margin:18px 0 0;">搜索文件、对话、知识库，或从最近内容继续。</p>
+          </div>
+
+          <div style="margin-top:34px;background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;box-shadow:var(--shadow-card);overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:14px;padding:20px 22px;">
+              <span style="color:var(--muted);display:flex;flex-shrink:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span>
+              <span style="flex:1;font-size:16px;color:var(--muted-soft);">搜索文件、对话、知识库，或输入一个问题…</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 14px;border-top:1px solid var(--hairline-soft);">
+              <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;color:var(--muted);white-space:nowrap;">Engine · Claude-Opus-4</span>
+              <button style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:9px;background:var(--primary);color:var(--on-primary);border:none;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></button>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+            <button style="font-family:inherit;font-size:13px;color:var(--body);background:transparent;border:1px solid var(--hairline);border-radius:9999px;padding:8px 16px;cursor:pointer;">总结最近上传的文档</button>
+            <button style="font-family:inherit;font-size:13px;color:var(--body);background:transparent;border:1px solid var(--hairline);border-radius:9999px;padding:8px 16px;cursor:pointer;">RAG 索引怎么配置</button>
+            <button style="font-family:inherit;font-size:13px;color:var(--body);background:transparent;border:1px solid var(--hairline);border-radius:9999px;padding:8px 16px;cursor:pointer;">帮我找最近的产品决策</button>
+          </div>
+
+          <sc-if value="{{ showMetrics }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:30px;font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;color:var(--muted);">
+              <span><b style="color:var(--ink);font-weight:600;">1</b> 知识库</span><span style="opacity:0.4;">·</span>
+              <span><b style="color:var(--ink);font-weight:600;">38</b> 对话</span><span style="opacity:0.4;">·</span>
+              <span><b style="color:var(--ink);font-weight:600;">10</b> 文件</span><span style="opacity:0.4;">·</span>
+              <span><b style="color:var(--ink);font-weight:600;">0</b> Token · 14天</span>
+            </div>
+          </sc-if>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:46px;">
+            <div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">最近对话</span>
+                <a href="#" style="font-size:12px;color:var(--primary);text-decoration:none;">查看全部</a>
+              </div>
+              <div style="display:flex;flex-direction:column;">
+                <a href="#" style="display:block;padding:12px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;"><div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">请总结最近上传的文档「brief.md」</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;">ceshi · 10小时前</div></a>
+                <a href="#" style="display:block;padding:12px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;"><div style="font-size:14px;font-weight:500;">什么是栈</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;">ceshi · 10小时前</div></a>
+                <a href="#" style="display:block;padding:12px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;"><div style="font-size:14px;font-weight:500;">帮我找最近的产品决策</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;">ceshi · 16小时前</div></a>
+                <a href="#" style="display:block;padding:12px 0;text-decoration:none;color:inherit;"><div style="font-size:14px;font-weight:500;">什么是队列</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;">ceshi · 1天前</div></a>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">最近知识库</span>
+                <a href="#" style="font-size:12px;color:var(--primary);text-decoration:none;">查看全部</a>
+              </div>
+              <a href="#" style="display:block;padding:16px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+                <div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--primary);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path></svg></span><span style="font-size:15px;font-weight:500;">ceshi</span></div>
+                <p style="margin:10px 0 0;font-size:13px;color:var(--muted);">暂无描述</p>
+                <p style="margin:14px 0 0;font-family:var(--font-mono);font-size:10px;letter-spacing:0.04em;color:var(--muted-soft);">10 文件 · 2026/6/2</p>
+              </a>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ───────── DIRECTION 2 · 工作台 ───────── -->
+      <sc-if value="{{ isWorkbench }}" hint-placeholder-val="">
+        <div style="padding:30px;">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+            <div>
+              <div style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.14em;color:var(--primary);">Late night · 01:24</div>
+              <h1 style="font-family:var(--serif-cn);font-weight:500;font-size:34px;letter-spacing:-0.015em;margin:8px 0 0;">夜深了，<span style="font-style:italic;">用户 TDZUHXO</span></h1>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;width:320px;max-width:100%;background:var(--surface-card);border:1px solid var(--hairline);border-radius:11px;padding:12px 16px;">
+              <span style="color:var(--muted);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span>
+              <span style="font-size:14px;color:var(--muted-soft);">搜索或提问…</span>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:34px 0 14px;">
+            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">继续工作 · Continue</span>
+            <a href="#" style="font-size:12px;color:var(--primary);text-decoration:none;">全部对话 →</a>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <a href="#" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+              <div style="font-size:15px;font-weight:500;line-height:1.4;">请总结最近上传的文档「brief.md」</div>
+              <div style="font-size:13px;color:var(--muted);line-height:1.5;">已提炼 3 条关键结论与后续行动项，并附引用片段…</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;color:var(--muted-soft);"><span style="padding:2px 7px;border-radius:9999px;background:rgba(204,120,92,0.12);color:var(--primary);">Claude-Opus-4</span>ceshi · 10小时前</div>
+            </a>
+            <a href="#" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+              <div style="font-size:15px;font-weight:500;line-height:1.4;">帮我找最近的产品决策</div>
+              <div style="font-size:13px;color:var(--muted);line-height:1.5;">检索到 5 处相关片段，按时间排序并标注来源文档…</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;color:var(--muted-soft);"><span style="padding:2px 7px;border-radius:9999px;background:rgba(93,184,166,0.16);color:#3f8c7c;">Gemini-3</span>ceshi · 16小时前</div>
+            </a>
+            <a href="#" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+              <div style="font-size:15px;font-weight:500;line-height:1.4;">什么是队列</div>
+              <div style="font-size:13px;color:var(--muted);line-height:1.5;">队列是一种先进先出（FIFO）的线性数据结构…</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;color:var(--muted-soft);"><span style="padding:2px 7px;border-radius:9999px;background:rgba(204,120,92,0.12);color:var(--primary);">Claude-Opus-4</span>ceshi · 1天前</div>
+            </a>
+            <a href="#" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+              <div style="font-size:15px;font-weight:500;line-height:1.4;">什么是栈</div>
+              <div style="font-size:13px;color:var(--muted);line-height:1.5;">栈是一种后进先出（LIFO）的数据结构，常用于…</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;color:var(--muted-soft);"><span style="padding:2px 7px;border-radius:9999px;background:rgba(232,165,90,0.18);color:#b07a2e;">Deepseek</span>ceshi · 10小时前</div>
+            </a>
+          </div>
+
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:32px 0 14px;">
+            <span style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">知识库 · Datasets</span>
+            <a href="#" style="font-size:12px;color:var(--primary);text-decoration:none;">查看全部 →</a>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <a href="#" style="display:block;padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);text-decoration:none;color:inherit;">
+              <div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--primary);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path></svg></span><span style="font-size:15px;font-weight:500;">ceshi</span></div>
+              <p style="margin:9px 0 0;font-size:13px;color:var(--muted);">暂无描述 · 10 文件</p>
+            </a>
+            <button style="display:flex;align-items:center;justify-content:center;gap:9px;padding:18px 20px;border:1px dashed var(--hairline);border-radius:12px;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>新建知识库
+            </button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ───────── DIRECTION 3 · 编辑大开本 ───────── -->
+      <sc-if value="{{ isEditorial }}" hint-placeholder-val="">
+        <div style="padding:30px;">
+          <div style="background:var(--primary);color:var(--on-primary);border-radius:18px;padding:40px 40px 32px;overflow:hidden;">
+            <div style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.16em;opacity:0.82;">Knowledge workspace · Late night 01:24</div>
+            <h1 style="font-family:var(--serif-cn);font-weight:500;font-size:48px;line-height:1.06;letter-spacing:-0.02em;margin:14px 0 0;">夜深了，<span style="font-style:italic;">用户 TDZUHXO</span></h1>
+            <p style="font-size:16px;opacity:0.86;margin:12px 0 0;max-width:520px;">搜索文件、对话、知识库，或从最近内容继续。一切已为今晚的思考就绪。</p>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:26px;background:var(--on-primary);border-radius:13px;padding:8px 8px 8px 18px;max-width:600px;">
+              <span style="color:var(--muted);display:flex;flex-shrink:0;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span>
+              <span style="flex:1;font-size:15px;color:var(--muted-soft);">输入一个问题，或搜索知识库…</span>
+              <button style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:9px;background:var(--primary-active);color:var(--on-primary);border:none;cursor:pointer;flex-shrink:0;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></button>
+            </div>
+          </div>
+
+          <sc-if value="{{ showMetrics }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px;">
+              <div style="padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);"><div style="font-family:var(--serif-cn);font-size:34px;line-height:1;">1</div><div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-top:8px;">知识库</div></div>
+              <div style="padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);"><div style="font-family:var(--serif-cn);font-size:34px;line-height:1;">38</div><div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-top:8px;">对话</div></div>
+              <div style="padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);"><div style="font-family:var(--serif-cn);font-size:34px;line-height:1;">10</div><div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-top:8px;">文件</div></div>
+              <div style="padding:18px 20px;border:1px solid var(--hairline);border-radius:12px;background:var(--surface-card);"><div style="font-family:var(--serif-cn);font-size:34px;line-height:1;">0</div><div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);margin-top:8px;">Token · 14天</div></div>
+            </div>
+          </sc-if>
+
+          <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:30px;margin-top:36px;">
+            <div>
+              <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);border-bottom:1px solid var(--hairline);padding-bottom:12px;margin-bottom:6px;">最近对话 · Recent threads</div>
+              <a href="#" style="display:flex;gap:20px;padding:18px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;align-items:baseline;"><span style="font-family:var(--serif-cn);font-size:26px;color:var(--primary);line-height:1;width:38px;flex-shrink:0;">01</span><div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:500;">请总结最近上传的文档「brief.md」</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:5px;">ceshi · 10小时前 · Claude-Opus-4</div></div></a>
+              <a href="#" style="display:flex;gap:20px;padding:18px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;align-items:baseline;"><span style="font-family:var(--serif-cn);font-size:26px;color:var(--primary);line-height:1;width:38px;flex-shrink:0;">02</span><div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:500;">帮我找最近的产品决策</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:5px;">ceshi · 16小时前 · Gemini-3</div></div></a>
+              <a href="#" style="display:flex;gap:20px;padding:18px 0;border-bottom:1px solid var(--hairline-soft);text-decoration:none;color:inherit;align-items:baseline;"><span style="font-family:var(--serif-cn);font-size:26px;color:var(--primary);line-height:1;width:38px;flex-shrink:0;">03</span><div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:500;">什么是队列</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:5px;">ceshi · 1天前 · Claude-Opus-4</div></div></a>
+              <a href="#" style="display:flex;gap:20px;padding:18px 0;text-decoration:none;color:inherit;align-items:baseline;"><span style="font-family:var(--serif-cn);font-size:26px;color:var(--primary);line-height:1;width:38px;flex-shrink:0;">04</span><div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:500;">什么是栈</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:5px;">ceshi · 10小时前 · Deepseek</div></div></a>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);border-bottom:1px solid var(--hairline);padding-bottom:12px;">知识库 · Datasets</div>
+              <a href="#" style="display:block;padding:20px;border:1px solid rgba(204,120,92,0.28);border-radius:14px;background:rgba(204,120,92,0.08);color:var(--ink);text-decoration:none;">
+                <div style="display:flex;align-items:center;gap:10px;"><span style="color:var(--primary);display:flex;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path></svg></span><span style="font-family:var(--serif-cn);font-size:22px;">ceshi</span></div>
+                <p style="margin:12px 0 0;font-size:13px;color:var(--muted);">暂无描述</p>
+                <p style="margin:18px 0 0;font-family:var(--font-mono);font-size:10px;letter-spacing:0.04em;color:var(--muted-soft);">10 文件 · 已索引 · 2026/6/2</p>
+              </a>
+              <button style="display:flex;align-items:center;justify-content:center;gap:9px;padding:16px;border:1px dashed var(--hairline);border-radius:14px;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M8 8l4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>上传新文档</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <!-- ════ RIGHT ACTIVITY RAIL (工作台 only) ════ -->
+  <sc-if value="{{ isWorkbench }}" hint-placeholder-val="">
+    <aside style="width:300px;flex-shrink:0;background:var(--canvas);border:1px solid var(--hairline);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="padding:22px 22px 0;">
+        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">快捷操作 · Actions</div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:14px;">
+          <a href="#" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:11px;background:var(--surface-card);text-decoration:none;color:var(--ink);"><span style="color:var(--primary);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="M8 8l4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg></span><span style="font-size:14px;font-weight:500;">上传文档</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:11px;background:var(--surface-card);text-decoration:none;color:var(--ink);"><span style="color:var(--primary);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span><span style="font-size:14px;font-weight:500;">新建对话</span></a>
+          <a href="#" style="display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:11px;background:var(--surface-card);text-decoration:none;color:var(--ink);"><span style="color:var(--primary);display:flex;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"></path><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"></path></svg></span><span style="font-size:14px;font-weight:500;">管理知识库</span></a>
+        </div>
+      </div>
+      <sc-if value="{{ showMetrics }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:24px 22px 0;">
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);">本期用量 · Usage</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+            <div style="padding:14px 16px;border:1px solid var(--hairline);border-radius:11px;"><div style="font-family:var(--serif-cn);font-size:28px;line-height:1;">38</div><div style="font-size:11px;color:var(--muted);margin-top:5px;">对话</div></div>
+            <div style="padding:14px 16px;border:1px solid var(--hairline);border-radius:11px;"><div style="font-family:var(--serif-cn);font-size:28px;line-height:1;">10</div><div style="font-size:11px;color:var(--muted);margin-top:5px;">文件</div></div>
+            <div style="padding:14px 16px;border:1px solid var(--hairline);border-radius:11px;"><div style="font-family:var(--serif-cn);font-size:28px;line-height:1;">1</div><div style="font-size:11px;color:var(--muted);margin-top:5px;">知识库</div></div>
+            <div style="padding:14px 16px;border:1px solid var(--hairline);border-radius:11px;"><div style="font-family:var(--serif-cn);font-size:28px;line-height:1;">0</div><div style="font-size:11px;color:var(--muted);margin-top:5px;">Token · 14天</div></div>
+          </div>
+        </div>
+      </sc-if>
+      <div style="padding:24px 22px;flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);margin-bottom:12px;">知识库 · Vault</div>
+        <div style="display:flex;flex-direction:column;gap:8px;overflow-y:auto;" class="tl-scroll">
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--hairline);border-radius:11px;"><span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">MD</span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">brief.md</span></div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--hairline);border-radius:11px;"><span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">PDF</span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">人工智能发展报告.pdf</span></div>
+          <div style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--hairline);border-radius:11px;"><span style="width:26px;height:26px;border-radius:6px;background:rgba(204,120,92,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;font-weight:700;flex-shrink:0;">DOCX</span><span style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">大模型技术综述.docx</span></div>
+        </div>
+      </div>
+    </aside>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;专注提问&quot;,&quot;工作台&quot;,&quot;编辑大开本&quot;],&quot;default&quot;:&quot;专注提问&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showMetrics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;coralWelcome&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const dir = this.props.direction || '专注提问';
+    const wantCoral = this.props.coralWelcome === true;
+    return {
+      isFocus: dir === '专注提问',
+      isWorkbench: dir === '工作台',
+      isEditorial: dir === '编辑大开本',
+      showMetrics: this.props.showMetrics !== false,
+      coralWelcome: wantCoral && dir !== '编辑大开本',
+    };
+  }
+}
+</script>
+</body>
+</html>

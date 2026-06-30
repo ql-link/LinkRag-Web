@@ -13,10 +13,11 @@ import {
   RefreshCw,
   TrendingDown,
   TrendingUp,
-  TriangleAlert,
   Zap,
 } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { getProviderIcon } from '@/lib/provider-icons';
+import { getModelDisplayName } from '@/lib/model-display';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDailyUsage, getUsageByModel, getUsageLogs, getUsageSummary, getUsageTrend } from '@/services/llm';
@@ -183,32 +184,32 @@ export default function UsagePage() {
   const showSkeleton = loading && summary === null;
 
   return (
-    <div className="h-full flex flex-col bg-canvas">
-      <header className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 border-b border-border-subtle">
-        <div>
+    <div className="flex h-full flex-col bg-canvas">
+      <header className="flex shrink-0 items-center justify-end px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
+        <div className="hidden lg:block">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} />
         </div>
         <div className="flex items-center gap-2">
           <RangePicker max={today} range={range} onApply={setRange} />
           <button
             onClick={loadData}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-ink/20 hover:bg-surface-card hover:text-ink"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            刷新
+            <span className="hidden lg:inline">刷新</span>
           </button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto bg-canvas">
-        <section className="px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6 space-y-5">
+        <section className="space-y-5 px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:space-y-6 lg:px-8 lg:py-6 lg:pb-6">
           {showSkeleton ? (
             <UsageSkeleton />
           ) : (
             <>
               <UsageHero summary={summary} range={range} />
 
-              <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+              <section className="hidden border-t border-border-subtle/80 pt-5 lg:block">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-bold text-ink">Token 趋势</h3>
@@ -227,32 +228,30 @@ export default function UsagePage() {
                 ) : (
                   <EmptyBlock icon={<BarChart3 size={18} />} text="当前周期暂无用量数据" />
                 )}
-              </div>
+              </section>
 
-              <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
-                <div className="grid grid-cols-1 gap-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] xl:gap-0">
-                  <section className="flex min-h-0 flex-col xl:pr-5">
-                    <h3 className="text-sm font-bold mb-4 text-ink">模型用量</h3>
-                    <div className="min-h-0 flex-1">
-                      {topModels.length === 0 ? (
-                        <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
-                      ) : (
-                        <ModelUsagePie data={modelUsage} />
-                      )}
-                    </div>
-                  </section>
+              <div className="grid grid-cols-1 gap-5 lg:border-t lg:border-border-subtle/80 lg:pt-5 xl:h-[360px] xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <section className="flex min-h-0 flex-col">
+                  <h3 className="mb-3 text-sm font-bold text-ink lg:mb-4">模型用量</h3>
+                  <div className="min-h-0 flex-1">
+                    {topModels.length === 0 ? (
+                      <EmptyBlock icon={<Coins size={18} />} text="暂无模型用量" />
+                    ) : (
+                      <ModelUsagePie data={modelUsage} />
+                    )}
+                  </div>
+                </section>
 
-                  <section className="flex min-h-0 flex-col border-t border-border-subtle pt-5 xl:border-l xl:border-t-0 xl:pt-0 xl:pl-5">
-                    <h3 className="text-sm font-bold mb-4 text-ink">最近调用</h3>
-                    <div className="min-h-0 flex-1">
-                      {logs.length === 0 ? (
-                        <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
-                      ) : (
-                        <RecentCallsList logs={logs} />
-                      )}
-                    </div>
-                  </section>
-                </div>
+                <section className="flex min-h-0 flex-col">
+                  <h3 className="mb-3 text-sm font-bold text-ink lg:mb-4">最近调用</h3>
+                  <div className="min-h-0 flex-1">
+                    {logs.length === 0 ? (
+                      <EmptyBlock icon={<Activity size={18} />} text="暂无调用记录" />
+                    ) : (
+                      <RecentCallsList logs={logs} />
+                    )}
+                  </div>
+                </section>
               </div>
             </>
           )}
@@ -264,8 +263,8 @@ export default function UsagePage() {
 
 function UsageSkeleton() {
   return (
-    <div className="animate-pulse space-y-5" aria-busy="true" aria-label="正在加载用量数据">
-      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+    <div className="animate-pulse space-y-6" aria-busy="true" aria-label="正在加载用量数据">
+      <div className="py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1 space-y-4">
             <div className="flex items-center gap-3">
@@ -287,7 +286,7 @@ function UsageSkeleton() {
             ))}
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 pt-4 xl:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="space-y-2">
               <div className="h-3 w-20 rounded bg-surface-soft" />
@@ -297,17 +296,17 @@ function UsageSkeleton() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4">
+      <div className="border-t border-border-subtle/80 pt-5">
         <div className="mb-4 h-4 w-24 rounded bg-surface-card" />
         <div className="h-[220px] w-full rounded-lg bg-surface-soft" />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 xl:grid-cols-2">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-5 border-t border-border-subtle/80 pt-5 xl:grid-cols-2">
+        <div className="space-y-4 pt-5">
           <div className="h-4 w-20 rounded bg-surface-card" />
           <div className="mx-auto h-[170px] w-[170px] rounded-full bg-surface-soft" />
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 pt-5">
           <div className="h-4 w-20 rounded bg-surface-card" />
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="h-12 w-full rounded-lg bg-surface-soft" />
@@ -349,12 +348,12 @@ function UsageHero({
   ];
 
   return (
-    <div className="rounded-xl border border-hairline bg-bg-card-solid px-5 py-4 (--)]">
+    <div className="py-2 lg:py-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-surface-card p-2.5">
-              <Zap size={18} className="text-primary" />
+          <div className="hidden items-center gap-3 lg:flex">
+            <div className="rounded-md bg-transparent p-2">
+              <Zap size={18} className="text-info" />
             </div>
             <div>
               <h2 className="text-base font-bold text-ink">Token 消耗</h2>
@@ -363,40 +362,38 @@ function UsageHero({
               </p>
             </div>
           </div>
-          <div className="mt-4 break-words text-4xl font-bold leading-none tracking-normal text-ink sm:text-5xl">
+          <div className="break-words text-4xl font-bold leading-none tracking-normal text-ink sm:text-5xl lg:mt-4">
             {formatNumber(summary?.totalTokens ?? 0)}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="text-sm font-semibold text-text-secondary">
               ≈ {formatCompactTokens(summary?.totalTokens ?? 0)}
             </p>
+            <p className="text-xs font-medium text-muted lg:hidden">{getRangeLabel(range)}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:min-w-[260px] lg:pt-1">
+        <div className="grid grid-cols-2 gap-3 lg:min-w-[260px] lg:gap-5 lg:pt-1">
           <div className="min-w-0 text-ink">
-            <div className="mb-1.5 text-xs font-bold text-muted">总调用</div>
-            <div className="flex items-center gap-2 text-xl font-bold">
-              <Activity size={17} className="text-muted" />
+            <div className="mb-1 text-xs font-bold text-muted lg:mb-1.5">总调用</div>
+            <div className="flex items-center gap-2 text-lg font-bold lg:text-xl">
+              <Activity size={17} className="hidden text-muted lg:block" />
               {formatNumber(summary?.totalCalls ?? 0)}
             </div>
           </div>
           <div className="min-w-0 text-ink">
-            <div className="mb-1.5 text-xs font-bold text-muted">成功率</div>
-            <div className="flex items-center gap-2 text-xl font-bold text-success">
-              <CircleCheck size={17} />
+            <div className="mb-1 text-xs font-bold text-muted lg:mb-1.5">成功率</div>
+            <div className="flex items-center gap-2 text-lg font-bold text-success lg:text-xl">
+              <CircleCheck size={17} className="hidden lg:block" />
               {formatPercent(summary?.successRate, 1)}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border-subtle pt-4 xl:grid-cols-4">
-        {secondaryItems.map((item, index) => (
-          <div
-            key={item.label}
-            className={cn('min-w-0', index > 0 && 'xl:border-l xl:border-border-subtle', index > 0 ? 'xl:pl-5' : '')}
-          >
+      <div className="mt-5 hidden grid-cols-2 gap-x-5 gap-y-3 lg:grid xl:grid-cols-4">
+        {secondaryItems.map((item) => (
+          <div key={item.label} className="min-w-0">
             <div className="flex items-center gap-2">
               {item.icon}
               <span className="text-sm font-bold text-text-secondary">{item.label}</span>
@@ -406,7 +403,7 @@ function UsageHero({
         ))}
       </div>
 
-      <div className="mt-4 border-t border-border-subtle pt-3 mono-label text-muted-soft">
+      <div className="mt-4 hidden mono-label text-muted-soft lg:block">
         成功 {formatNumber(summary?.successCalls ?? 0)} · 失败 {formatNumber(summary?.failedCalls ?? 0)}
       </div>
     </div>
@@ -482,14 +479,14 @@ function RangePicker({
       <button
         type="button"
         onClick={openPicker}
-        className="inline-flex h-9 items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+        className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-ink/20 hover:bg-surface-card hover:text-ink"
       >
         <CalendarDays size={15} />
         {getRangeLabel(range)}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-hairline bg-bg-card-solid p-3 (--)]">
+        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-hairline bg-bg-card-solid p-3">
           <div className="mb-3 flex flex-wrap gap-2">
             {presets.map((preset) => {
               const presetRange = preset.range();
@@ -504,10 +501,10 @@ function RangePicker({
                     onApply(presetRange);
                   }}
                   className={cn(
-                    'h-8 rounded-lg border px-3 text-xs font-bold transition-colors',
+                    'h-8 rounded-md border px-3 text-xs font-bold transition-colors',
                     active
-                      ? 'border-primary/40 bg-primary/10 text-ink'
-                      : 'border-hairline bg-canvas text-text-secondary hover:border-primary/30 hover:text-ink',
+                      ? 'border-ink/20 bg-ink/[0.055] text-ink'
+                      : 'border-border-subtle bg-surface-soft text-text-secondary hover:border-ink/20 hover:bg-surface-card hover:text-ink',
                   )}
                 >
                   {preset.label}
@@ -516,7 +513,7 @@ function RangePicker({
             })}
           </div>
 
-          <div className="border-t border-border-subtle pt-3">
+          <div className="pt-1">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="min-w-0">
                 <span className="mono-label mb-1 block text-muted-soft">开始日期</span>
@@ -570,7 +567,7 @@ function DateTextInput({
         if (min && value < min) onChange(min);
         if (max && value > max) onChange(max);
       }}
-      className="h-9 w-full rounded-lg border border-hairline bg-canvas px-2.5 text-xs font-bold text-ink outline-none transition-colors focus:border-primary/40"
+      className="h-9 w-full rounded-md border border-hairline bg-canvas px-2.5 text-xs font-bold text-ink outline-none transition-colors focus:border-info/45"
     />
   );
 }
@@ -578,12 +575,15 @@ function DateTextInput({
 function GrowthPill({ label, value }: { label: string; value: number | null }) {
   const Icon = value !== null && value < 0 ? TrendingDown : TrendingUp;
   const hasValue = value !== null;
+  const toneClass =
+    value === null || value === 0
+      ? 'bg-surface-soft text-muted'
+      : value > 0
+        ? 'bg-warning/10 text-warning'
+        : 'bg-info/10 text-info';
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold',
-        !hasValue ? 'bg-surface-soft text-muted' : value < 0 ? 'bg-error/10 text-error' : 'bg-success/10 text-success',
-      )}
+      className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-bold', toneClass)}
       title={label}
     >
       {hasValue && <Icon size={13} />}
@@ -593,7 +593,7 @@ function GrowthPill({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-const MODEL_COLORS = ['#cc785c', '#d8a48f', '#b8916f', '#e8e0d2', '#a9583e', '#cbb89a'];
+const MODEL_COLORS = ['#4f7fa8', '#5db8a6', '#72a85d', '#d68a5f', '#a97ac7', '#c6a24a'];
 
 function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
   const topItems = data.slice(0, 5);
@@ -605,59 +605,78 @@ function ModelUsagePie({ data }: { data: ModelUsageDTO[] }) {
   const segments = buildPieSegments(chartItems, totalTokens);
 
   return (
-    <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-[170px_minmax(0,1fr)]">
-      <div className="relative mx-auto h-[170px] w-[170px]">
+    <div className="grid h-full content-center items-center gap-5 md:grid-cols-[160px_minmax(0,1fr)]">
+      <div className="relative mx-auto hidden h-[164px] w-[164px] md:block">
         <svg viewBox="0 0 170 170" className="h-full w-full" role="img" aria-label="模型用量饼图">
-          <circle cx="85" cy="85" r="62" fill="none" stroke="var(--color-surface-card)" strokeWidth="24" />
-          {segments.map((segment, index) => (
-            <path
-              key={`${segment.item.providerType}-${segment.item.modelName}`}
-              d={describeArc(85, 85, 62, segment.startAngle, segment.endAngle)}
-              fill="none"
-              stroke={MODEL_COLORS[index % MODEL_COLORS.length]}
-              strokeLinecap="butt"
-              strokeWidth="24"
-            >
-              <title>
-                {segment.item.modelName} ·{' '}
-                {formatPercent(totalTokens > 0 ? segment.item.totalTokens / totalTokens : 0, 1)} ·{' '}
-                {formatNumber(segment.item.totalTokens)} Token
-              </title>
-            </path>
-          ))}
+          <circle cx="85" cy="85" r="59" fill="none" stroke="var(--color-surface-soft)" strokeWidth="24" />
+          <g className="[filter:drop-shadow(0_2px_3px_rgba(20,20,19,0.08))]">
+            {segments.map((segment, index) => (
+              <path
+                key={`${segment.item.providerType}-${segment.item.modelName}`}
+                d={describePieSegment(segment, segments.length)}
+                fill="none"
+                stroke={MODEL_COLORS[index % MODEL_COLORS.length]}
+                strokeLinecap="butt"
+                strokeWidth="24"
+              >
+                <title>
+                  {getModelDisplayName(segment.item)} ·{' '}
+                  {formatPercent(totalTokens > 0 ? segment.item.totalTokens / totalTokens : 0, 1)} ·{' '}
+                  {formatNumber(segment.item.totalTokens)} Token
+                </title>
+              </path>
+            ))}
+          </g>
+          <circle cx="85" cy="85" r="43" fill="var(--color-canvas)" stroke="var(--color-hairline-soft)" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="mono-label text-muted-soft">总量</span>
-          <span className="mt-1 text-lg font-bold text-ink">
+          <span className="max-w-[94px] truncate text-lg font-bold text-ink">
             {formatCompactTokens(totalTokens).replace(' tokens', '')}
           </span>
+          <span className="mono-label mt-1 text-muted-soft">总量</span>
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1 lg:space-y-2.5">
         {chartItems.map((item, index) => {
           const percent = totalTokens > 0 ? item.totalTokens / totalTokens : 0;
           return (
-            <div key={`${item.providerType}-${item.modelName}`} className="flex min-w-0 items-center gap-3">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
-              />
+            <div
+              key={`${item.providerType}-${item.modelName}`}
+              className={cn(
+                'flex min-w-0 items-center gap-3 rounded-md px-1 py-1.5 transition-colors hover:bg-ink/[0.025] lg:px-1.5',
+                index >= 3 && 'hidden lg:flex',
+              )}
+            >
+              <UsageProviderIcon item={item} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-ink">{item.modelName}</p>
-                <p className="mono-label mt-0.5 text-muted-soft">
-                  {item.providerType} · {formatNumber(item.calls)} 次
-                </p>
+                <p className="truncate text-sm font-bold text-ink">{getModelDisplayName(item)}</p>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-bold text-ink">{formatPercent(percent, 1)}</p>
-                <p className="mono-label mt-0.5 text-muted-soft">{formatNumber(item.totalTokens)}</p>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-sm font-bold text-ink">{formatPercent(percent, 1)}</span>
+                <span
+                  className="h-2.5 w-2.5 rounded-full ring-2 ring-canvas"
+                  style={{ backgroundColor: MODEL_COLORS[index % MODEL_COLORS.length] }}
+                />
               </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function UsageProviderIcon({ item }: { item: ModelUsageDTO }) {
+  const iconUrl = getProviderIcon(item.providerType, item.providerType, item.modelName);
+  if (!iconUrl) {
+    return null;
+  }
+
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+      <img src={iconUrl} alt="" aria-hidden="true" className="h-5 w-5 object-contain" />
+    </span>
   );
 }
 
@@ -686,6 +705,19 @@ function buildPieSegments(data: ModelUsageDTO[], total: number) {
   });
 }
 
+function describePieSegment(
+  segment: {
+    startAngle: number;
+    endAngle: number;
+  },
+  segmentCount: number,
+) {
+  const angle = segment.endAngle - segment.startAngle;
+  if (angle <= 0) return '';
+  const gapAngle = segmentCount > 1 ? Math.min(3.2, angle * 0.28) : 0;
+  return describeArc(85, 85, 59, segment.startAngle + gapAngle / 2, segment.endAngle - gapAngle / 2);
+}
+
 function describeArc(cx: number, cy: number, radius: number, startAngle: number, endAngle: number) {
   if (endAngle - startAngle >= 359.99) {
     return [
@@ -710,45 +742,30 @@ function polarToCartesian(cx: number, cy: number, radius: number, angleInDegrees
 
 function RecentCallsList({ logs }: { logs: UsageLogDTO[] }) {
   return (
-    <div className="popover-scrollbar h-full divide-y divide-border-subtle overflow-y-auto rounded-lg border border-hairline">
-      {logs.map((log) => (
-        <div key={log.id} className="px-3.5 py-3 bg-surface-soft">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={cn(
-                    'h-2 w-2 shrink-0 rounded-full',
-                    isSuccessStatus(log.status) ? 'bg-success' : 'bg-error',
-                  )}
-                />
-                <p className="truncate text-sm font-bold text-ink">{log.modelName}</p>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="mono-label text-muted-soft">{formatTime(log.createdAt)}</span>
-                <span
-                  className={cn(
-                    'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                    isSuccessStatus(log.status) ? 'bg-success/10 text-success' : 'bg-error/10 text-error',
-                  )}
-                >
-                  {getStatusLabel(log.status)}
-                </span>
-                {log.errorMessage && (
-                  <span
-                    className="inline-flex max-w-[140px] items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-bold text-warning"
-                    title={log.errorMessage}
-                  >
-                    <TriangleAlert size={10} className="shrink-0" />
-                    <span className="truncate">{getErrorLabel(log.errorMessage)}</span>
-                  </span>
-                )}
-              </div>
+    <div className="popover-scrollbar h-full space-y-0.5 overflow-y-auto pr-1 lg:space-y-1">
+      {logs.map((log, index) => (
+        <div
+          key={log.id}
+          className={cn(
+            'flex items-center justify-between gap-4 rounded-md px-1 py-2 transition-colors hover:bg-ink/[0.025] lg:px-2 lg:py-2.5',
+            index >= 4 && 'hidden lg:flex',
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn('h-2 w-2 shrink-0 rounded-full', isSuccessStatus(log.status) ? 'bg-success' : 'bg-error')}
+              title={getStatusLabel(log.status)}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-ink">{getModelDisplayName(log)}</p>
+              <p className="mono-label mt-1 truncate text-muted-soft">
+                {log.errorMessage ? getErrorLabel(log.errorMessage) : formatTime(log.createdAt)}
+              </p>
             </div>
-            <div className="shrink-0 text-right">
-              <p className="text-sm font-bold text-ink">{formatNumber(log.totalTokens)}</p>
-              <p className="mono-label mt-1 text-muted-soft">Token</p>
-            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-sm font-bold text-ink">{formatCompactTokens(log.totalTokens).replace(' tokens', '')}</p>
+            <p className="mono-label mt-1 hidden text-muted-soft lg:block">{formatTime(log.createdAt)}</p>
           </div>
         </div>
       ))}
@@ -778,7 +795,7 @@ function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
     (index) => index >= 0,
   );
   const gridTicks = [0, 0.25, 0.5, 0.75, 1];
-  const strokeColor = 'var(--color-primary)';
+  const strokeColor = 'var(--color-success)';
   const gridColor = 'var(--color-hairline)';
   const labelColor = 'var(--color-muted-soft)';
   const hoveredPoint = points.find((point) => point.date === hoveredDate) ?? null;
@@ -854,7 +871,7 @@ function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
               cx={point.x}
               cy={point.y}
               r={hoveredDate === point.date ? 5 : index === points.length - 1 ? 4 : 3}
-              fill="var(--color-bg-card-solid)"
+              fill="var(--color-canvas)"
               stroke={strokeColor}
               strokeWidth="2"
               className="transition-all"
@@ -889,7 +906,7 @@ function TokenLineChart({ data }: { data: DailyUsageDTO[] }) {
 
       {hoveredPoint && (
         <div
-          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-hairline bg-bg-card-solid px-3 py-2 text-xs text-ink (--)]"
+          className="pointer-events-none absolute z-10 min-w-[180px] rounded-xl border border-hairline bg-bg-card-solid px-3 py-2 text-xs text-ink"
           style={{
             left: `${(hoveredPoint.x / width) * 100}%`,
             top: `${(hoveredPoint.y / height) * 100}%`,
@@ -925,7 +942,7 @@ function TooltipRow({ label, value }: { label: string; value: string }) {
 
 function EmptyBlock({ icon, text }: { icon: ReactNode; text: string }) {
   return (
-    <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-hairline px-4 py-10 text-center text-sm text-muted">
+    <div className="flex min-h-[160px] flex-col items-center justify-center gap-2 rounded-lg px-4 py-10 text-center text-sm text-muted">
       {icon}
       <span>{text}</span>
     </div>

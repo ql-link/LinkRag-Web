@@ -56,7 +56,7 @@ function AppContent() {
 
   const loadingView = (
     <div
-      className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main'}`}
+      className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#1f1f1f] text-[#d6d6d6]' : 'bg-bg-base text-text-main'}`}
     >
       <div className="text-sm uppercase tracking-[0.3em]">Loading LinkRag...</div>
     </div>
@@ -81,7 +81,7 @@ function AppContent() {
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
 
             {/* Creator Routes */}
-            {user && (
+            {user?.role === 'ADMIN' && (
               <>
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/blogs" replace />} />

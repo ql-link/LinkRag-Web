@@ -10,7 +10,7 @@ import {
   type WheelEvent,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Mail, PenLine, Phone, ShieldCheck, UserRound, X } from 'lucide-react';
+import { Loader2, LogOut, Mail, PenLine, Phone, ShieldCheck, UserRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,7 +131,7 @@ async function createCroppedAvatarFile(
 }
 
 export default function ProfilePage() {
-  const { refreshProfile } = useAuth();
+  const { logout, refreshProfile } = useAuth();
   const { addToast } = useToast();
   const [profile, setProfile] = useState<UserProfileDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,6 +178,16 @@ export default function ProfilePage() {
 
   function handleOpenAdminPage() {
     navigate(Routes.AdminBlogs);
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    } finally {
+      navigate(Routes.Welcome, { replace: true });
+    }
   }
 
   function openEdit(field: Exclude<EditField, null>) {
@@ -388,9 +398,9 @@ export default function ProfilePage() {
     icon: ReactNode,
   ) {
     return (
-      <div className="flex flex-col gap-3 border-b border-border-subtle px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
+      <div className="flex items-center gap-3 px-1 py-4 sm:px-6 lg:border-b lg:border-border-subtle lg:last:border-b-0">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">{icon}</div>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center text-muted lg:h-8 lg:w-8">{icon}</div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-ink">{label}</p>
             <p className={cn('mt-1 truncate text-xs', value ? 'text-text-secondary' : 'text-muted')}>
@@ -401,10 +411,11 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => openEdit(field)}
-          className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-soft hover:text-ink sm:w-auto"
+          className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-xl text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink sm:w-auto sm:px-3"
+          aria-label={`修改${label}`}
         >
           <PenLine size={14} />
-          修改
+          <span className="hidden text-xs font-bold sm:inline">修改</span>
         </button>
       </div>
     );
@@ -432,8 +443,8 @@ export default function ProfilePage() {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-canvas">
-        <section className="mx-auto w-full max-w-[820px] px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pb-6">
-          <div className="mb-6 flex flex-col gap-2">
+        <section className="mx-auto w-full max-w-[820px] px-4 py-4 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:py-6 lg:pb-6">
+          <div className="mb-6 hidden flex-col gap-2 lg:flex">
             <h1 className="text-[24px] font-semibold leading-tight text-ink sm:text-[27px]">个人信息</h1>
             <p className="text-[13px] text-muted">管理账户展示资料、联系方式与内容管理入口。</p>
           </div>
@@ -443,29 +454,33 @@ export default function ProfilePage() {
               <Loader2 className="animate-spin text-muted" size={24} />
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-4 lg:space-y-8">
               <section>
-                <div className="flex flex-col gap-5 border-b border-border-subtle px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <div className="flex min-w-0 items-center gap-4">
+                <div className="flex flex-col items-center gap-4 px-1 py-6 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left lg:border-b lg:border-border-subtle">
+                  <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:gap-4">
                     <div className="group/avatar relative shrink-0">
                       {profile?.avatarUrl ? (
                         <img
                           src={profile.avatarUrl}
                           alt="用户头像"
-                          className="h-20 w-20 rounded-full border border-hairline object-cover"
+                          className="h-24 w-24 rounded-full border border-hairline object-cover sm:h-20 sm:w-20"
                         />
                       ) : (
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-hairline bg-surface-soft text-3xl font-semibold text-primary">
+                        <div className="flex h-24 w-24 items-center justify-center rounded-full border border-hairline bg-surface-soft text-3xl font-semibold text-primary sm:h-20 sm:w-20">
                           {getInitial(profile)}
                         </div>
                       )}
                       <label
                         className={cn(
-                          'absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/45 text-xs font-bold text-white opacity-0 transition-opacity group-hover/avatar:opacity-100 group-focus-within/avatar:opacity-100',
+                          'absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-transparent text-xs font-bold text-white opacity-100 transition-colors hover:bg-black/10 focus-within:bg-black/10 lg:opacity-0 lg:hover:bg-black/45 lg:group-hover/avatar:opacity-100 lg:group-focus-within/avatar:opacity-100',
                           avatarLoading && 'pointer-events-none opacity-70',
                         )}
                       >
-                        {avatarLoading ? <Loader2 size={16} className="animate-spin" /> : '修改'}
+                        {avatarLoading ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <span className="hidden lg:inline">修改</span>
+                        )}
                         <input
                           type="file"
                           accept="image/*"
@@ -477,7 +492,7 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 sm:justify-start">
                         <h2 className="min-w-0 max-w-full truncate text-lg font-bold text-ink">
                           {getDisplayName(profile)}
                         </h2>
@@ -492,7 +507,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleOpenAdminPage}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-hairline bg-canvas px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:text-ink"
+                      className="hidden h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border-subtle px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-ink/[0.035] hover:text-ink lg:inline-flex"
                     >
                       <ShieldCheck size={15} />
                       后台管理
@@ -514,6 +529,19 @@ export default function ProfilePage() {
                     value={profile?.role === 'ADMIN' ? '管理员' : '普通用户'}
                     icon={<ShieldCheck size={16} />}
                   />
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="mt-2 flex w-full items-center gap-3 px-1 py-4 text-left text-error transition-colors hover:bg-error/8 sm:px-6 lg:hidden"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center text-error">
+                      <LogOut size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold">退出登录</span>
+                      <span className="mt-1 block text-xs text-error/70">退出当前账户并返回登录页</span>
+                    </span>
+                  </button>
                 </div>
               </section>
             </div>
@@ -567,7 +595,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => closeAvatarCrop()}
                 disabled={avatarLoading}
-                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink disabled:opacity-60"
+                className="h-9 rounded-lg px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink disabled:opacity-60"
               >
                 取消
               </button>
@@ -575,7 +603,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleConfirmAvatarUpload}
                 disabled={avatarLoading || !avatarCropImage}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
               >
                 {avatarLoading && <Loader2 className="animate-spin" size={14} />}
                 保存头像
@@ -609,7 +637,7 @@ export default function ProfilePage() {
                   inputMode={fieldMeta[editField].inputMode}
                   value={draftValue}
                   onChange={(event) => setDraftValue(event.target.value)}
-                  className="h-11 w-full rounded-xl border border-hairline bg-bg-card-solid px-4 text-sm text-text-main outline-none transition-colors placeholder:text-muted-soft focus:border-primary/40"
+                  className="h-11 w-full rounded-lg border border-hairline bg-bg-card-solid px-4 text-sm text-text-main outline-none transition-colors placeholder:text-muted-soft focus:border-primary/40"
                   placeholder={fieldMeta[editField].placeholder}
                 />
               </label>
@@ -621,7 +649,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={closeEdit}
-                className="h-9 rounded-xl px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink"
+                className="h-9 rounded-lg px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-bg-card-solid hover:text-ink"
               >
                 取消
               </button>
@@ -629,7 +657,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={handleSave}
                 disabled={submitLoading}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:opacity-70"
               >
                 {submitLoading && <Loader2 className="animate-spin" size={14} />}
                 保存
@@ -644,8 +672,8 @@ export default function ProfilePage() {
 
 function ProfileStaticRow({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4 last:border-b-0 sm:px-6">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center text-muted">{icon}</div>
+    <div className="flex items-center gap-3 px-1 py-4 sm:px-6 lg:border-b lg:border-border-subtle lg:last:border-b-0">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center text-muted lg:h-8 lg:w-8">{icon}</div>
       <div className="min-w-0">
         <p className="text-sm font-bold text-ink">{label}</p>
         <p className="mt-1 truncate text-xs text-text-secondary">{value}</p>

@@ -1,0 +1,32 @@
+<!-- @dsCard group="Colors" name="Accent & Semantic" subtitle="Teal, amber + success / warning / error" viewport="680x230" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #faf9f5; padding: 24px 28px; font-family: var(--font-mono); }
+  .section { font-family: var(--font-mono); font-size: 11px; color: #8e8b82; margin-bottom: 10px; letter-spacing: 0.02em; }
+  .row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .swatch { flex: 1; border-radius: 10px; padding: 14px 12px; display: flex; flex-direction: column; justify-content: flex-end; min-height: 64px; }
+  .swatch .name { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .swatch .val { font-size: 9px; opacity: 0.75; }
+</style>
+</head>
+<body>
+  <div class="section">Accent — used sparingly</div>
+  <div class="row">
+    <div class="swatch" style="background:#5db8a6; color:#fff;"><span class="name">Accent Teal</span><span class="val">#5db8a6</span></div>
+    <div class="swatch" style="background:#e8a55a; color:#3d2a12;"><span class="name">Accent Amber</span><span class="val">#e8a55a</span></div>
+  </div>
+  <div class="section">Semantic — status only</div>
+  <div class="row">
+    <div class="swatch" style="background:#5db872; color:#fff;"><span class="name">Success</span><span class="val">#5db872</span></div>
+    <div class="swatch" style="background:#d4a017; color:#fff;"><span class="name">Warning</span><span class="val">#d4a017</span></div>
+    <div class="swatch" style="background:#c64545; color:#fff;"><span class="name">Error</span><span class="val">#c64545</span></div>
+    <div class="swatch" style="background:#5b7fb8; color:#fff;"><span class="name">Info</span><span class="val">#5b7fb8</span></div>
+  </div>
+</body>
+</html>

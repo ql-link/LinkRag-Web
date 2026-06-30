@@ -1,5 +1,9 @@
 export function normalizeProviderToken(value: string) {
-  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (value || '')
+    .toLowerCase()
+    .replace(/智谱清言/g, 'zhipuai')
+    .replace(/智谱/g, 'zhipu')
+    .replace(/[^a-z0-9]/g, '');
 }
 
 const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
@@ -14,6 +18,14 @@ const PROVIDER_ICON_URLS: Record<string, string> = Object.fromEntries(
     return [filename, iconUrl];
   }),
 );
+
+const STATIC_PROVIDER_ICON_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2.png',
+};
+
+const STATIC_PROVIDER_ICON_DARK_URLS: Record<string, string> = {
+  linkrag: '/linkrag-mark-v2-dark.png',
+};
 
 const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
   [
@@ -37,6 +49,7 @@ const MONOCHROME_PROVIDER_ICON_KEYS = new Set(
 const PROVIDER_ICON_MONOCHROME_BY_URL = new Map(
   Object.entries(PROVIDER_ICON_URLS).map(([key, url]) => [url, MONOCHROME_PROVIDER_ICON_KEYS.has(key)]),
 );
+let providerIconsPreloaded = false;
 
 function firstAvailableIconKey(...keys: string[]) {
   return keys.map(normalizeProviderToken).find((key) => PROVIDER_ICON_URLS[key]) || '';
@@ -72,18 +85,39 @@ const PROVIDER_ICON_ALIASES: Record<string, string> = {
   giteeai: firstAvailableIconKey('gitee-ai'),
   novitaai: firstAvailableIconKey('novita-ai'),
   localai: firstAvailableIconKey('local-ai'),
-  zhipuai: firstAvailableIconKey('zhipu'),
+  zhipu: firstAvailableIconKey('zhipu-color', 'zhipu'),
+  zhipuai: firstAvailableIconKey('zhipu-color', 'zhipu'),
+  chatglm: firstAvailableIconKey('zhipu-color', 'zhipu'),
+  glm: firstAvailableIconKey('zhipu-color', 'zhipu'),
   mimo: firstAvailableIconKey('xiaomimimo'),
   xiaomi: firstAvailableIconKey('xiaomimimo'),
   xiaomimimo: firstAvailableIconKey('xiaomimimo'),
 };
 
 const PROVIDER_ICON_PREFIXES = Object.keys(PROVIDER_ICON_URLS).sort((a, b) => b.length - a.length);
+const PROVIDER_ICON_ALIAS_PREFIXES = Object.keys(PROVIDER_ICON_ALIASES).sort((a, b) => b.length - a.length);
 
-export function getProviderIcon(providerType: string, providerName?: string, modelName?: string) {
+export function getProviderIcon(
+  providerType: string,
+  providerName?: string,
+  modelName?: string,
+  options?: { darkMode?: boolean },
+) {
   const keys = [providerType, providerName || '', modelName || ''].map(normalizeProviderToken);
+  const staticIconUrls = options?.darkMode ? STATIC_PROVIDER_ICON_DARK_URLS : STATIC_PROVIDER_ICON_URLS;
+  const matchedStaticUrl = keys.map((key) => staticIconUrls[key] || STATIC_PROVIDER_ICON_URLS[key]).find(Boolean);
+  if (matchedStaticUrl) {
+    return matchedStaticUrl;
+  }
+
   const matchedAliasKey = keys
-    .map((key) => PROVIDER_ICON_ALIASES[key])
+    .map((key) => {
+      const exactAliasKey = PROVIDER_ICON_ALIASES[key];
+      if (exactAliasKey) return exactAliasKey;
+
+      const prefixAliasKey = PROVIDER_ICON_ALIAS_PREFIXES.find((aliasKey) => key.includes(aliasKey));
+      return prefixAliasKey ? PROVIDER_ICON_ALIASES[prefixAliasKey] : '';
+    })
     .find((iconKey) => typeof iconKey === 'string' && iconKey.length > 0);
   if (matchedAliasKey) {
     return PROVIDER_ICON_URLS[matchedAliasKey] || '';
@@ -102,4 +136,14 @@ export function getProviderIcon(providerType: string, providerName?: string, mod
 
 export function isProviderIconMonochrome(iconUrl: string) {
   return PROVIDER_ICON_MONOCHROME_BY_URL.get(iconUrl) ?? false;
+}
+
+export function preloadProviderIcons() {
+  if (providerIconsPreloaded || typeof window === 'undefined') return;
+  providerIconsPreloaded = true;
+  Object.values(PROVIDER_ICON_URLS).forEach((url) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+  });
 }

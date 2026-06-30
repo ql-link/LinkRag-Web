@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Navigate, useNavigate } from 'react-router';
-import { Loader2, Lock, Mail, Sparkles, User } from 'lucide-react';
+import { Loader2, Lock, Mail, User } from 'lucide-react';
 import { Routes } from '@/routes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -86,18 +87,23 @@ export default function MobileAuth() {
     <div
       className={cn(
         'flex min-h-screen flex-col justify-center px-6 py-10',
-        darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
+        darkMode ? 'bg-[#1f1f1f] text-[#d6d6d6]' : 'bg-bg-base text-text-main',
       )}
       style={{
         paddingTop: 'max(2.5rem, env(safe-area-inset-top))',
         paddingBottom: 'max(2.5rem, env(safe-area-inset-bottom))',
       }}
     >
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto min-h-[588px] w-full max-w-sm">
         {/* Brand */}
         <div className="mb-9 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-            <Sparkles size={26} />
+          <div className="mb-4 flex h-14 w-14 items-center justify-center">
+            <img
+              src={darkMode ? '/linkrag-mark-v2-dark.png' : '/linkrag-mark-v2.png'}
+              alt="LinkRag"
+              className="h-14 w-14 object-contain"
+              draggable={false}
+            />
           </div>
           <h1 className="serif-heading text-3xl text-text-main">LinkRag</h1>
           <p className="mt-2 text-sm text-text-tertiary">让知识可问可答</p>
@@ -130,17 +136,28 @@ export default function MobileAuth() {
             onChange={(value) => updateField('username', value)}
           />
 
-          {mode === 'register' && (
-            <Field
-              icon={<Mail size={16} />}
-              placeholder="邮箱"
-              type="email"
-              autoComplete="email"
-              value={form.email}
-              error={fieldErrors.email}
-              onChange={(value) => updateField('email', value)}
-            />
-          )}
+          <AnimatePresence initial={false}>
+            {mode === 'register' && (
+              <motion.div
+                key="register-email"
+                initial={{ height: 0, opacity: 0, y: -6 }}
+                animate={{ height: 'auto', opacity: 1, y: 0 }}
+                exit={{ height: 0, opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <Field
+                  icon={<Mail size={16} />}
+                  placeholder="邮箱"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  error={fieldErrors.email}
+                  onChange={(value) => updateField('email', value)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Field
             icon={<Lock size={16} />}
@@ -152,17 +169,28 @@ export default function MobileAuth() {
             onChange={(value) => updateField('password', value)}
           />
 
-          {mode === 'register' && (
-            <Field
-              icon={<Lock size={16} />}
-              placeholder="确认密码"
-              type="password"
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              error={fieldErrors.confirmPassword}
-              onChange={(value) => updateField('confirmPassword', value)}
-            />
-          )}
+          <AnimatePresence initial={false}>
+            {mode === 'register' && (
+              <motion.div
+                key="register-confirm-password"
+                initial={{ height: 0, opacity: 0, y: -6 }}
+                animate={{ height: 'auto', opacity: 1, y: 0 }}
+                exit={{ height: 0, opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <Field
+                  icon={<Lock size={16} />}
+                  placeholder="确认密码"
+                  type="password"
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  error={fieldErrors.confirmPassword}
+                  onChange={(value) => updateField('confirmPassword', value)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <button
             type="submit"

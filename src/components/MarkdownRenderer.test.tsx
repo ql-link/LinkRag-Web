@@ -86,7 +86,8 @@ describe('MarkdownRenderer', () => {
     const quote = screen.getByText('quoted text').closest('blockquote');
 
     expect(quote).toHaveClass('not-prose');
-    expect(quote).toHaveClass('border-primary');
+    expect(quote).toHaveClass('border-primary/45');
+    expect(quote).toHaveClass('bg-transparent');
   });
 
   it('renders deterministic heading ids that match markdown toc links', () => {
@@ -112,6 +113,29 @@ describe('MarkdownRenderer', () => {
     expect(screen.queryByText('**Bold value**')).not.toBeInTheDocument();
   });
 
+  it('renders inline latex math with KaTeX', () => {
+    const { container } = render(<MarkdownRenderer content={'质能方程 $E = mc^2$'} />);
+
+    expect(container.querySelector('.katex')).toBeInTheDocument();
+    expect(screen.queryByText('$E = mc^2$')).not.toBeInTheDocument();
+  });
+
+  it('renders common status emoji as inline interface symbols', () => {
+    render(<MarkdownRenderer content={'✅ 已完成\n\n- ⚠️ 需要注意'} />);
+
+    expect(screen.getByLabelText('完成')).toBeInTheDocument();
+    expect(screen.getByLabelText('注意')).toBeInTheDocument();
+    expect(screen.queryByText('✅')).not.toBeInTheDocument();
+    expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
+  });
+
+  it('normalizes bracket latex delimiters before rendering math', () => {
+    const { container } = render(<MarkdownRenderer content={'\\[\na^2 + b^2 = c^2\n\\]'} />);
+
+    expect(container.querySelector('.katex-display')).toBeInTheDocument();
+    expect(screen.queryByText(/\\\[/)).not.toBeInTheDocument();
+  });
+
   it('renders multiple bold spans in the same CJK table row without leaking markers', () => {
     render(
       <MarkdownRenderer
@@ -125,5 +149,14 @@ describe('MarkdownRenderer', () => {
     expect(screen.getByText('无契约变更').tagName).toBe('STRONG');
     expect(screen.queryByText(/\*\*L1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/变更\*\*/)).not.toBeInTheDocument();
+  });
+
+  it('renders recall chunk links as circular citation numbers', () => {
+    render(<MarkdownRenderer content={'参考 [片段 2](#recall-chunk-2)'} />);
+
+    const link = screen.getByRole('link', { name: '查看片段 2' });
+    expect(link).toHaveAttribute('href', '#recall-chunk-2');
+    expect(link).toHaveTextContent('2');
+    expect(link).not.toHaveTextContent('片段');
   });
 });

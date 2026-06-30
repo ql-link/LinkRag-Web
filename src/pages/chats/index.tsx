@@ -8,13 +8,32 @@ import {
   type ChangeEvent,
   type DragEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { Copy, Database, Files, Info, Loader2, MessageSquare, Search, Send, Sparkles, Upload, X } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  Database,
+  FileText,
+  Files,
+  Info,
+  Loader2,
+  MessageSquare,
+  Search,
+  Send,
+  SquarePen,
+  Upload,
+  X,
+} from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import linkRagThinkingMarkDarkUrl from '@/assets/brand/linkrag-mark-v4-merge-dark.svg';
+import linkRagThinkingMarkUrl from '@/assets/brand/linkrag-mark-v4-merge.svg';
+import linkRagStaticMarkDarkUrl from '@/assets/brand/linkrag-mark-v4-static-dark.svg';
+import linkRagStaticMarkUrl from '@/assets/brand/linkrag-mark-v4-static.svg';
 import { Routes } from '@/routes';
 import { cn } from '@/lib/utils';
 import {
@@ -34,8 +53,8 @@ import {
   toUiMessages,
 } from '@/services/chat';
 import { getChunkDetails } from '@/services/chunk';
-import { getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
-import { getDefaultLLMConfig, getLLMConfigs } from '@/services/llm';
+import { getDatasetParseConfig, getDatasets, getKnowledgeFiles, uploadKnowledgeFile } from '@/services/dataset';
+import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
 import { isRecallAborted, isRecallError, recall, type RecallError } from '@/services/recall';
 import {
   KNOWLEDGE_FILE_ACCEPT,
@@ -44,9 +63,12 @@ import {
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
 import { usePublishChatWorkspace, type ChatWorkspaceSnapshot } from '@/contexts/chatWorkspace';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getCachedConversations, setCachedConversations } from '@/lib/conversationsCache';
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { copyTextToClipboard } from '@/lib/clipboard';
+import { getModelDisplayName, hydrateModelDisplayNames } from '@/lib/model-display';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
 import type {
   ConversationDTO,
   DatasetDTO,
@@ -59,6 +81,9 @@ import type {
 
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
+const MESSAGE_SCROLL_BOTTOM_THRESHOLD = 96;
+const RIGHT_PANEL_RESIZE_ROW_PX = 6;
+const RIGHT_PANEL_TRANSITION_MS = 200;
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -68,6 +93,10 @@ type ChatRouteState = {
 interface LocalMessage extends UiChatMessage {
   recallChunks?: RecallChunk[];
 }
+
+type ChatModel = LLMConfigDTO & {
+  providerName?: string;
+};
 
 interface ConversationDraft {
   messages: LocalMessage[];
@@ -191,15 +220,136 @@ function hydrateMessagesWithChunkDetails(messages: UiChatMessage[], chunks: Reca
   });
 }
 
+const chineseRecallNumberMap: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+};
+
+function parseRecallMentionNumber(value: string): number | null {
+  const normalized = value.trim();
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  if (normalized === '十') return 10;
+  if (!/^[一二三四五六七八九十]+$/.test(normalized)) return null;
+
+  const [tenPart, unitPart] = normalized.split('十');
+  const tens = tenPart ? chineseRecallNumberMap[tenPart] : 1;
+  const units = unitPart ? chineseRecallNumberMap[unitPart] : 0;
+  if (!Number.isFinite(tens) || !Number.isFinite(units)) return null;
+  return tens * 10 + units;
+}
+
+function linkifyRecallChunkMentions(content: string, chunks?: RecallChunk[]) {
+  if (!content || !chunks || chunks.length === 0) return content;
+
+  const replaceMentions = (text: string) =>
+    text.replace(
+      /(?:[［【[]\s*片段\s*([0-9]{1,3}|[一二三四五六七八九十]{1,3})\s*[\]］】]|片段\s*([0-9]{1,3}|[一二三四五六七八九十]{1,3}))/g,
+      (match, bracketedNumber: string | undefined, plainNumber: string | undefined) => {
+        const rawNumber = bracketedNumber ?? plainNumber;
+        const index = rawNumber ? parseRecallMentionNumber(rawNumber) : null;
+        if (!index || index < 1 || index > chunks.length) return match;
+        return `[片段 ${index}](#recall-chunk-${index})`;
+      },
+    );
+
+  let inCodeFence = false;
+
+  return content
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inCodeFence = !inCodeFence;
+        return line;
+      }
+      if (inCodeFence) return line;
+
+      const protectedPattern = /(`[^`]*`|\[[^\]]+\]\([^)]+\))/g;
+      let nextLine = '';
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = protectedPattern.exec(line))) {
+        nextLine += replaceMentions(line.slice(lastIndex, match.index));
+        nextLine += match[0];
+        lastIndex = match.index + match[0].length;
+      }
+
+      nextLine += replaceMentions(line.slice(lastIndex));
+      return nextLine;
+    })
+    .join('\n');
+}
+
 const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
 
-function shouldInsetModelIcon(model: LLMConfigDTO | null | undefined, iconUrl: string) {
-  const token = normalizeProviderToken(`${model?.providerType ?? ''} ${model?.modelName ?? ''} ${iconUrl}`);
+function getModelProviderName(model: ChatModel | null | undefined) {
+  return model?.providerName?.trim() || model?.providerType || '';
+}
+
+function getChatModelDisplayName(model: ChatModel | null | undefined) {
+  return getModelDisplayName(model) || model?.modelName || '选择模型';
+}
+
+function getModelIdentityValue(value: string | null | undefined) {
+  return value?.trim().toLowerCase() || '';
+}
+
+function isSameChatModel(a: LLMConfigDTO | null | undefined, b: LLMConfigDTO | null | undefined) {
+  if (!a || !b) return false;
+  if (a.id === b.id) return true;
+
+  if (a.configId !== undefined && a.configId !== null) {
+    if (a.configId === b.id || a.configId === b.configId) return true;
+  }
+  if (b.configId !== undefined && b.configId !== null) {
+    if (b.configId === a.id || b.configId === a.configId) return true;
+  }
+
+  return (
+    getModelIdentityValue(a.providerType) === getModelIdentityValue(b.providerType) &&
+    getModelIdentityValue(a.modelName) === getModelIdentityValue(b.modelName) &&
+    getModelIdentityValue(a.capability) === getModelIdentityValue(b.capability)
+  );
+}
+
+function getRightPanelGridRows(split: number) {
+  return `minmax(0, ${split}fr) ${RIGHT_PANEL_RESIZE_ROW_PX}px minmax(0, ${1 - split}fr)`;
+}
+
+function getRightPanelGridRowsForState(filesOpen: boolean, recallOpen: boolean, split: number) {
+  if (filesOpen && recallOpen) return getRightPanelGridRows(split);
+  if (filesOpen) return 'minmax(0, 1fr) 0px minmax(0, 0fr)';
+  if (recallOpen) return 'minmax(0, 0fr) 0px minmax(0, 1fr)';
+  return 'minmax(0, 0fr) 0px minmax(0, 0fr)';
+}
+
+function shouldInsetModelIcon(model: ChatModel | null | undefined, iconUrl: string) {
+  const token = normalizeProviderToken(
+    `${model?.providerType ?? ''} ${getModelProviderName(model)} ${model?.modelName ?? ''} ${iconUrl}`,
+  );
   return INSET_MODEL_ICON_KEYS.some((key) => token.includes(key));
 }
 
-function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null | undefined; size?: 'xs' | 'sm' }) {
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerType, model.modelName) : '';
+function ModelProviderIcon({
+  model,
+  size = 'sm',
+  darkMode: darkModeProp,
+}: {
+  model: ChatModel | null | undefined;
+  size?: 'xs' | 'sm';
+  darkMode?: boolean;
+}) {
+  const { darkMode: darkModeCtx } = useTheme();
+  const darkMode = darkModeProp ?? darkModeCtx;
+  const providerName = getModelProviderName(model);
+  const iconUrl = model ? getProviderIcon(model.providerType, providerName, model.modelName, { darkMode }) : '';
   const iconIsMonochrome = isProviderIconMonochrome(iconUrl);
   const sizeClass = size === 'xs' ? 'h-5 w-5' : 'h-6 w-6';
   const iconInsetClass = shouldInsetModelIcon(model, iconUrl) ? 'p-1' : 'p-0';
@@ -209,7 +359,7 @@ function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null 
       {iconUrl ? (
         <img
           src={iconUrl}
-          alt={model?.providerType ?? '模型'}
+          alt={providerName || '模型'}
           className={cn('block h-full w-full object-contain', iconInsetClass, iconIsMonochrome && 'opacity-80')}
         />
       ) : (
@@ -219,55 +369,96 @@ function ModelProviderIcon({ model, size = 'sm' }: { model: LLMConfigDTO | null 
   );
 }
 
-function RecallEvidencePanel({ message, showHeader = true }: { message: LocalMessage | null; showHeader?: boolean }) {
-  const chunks = message?.recallChunks ?? [];
-  const references = (message?.references ?? []).filter((item) => item.trim().length > 0);
+function RecallEvidencePanel({
+  message,
+  showHeader = true,
+  activeChunkId,
+  onClose,
+}: {
+  message: LocalMessage | null;
+  showHeader?: boolean;
+  activeChunkId?: string | null;
+  onClose?: () => void;
+}) {
+  const chunks = useMemo(() => message?.recallChunks ?? [], [message?.recallChunks]);
+  const references = useMemo(
+    () => (message?.references ?? []).filter((item) => item.trim().length > 0),
+    [message?.references],
+  );
+  const chunkNodeByIdRef = useRef(new Map<string, HTMLElement>());
+
+  useEffect(() => {
+    if (!activeChunkId) return;
+    chunkNodeByIdRef.current.get(activeChunkId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeChunkId, chunks]);
 
   return (
     <section className="flex h-full min-h-0 flex-col">
       {showHeader && (
-        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-3">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
           <div className="flex min-w-0 items-center gap-2">
             <Search size={14} className="shrink-0 text-muted" />
-            <h2 className="truncate text-sm font-semibold text-text-secondary">召回片段</h2>
+            <h2 className="truncate text-sm font-semibold text-ink">召回片段</h2>
+            <span className="shrink-0 text-[10px] font-semibold text-muted">
+              {chunks.length > 0 ? chunks.length : references.length}
+            </span>
           </div>
-          <span className="shrink-0 rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-muted">
-            {chunks.length > 0 ? chunks.length : references.length}
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
+                aria-label="关闭召回片段"
+                title="关闭召回片段"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       <div
-        className={cn('popover-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-3', !showHeader && 'pt-1')}
+        className={cn(
+          'popover-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-3 pb-3',
+          showHeader ? 'pt-3' : 'pt-1',
+        )}
       >
         {chunks.length > 0 ? (
           chunks.map((chunk, index) => (
             <article
               key={`${chunk.id}-${index}`}
-              className="overflow-hidden rounded-xl border border-hairline bg-canvas shadow-sm shadow-black/[0.03]"
+              ref={(node) => {
+                if (node) {
+                  chunkNodeByIdRef.current.set(chunk.id, node);
+                } else {
+                  chunkNodeByIdRef.current.delete(chunk.id);
+                }
+              }}
+              className="scroll-mt-3 border-b border-hairline/70 px-1 py-2.5 last:border-b-0"
             >
-              <div className="flex items-start justify-between gap-3 border-b border-hairline bg-surface-soft/70 px-3 py-2">
-                <div className="flex min-w-0 items-start gap-2">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary">
-                    {index + 1}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-soft text-[10px] font-semibold leading-none text-text-secondary"
+                    title={`片段 ${index + 1}`}
+                  >
+                    <span className="tabular-nums">{index + 1}</span>
                   </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold leading-4 text-ink">{chunk.fileName}</p>
-                    <p className="mt-0.5 truncate text-[10px] leading-3 text-muted-soft">chunk {chunk.id}</p>
-                  </div>
+                  <FileText size={12} className="shrink-0 text-muted-soft" />
+                  <p className="min-w-0 truncate text-xs font-medium leading-4 text-primary">{chunk.fileName}</p>
                 </div>
                 {chunk.score !== null && (
-                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {chunk.score}%
-                  </span>
+                  <span className="shrink-0 text-[10px] font-medium tabular-nums text-muted-soft">{chunk.score}%</span>
                 )}
               </div>
-              <div className="px-3 py-2">
+              <div className="pt-1.5">
                 <MarkdownRenderer
                   content={chunk.snippet}
                   compact
                   className={cn(
-                    'border-l-2 border-primary/20 pl-3 text-[11px] leading-5 text-body',
+                    'text-[11px] leading-5 text-body',
                     'prose-headings:my-2 prose-h1:text-base prose-h2:text-sm prose-h3:text-sm prose-h4:text-xs prose-h5:text-xs prose-h6:text-xs',
                     'prose-h2:border-b-0 prose-h2:pb-0 prose-p:my-1.5 prose-p:leading-5 prose-li:my-0.5 prose-ul:my-2 prose-ol:my-2',
                     '[&_h1_a]:hidden [&_h2_a]:hidden [&_h3_a]:hidden [&_h4_a]:hidden [&_h5_a]:hidden [&_h6_a]:hidden',
@@ -309,166 +500,6 @@ function RecallEvidencePanel({ message, showHeader = true }: { message: LocalMes
   );
 }
 
-function RecallEvidencePopover({
-  open,
-  message,
-  onClose,
-}: {
-  open: boolean;
-  message: LocalMessage | null;
-  onClose: () => void;
-}) {
-  const [shouldRender, setShouldRender] = useState(open);
-  const [closing, setClosing] = useState(false);
-  const [panelSize, setPanelSize] = useState({ width: 720, height: 560 });
-  const panelRef = useRef<HTMLElement | null>(null);
-  const panelSizeRef = useRef(panelSize);
-  const resizeFrameRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    panelSizeRef.current = panelSize;
-  }, [panelSize]);
-
-  useEffect(() => {
-    return () => {
-      if (resizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (open) {
-      setShouldRender(true);
-      window.requestAnimationFrame(() => setClosing(false));
-      return;
-    }
-
-    if (!shouldRender) return;
-    setClosing(true);
-    const timeoutId = window.setTimeout(() => setShouldRender(false), 180);
-    return () => window.clearTimeout(timeoutId);
-  }, [open, shouldRender]);
-
-  const closeWithAnimation = useCallback(() => {
-    setClosing(true);
-    window.setTimeout(onClose, 180);
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!shouldRender || closing) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (panelRef.current?.contains(target)) return;
-      closeWithAnimation();
-    };
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    return () => window.removeEventListener('pointerdown', handlePointerDown);
-  }, [shouldRender, closing, closeWithAnimation]);
-
-  const startResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const startWidth = panelSizeRef.current.width;
-    const startHeight = panelSizeRef.current.height;
-    const previousUserSelect = document.body.style.userSelect;
-    const previousCursor = document.body.style.cursor;
-    let latestSize = panelSizeRef.current;
-
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'nesw-resize';
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const maxWidth = Math.max(420, window.innerWidth - 32);
-      const maxHeight = Math.max(320, window.innerHeight - 96);
-      const nextWidth = Math.min(Math.max(420, startWidth + startX - moveEvent.clientX), maxWidth);
-      const nextHeight = Math.min(Math.max(320, startHeight + moveEvent.clientY - startY), maxHeight);
-      latestSize = { width: nextWidth, height: nextHeight };
-      panelSizeRef.current = latestSize;
-
-      if (resizeFrameRef.current !== null) return;
-      resizeFrameRef.current = window.requestAnimationFrame(() => {
-        resizeFrameRef.current = null;
-        const panel = panelRef.current;
-        if (!panel) return;
-        panel.style.width = `min(${latestSize.width}px, calc(100vw - 32px))`;
-        panel.style.height = `min(${latestSize.height}px, calc(100vh - 96px))`;
-      });
-    };
-
-    const handlePointerUp = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      document.body.style.userSelect = previousUserSelect;
-      document.body.style.cursor = previousCursor;
-      if (resizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(resizeFrameRef.current);
-        resizeFrameRef.current = null;
-      }
-      const panel = panelRef.current;
-      if (panel) {
-        panel.style.width = `min(${latestSize.width}px, calc(100vw - 32px))`;
-        panel.style.height = `min(${latestSize.height}px, calc(100vh - 96px))`;
-      }
-      setPanelSize(latestSize);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-  }, []);
-
-  if (!shouldRender) return null;
-
-  return (
-    <section
-      ref={panelRef}
-      className="fixed right-4 top-20 z-40 flex origin-top-right flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas shadow-xl shadow-black/10 transition-[opacity,transform] duration-180 ease-out"
-      style={{
-        width: `min(${panelSize.width}px, calc(100vw - 32px))`,
-        height: `min(${panelSize.height}px, calc(100vh - 96px))`,
-        opacity: closing ? 0 : 1,
-        transform: closing ? 'translateY(4px) scale(0.98)' : 'translateY(0) scale(1)',
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="召回片段"
-    >
-      <div className="flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-hairline bg-surface-soft/45 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Search size={14} className="text-muted" />
-          <h2 className="truncate text-sm font-semibold text-ink">召回片段</h2>
-        </div>
-        <button
-          type="button"
-          onClick={closeWithAnimation}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
-          aria-label="关闭召回片段"
-          title="关闭召回片段"
-        >
-          <X size={16} />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1">
-        <RecallEvidencePanel message={message} showHeader={false} />
-      </div>
-      <button
-        type="button"
-        onPointerDown={startResize}
-        className="absolute bottom-1 left-1 flex h-5 w-5 cursor-nesw-resize items-end justify-start rounded-md text-muted-soft transition-colors hover:bg-primary/8 hover:text-primary"
-        aria-label="调整召回片段窗口大小"
-        title="拖动调整大小"
-      >
-        <span className="mb-1 ml-1 block h-2.5 w-2.5 border-b-2 border-l-2 border-current" />
-      </button>
-    </section>
-  );
-}
-
 function MessageStatusNotice({ status }: { status?: string | null }) {
   if (status === 'failed') {
     return (
@@ -494,23 +525,27 @@ function MessageStatusNotice({ status }: { status?: string | null }) {
 function ThinkingBubble() {
   return (
     <div className="chat-rise flex items-start gap-3">
-      <div className="mt-1 flex h-8 w-8 items-center justify-center">
-        <Sparkles size={15} className="text-primary" />
+      <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center">
+        <LinkRagMessageMark animated className="h-9 w-9" />
       </div>
-      <div className="mt-1 flex h-9 items-center gap-2 rounded-full border border-hairline bg-surface-soft px-4 text-xs font-medium text-muted">
-        <span>检索与组织回答</span>
-        <div className="flex items-center gap-1">
-          {[0, 1, 2].map((item) => (
-            <span
-              key={item}
-              className="chat-thinking-dot h-1.5 w-1.5 rounded-full bg-muted-soft"
-              style={{ animationDelay: `${item * 0.2}s` }}
-            />
-          ))}
-        </div>
+      <div className="mt-2 flex h-8 items-center rounded-full border border-hairline bg-surface-soft/85 px-3 text-xs font-medium text-muted shadow-sm shadow-black/[0.03] dark:bg-[#242424]/85 dark:text-[#c8c4bd]">
+        <span>正在生成</span>
       </div>
     </div>
   );
+}
+
+function LinkRagMessageMark({ animated = false, className }: { animated?: boolean; className?: string }) {
+  const { darkMode } = useTheme();
+  const src = animated
+    ? darkMode
+      ? linkRagThinkingMarkDarkUrl
+      : linkRagThinkingMarkUrl
+    : darkMode
+      ? linkRagStaticMarkDarkUrl
+      : linkRagStaticMarkUrl;
+
+  return <img src={src} alt="" aria-hidden="true" draggable={false} className={className} />;
 }
 
 function HeaderButton({
@@ -628,15 +663,18 @@ export default function ChatsPage() {
   const routeDatasetId = parseRouteDatasetId(routeState?.datasetId);
   const { user } = useAuth();
   const { addToast } = useToast();
+  const isDesktop = useIsDesktop();
   const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToMessageBottomRef = useRef(true);
+  const messageAutoScrollFrameRef = useRef<number | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerResizeFrameRef = useRef<number | null>(null);
+  const rightPanelRef = useRef<HTMLElement | null>(null);
+  const rightPanelSplitRef = useRef(0.5);
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
-  const headerActionsRef = useRef<HTMLDivElement | null>(null);
-  const filesPanelRef = useRef<HTMLElement | null>(null);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
@@ -653,18 +691,23 @@ export default function ChatsPage() {
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [filesPanelOpen, setFilesPanelOpen] = useState(false);
+  const [filesPanelMounted, setFilesPanelMounted] = useState(false);
   const [fileSearch, setFileSearch] = useState('');
   const [dragging, setDragging] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(() => routeDatasetId);
-  const [chatModels, setChatModels] = useState<LLMConfigDTO[]>([]);
+  const [chatModels, setChatModels] = useState<ChatModel[]>([]);
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
+  const [defaultChatModelConfigId, setDefaultChatModelConfigId] = useState<number | null>(null);
   const [kbOpen, setKbOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
   const [recallPanelOpen, setRecallPanelOpen] = useState(false);
+  const [recallPanelMounted, setRecallPanelMounted] = useState(false);
+  const [rightPanelSplit, setRightPanelSplit] = useState(0.5);
   const [activeMessageAnchorId, setActiveMessageAnchorId] = useState<string | null>(null);
+  const [activeRecallChunkId, setActiveRecallChunkId] = useState<string | null>(null);
 
   const activeConversationId = id ? Number(id) : null;
 
@@ -705,19 +748,6 @@ export default function ChatsPage() {
     return () => window.removeEventListener('pointerdown', handlePointerDown);
   }, [kbOpen, modelOpen]);
 
-  useEffect(() => {
-    if (!filesPanelOpen) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (filesPanelRef.current?.contains(target)) return;
-      if (headerActionsRef.current?.contains(target)) return;
-      setFilesPanelOpen(false);
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    return () => window.removeEventListener('pointerdown', handlePointerDown);
-  }, [filesPanelOpen]);
   const routeInitialQuestion = typeof routeState?.initialQuestion === 'string' ? routeState.initialQuestion.trim() : '';
   const storedInitialQuestion = activeConversationId
     ? (sessionStorage.getItem(`${INITIAL_QUESTION_STORAGE_PREFIX}${activeConversationId}`)?.trim() ?? '')
@@ -798,6 +828,9 @@ export default function ChatsPage() {
       if (composerResizeFrameRef.current !== null) {
         window.cancelAnimationFrame(composerResizeFrameRef.current);
       }
+      if (messageAutoScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(messageAutoScrollFrameRef.current);
+      }
     };
   }, []);
 
@@ -819,22 +852,35 @@ export default function ChatsPage() {
     // 数据集与模型配置：仅影响主区域（知识库/模型选择），与历史列表互不阻塞
     const loadWorkspace = async () => {
       try {
-        const [dsResult, modelResult, defaultChatModel] = await Promise.all([
+        const [dsResult, modelResult, defaultChatModel, providerResult] = await Promise.all([
           getDatasets(1, 100),
           getLLMConfigs({ capability: 'CHAT', isActive: true }),
           getDefaultLLMConfig('CHAT').catch(() => null),
+          getLLMProviders('CHAT').catch((error) => {
+            console.error('Failed to load provider display names:', error);
+            return [];
+          }),
         ]);
         if (cancelled) return;
         setDatasets(dsResult.items);
-        const chatModelItems =
-          defaultChatModel && !modelResult.some((model) => model.id === defaultChatModel.id)
-            ? [defaultChatModel, ...modelResult]
-            : modelResult;
+        const defaultModelFromList = defaultChatModel
+          ? modelResult.find((model) => isSameChatModel(model, defaultChatModel))
+          : null;
+        const rawChatModelItems =
+          defaultChatModel && !defaultModelFromList ? [defaultChatModel, ...modelResult] : modelResult;
+        const providerNameByType = new Map(
+          providerResult.map((provider) => [provider.providerType, provider.providerName] as const),
+        );
+        const chatModelItems = hydrateModelDisplayNames(rawChatModelItems, providerResult).map((model) => ({
+          ...model,
+          providerName: providerNameByType.get(model.providerType) || model.providerType,
+        }));
         setChatModels(chatModelItems);
         const defaultModel =
-          (defaultChatModel ? chatModelItems.find((model) => model.id === defaultChatModel.id) : null) ??
+          (defaultChatModel ? chatModelItems.find((model) => isSameChatModel(model, defaultChatModel)) : null) ??
           chatModelItems.find((model) => model.isDefault) ??
           chatModelItems[0];
+        setDefaultChatModelConfigId(defaultModel?.id ?? null);
         setSelectedModelConfigId(defaultModel?.id ?? null);
       } catch (error) {
         if (!cancelled) console.error('Failed to load chat workspace:', error);
@@ -865,6 +911,7 @@ export default function ChatsPage() {
   // 仅在会话 id 变化时加载一次会话/消息。不要依赖 conversations / chatModels，
   // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
   useEffect(() => {
+    shouldStickToMessageBottomRef.current = true;
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
@@ -947,14 +994,10 @@ export default function ChatsPage() {
     };
   }, [activeConversationId, routeDatasetId]);
 
-  // 模型预选独立于消息加载：会话与模型列表都就绪后，按会话的 lastConfigId 预选，
-  // 只设置模型、绝不触碰 messages，因此不会覆盖首轮消息。
   useEffect(() => {
-    if (!conversation?.lastConfigId) return;
-    if (chatModels.some((model) => model.id === conversation.lastConfigId)) {
-      setSelectedModelConfigId(conversation.lastConfigId);
-    }
-  }, [conversation, chatModels]);
+    if (!defaultChatModelConfigId) return;
+    setSelectedModelConfigId(defaultChatModelConfigId);
+  }, [activeConversationId, defaultChatModelConfigId]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
@@ -981,7 +1024,15 @@ export default function ChatsPage() {
 
   useEffect(() => {
     const el = messageScrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el || !shouldStickToMessageBottomRef.current) return;
+
+    if (messageAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(messageAutoScrollFrameRef.current);
+    }
+    messageAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+      messageAutoScrollFrameRef.current = null;
+    });
   }, [messages, sending]);
 
   useEffect(() => {
@@ -996,7 +1047,13 @@ export default function ChatsPage() {
     const scrollEl = messageScrollRef.current;
     if (!scrollEl || messageNavItems.length === 0) return;
 
+    const updateStickToBottom = () => {
+      const distanceToBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+      shouldStickToMessageBottomRef.current = distanceToBottom <= MESSAGE_SCROLL_BOTTOM_THRESHOLD;
+    };
+
     const updateActiveAnchor = () => {
+      updateStickToBottom();
       const scrollRect = scrollEl.getBoundingClientRect();
       const viewportTop = scrollRect.top + 24;
       const viewportBottom = scrollRect.bottom - 24;
@@ -1040,6 +1097,7 @@ export default function ChatsPage() {
     const node = scrollEl?.querySelector<HTMLElement>(`[data-message-anchor-id="${CSS.escape(messageId)}"]`);
     if (!scrollEl || !node) return;
 
+    shouldStickToMessageBottomRef.current = false;
     scrollEl.scrollTo({
       top: node.offsetTop - 24,
       behavior: 'smooth',
@@ -1141,14 +1199,24 @@ export default function ChatsPage() {
       }
       const isFirstTurn = messages.length === 0;
       if (!selectedDatasetId) {
-        setFilesPanelOpen(false);
-        setRecallPanelOpen(false);
         setKbOpen(true);
+        addToast('error', '请先选择知识库');
         return false;
       }
       if (!selectedModelConfigId) {
         addToast('error', '请先选择对话模型');
         setModelOpen(true);
+        return false;
+      }
+
+      try {
+        const parseConfig = await getDatasetParseConfig(selectedDatasetId);
+        if (!parseConfig.sparse_embedding_config_id || !parseConfig.dense_embedding_config_id) {
+          addToast('error', '该知识库缺少向量模型绑定，请先到知识库解析配置页补全');
+          return false;
+        }
+      } catch (error) {
+        console.error('Failed to verify dataset embedding binding:', error);
         return false;
       }
 
@@ -1190,6 +1258,7 @@ export default function ChatsPage() {
       };
 
       const nextMessages = [...messages, userMsg, assistantMsg];
+      shouldStickToMessageBottomRef.current = true;
       updateConversationDraft(activeConversation.id, () => ({
         messages: nextMessages,
         sending: true,
@@ -1478,38 +1547,144 @@ export default function ChatsPage() {
     (evidenceMessage?.recallChunks?.length ?? 0) > 0
       ? (evidenceMessage?.recallChunks?.length ?? 0)
       : (evidenceMessage?.references?.length ?? 0);
+  const rightPanelOpen = filesPanelOpen || recallPanelOpen;
+  const filesPanelVisible = filesPanelOpen || filesPanelMounted;
+  const recallPanelVisible = recallPanelOpen || recallPanelMounted;
+
+  useEffect(() => {
+    if (!activeRecallChunkId) return;
+    const hasActiveChunk = evidenceMessage?.recallChunks?.some((chunk) => chunk.id === activeRecallChunkId) ?? false;
+    if (!hasActiveChunk) setActiveRecallChunkId(null);
+  }, [activeRecallChunkId, evidenceMessage]);
+
+  const handleRecallChunkLinkClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>, message: LocalMessage) => {
+      if (!(event.target instanceof Element)) return;
+
+      const anchor = event.target.closest<HTMLAnchorElement>('a[href^="#recall-chunk-"]');
+      if (!anchor || !event.currentTarget.contains(anchor)) return;
+
+      const match = /^#recall-chunk-(\d+)$/.exec(anchor.getAttribute('href') ?? '');
+      const chunkIndex = match ? Number(match[1]) - 1 : -1;
+      const chunk = message.recallChunks?.[chunkIndex];
+      if (!chunk) return;
+
+      event.preventDefault();
+      const turnId = messageTurnIdById.get(message.id);
+      if (turnId) setActiveMessageAnchorId(turnId);
+      setActiveRecallChunkId(chunk.id);
+      setRecallPanelOpen(true);
+      setKbOpen(false);
+      setModelOpen(false);
+      if (!isDesktop) setFilesPanelOpen(false);
+    },
+    [isDesktop, messageTurnIdById],
+  );
 
   const toggleFilesPanel = useCallback(() => {
     setFilesPanelOpen((open) => {
       const nextOpen = !open;
-      if (nextOpen) {
+      setKbOpen(false);
+      if (nextOpen && !isDesktop) {
         setRecallPanelOpen(false);
-        setKbOpen(false);
       }
       return nextOpen;
     });
-  }, []);
+  }, [isDesktop]);
 
   const toggleRecallPanel = useCallback(() => {
     setRecallPanelOpen((open) => {
       const nextOpen = !open;
       if (nextOpen) {
-        setFilesPanelOpen(false);
         setKbOpen(false);
+        if (!isDesktop) {
+          setFilesPanelOpen(false);
+        }
       }
       return nextOpen;
     });
-  }, []);
+  }, [isDesktop]);
 
-  const toggleDatasetSelector = useCallback(() => {
-    setKbOpen((open) => {
-      const nextOpen = !open;
-      if (nextOpen) {
-        setFilesPanelOpen(false);
-        setRecallPanelOpen(false);
+  const toggleMobileSourcePanel = useCallback(() => {
+    const nextOpen = !(filesPanelOpen || recallPanelOpen);
+    setKbOpen(false);
+    setFilesPanelOpen(false);
+    setRecallPanelOpen(nextOpen);
+  }, [filesPanelOpen, recallPanelOpen]);
+
+  useEffect(() => {
+    if (!isDesktop && filesPanelOpen && recallPanelOpen) {
+      setRecallPanelOpen(false);
+    }
+  }, [filesPanelOpen, isDesktop, recallPanelOpen]);
+
+  useEffect(() => {
+    rightPanelSplitRef.current = rightPanelSplit;
+  }, [rightPanelSplit]);
+
+  useEffect(() => {
+    if (filesPanelOpen) {
+      setFilesPanelMounted(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setFilesPanelMounted(false), RIGHT_PANEL_TRANSITION_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [filesPanelOpen]);
+
+  useEffect(() => {
+    if (recallPanelOpen) {
+      setRecallPanelMounted(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setRecallPanelMounted(false), RIGHT_PANEL_TRANSITION_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [recallPanelOpen]);
+
+  const startRightPanelResize = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const panel = rightPanelRef.current;
+    if (!panel) return;
+
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'row-resize';
+
+    let latestSplit = rightPanelSplitRef.current;
+    let frameId: number | null = null;
+
+    const applyLatestSplit = () => {
+      frameId = null;
+      panel.style.gridTemplateRows = getRightPanelGridRows(latestSplit);
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const rect = panel.getBoundingClientRect();
+      if (rect.height <= 0) return;
+      const nextSplit = (moveEvent.clientY - rect.top) / rect.height;
+      latestSplit = Math.min(0.72, Math.max(0.28, nextSplit));
+      rightPanelSplitRef.current = latestSplit;
+      if (frameId === null) {
+        frameId = window.requestAnimationFrame(applyLatestSplit);
       }
-      return nextOpen;
-    });
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        panel.style.gridTemplateRows = getRightPanelGridRows(latestSplit);
+      }
+      setRightPanelSplit(latestSplit);
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
   }, []);
 
   // 兼容仍通过 ChatWorkspaceContext 读取历史快照的外层能力；右侧面板直接使用本页快照。
@@ -1525,178 +1700,234 @@ export default function ChatsPage() {
 
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
+  const renderComposer = (placement: 'center' | 'bottom') => (
+    <div
+      className={cn(
+        'mx-auto w-full',
+        placement === 'bottom' ? 'max-w-[840px]' : 'max-w-[900px]',
+        placement === 'center' && 'mt-7',
+        placement === 'bottom' && 'transition-transform duration-[140ms] ease-out',
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-end gap-2 rounded-2xl border bg-canvas p-2 (--)]',
+          inputQueryTooLong ? 'border-error' : 'border-hairline',
+        )}
+      >
+        <textarea
+          ref={composerTextareaRef}
+          value={inputValue}
+          onChange={handleComposerChange}
+          onKeyDown={handleComposerKeyDown}
+          rows={1}
+          disabled={sending}
+          placeholder="输入问题"
+          className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft lg:placeholder:text-muted-soft"
+        />
+        <div ref={kbSelectorRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setKbOpen((value) => !value);
+              setModelOpen(false);
+            }}
+            className={cn(
+              'group/kb flex h-10 w-10 max-w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[max-width,color] duration-200 hover:text-ink focus-visible:text-ink lg:w-max lg:hover:max-w-[14rem] lg:focus-visible:max-w-[14rem]',
+              kbOpen && 'text-ink lg:max-w-[14rem]',
+            )}
+            title={selectedDataset?.name ?? '选择知识库'}
+            aria-label={selectedDataset?.name ?? '选择知识库'}
+          >
+            <Database size={18} className={cn('shrink-0', selectedDataset ? 'text-primary' : 'text-muted')} />
+            <span
+              className={cn(
+                'min-w-0 max-w-0 overflow-hidden truncate whitespace-nowrap text-xs font-medium opacity-0 transition-[max-width,opacity] duration-200',
+                'hidden lg:block lg:group-hover/kb:max-w-[9rem] lg:group-hover/kb:opacity-100 lg:group-focus-visible/kb:max-w-[9rem] lg:group-focus-visible/kb:opacity-100',
+                kbOpen && 'lg:max-w-[9rem] lg:opacity-100',
+              )}
+            >
+              {selectedDataset?.name ?? '选择知识库'}
+            </span>
+            <ChevronDown
+              size={13}
+              className={cn(
+                'hidden shrink-0 text-muted transition-transform lg:block',
+                kbOpen && 'rotate-180 text-primary',
+              )}
+            />
+          </button>
+          {kbOpen && (
+            <div
+              className={cn(
+                'popover-scrollbar absolute right-[-6rem] z-50 max-h-[180px] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-canvas p-1.5 shadow-lg shadow-ink/12 animate-[modelMenuIn_160ms_ease-out] lg:right-0 lg:z-20 lg:max-h-72 lg:w-[min(22rem,calc(100vw-2rem))] lg:rounded-[10px] lg:border lg:border-hairline lg:p-2 lg:shadow-none',
+                placement === 'bottom'
+                  ? 'top-[calc(100%+0.85rem)] lg:top-auto lg:bottom-full lg:mb-2'
+                  : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
+              )}
+            >
+              {datasets.length === 0 ? (
+                <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
+              ) : (
+                datasets.map((dataset) => (
+                  <button
+                    key={dataset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDatasetId(dataset.id);
+                      setKbOpen(false);
+                    }}
+                    className={cn(
+                      'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                      dataset.id === selectedDatasetId
+                        ? 'bg-primary/10 text-ink'
+                        : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                    )}
+                  >
+                    <span className="block truncate">{dataset.name}</span>
+                    {dataset.description && (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-soft">
+                        {dataset.description}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        <div ref={modelSelectorRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setModelOpen((value) => !value);
+              setKbOpen(false);
+            }}
+            className={cn(
+              'group/model flex h-10 w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[width,color] duration-200 hover:text-ink focus-visible:text-ink lg:hover:w-48 lg:focus-visible:w-48',
+              modelOpen && 'text-ink lg:w-48',
+            )}
+            title={getChatModelDisplayName(selectedModel)}
+            aria-label={getChatModelDisplayName(selectedModel)}
+          >
+            <ModelProviderIcon model={selectedModel} size="sm" />
+            <span
+              className={cn(
+                'min-w-0 max-w-0 overflow-hidden truncate whitespace-nowrap text-xs font-medium opacity-0 transition-[max-width,opacity] duration-200',
+                'hidden lg:block lg:group-hover/model:max-w-36 lg:group-hover/model:opacity-100 lg:group-focus-visible/model:max-w-36 lg:group-focus-visible/model:opacity-100',
+                modelOpen && 'lg:max-w-36 lg:opacity-100',
+              )}
+            >
+              {getChatModelDisplayName(selectedModel)}
+            </span>
+          </button>
+          {modelOpen && (
+            <div
+              className={cn(
+                'popover-scrollbar absolute right-[-3rem] z-50 max-h-[156px] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-canvas p-1.5 shadow-lg shadow-ink/12 animate-[modelMenuIn_160ms_ease-out] lg:right-0 lg:z-20 lg:max-h-72 lg:w-[min(22rem,calc(100vw-2rem))] lg:rounded-[10px] lg:border lg:border-hairline lg:p-2 lg:shadow-none',
+                placement === 'bottom'
+                  ? 'top-[calc(100%+0.85rem)] lg:top-auto lg:bottom-full lg:mb-2'
+                  : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
+              )}
+            >
+              {chatModels.map((model) => (
+                <button
+                  key={model.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedModelConfigId(model.id);
+                    setModelOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                    model.id === selectedModelConfigId
+                      ? 'bg-primary/10 text-ink'
+                      : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                  )}
+                >
+                  <ModelProviderIcon model={model} size="xs" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{getChatModelDisplayName(model)}</span>
+                    <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-soft">
+                      {getModelProviderName(model)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleSend()}
+          disabled={sending || !inputQuery || inputQueryTooLong}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+        </button>
+      </div>
+      {inputQueryTooLong && (
+        <div className="mt-1 flex justify-end px-2 text-[11px] leading-5 text-error">
+          {RAG_QUERY_MAX_LENGTH_MESSAGE} · {inputLength}/{RAG_QUERY_MAX_LENGTH}
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-canvas">
-      <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6">
+    <div
+      className={cn(
+        'flex h-full min-h-0 flex-col overflow-hidden bg-canvas transition-[margin-right] duration-200 ease-out will-change-[margin-right]',
+        rightPanelOpen && 'lg:mr-[356px]',
+      )}
+    >
+      {activeConversationId ? (
+        <div className="fixed right-2 z-30 flex h-10 items-center gap-0.5 rounded-xl bg-canvas/92 p-0.5 shadow-sm shadow-ink/5 backdrop-blur-md lg:hidden [top:calc(env(safe-area-inset-top)+0.5rem)]">
+          <button
+            type="button"
+            onClick={() => {
+              setFilesPanelOpen(false);
+              setRecallPanelOpen(false);
+              beginNewConversation();
+            }}
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-primary/6 hover:text-ink"
+            title="新建对话"
+            aria-label="新建对话"
+          >
+            <SquarePen size={14} className="text-muted" />
+            新建
+          </button>
+          <button
+            type="button"
+            onClick={toggleMobileSourcePanel}
+            className={cn(
+              'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors',
+              rightPanelOpen ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-primary/6 hover:text-ink',
+            )}
+            title="显示或隐藏来源"
+            aria-label="显示或隐藏来源"
+          >
+            <Files size={14} className={cn(rightPanelOpen ? 'text-primary' : 'text-muted')} />
+            来源
+          </button>
+        </div>
+      ) : null}
+      <header className="hidden min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-6 lg:flex">
         {/* 面包屑：桌面端显示；移动端由外壳顶栏承担标题 */}
         <div className="hidden items-center gap-3 min-w-0 flex-1 lg:flex">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '对话' }]} />
         </div>
-        <div ref={headerActionsRef} className="flex shrink-0 items-center gap-2">
-          <HeaderButton active={filesPanelOpen} icon={Files} onClick={toggleFilesPanel}>
-            文件 {files.length}
-          </HeaderButton>
-          <HeaderButton active={recallPanelOpen} icon={Search} onClick={toggleRecallPanel} title="显示或隐藏召回片段">
-            召回 {evidenceCount}
-          </HeaderButton>
-          <div ref={kbSelectorRef} className="relative">
-            <button
-              type="button"
-              onClick={toggleDatasetSelector}
-              className="flex h-9 max-w-[160px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 hover:text-ink sm:max-w-[280px]"
-            >
-              <Database size={14} className="text-muted" />
-              <span className="truncate">{selectedDataset?.name ?? '选择知识库'}</span>
-            </button>
-            {kbOpen && (
-              <div className="popover-scrollbar absolute right-0 top-full z-30 mt-2 max-h-72 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
-                {datasets.length === 0 ? (
-                  <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                ) : (
-                  datasets.map((dataset) => (
-                    <button
-                      key={dataset.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDatasetId(dataset.id);
-                        setKbOpen(false);
-                      }}
-                      className={cn(
-                        'w-full rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors',
-                        dataset.id === selectedDatasetId
-                          ? 'bg-primary/10 text-ink'
-                          : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
-                      )}
-                    >
-                      {dataset.name}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden items-center gap-2 lg:flex">
+            <HeaderButton active={filesPanelOpen} icon={Files} onClick={toggleFilesPanel}>
+              文件 {files.length}
+            </HeaderButton>
+            <HeaderButton active={recallPanelOpen} icon={Search} onClick={toggleRecallPanel} title="显示或隐藏召回片段">
+              召回 {evidenceCount}
+            </HeaderButton>
           </div>
         </div>
       </header>
-
-      <RecallEvidencePopover
-        open={recallPanelOpen}
-        message={evidenceMessage}
-        onClose={() => setRecallPanelOpen(false)}
-      />
-
-      {/* 知识库文件：沿用原方案，右上角浮层 */}
-      {filesPanelOpen && (
-        <section
-          ref={filesPanelRef}
-          className="fixed right-6 top-[92px] z-50 flex h-[min(420px,calc(100vh-116px))] w-[min(420px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-hairline bg-canvas lg:right-8"
-          role="dialog"
-          aria-modal="true"
-          aria-label="知识库文件"
-        >
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline px-5 py-4">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-ink">知识库文件</h2>
-              <p className="mt-1 text-[11px] text-muted">查看当前知识库文件，或上传新文件。</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFilesPanelOpen(false)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
-              aria-label="关闭弹窗"
-            >
-              <X size={17} />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 p-4">
-            <div className="flex h-full min-h-0 flex-col gap-3">
-              <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <div className="flex h-9 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-surface-soft px-3">
-                  <Search size={13} className="text-muted" />
-                  <input
-                    value={fileSearch}
-                    onChange={(e) => setFileSearch(e.target.value)}
-                    placeholder="搜索文件..."
-                    className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
-                  />
-                </div>
-                {loadingFiles ? (
-                  <div className="flex h-24 items-center justify-center text-muted">
-                    <Loader2 size={16} className="animate-spin" />
-                  </div>
-                ) : filteredFiles.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-hairline px-4 py-5 text-center text-xs text-muted">
-                    <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
-                    {!selectedDatasetId && (
-                      <button
-                        type="button"
-                        onClick={promptSelectDatasetForUpload}
-                        className="mt-3 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary-active"
-                      >
-                        选择知识库
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="popover-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto pr-1.5">
-                    {filteredFiles.map((file) => (
-                      <div key={file.id} className="group/file rounded-xl border border-hairline bg-canvas px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <KnowledgeFileIcon suffix={file.fileSuffix} compact />
-                          <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
-                        </div>
-                        <p className="mt-1 text-[10px] text-muted">
-                          {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div
-                onDragOver={(event: DragEvent<HTMLDivElement>) => {
-                  event.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={(event) => {
-                  event.preventDefault();
-                  setDragging(false);
-                }}
-                onDrop={async (event) => {
-                  event.preventDefault();
-                  const fileList = event.dataTransfer.files;
-                  if (fileList.length > 0) await handleFileUpload(fileList);
-                }}
-                onClick={() => {
-                  if (uploading) return;
-                  if (!selectedDatasetId) {
-                    promptSelectDatasetForUpload();
-                    return;
-                  }
-                  fileInputRef.current?.click();
-                }}
-                className={cn(
-                  'flex shrink-0 cursor-pointer items-center gap-3 rounded-2xl border border-dashed px-4 py-3 text-left transition-colors',
-                  dragging ? 'border-primary bg-primary/8' : 'border-hairline bg-surface-soft',
-                )}
-              >
-                <Upload size={16} className="shrink-0 text-muted" />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-body">{uploading ? '上传中...' : '拖拽或点击上传'}</p>
-                  <p className="mt-0.5 truncate text-[10px] text-muted">{KNOWLEDGE_FILE_HINT || 'MD / DOCX / PDF'}</p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={KNOWLEDGE_FILE_ACCEPT}
-                  className="hidden"
-                  onChange={onFileInputChange}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Body: single clean message column */}
       <div className="relative flex min-h-0 flex-1">
@@ -1709,14 +1940,24 @@ export default function ChatsPage() {
               </div>
             ) : messages.length === 0 ? (
               <div className="flex h-full items-center justify-center">
-                <div className="w-full max-w-[760px] text-center">
-                  <h2 className="text-3xl text-ink">
-                    <span className="serif-heading">{displayName}</span>，今天想聊点什么？
+                <div className="w-full max-w-[760px] text-center lg:-translate-x-8">
+                  <h2 className="text-3xl leading-tight text-ink">
+                    <span className="lg:hidden">
+                      <span className="serif-heading block">{displayName}</span>
+                      <span className="mt-2 block">今天想聊点什么？</span>
+                    </span>
+                    <span className="hidden lg:inline">
+                      <span className="serif-heading">{displayName}</span>，今天想聊点什么？
+                    </span>
                   </h2>
-                  <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-                    基于已关联的知识库召回片段作答，资料可在右上角「文件」中管理。
+                  <p className="mx-auto mt-3 max-w-xl truncate text-sm leading-relaxed text-muted lg:whitespace-normal">
+                    <span className="lg:hidden">基于知识库资料回答</span>
+                    <span className="hidden lg:inline">
+                      基于已关联的知识库召回片段作答，资料可在右上角「文件」中管理。
+                    </span>
                   </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  {renderComposer('center')}
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
                     {welcomeSuggestions.map((suggestion) => (
                       <button
                         key={suggestion}
@@ -1732,7 +1973,11 @@ export default function ChatsPage() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5">
+              <div
+                className={cn(
+                  'mx-auto flex w-full max-w-[860px] flex-col gap-5 transition-transform duration-[140ms] ease-out lg:gap-5',
+                )}
+              >
                 {messages.map((message) =>
                   message.role === 'user' ? (
                     <div
@@ -1750,7 +1995,7 @@ export default function ChatsPage() {
                       >
                         <Copy size={14} />
                       </button>
-                      <div className="max-w-[88%] rounded-[18px_18px_4px_18px] bg-surface-cream-strong px-4 py-3 text-sm leading-relaxed text-ink">
+                      <div className="max-w-[92%] rounded-[18px_18px_4px_18px] bg-surface-cream-strong px-3.5 py-2.5 text-[14px] leading-6 text-ink lg:max-w-[88%] lg:px-4 lg:py-3 lg:text-sm lg:leading-relaxed">
                         {message.content ?? ''}
                       </div>
                     </div>
@@ -1760,23 +2005,38 @@ export default function ChatsPage() {
                     <div
                       key={message.id}
                       data-message-turn-id={messageTurnIdById.get(message.id)}
-                      className="group/message chat-rise flex items-start gap-3"
+                      className="group/message chat-rise flex flex-col gap-2 lg:flex-row lg:items-start lg:gap-3"
                     >
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center">
-                        <Sparkles size={15} className="text-primary" />
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center lg:mt-1 lg:h-8 lg:w-8">
+                        <LinkRagMessageMark className="h-7 w-7 lg:h-8 lg:w-8" />
                       </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="min-w-0 flex-1 lg:pt-0.5">
                         <MessageStatusNotice status={message.status} />
-                        <MarkdownRenderer
-                          content={message.content ?? ''}
-                          className={cn(
-                            'text-base leading-8 text-text-main',
-                            '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-3',
-                            'prose-p:text-base prose-li:text-base',
-                            '[&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1',
-                            '[&_pre]:my-3 [&_blockquote]:my-3',
-                          )}
-                        />
+                        <div onClickCapture={(event) => handleRecallChunkLinkClick(event, message)}>
+                          <MarkdownRenderer
+                            content={linkifyRecallChunkMentions(message.content ?? '', message.recallChunks)}
+                            className={cn(
+                              'text-[15px] leading-7 text-text-main lg:text-base lg:leading-8',
+                              '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2.5 lg:[&_p]:my-3',
+                              'prose-p:text-[15px] prose-li:text-[15px] lg:prose-p:text-base lg:prose-li:text-base',
+                              '[&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-1 lg:[&_ul]:my-3 lg:[&_ol]:my-3',
+                              '[&_pre]:my-2.5 [&_blockquote]:my-2.5 lg:[&_pre]:my-3 lg:[&_blockquote]:my-3',
+                              '[&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:min-w-max',
+                              'lg:max-w-[780px] lg:prose-p:leading-7 lg:prose-li:leading-7',
+                              'lg:prose-headings:mb-2 lg:prose-headings:mt-6 lg:prose-headings:leading-snug',
+                              'lg:prose-h1:text-[22px] lg:prose-h2:text-[19px] lg:prose-h3:text-[17px]',
+                              'lg:prose-h2:border-b lg:prose-h2:border-border-subtle lg:prose-h2:pb-2',
+                              'lg:[&_ul]:pl-5 lg:[&_ol]:pl-5 lg:[&_li]:pl-1 lg:[&_li]:my-1.5',
+                              'lg:[&_blockquote]:rounded-r-lg lg:[&_blockquote]:bg-surface-soft/45 lg:[&_blockquote]:py-2.5 lg:[&_blockquote]:pr-4',
+                              'lg:[&_.not-prose]:my-4 lg:[&_table]:text-sm',
+                            )}
+                          />
+                        </div>
+                        {!(sending && message.id === messages[messages.length - 1]?.id) && (
+                          <p className="mt-3 text-[11px] leading-5 text-muted-soft lg:mt-4 lg:border-t lg:border-border-subtle lg:pt-3 lg:text-xs">
+                            AI 生成内容可能不准确，请以原文档为准并结合原文档参考。
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => void copyMessageContent(message.content)}
@@ -1796,81 +2056,287 @@ export default function ChatsPage() {
             )}
           </div>
 
-          <div className="shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:pb-8">
-            <div className="mx-auto max-w-[760px]">
-              <div
-                className={cn(
-                  'flex items-end gap-2 rounded-2xl border bg-canvas p-2 (--)]',
-                  inputQueryTooLong ? 'border-error' : 'border-hairline',
-                )}
+          {messages.length > 0 && (
+            <div className="shrink-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 lg:pb-8">
+              {renderComposer('bottom')}
+            </div>
+          )}
+        </section>
+        <aside
+          className={cn(
+            'fixed inset-x-3 bottom-4 z-50 h-[min(68vh,560px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out lg:hidden',
+            rightPanelOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-3 opacity-0',
+          )}
+          aria-label="来源"
+        >
+          <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] bg-canvas shadow-lg shadow-ink/12 dark:bg-[#2b2b2b]">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+              <div className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-surface-soft p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilesPanelOpen(false);
+                    setRecallPanelOpen(true);
+                    setKbOpen(false);
+                  }}
+                  className={cn(
+                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    recallPanelOpen ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/70 hover:text-ink',
+                  )}
+                >
+                  <Search size={13} />
+                  片段 {evidenceCount}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecallPanelOpen(false);
+                    setFilesPanelOpen(true);
+                    setKbOpen(false);
+                  }}
+                  className={cn(
+                    'flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-colors',
+                    filesPanelOpen ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/70 hover:text-ink',
+                  )}
+                >
+                  <Files size={13} />
+                  文件 {files.length}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFilesPanelOpen(false);
+                  setRecallPanelOpen(false);
+                  setActiveRecallChunkId(null);
+                }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
+                aria-label="关闭来源"
+                title="关闭来源"
               >
-                <textarea
-                  ref={composerTextareaRef}
-                  value={inputValue}
-                  onChange={handleComposerChange}
-                  onKeyDown={handleComposerKeyDown}
-                  rows={1}
-                  disabled={sending}
-                  placeholder="输入提问，回车开始召回…"
-                  className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft"
-                />
-                <div ref={modelSelectorRef} className="relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setModelOpen((value) => !value)}
-                    className="flex h-10 max-w-[156px] items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 text-xs font-medium text-text-secondary transition-colors hover:border-primary/30 sm:max-w-[200px]"
-                    title={selectedModel?.modelName ?? '选择模型'}
-                    aria-label={selectedModel?.modelName ?? '选择模型'}
-                  >
-                    <ModelProviderIcon model={selectedModel} size="sm" />
-                    <span className="min-w-0 truncate">{selectedModel?.modelName ?? '选择模型'}</span>
-                  </button>
-                  {modelOpen && (
-                    <div className="popover-scrollbar absolute bottom-full right-0 z-20 mb-2 max-h-64 w-[min(16rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-hairline bg-canvas p-2 pr-1.5 (--)]">
-                      {chatModels.map((model) => (
-                        <button
-                          key={model.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedModelConfigId(model.id);
-                            setModelOpen(false);
-                          }}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                            model.id === selectedModelConfigId
-                              ? 'bg-primary/10 text-ink'
-                              : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
-                          )}
-                        >
-                          <ModelProviderIcon model={model} size="xs" />
-                          <span className="min-w-0 flex-1 truncate">{model.modelName}</span>
-                        </button>
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 px-3 pb-3">
+              {recallPanelOpen ? (
+                <RecallEvidencePanel message={evidenceMessage} showHeader={false} activeChunkId={activeRecallChunkId} />
+              ) : (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="flex h-8 shrink-0 items-center gap-2 px-2">
+                    <Search size={13} className="text-muted" />
+                    <input
+                      value={fileSearch}
+                      onChange={(e) => setFileSearch(e.target.value)}
+                      placeholder="搜索文件"
+                      className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
+                    />
+                  </div>
+                  {loadingFiles ? (
+                    <div className="flex h-24 items-center justify-center text-muted">
+                      <Loader2 size={16} className="animate-spin" />
+                    </div>
+                  ) : filteredFiles.length === 0 ? (
+                    <div className="px-2 py-8 text-center text-xs text-muted">
+                      <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
+                    </div>
+                  ) : (
+                    <div className="popover-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+                      {filteredFiles.map((file) => (
+                        <div key={file.id} className="rounded-lg px-1 py-2">
+                          <div className="flex items-center gap-2">
+                            <KnowledgeFileIcon suffix={file.fileSuffix} compact />
+                            <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (uploading) return;
+                      if (!selectedDatasetId) {
+                        promptSelectDatasetForUpload();
+                        return;
+                      }
+                      fileInputRef.current?.click();
+                    }}
+                    className="flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary text-xs font-semibold text-white transition-colors hover:bg-primary-active disabled:opacity-60"
+                    disabled={uploading}
+                  >
+                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {uploading ? '上传中' : '上传文件'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+        <aside
+          ref={rightPanelRef}
+          className={cn(
+            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,opacity,transform] lg:duration-200 lg:ease-out',
+            'gap-0',
+            rightPanelOpen
+              ? 'translate-y-0 opacity-100 lg:translate-x-0'
+              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-4 lg:translate-y-0',
+          )}
+          style={{ gridTemplateRows: getRightPanelGridRowsForState(filesPanelOpen, recallPanelOpen, rightPanelSplit) }}
+          aria-label="对话辅助面板"
+        >
+          <div
+            className={cn(
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              filesPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+              !filesPanelOpen && 'pointer-events-none',
+            )}
+          >
+            <section className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
+              <div className="flex shrink-0 items-center justify-between gap-3 bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Files size={14} className="shrink-0 text-muted" />
+                  <h2 className="text-sm font-semibold text-ink">知识库文件</h2>
+                  <span className="shrink-0 text-[10px] font-semibold text-muted">{files.length}</span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void handleSend()}
-                  disabled={sending || !inputQuery || inputQueryTooLong}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setFilesPanelOpen(false)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
+                  aria-label="关闭知识库文件"
+                  title="关闭知识库文件"
                 >
-                  {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+                  <X size={17} />
                 </button>
               </div>
-              <div
-                className={cn(
-                  'mt-1 flex justify-end px-2 text-[11px] leading-5',
-                  inputQueryTooLong ? 'text-error' : 'text-muted-soft',
-                )}
-              >
-                {inputQueryTooLong
-                  ? `${RAG_QUERY_MAX_LENGTH_MESSAGE} · ${inputLength}/${RAG_QUERY_MAX_LENGTH}`
-                  : `${inputLength}/${RAG_QUERY_MAX_LENGTH}`}
+              <div className="min-h-0 flex-1 p-3">
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="flex min-h-0 flex-1 flex-col gap-2">
+                    <div className="flex h-8 shrink-0 items-center gap-2 px-2 pb-2">
+                      <Search size={13} className="text-muted" />
+                      <input
+                        value={fileSearch}
+                        onChange={(e) => setFileSearch(e.target.value)}
+                        placeholder="搜索文件..."
+                        className="min-w-0 flex-1 border-0 bg-transparent p-0 text-xs text-ink outline-none placeholder:text-muted-soft"
+                      />
+                    </div>
+                    {loadingFiles ? (
+                      <div className="flex h-24 items-center justify-center text-muted">
+                        <Loader2 size={16} className="animate-spin" />
+                      </div>
+                    ) : filteredFiles.length === 0 ? (
+                      <div className="px-2 py-8 text-center text-xs text-muted">
+                        <p>{selectedDatasetId ? '当前知识库还没有文件' : '选择知识库后显示文件'}</p>
+                      </div>
+                    ) : (
+                      <div className="popover-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
+                        {filteredFiles.map((file) => (
+                          <div
+                            key={file.id}
+                            className="group/file rounded-md px-2 py-1.5 transition-colors hover:bg-ink/[0.025] dark:hover:bg-white/[0.035]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <KnowledgeFileIcon suffix={file.fileSuffix} compact />
+                              <p className="truncate text-xs font-semibold text-ink">{file.originalFilename}</p>
+                            </div>
+                            <p className="mt-1 text-[10px] text-muted">
+                              {formatSize(file.fileSize)} · {formatTime(file.updatedAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                      event.preventDefault();
+                      setDragging(true);
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault();
+                      setDragging(false);
+                    }}
+                    onDrop={async (event) => {
+                      event.preventDefault();
+                      const fileList = event.dataTransfer.files;
+                      if (fileList.length > 0) await handleFileUpload(fileList);
+                    }}
+                    onClick={() => {
+                      if (uploading) return;
+                      if (!selectedDatasetId) {
+                        promptSelectDatasetForUpload();
+                        return;
+                      }
+                      fileInputRef.current?.click();
+                    }}
+                    className={cn(
+                      'flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      dragging
+                        ? 'bg-primary/8 text-primary'
+                        : 'text-muted hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
+                    )}
+                  >
+                    <Upload size={14} className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">
+                        {uploading ? '上传中...' : `上传文件 · ${KNOWLEDGE_FILE_HINT || 'MD / DOCX / PDF'}`}
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={KNOWLEDGE_FILE_ACCEPT}
+                      className="hidden"
+                      onChange={onFileInputChange}
+                    />
+                  </div>
+                </div>
               </div>
+            </section>
+          </div>
+          <div
+            className={cn(
+              'hidden min-h-0 overflow-hidden transition-opacity duration-200 lg:block',
+              filesPanelOpen && recallPanelOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
+            )}
+          >
+            {filesPanelOpen && recallPanelOpen && (
+              <button
+                type="button"
+                onPointerDown={startRightPanelResize}
+                onDoubleClick={() => {
+                  rightPanelSplitRef.current = 0.5;
+                  setRightPanelSplit(0.5);
+                }}
+                className="group flex h-1.5 w-full cursor-row-resize items-center justify-center rounded-full text-muted-soft transition-colors hover:bg-primary/8 hover:text-primary"
+                aria-label="调整文件和召回面板高度"
+                title="拖动调整上下大小，双击复位"
+              >
+                <span className="h-px w-8 rounded-full bg-current opacity-40 transition-opacity group-hover:opacity-80" />
+              </button>
+            )}
+          </div>
+          <div
+            className={cn(
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              recallPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+              !recallPanelOpen && 'pointer-events-none',
+            )}
+          >
+            <div className="h-full min-h-0 overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
+              <RecallEvidencePanel
+                message={evidenceMessage}
+                activeChunkId={activeRecallChunkId}
+                onClose={() => {
+                  setRecallPanelOpen(false);
+                  setActiveRecallChunkId(null);
+                }}
+              />
             </div>
           </div>
-        </section>
+        </aside>
       </div>
     </div>
   );
