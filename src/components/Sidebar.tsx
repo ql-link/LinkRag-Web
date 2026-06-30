@@ -27,13 +27,12 @@ import linkRagLogoInkUrl from '@/assets/brand/linkrag-logo-ink.png';
 
 const navItems = [
   { path: Routes.Home, name: '首页', icon: Home },
+  { path: Routes.Chats, name: '对话', icon: MessageSquare },
   { path: Routes.Datasets, name: '知识库', icon: Database },
   { path: Routes.LLMPage, name: '模型配置', icon: Cpu },
   { path: Routes.Usage, name: '用量', icon: BarChart3 },
 ];
 
-// 「对话」入口单独成段，置于分割线下方、「对话记录」列表上方。
-const chatNavItem = { path: Routes.Chats, name: '对话', icon: MessageSquare };
 const SIDEBAR_CONTENT_REVEAL_DELAY_MS = 90;
 
 function getUserInitial(user: ReturnType<typeof useAuth>['user']) {
@@ -313,11 +312,8 @@ export function Sidebar({
       {/* Nav */}
       <nav className="shrink-0 space-y-1 overflow-x-hidden px-3 pb-1 pt-4">{navItems.map(renderNavLink)}</nav>
 
-      {/* 「对话」入口：分割线下方、「对话记录」上方 */}
-      <div className="shrink-0 px-3">{renderNavLink(chatNavItem)}</div>
-
       {/* Chat workspace — 历史「对话记录」，展开时始终显示。
-          外层补 px-3，使面板标题/列表与上方「对话」入口、导航项左缘对齐。 */}
+          外层补 px-3，使面板标题/列表与上方导航项左缘对齐。 */}
       <div
         className={cn(
           'min-h-0 flex-1 px-3 pt-1 transition-opacity duration-150',

@@ -128,23 +128,23 @@ function ParseAfterUploadSwitch({
     <button
       type="button"
       onClick={(event) => onToggle(event)}
-      className="inline-flex items-center gap-2 rounded-full text-xs font-bold transition-opacity"
+      className="inline-flex h-8 items-center gap-2 rounded-md px-1 text-xs font-medium text-text-secondary transition-colors hover:text-ink"
     >
+      <span>上传后立即解析</span>
       <span
         className={cn(
-          'relative h-5 w-9 rounded-full border transition-colors',
-          checked ? 'border-primary/40 bg-primary/10' : 'border-hairline bg-surface-soft',
+          'relative h-4 w-7 rounded-full border transition-colors',
+          checked ? 'border-primary/30 bg-primary/12' : 'border-hairline bg-surface-soft',
         )}
       >
         <span
           className={cn(
-            'absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full transition-transform',
-            checked ? 'translate-x-4' : 'translate-x-0',
+            'absolute left-[2px] top-1/2 h-3 w-3 -translate-y-1/2 rounded-full transition-transform',
+            checked ? 'translate-x-3' : 'translate-x-0',
             checked ? 'bg-primary' : 'bg-muted',
           )}
         />
       </span>
-      <span className={cn(checked ? 'text-primary' : 'text-text-secondary')}>上传后立即解析</span>
     </button>
   );
 }
@@ -583,12 +583,12 @@ export default function DatasetPage() {
                   type="button"
                   onClick={() => void handleParseAllFiles()}
                   disabled={submittingParseFileIds.length > 0 || files.filter(canSubmitBulkParse).length === 0}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 text-xs font-bold text-primary transition-colors hover:bg-primary/15 hover:text-primary-active disabled:cursor-not-allowed disabled:bg-surface-soft disabled:text-muted-soft"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-transparent px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-muted-soft"
                 >
                   {submittingParseFileIds.length > 0 ? (
                     <Loader2 size={13} className="animate-spin" />
                   ) : (
-                    <PlayCircle size={13} />
+                    <PlayCircle size={13} className="text-muted" />
                   )}
                   全部解析
                 </button>
