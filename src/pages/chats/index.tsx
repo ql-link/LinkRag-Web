@@ -8,10 +8,25 @@ import {
   type ChangeEvent,
   type DragEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { Copy, Database, Files, Info, Loader2, MessageSquare, Search, Send, SquarePen, Upload, X } from 'lucide-react';
+import {
+  ChevronDown,
+  Copy,
+  Database,
+  FileText,
+  Files,
+  Info,
+  Loader2,
+  MessageSquare,
+  Search,
+  Send,
+  SquarePen,
+  Upload,
+  X,
+} from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { KnowledgeFileIcon } from '@/components/KnowledgeFileIcon';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
@@ -66,8 +81,9 @@ import type {
 
 const INITIAL_QUESTION_STORAGE_PREFIX = 'linkrag.initialQuestion.';
 const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
+const MESSAGE_SCROLL_BOTTOM_THRESHOLD = 96;
 const RIGHT_PANEL_RESIZE_ROW_PX = 6;
-const RIGHT_PANEL_TRANSITION_MS = 300;
+const RIGHT_PANEL_TRANSITION_MS = 200;
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -204,6 +220,73 @@ function hydrateMessagesWithChunkDetails(messages: UiChatMessage[], chunks: Reca
   });
 }
 
+const chineseRecallNumberMap: Record<string, number> = {
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+};
+
+function parseRecallMentionNumber(value: string): number | null {
+  const normalized = value.trim();
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  if (normalized === '十') return 10;
+  if (!/^[一二三四五六七八九十]+$/.test(normalized)) return null;
+
+  const [tenPart, unitPart] = normalized.split('十');
+  const tens = tenPart ? chineseRecallNumberMap[tenPart] : 1;
+  const units = unitPart ? chineseRecallNumberMap[unitPart] : 0;
+  if (!Number.isFinite(tens) || !Number.isFinite(units)) return null;
+  return tens * 10 + units;
+}
+
+function linkifyRecallChunkMentions(content: string, chunks?: RecallChunk[]) {
+  if (!content || !chunks || chunks.length === 0) return content;
+
+  const replaceMentions = (text: string) =>
+    text.replace(
+      /(?:[［【[]\s*片段\s*([0-9]{1,3}|[一二三四五六七八九十]{1,3})\s*[\]］】]|片段\s*([0-9]{1,3}|[一二三四五六七八九十]{1,3}))/g,
+      (match, bracketedNumber: string | undefined, plainNumber: string | undefined) => {
+        const rawNumber = bracketedNumber ?? plainNumber;
+        const index = rawNumber ? parseRecallMentionNumber(rawNumber) : null;
+        if (!index || index < 1 || index > chunks.length) return match;
+        return `[片段 ${index}](#recall-chunk-${index})`;
+      },
+    );
+
+  let inCodeFence = false;
+
+  return content
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inCodeFence = !inCodeFence;
+        return line;
+      }
+      if (inCodeFence) return line;
+
+      const protectedPattern = /(`[^`]*`|\[[^\]]+\]\([^)]+\))/g;
+      let nextLine = '';
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = protectedPattern.exec(line))) {
+        nextLine += replaceMentions(line.slice(lastIndex, match.index));
+        nextLine += match[0];
+        lastIndex = match.index + match[0].length;
+      }
+
+      nextLine += replaceMentions(line.slice(lastIndex));
+      return nextLine;
+    })
+    .join('\n');
+}
+
 const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
 
 function getModelProviderName(model: ChatModel | null | undefined) {
@@ -289,27 +372,38 @@ function ModelProviderIcon({
 function RecallEvidencePanel({
   message,
   showHeader = true,
+  activeChunkId,
   onClose,
 }: {
   message: LocalMessage | null;
   showHeader?: boolean;
+  activeChunkId?: string | null;
   onClose?: () => void;
 }) {
-  const chunks = message?.recallChunks ?? [];
-  const references = (message?.references ?? []).filter((item) => item.trim().length > 0);
+  const chunks = useMemo(() => message?.recallChunks ?? [], [message?.recallChunks]);
+  const references = useMemo(
+    () => (message?.references ?? []).filter((item) => item.trim().length > 0),
+    [message?.references],
+  );
+  const chunkNodeByIdRef = useRef(new Map<string, HTMLElement>());
+
+  useEffect(() => {
+    if (!activeChunkId) return;
+    chunkNodeByIdRef.current.get(activeChunkId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeChunkId, chunks]);
 
   return (
     <section className="flex h-full min-h-0 flex-col">
       {showHeader && (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-hairline bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
           <div className="flex min-w-0 items-center gap-2">
             <Search size={14} className="shrink-0 text-muted" />
             <h2 className="truncate text-sm font-semibold text-ink">召回片段</h2>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-muted">
+            <span className="shrink-0 text-[10px] font-semibold text-muted">
               {chunks.length > 0 ? chunks.length : references.length}
             </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
             {onClose && (
               <button
                 type="button"
@@ -333,9 +427,28 @@ function RecallEvidencePanel({
       >
         {chunks.length > 0 ? (
           chunks.map((chunk, index) => (
-            <article key={`${chunk.id}-${index}`} className="border-b border-hairline/70 px-1 py-2.5 last:border-b-0">
+            <article
+              key={`${chunk.id}-${index}`}
+              ref={(node) => {
+                if (node) {
+                  chunkNodeByIdRef.current.set(chunk.id, node);
+                } else {
+                  chunkNodeByIdRef.current.delete(chunk.id);
+                }
+              }}
+              className="scroll-mt-3 border-b border-hairline/70 px-1 py-2.5 last:border-b-0"
+            >
               <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-xs font-semibold leading-4 text-ink">{chunk.fileName}</p>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span
+                    className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-soft text-[10px] font-semibold leading-none text-text-secondary"
+                    title={`片段 ${index + 1}`}
+                  >
+                    <span className="tabular-nums">{index + 1}</span>
+                  </span>
+                  <FileText size={12} className="shrink-0 text-muted-soft" />
+                  <p className="min-w-0 truncate text-xs font-medium leading-4 text-primary">{chunk.fileName}</p>
+                </div>
                 {chunk.score !== null && (
                   <span className="shrink-0 text-[10px] font-medium tabular-nums text-muted-soft">{chunk.score}%</span>
                 )}
@@ -554,6 +667,8 @@ export default function ChatsPage() {
   const publishChatWorkspace = usePublishChatWorkspace();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToMessageBottomRef = useRef(true);
+  const messageAutoScrollFrameRef = useRef<number | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const composerResizeFrameRef = useRef<number | null>(null);
   const rightPanelRef = useRef<HTMLElement | null>(null);
@@ -561,7 +676,6 @@ export default function ChatsPage() {
   const recallAbortRef = useRef<AbortController | null>(null);
   const initialQuestionSentRef = useRef<string | null>(null);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
-  const mobileKbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
@@ -593,6 +707,7 @@ export default function ChatsPage() {
   const [recallPanelMounted, setRecallPanelMounted] = useState(false);
   const [rightPanelSplit, setRightPanelSplit] = useState(0.5);
   const [activeMessageAnchorId, setActiveMessageAnchorId] = useState<string | null>(null);
+  const [activeRecallChunkId, setActiveRecallChunkId] = useState<string | null>(null);
 
   const activeConversationId = id ? Number(id) : null;
 
@@ -624,7 +739,6 @@ export default function ChatsPage() {
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (kbSelectorRef.current?.contains(target)) return;
-      if (mobileKbSelectorRef.current?.contains(target)) return;
       if (modelSelectorRef.current?.contains(target)) return;
       setKbOpen(false);
       setModelOpen(false);
@@ -714,6 +828,9 @@ export default function ChatsPage() {
       if (composerResizeFrameRef.current !== null) {
         window.cancelAnimationFrame(composerResizeFrameRef.current);
       }
+      if (messageAutoScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(messageAutoScrollFrameRef.current);
+      }
     };
   }, []);
 
@@ -794,6 +911,7 @@ export default function ChatsPage() {
   // 仅在会话 id 变化时加载一次会话/消息。不要依赖 conversations / chatModels，
   // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
   useEffect(() => {
+    shouldStickToMessageBottomRef.current = true;
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
@@ -906,7 +1024,15 @@ export default function ChatsPage() {
 
   useEffect(() => {
     const el = messageScrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el || !shouldStickToMessageBottomRef.current) return;
+
+    if (messageAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(messageAutoScrollFrameRef.current);
+    }
+    messageAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+      messageAutoScrollFrameRef.current = null;
+    });
   }, [messages, sending]);
 
   useEffect(() => {
@@ -921,7 +1047,13 @@ export default function ChatsPage() {
     const scrollEl = messageScrollRef.current;
     if (!scrollEl || messageNavItems.length === 0) return;
 
+    const updateStickToBottom = () => {
+      const distanceToBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+      shouldStickToMessageBottomRef.current = distanceToBottom <= MESSAGE_SCROLL_BOTTOM_THRESHOLD;
+    };
+
     const updateActiveAnchor = () => {
+      updateStickToBottom();
       const scrollRect = scrollEl.getBoundingClientRect();
       const viewportTop = scrollRect.top + 24;
       const viewportBottom = scrollRect.bottom - 24;
@@ -965,6 +1097,7 @@ export default function ChatsPage() {
     const node = scrollEl?.querySelector<HTMLElement>(`[data-message-anchor-id="${CSS.escape(messageId)}"]`);
     if (!scrollEl || !node) return;
 
+    shouldStickToMessageBottomRef.current = false;
     scrollEl.scrollTo({
       top: node.offsetTop - 24,
       behavior: 'smooth',
@@ -1066,8 +1199,8 @@ export default function ChatsPage() {
       }
       const isFirstTurn = messages.length === 0;
       if (!selectedDatasetId) {
-        setFilesPanelOpen(true);
         setKbOpen(true);
+        addToast('error', '请先选择知识库');
         return false;
       }
       if (!selectedModelConfigId) {
@@ -1125,6 +1258,7 @@ export default function ChatsPage() {
       };
 
       const nextMessages = [...messages, userMsg, assistantMsg];
+      shouldStickToMessageBottomRef.current = true;
       updateConversationDraft(activeConversation.id, () => ({
         messages: nextMessages,
         sending: true,
@@ -1290,7 +1424,8 @@ export default function ChatsPage() {
   const promptSelectDatasetForUpload = () => {
     addToast('error', '请先选择知识库后再上传文件');
     setKbOpen(true);
-    setFilesPanelOpen(true);
+    setFilesPanelOpen(false);
+    setRecallPanelOpen(false);
     setDragging(false);
   };
 
@@ -1416,6 +1551,36 @@ export default function ChatsPage() {
   const filesPanelVisible = filesPanelOpen || filesPanelMounted;
   const recallPanelVisible = recallPanelOpen || recallPanelMounted;
 
+  useEffect(() => {
+    if (!activeRecallChunkId) return;
+    const hasActiveChunk = evidenceMessage?.recallChunks?.some((chunk) => chunk.id === activeRecallChunkId) ?? false;
+    if (!hasActiveChunk) setActiveRecallChunkId(null);
+  }, [activeRecallChunkId, evidenceMessage]);
+
+  const handleRecallChunkLinkClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>, message: LocalMessage) => {
+      if (!(event.target instanceof Element)) return;
+
+      const anchor = event.target.closest<HTMLAnchorElement>('a[href^="#recall-chunk-"]');
+      if (!anchor || !event.currentTarget.contains(anchor)) return;
+
+      const match = /^#recall-chunk-(\d+)$/.exec(anchor.getAttribute('href') ?? '');
+      const chunkIndex = match ? Number(match[1]) - 1 : -1;
+      const chunk = message.recallChunks?.[chunkIndex];
+      if (!chunk) return;
+
+      event.preventDefault();
+      const turnId = messageTurnIdById.get(message.id);
+      if (turnId) setActiveMessageAnchorId(turnId);
+      setActiveRecallChunkId(chunk.id);
+      setRecallPanelOpen(true);
+      setKbOpen(false);
+      setModelOpen(false);
+      if (!isDesktop) setFilesPanelOpen(false);
+    },
+    [isDesktop, messageTurnIdById],
+  );
+
   const toggleFilesPanel = useCallback(() => {
     setFilesPanelOpen((open) => {
       const nextOpen = !open;
@@ -1452,10 +1617,6 @@ export default function ChatsPage() {
       setRecallPanelOpen(false);
     }
   }, [filesPanelOpen, isDesktop, recallPanelOpen]);
-
-  const toggleDatasetSelector = useCallback(() => {
-    setKbOpen((open) => !open);
-  }, []);
 
   useEffect(() => {
     rightPanelSplitRef.current = rightPanelSplit;
@@ -1540,7 +1701,14 @@ export default function ChatsPage() {
   const welcomeSuggestions = ['从知识库检索要点', '总结上传的文档', '对比两份资料的差异'];
 
   const renderComposer = (placement: 'center' | 'bottom') => (
-    <div className={cn('mx-auto w-full max-w-[900px]', placement === 'center' && 'mt-7')}>
+    <div
+      className={cn(
+        'mx-auto w-full',
+        placement === 'bottom' ? 'max-w-[840px]' : 'max-w-[900px]',
+        placement === 'center' && 'mt-7',
+        placement === 'bottom' && 'transition-transform duration-[140ms] ease-out',
+      )}
+    >
       <div
         className={cn(
           'flex items-end gap-2 rounded-2xl border bg-canvas p-2 (--)]',
@@ -1557,10 +1725,84 @@ export default function ChatsPage() {
           placeholder="输入问题"
           className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 text-text-main transition-[height] duration-150 ease-out outline-none placeholder:text-muted-soft lg:placeholder:text-muted-soft"
         />
+        <div ref={kbSelectorRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setKbOpen((value) => !value);
+              setModelOpen(false);
+            }}
+            className={cn(
+              'group/kb flex h-10 w-10 max-w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[max-width,color] duration-200 hover:text-ink focus-visible:text-ink lg:w-max lg:hover:max-w-[14rem] lg:focus-visible:max-w-[14rem]',
+              kbOpen && 'text-ink lg:max-w-[14rem]',
+            )}
+            title={selectedDataset?.name ?? '选择知识库'}
+            aria-label={selectedDataset?.name ?? '选择知识库'}
+          >
+            <Database size={18} className={cn('shrink-0', selectedDataset ? 'text-primary' : 'text-muted')} />
+            <span
+              className={cn(
+                'min-w-0 max-w-0 overflow-hidden truncate whitespace-nowrap text-xs font-medium opacity-0 transition-[max-width,opacity] duration-200',
+                'hidden lg:block lg:group-hover/kb:max-w-[9rem] lg:group-hover/kb:opacity-100 lg:group-focus-visible/kb:max-w-[9rem] lg:group-focus-visible/kb:opacity-100',
+                kbOpen && 'lg:max-w-[9rem] lg:opacity-100',
+              )}
+            >
+              {selectedDataset?.name ?? '选择知识库'}
+            </span>
+            <ChevronDown
+              size={13}
+              className={cn(
+                'hidden shrink-0 text-muted transition-transform lg:block',
+                kbOpen && 'rotate-180 text-primary',
+              )}
+            />
+          </button>
+          {kbOpen && (
+            <div
+              className={cn(
+                'popover-scrollbar absolute right-[-6rem] z-50 max-h-[180px] w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-canvas p-1.5 shadow-lg shadow-ink/12 animate-[modelMenuIn_160ms_ease-out] lg:right-0 lg:z-20 lg:max-h-72 lg:w-[min(22rem,calc(100vw-2rem))] lg:rounded-[10px] lg:border lg:border-hairline lg:p-2 lg:shadow-none',
+                placement === 'bottom'
+                  ? 'top-[calc(100%+0.85rem)] lg:top-auto lg:bottom-full lg:mb-2'
+                  : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
+              )}
+            >
+              {datasets.length === 0 ? (
+                <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
+              ) : (
+                datasets.map((dataset) => (
+                  <button
+                    key={dataset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDatasetId(dataset.id);
+                      setKbOpen(false);
+                    }}
+                    className={cn(
+                      'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
+                      dataset.id === selectedDatasetId
+                        ? 'bg-primary/10 text-ink'
+                        : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
+                    )}
+                  >
+                    <span className="block truncate">{dataset.name}</span>
+                    {dataset.description && (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-soft">
+                        {dataset.description}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <div ref={modelSelectorRef} className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setModelOpen((value) => !value)}
+            onClick={() => {
+              setModelOpen((value) => !value);
+              setKbOpen(false);
+            }}
             className={cn(
               'group/model flex h-10 w-10 items-center justify-start gap-2 overflow-hidden rounded-lg px-2 text-muted transition-[width,color] duration-200 hover:text-ink focus-visible:text-ink lg:hover:w-48 lg:focus-visible:w-48',
               modelOpen && 'text-ink lg:w-48',
@@ -1635,7 +1877,7 @@ export default function ChatsPage() {
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 flex-col overflow-hidden bg-canvas transition-[margin-right] duration-[220ms] ease-out',
+        'flex h-full min-h-0 flex-col overflow-hidden bg-canvas transition-[margin-right] duration-200 ease-out will-change-[margin-right]',
         rightPanelOpen && 'lg:mr-[356px]',
       )}
     >
@@ -1731,7 +1973,11 @@ export default function ChatsPage() {
                 </div>
               </div>
             ) : (
-              <div className="mx-auto flex w-full max-w-[860px] flex-col gap-5 lg:gap-5">
+              <div
+                className={cn(
+                  'mx-auto flex w-full max-w-[860px] flex-col gap-5 transition-transform duration-[140ms] ease-out lg:gap-5',
+                )}
+              >
                 {messages.map((message) =>
                   message.role === 'user' ? (
                     <div
@@ -1766,27 +2012,31 @@ export default function ChatsPage() {
                       </div>
                       <div className="min-w-0 flex-1 lg:pt-0.5">
                         <MessageStatusNotice status={message.status} />
-                        <MarkdownRenderer
-                          content={message.content ?? ''}
-                          className={cn(
-                            'text-[15px] leading-7 text-text-main lg:text-base lg:leading-8',
-                            '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2.5 lg:[&_p]:my-3',
-                            'prose-p:text-[15px] prose-li:text-[15px] lg:prose-p:text-base lg:prose-li:text-base',
-                            '[&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-1 lg:[&_ul]:my-3 lg:[&_ol]:my-3',
-                            '[&_pre]:my-2.5 [&_blockquote]:my-2.5 lg:[&_pre]:my-3 lg:[&_blockquote]:my-3',
-                            '[&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:min-w-max',
-                            'lg:max-w-[780px] lg:prose-p:leading-7 lg:prose-li:leading-7',
-                            'lg:prose-headings:mb-2 lg:prose-headings:mt-6 lg:prose-headings:leading-snug',
-                            'lg:prose-h1:text-[22px] lg:prose-h2:text-[19px] lg:prose-h3:text-[17px]',
-                            'lg:prose-h2:border-b lg:prose-h2:border-border-subtle lg:prose-h2:pb-2',
-                            'lg:[&_ul]:pl-5 lg:[&_ol]:pl-5 lg:[&_li]:pl-1 lg:[&_li]:my-1.5',
-                            'lg:[&_blockquote]:rounded-r-lg lg:[&_blockquote]:bg-surface-soft/45 lg:[&_blockquote]:py-2.5 lg:[&_blockquote]:pr-4',
-                            'lg:[&_.not-prose]:my-4 lg:[&_table]:text-sm',
-                          )}
-                        />
-                        <p className="mt-3 text-[11px] leading-5 text-muted-soft lg:mt-4 lg:border-t lg:border-border-subtle lg:pt-3 lg:text-xs">
-                          AI 生成内容可能不准确，请以原文档为准并结合原文档参考。
-                        </p>
+                        <div onClickCapture={(event) => handleRecallChunkLinkClick(event, message)}>
+                          <MarkdownRenderer
+                            content={linkifyRecallChunkMentions(message.content ?? '', message.recallChunks)}
+                            className={cn(
+                              'text-[15px] leading-7 text-text-main lg:text-base lg:leading-8',
+                              '[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-2.5 lg:[&_p]:my-3',
+                              'prose-p:text-[15px] prose-li:text-[15px] lg:prose-p:text-base lg:prose-li:text-base',
+                              '[&_ul]:my-2.5 [&_ol]:my-2.5 [&_li]:my-1 lg:[&_ul]:my-3 lg:[&_ol]:my-3',
+                              '[&_pre]:my-2.5 [&_blockquote]:my-2.5 lg:[&_pre]:my-3 lg:[&_blockquote]:my-3',
+                              '[&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:min-w-max',
+                              'lg:max-w-[780px] lg:prose-p:leading-7 lg:prose-li:leading-7',
+                              'lg:prose-headings:mb-2 lg:prose-headings:mt-6 lg:prose-headings:leading-snug',
+                              'lg:prose-h1:text-[22px] lg:prose-h2:text-[19px] lg:prose-h3:text-[17px]',
+                              'lg:prose-h2:border-b lg:prose-h2:border-border-subtle lg:prose-h2:pb-2',
+                              'lg:[&_ul]:pl-5 lg:[&_ol]:pl-5 lg:[&_li]:pl-1 lg:[&_li]:my-1.5',
+                              'lg:[&_blockquote]:rounded-r-lg lg:[&_blockquote]:bg-surface-soft/45 lg:[&_blockquote]:py-2.5 lg:[&_blockquote]:pr-4',
+                              'lg:[&_.not-prose]:my-4 lg:[&_table]:text-sm',
+                            )}
+                          />
+                        </div>
+                        {!(sending && message.id === messages[messages.length - 1]?.id) && (
+                          <p className="mt-3 text-[11px] leading-5 text-muted-soft lg:mt-4 lg:border-t lg:border-border-subtle lg:pt-3 lg:text-xs">
+                            AI 生成内容可能不准确，请以原文档为准并结合原文档参考。
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={() => void copyMessageContent(message.content)}
@@ -1858,6 +2108,7 @@ export default function ChatsPage() {
                 onClick={() => {
                   setFilesPanelOpen(false);
                   setRecallPanelOpen(false);
+                  setActiveRecallChunkId(null);
                 }}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/8 hover:text-ink"
                 aria-label="关闭来源"
@@ -1869,45 +2120,9 @@ export default function ChatsPage() {
 
             <div className="min-h-0 flex-1 px-3 pb-3">
               {recallPanelOpen ? (
-                <RecallEvidencePanel message={evidenceMessage} showHeader={false} />
+                <RecallEvidencePanel message={evidenceMessage} showHeader={false} activeChunkId={activeRecallChunkId} />
               ) : (
                 <div className="flex h-full min-h-0 flex-col gap-2">
-                  <div ref={mobileKbSelectorRef} className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={toggleDatasetSelector}
-                      className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]"
-                    >
-                      <Database size={13} className="shrink-0 text-muted" />
-                      <span className="min-w-0 flex-1 truncate text-left">{selectedDataset?.name ?? '选择知识库'}</span>
-                    </button>
-                    {kbOpen && (
-                      <div className="popover-scrollbar absolute left-0 right-0 top-full z-30 mt-2 max-h-52 overflow-y-auto rounded-xl bg-bg-frosted p-1.5 shadow-sm backdrop-blur-xl dark:bg-[#2b2b2b]">
-                        {datasets.length === 0 ? (
-                          <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                        ) : (
-                          datasets.map((dataset) => (
-                            <button
-                              key={dataset.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedDatasetId(dataset.id);
-                                setKbOpen(false);
-                              }}
-                              className={cn(
-                                'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                                dataset.id === selectedDatasetId
-                                  ? 'bg-primary/10 text-ink'
-                                  : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
-                              )}
-                            >
-                              {dataset.name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
                   <div className="flex h-8 shrink-0 items-center gap-2 px-2">
                     <Search size={13} className="text-muted" />
                     <input
@@ -1961,30 +2176,28 @@ export default function ChatsPage() {
         <aside
           ref={rightPanelRef}
           className={cn(
-            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,gap,opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
+            'hidden fixed inset-x-3 bottom-4 top-auto z-50 h-[min(76vh,620px)] min-h-0 origin-bottom transition-[opacity,transform] duration-200 ease-out will-change-transform lg:bottom-3 lg:left-auto lg:right-3 lg:top-3 lg:grid lg:h-auto lg:w-[340px] lg:origin-top-right lg:transition-[grid-template-rows,opacity,transform] lg:duration-200 lg:ease-out',
             'gap-0',
             rightPanelOpen
-              ? 'translate-y-0 opacity-100 lg:translate-x-0 lg:scale-100'
-              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-3 lg:translate-y-0 lg:scale-[0.985]',
+              ? 'translate-y-0 opacity-100 lg:translate-x-0'
+              : 'pointer-events-none translate-y-3 opacity-0 lg:translate-x-4 lg:translate-y-0',
           )}
           style={{ gridTemplateRows: getRightPanelGridRowsForState(filesPanelOpen, recallPanelOpen, rightPanelSplit) }}
           aria-label="对话辅助面板"
         >
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
-              filesPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:-translate-y-3',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              filesPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
               !filesPanelOpen && 'pointer-events-none',
             )}
           >
             <section className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
+              <div className="flex shrink-0 items-center justify-between gap-3 bg-bg-card/70 px-4 py-3 dark:bg-[#303030]/70">
                 <div className="flex min-w-0 items-center gap-2">
                   <Files size={14} className="shrink-0 text-muted" />
                   <h2 className="text-sm font-semibold text-ink">知识库文件</h2>
-                  <span className="shrink-0 rounded-full bg-primary/8 px-2 py-0.5 text-[10px] font-semibold text-muted">
-                    {files.length}
-                  </span>
+                  <span className="shrink-0 text-[10px] font-semibold text-muted">{files.length}</span>
                 </div>
                 <button
                   type="button"
@@ -1999,45 +2212,7 @@ export default function ChatsPage() {
               <div className="min-h-0 flex-1 p-3">
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="flex min-h-0 flex-1 flex-col gap-2">
-                    <div ref={kbSelectorRef} className="relative shrink-0">
-                      <button
-                        type="button"
-                        onClick={toggleDatasetSelector}
-                        className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]"
-                      >
-                        <Database size={13} className="shrink-0 text-muted" />
-                        <span className="min-w-0 flex-1 truncate text-left">
-                          {selectedDataset?.name ?? '选择知识库'}
-                        </span>
-                      </button>
-                      {kbOpen && (
-                        <div className="popover-scrollbar absolute left-0 right-0 top-full z-30 mt-2 max-h-56 overflow-y-auto rounded-xl border border-hairline bg-bg-frosted p-1.5 shadow-sm backdrop-blur-xl dark:border-[#3a3a3a] dark:bg-[#2b2b2b]">
-                          {datasets.length === 0 ? (
-                            <p className="px-3 py-5 text-center text-xs text-muted">暂无可选知识库</p>
-                          ) : (
-                            datasets.map((dataset) => (
-                              <button
-                                key={dataset.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedDatasetId(dataset.id);
-                                  setKbOpen(false);
-                                }}
-                                className={cn(
-                                  'w-full rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                                  dataset.id === selectedDatasetId
-                                    ? 'bg-primary/10 text-ink'
-                                    : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink dark:hover:bg-white/[0.045]',
-                                )}
-                              >
-                                {dataset.name}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex h-8 shrink-0 items-center gap-2 border-b border-hairline px-2 pb-2">
+                    <div className="flex h-8 shrink-0 items-center gap-2 px-2 pb-2">
                       <Search size={13} className="text-muted" />
                       <input
                         value={fileSearch}
@@ -2145,13 +2320,20 @@ export default function ChatsPage() {
           </div>
           <div
             className={cn(
-              'min-h-0 overflow-hidden transition-opacity duration-150 lg:transition-[opacity,transform] lg:duration-300 lg:ease-[cubic-bezier(.2,.8,.2,1)]',
-              recallPanelVisible ? 'opacity-100 lg:translate-y-0' : 'pointer-events-none opacity-0 lg:translate-y-3',
+              'min-h-0 overflow-hidden transition-opacity duration-150 lg:duration-150 lg:ease-out',
+              recallPanelVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
               !recallPanelOpen && 'pointer-events-none',
             )}
           >
             <div className="h-full min-h-0 overflow-hidden rounded-[12px] border border-border-subtle bg-canvas shadow-lg shadow-ink/10 dark:border-[#3a3a3a] dark:bg-[#2b2b2b] dark:shadow-none lg:bg-bg-frosted lg:shadow-sm lg:backdrop-blur-xl lg:dark:bg-[#2b2b2b]/92">
-              <RecallEvidencePanel message={evidenceMessage} onClose={() => setRecallPanelOpen(false)} />
+              <RecallEvidencePanel
+                message={evidenceMessage}
+                activeChunkId={activeRecallChunkId}
+                onClose={() => {
+                  setRecallPanelOpen(false);
+                  setActiveRecallChunkId(null);
+                }}
+              />
             </div>
           </div>
         </aside>

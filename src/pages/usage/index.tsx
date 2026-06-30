@@ -185,7 +185,7 @@ export default function UsagePage() {
 
   return (
     <div className="flex h-full flex-col bg-canvas">
-      <header className="flex shrink-0 items-center justify-end px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:px-8 lg:py-0">
+      <header className="flex shrink-0 items-center justify-end px-4 pt-3 pb-2 lg:h-16 lg:justify-between lg:border-b lg:border-border-subtle lg:px-8 lg:py-0">
         <div className="hidden lg:block">
           <Breadcrumb items={[{ label: '首页', path: Routes.Home }, { label: '用量' }]} />
         </div>

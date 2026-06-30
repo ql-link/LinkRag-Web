@@ -13,7 +13,6 @@ import {
   Check,
   CircleX,
   Copy,
-  FileCode2,
   Lightbulb,
   PencilLine,
   Pin,
@@ -211,37 +210,22 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
   return (
     <div
       className={cn(
-        'not-prose group relative overflow-hidden rounded-lg border border-border-subtle bg-bg-card-solid shadow-sm shadow-black/[0.03] transition-colors',
+        'not-prose group relative overflow-hidden rounded-md border border-hairline bg-surface-soft/45 transition-colors',
         compact ? 'my-2' : 'my-6',
       )}
     >
-      <div
-        className={cn(
-          'flex items-center justify-between border-b border-border-subtle bg-surface-soft/55',
-          compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              'flex items-center justify-center rounded-md border border-border-subtle bg-canvas text-muted',
-              compact ? 'size-5' : 'size-6',
-            )}
-          >
-            <FileCode2 size={compact ? 12 : 14} strokeWidth={1.8} />
-          </span>
-          <span className="font-mono text-[11px] font-semibold text-muted">{language || 'text'}</span>
-        </div>
+      <div className={cn('flex items-center justify-between gap-3', compact ? 'px-3 pt-2' : 'px-4 pt-3')}>
+        <span className="font-mono text-[11px] font-medium text-muted-soft">{language || 'text'}</span>
         <button
           type="button"
           onClick={handleCopy}
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-md text-[11px] font-medium text-muted opacity-100 transition-colors hover:bg-primary/8 hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
-            compact ? 'px-2 py-1' : 'px-2.5 py-1.5',
+            'inline-flex items-center gap-1 rounded text-[11px] font-medium text-muted transition-colors hover:text-primary sm:opacity-0 sm:group-hover:opacity-100',
+            compact ? 'py-0.5' : 'py-1',
           )}
           title="复制代码"
         >
-          {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+          {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
           {copied ? '已复制' : '复制'}
         </button>
       </div>
@@ -257,10 +241,10 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
         wrapLongLines={false}
         customStyle={{
           margin: 0,
-          padding: compact ? '0.625rem 0.75rem' : '0.875rem 1rem',
+          padding: compact ? '0.5rem 0.75rem 0.75rem' : '0.625rem 1rem 1rem',
           background: 'transparent',
           fontSize: compact ? '0.75rem' : '0.8125rem',
-          lineHeight: compact ? '1.55' : '1.7',
+          lineHeight: compact ? '1.55' : '1.65',
           overflowX: 'auto',
         }}
         codeTagProps={{
@@ -520,9 +504,7 @@ export function MarkdownRenderer({
     h5: (props) => <HeadingRenderer level={5} getHeadingId={getHeadingId} {...props} />,
     h6: (props) => <HeadingRenderer level={6} getHeadingId={getHeadingId} {...props} />,
     table: ({ node: _node, className: tableClassName, ...props }) => (
-      <div
-        className={cn('not-prose overflow-x-auto rounded-lg border border-border-subtle', compact ? 'my-2' : 'my-8')}
-      >
+      <div className={cn('not-prose overflow-x-auto border border-border-subtle', compact ? 'my-2' : 'my-8')}>
         <table className={cn('w-full border-collapse', compact ? 'text-xs' : 'text-sm', tableClassName)} {...props} />
       </div>
     ),
@@ -545,15 +527,38 @@ export function MarkdownRenderer({
         <TableCellContent>{children}</TableCellContent>
       </td>
     ),
-    a: ({ node: _node, href, className: linkClassName, ...props }) => (
-      <a
-        href={href}
-        target={isExternalHref(href) ? '_blank' : undefined}
-        rel={isExternalHref(href) ? 'noopener noreferrer' : undefined}
-        className={cn('underline-offset-4', linkClassName)}
-        {...props}
-      />
-    ),
+    a: ({ node: _node, href, className: linkClassName, ...props }) => {
+      const recallChunkMatch = /^#recall-chunk-(\d+)$/.exec(href ?? '');
+
+      if (recallChunkMatch) {
+        const chunkNumber = recallChunkMatch[1];
+
+        return (
+          <a
+            href={href}
+            aria-label={`查看片段 ${chunkNumber}`}
+            title={`查看片段 ${chunkNumber}`}
+            className={cn(
+              'not-prose mx-0.5 inline-flex size-[1.55em] translate-y-[-0.1em] items-center justify-center rounded-full bg-surface-soft align-baseline text-[0.72em] font-semibold leading-none text-text-secondary no-underline transition-colors hover:bg-muted-soft/20 hover:text-ink hover:no-underline',
+              linkClassName,
+            )}
+            {...props}
+          >
+            <span className="tabular-nums">{chunkNumber}</span>
+          </a>
+        );
+      }
+
+      return (
+        <a
+          href={href}
+          target={isExternalHref(href) ? '_blank' : undefined}
+          rel={isExternalHref(href) ? 'noopener noreferrer' : undefined}
+          className={cn('underline-offset-4', linkClassName)}
+          {...props}
+        />
+      );
+    },
     img: ({ node: _node, className: imageClassName, alt, ...props }) => (
       <img className={cn('mx-auto rounded-lg ', imageClassName)} alt={alt ?? ''} loading="lazy" {...props} />
     ),

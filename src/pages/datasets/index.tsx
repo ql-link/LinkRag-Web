@@ -321,9 +321,11 @@ export default function DatasetsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
         {/* Stats Bar */}
-        <div className="mb-4 flex items-center gap-2 text-xs text-muted lg:mb-6 lg:gap-6 lg:mono-label">
-          <span>共 {datasets.length} 个知识库</span>
-          {hasSearch && <span>筛选出 {filteredDatasets.length} 个</span>}
+        <div className="mb-4 flex items-center gap-2 text-xs text-muted lg:mb-6 lg:gap-6">
+          <span className="inline-flex items-baseline gap-1 text-sm font-semibold text-ink">
+            共 <span className="text-base font-bold tabular-nums text-primary">{datasets.length}</span> 个知识库
+          </span>
+          {hasSearch && <span className="font-medium">筛选出 {filteredDatasets.length} 个</span>}
         </div>
 
         {showInitialLoading ? (

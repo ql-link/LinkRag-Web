@@ -150,4 +150,13 @@ describe('MarkdownRenderer', () => {
     expect(screen.queryByText(/\*\*L1/)).not.toBeInTheDocument();
     expect(screen.queryByText(/变更\*\*/)).not.toBeInTheDocument();
   });
+
+  it('renders recall chunk links as circular citation numbers', () => {
+    render(<MarkdownRenderer content={'参考 [片段 2](#recall-chunk-2)'} />);
+
+    const link = screen.getByRole('link', { name: '查看片段 2' });
+    expect(link).toHaveAttribute('href', '#recall-chunk-2');
+    expect(link).toHaveTextContent('2');
+    expect(link).not.toHaveTextContent('片段');
+  });
 });
