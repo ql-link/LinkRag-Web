@@ -114,6 +114,33 @@ export default function DatasetParseConfigPage() {
   const embeddingBindingChanged =
     values.sparse_embedding_config_id !== initial.sparse_embedding_config_id ||
     values.dense_embedding_config_id !== initial.dense_embedding_config_id;
+  const parseConfigNavItems = useMemo(() => {
+    const isParamChanged = (param: ParamSpec) => {
+      if (!isEditableKey(param.key)) return false;
+      return JSON.stringify(values[param.key]) !== JSON.stringify(initial[param.key]);
+    };
+
+    return [
+      {
+        id: EMBEDDING_BINDING_SECTION_ID,
+        name: '向量模型',
+        note: '稀疏 / 稠密',
+        count: 2,
+        changed: embeddingBindingChanged,
+        errorCount: Object.keys(bindingErrors).length,
+        icon: BrainCircuit,
+      },
+      ...GROUPS.map((group) => ({
+        id: group.id,
+        name: group.name,
+        note: group.en,
+        count: group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values)).length,
+        changed: group.params.some(isParamChanged),
+        errorCount: group.params.filter((param) => isEditableKey(param.key) && errors[param.key]).length,
+        icon: group.icon,
+      })),
+    ];
+  }, [bindingErrors, embeddingBindingChanged, errors, initial, values]);
 
   useBeforeUnload(
     useCallback(
@@ -367,7 +394,34 @@ export default function DatasetParseConfigPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
-        <div className="w-full">
+        <div className="mx-auto grid w-full max-w-[1280px] gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="hidden lg:block">
+            <nav className="sticky top-8 space-y-1" aria-label="解析配置分组">
+              {parseConfigNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.id}
+                    href={`#${item.id}`}
+                    className="group flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-xs text-ink transition-colors hover:bg-surface-soft"
+                  >
+                    <Icon size={14} className="shrink-0 text-muted-soft transition-colors group-hover:text-primary" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{item.name}</span>
+                      <span className="mt-0.5 block truncate font-mono text-[10px] text-ink">
+                        {item.note} · {item.count}
+                      </span>
+                    </span>
+                    {item.errorCount > 0 ? (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-error" title={`${item.errorCount} 个错误`} />
+                    ) : item.changed ? (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" title="已修改" />
+                    ) : null}
+                  </a>
+                );
+              })}
+            </nav>
+          </aside>
           <div className="flex min-w-0 flex-col gap-0">
             <EmbeddingBindingSection
               sparseConfigs={sparseEmbeddingConfigs}
@@ -441,24 +495,12 @@ function EmbeddingBindingSection({
           </span>
           <div className="min-w-0">
             <h2 className="text-[15.5px] font-bold text-ink">向量模型绑定</h2>
-            <p className="mt-0.5 text-[11.5px] leading-5 text-muted">绑定召回使用的稀疏与稠密向量模型</p>
+            <p className="mt-0.5 text-[11.5px] leading-5 text-ink">绑定召回使用的稀疏与稠密向量模型</p>
           </div>
         </div>
         {changed && <span className="shrink-0 text-[11px] font-semibold text-primary">已修改</span>}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <EmbeddingModelSelect
-          label="稀疏向量模型"
-          iconUrl={sparseIconUrl}
-          value={sparseValue}
-          configs={sparseConfigs}
-          error={sparseError}
-          unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
-          loading={loading}
-          disabled={disabled || sparseLocked}
-          helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
-          onChange={(value) => onChange('sparse_embedding_config_id', value)}
-        />
         <EmbeddingModelSelect
           label="稠密向量模型"
           iconUrl={denseIconUrl}
@@ -470,6 +512,18 @@ function EmbeddingBindingSection({
           disabled={disabled || denseLocked}
           helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('dense_embedding_config_id', value)}
+        />
+        <EmbeddingModelSelect
+          label="稀疏向量模型"
+          iconUrl={sparseIconUrl}
+          value={sparseValue}
+          configs={sparseConfigs}
+          error={sparseError}
+          unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
+          loading={loading}
+          disabled={disabled || sparseLocked}
+          helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
+          onChange={(value) => onChange('sparse_embedding_config_id', value)}
         />
       </div>
       {changed && (
@@ -497,48 +551,67 @@ function ConfigGroup({
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
   const Icon = group.icon;
+  const visibleParams = group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values));
+  const renderParamField = (param: ParamSpec) => (
+    <ParamField
+      key={param.key}
+      param={param}
+      values={values}
+      error={isEditableKey(param.key) ? errors[param.key] : undefined}
+      disabled={disabled || isDisabled(param, values)}
+      spanFull={param.span === 'full'}
+      displayModel={
+        param.key === 'table_model'
+          ? displayModels.chat
+          : param.key === 'vision_model'
+            ? displayModels.vision
+            : undefined
+      }
+      onChange={onChange}
+    />
+  );
+
+  const paramByKey = new Map(visibleParams.map((param) => [param.key, param]));
 
   return (
     <section
       id={embedded ? undefined : group.id}
       className="scroll-mt-8 border-b border-border-subtle py-8 last:border-b-0"
     >
-      <header className={cn('flex items-start gap-2 px-1 pb-5 pt-0 lg:gap-3 lg:px-0', embedded && 'hidden lg:flex')}>
+      <header className={cn('flex items-start gap-2 pb-5 pt-0 lg:gap-3', embedded && 'hidden lg:flex')}>
         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center bg-transparent">
           <Icon size={18} className={group.colorClass} />
         </span>
-        <div className="min-w-0">
-          <h2 className="text-[15.5px] font-bold text-ink">{group.name}</h2>
-          <p className="mt-0.5 text-[11.5px] leading-5 text-muted">{group.note}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="text-[15.5px] font-bold text-ink">{group.name}</h2>
+            <span className="rounded-full bg-surface-soft px-2 py-0.5 font-mono text-[10px] font-semibold text-muted">
+              {visibleParams.length}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[11.5px] leading-5 text-ink">{group.note}</p>
         </div>
       </header>
-      <div
-        className={cn(
-          'grid gap-x-10 gap-y-4 px-1 pb-2 pt-0 lg:px-0 lg:pb-0',
-          group.columns === 'single' ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-2',
-        )}
-      >
-        {group.params
-          .filter((param) => !param.visibleWhen || param.visibleWhen(values))
-          .map((param) => (
-            <ParamField
-              key={param.key}
-              param={param}
-              values={values}
-              error={isEditableKey(param.key) ? errors[param.key] : undefined}
-              disabled={disabled || isDisabled(param, values)}
-              spanFull={param.span === 'full'}
-              displayModel={
-                param.key === 'table_model'
-                  ? displayModels.chat
-                  : param.key === 'vision_model'
-                    ? displayModels.vision
-                    : undefined
-              }
-              onChange={onChange}
-            />
-          ))}
-      </div>
+      {group.id === 'enhancement' ? (
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
+          <div className="min-w-0 space-y-3">
+            {paramByKey.get('enable_table_enhancement') &&
+              renderParamField(paramByKey.get('enable_table_enhancement')!)}
+            {paramByKey.get('table_model') && renderParamField(paramByKey.get('table_model')!)}
+          </div>
+          <div className="min-w-0 space-y-3">
+            {paramByKey.get('enable_image_enhancement') &&
+              renderParamField(paramByKey.get('enable_image_enhancement')!)}
+            {paramByKey.get('vision_model') && renderParamField(paramByKey.get('vision_model')!)}
+          </div>
+          <div className="xl:col-span-2">
+            {paramByKey.get('enable_heading_hierarchy') &&
+              renderParamField(paramByKey.get('enable_heading_hierarchy')!)}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">{visibleParams.map(renderParamField)}</div>
+      )}
     </section>
   );
 }
@@ -567,6 +640,7 @@ function ParamField({
   const segmentValue = typeof rawValue === 'string' || rawValue === null ? rawValue : null;
   const arrayValue = Array.isArray(rawValue) ? rawValue : [];
   const compactOptions = Boolean(param.compactOptions);
+  const segmentOptionCount = param.options?.length ?? 0;
 
   function handleNumberChange(event: ChangeEvent<HTMLInputElement>) {
     if (!editableKey) return;
@@ -580,81 +654,133 @@ function ParamField({
     onChange(editableKey, next as ParseConfigValues[EditableParamKey]);
   }
 
-  return (
-    <div
-      className={cn(
-        'flex min-w-0 flex-col gap-2 pb-3 last:pb-0',
-        spanFull && 'xl:col-span-2',
-        param.type === 'multiselect' && 'gap-3',
-        disabled && 'pointer-events-none opacity-40',
-      )}
-      title={[param.envKey, param.description].filter(Boolean).join(' · ')}
-    >
-      <div className="flex items-start justify-between gap-3">
+  const stageTwoAlgorithmField = param.type === 'stage-toggle' && param.key === 'stage_two_algorithm';
+  const compactChoiceField = param.key === 'recall_enabled_sources' || param.key === 'recall_fusion_strategy';
+  const compactNumberField = param.key === 'heading_break_level';
+  const wideField = spanFull || ((param.type === 'segment' || param.type === 'multiselect') && !compactChoiceField);
+  const sliderField = param.type === 'slider';
+  const stackedField =
+    sliderField ||
+    compactChoiceField ||
+    (param.type === 'segment' && !stageTwoAlgorithmField) ||
+    param.type === 'display';
+
+  if (stageTwoAlgorithmField && editableKey) {
+    const enabled = segmentValue === 'semantic_depth_window';
+
+    return (
+      <div
+        className={cn(
+          'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4',
+          disabled && 'pointer-events-none opacity-40',
+        )}
+        title={[param.envKey, param.description].filter(Boolean).join(' · ')}
+      >
         <div className="min-w-0">
-          <p className="text-[13.5px] font-semibold text-ink">{param.label}</p>
-        </div>
-        <div className="shrink-0">
-          {param.type === 'toggle' && editableKey && (
-            <button
-              type="button"
-              onClick={() => onChange(editableKey, !booleanValue as ParseConfigValues[EditableParamKey])}
-              className={cn(
-                'flex h-6 w-[42px] items-center rounded-full p-[3px] transition-colors',
-                booleanValue ? 'bg-primary' : 'bg-text-main/15',
-              )}
-              aria-label={param.label}
-            >
-              <span
-                className={cn(
-                  'h-[18px] w-[18px] rounded-full bg-white  transition-transform',
-                  booleanValue && 'translate-x-[18px]',
-                )}
-              />
-            </button>
+          <p className="truncate text-[13.5px] font-semibold text-ink">{param.label}</p>
+          {param.showDescription && param.description && (
+            <p className="mt-1 text-[11.5px] leading-5 text-ink">{param.description}</p>
           )}
-          {param.type === 'number' && editableKey && (
-            <input
-              type="number"
-              value={numericValue === null ? '' : numericValue}
-              min={param.min}
-              max={param.max}
-              step={param.step ?? 1}
-              onChange={handleNumberChange}
+        </div>
+        <div className="flex min-w-0 justify-start lg:justify-end">
+          <button
+            type="button"
+            onClick={() =>
+              onChange(editableKey, (enabled ? 'noop' : 'semantic_depth_window') as ParseConfigValues[EditableParamKey])
+            }
+            className={cn(
+              'flex h-6 w-[42px] items-center rounded-full p-[3px] transition-colors',
+              enabled ? 'bg-primary' : 'bg-text-main/15',
+            )}
+            aria-label={param.label}
+            aria-pressed={enabled}
+          >
+            <span
               className={cn(
-                'h-8 w-[84px] rounded-md bg-primary/[0.04] px-2 text-right font-mono text-[13px] font-medium text-text-main outline-none transition-colors focus:bg-primary/[0.08]',
-                error && 'bg-error/10 text-error focus:bg-error/10',
+                'h-[18px] w-[18px] rounded-full bg-white transition-transform',
+                enabled && 'translate-x-[18px]',
               )}
             />
-          )}
-          {param.type === 'slider' && (
-            <span className="font-mono text-[13px] font-semibold text-ink">
-              {numericValue === null ? '-' : formatValue(numericValue)}
-            </span>
-          )}
-          {param.type === 'multiselect' && (
-            <span className="font-mono text-[12px] font-semibold text-text-secondary">
-              {arrayValue.length}/{param.options?.length ?? 0}
-            </span>
-          )}
+          </button>
         </div>
       </div>
+    );
+  }
 
-      {param.type === 'slider' && editableKey && (
+  const control = (
+    <>
+      {param.type === 'toggle' && editableKey && (
+        <button
+          type="button"
+          onClick={() => onChange(editableKey, !booleanValue as ParseConfigValues[EditableParamKey])}
+          className={cn(
+            'flex h-6 w-[42px] items-center rounded-full p-[3px] transition-colors',
+            booleanValue ? 'bg-primary' : 'bg-text-main/15',
+          )}
+          aria-label={param.label}
+        >
+          <span
+            className={cn(
+              'h-[18px] w-[18px] rounded-full bg-white transition-transform',
+              booleanValue && 'translate-x-[18px]',
+            )}
+          />
+        </button>
+      )}
+
+      {param.type === 'number' && editableKey && (
         <input
-          type="range"
-          value={numericValue ?? param.min}
+          type="number"
+          value={numericValue === null ? '' : numericValue}
           min={param.min}
           max={param.max}
           step={param.step ?? 1}
-          style={{ '--range-progress': getRangeProgress(numericValue, param.min, param.max) } as CSSProperties}
-          onChange={(event) => onChange(editableKey, Number(event.target.value) as ParseConfigValues[EditableParamKey])}
-          className="parse-config-range h-2 w-full cursor-pointer accent-primary"
+          onChange={handleNumberChange}
+          className={cn(
+            compactNumberField
+              ? 'h-8 w-16 rounded-full border border-border-subtle bg-surface-soft px-2 text-center font-mono text-[13px] font-semibold text-ink outline-none transition-colors focus:border-primary/35 focus:bg-canvas'
+              : 'h-9 w-28 rounded-md border border-border-subtle bg-canvas px-2.5 text-right font-mono text-[13px] font-medium text-text-main outline-none transition-colors focus:border-primary/35 focus:bg-surface-soft',
+            error && 'border-error/40 bg-error/10 text-error focus:border-error/45 focus:bg-error/10',
+          )}
         />
       )}
 
-      {param.type === 'segment' && editableKey && (
-        <div className={cn('grid gap-1', compactOptions ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
+      {param.type === 'slider' && editableKey && (
+        <div className="w-full">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-muted">
+              {param.min ?? 0} - {param.max ?? '-'}
+            </span>
+            <span className="font-mono text-[13px] font-semibold text-ink">
+              {numericValue === null ? '-' : formatValue(numericValue)}
+            </span>
+          </div>
+          <input
+            type="range"
+            value={numericValue ?? param.min}
+            min={param.min}
+            max={param.max}
+            step={param.step ?? 1}
+            style={{ '--range-progress': getRangeProgress(numericValue, param.min, param.max) } as CSSProperties}
+            onChange={(event) =>
+              onChange(editableKey, Number(event.target.value) as ParseConfigValues[EditableParamKey])
+            }
+            className="parse-config-range h-2 w-full cursor-pointer accent-primary"
+          />
+        </div>
+      )}
+
+      {param.type === 'segment' && editableKey && !stageTwoAlgorithmField && (
+        <div
+          className={cn(
+            'grid w-full gap-1 rounded-md bg-surface-soft p-1',
+            compactOptions
+              ? 'grid-cols-3 sm:grid-cols-5'
+              : segmentOptionCount <= 2
+                ? 'grid-cols-2'
+                : 'grid-cols-2 sm:grid-cols-4',
+          )}
+        >
           {param.options?.map((option) => {
             const active = segmentValue === option.value;
             return (
@@ -662,10 +788,11 @@ function ParamField({
                 key={option.value ?? 'system-default'}
                 type="button"
                 onClick={() => onChange(editableKey, option.value as ParseConfigValues[EditableParamKey])}
+                title={option.value ?? 'default'}
                 className={cn(
-                  'min-w-0 rounded-md text-center transition-colors',
-                  compactOptions ? 'px-1.5 py-1.5' : 'px-3 py-1.5',
-                  active ? 'bg-primary/10 text-ink' : 'text-muted hover:bg-primary/[0.04]',
+                  'min-w-0 rounded text-center transition-colors',
+                  compactOptions ? 'px-1.5 py-1.5' : 'px-3 py-2',
+                  active ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/60 hover:text-ink',
                 )}
               >
                 <span
@@ -676,14 +803,6 @@ function ParamField({
                 >
                   {option.label}
                 </span>
-                <span
-                  className={cn(
-                    'mt-0.5 block max-w-full truncate font-mono uppercase leading-tight text-muted-soft',
-                    compactOptions ? 'text-[7.5px]' : 'text-[8.5px]',
-                  )}
-                >
-                  {option.value ?? 'default'}
-                </span>
               </button>
             );
           })}
@@ -691,7 +810,7 @@ function ParamField({
       )}
 
       {param.type === 'multiselect' && editableKey && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
           {param.options?.map((option) => {
             if (typeof option.value !== 'string' || !isRecallSource(option.value)) return null;
 
@@ -703,16 +822,18 @@ function ParamField({
                 type="button"
                 onClick={() => handleMultiSelectChange(source)}
                 aria-pressed={active}
+                title={source}
                 className={cn(
-                  'rounded-md px-2 py-1.5 text-center transition-colors',
-                  active ? 'bg-primary/10 text-ink' : 'text-muted hover:bg-primary/[0.04]',
+                  'rounded-md border px-2.5 py-2 text-center transition-colors',
+                  active
+                    ? 'border-primary/20 bg-primary/8 text-ink'
+                    : 'border-border-subtle text-muted hover:bg-surface-soft hover:text-ink',
                 )}
               >
-                <span className="flex items-center justify-center gap-1 text-xs font-semibold">
-                  <Check size={11} className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-0')} />
+                <span className="flex items-center justify-center gap-1.5 text-xs font-semibold">
+                  <Check size={12} className={cn('transition-opacity', active ? 'opacity-100' : 'opacity-0')} />
                   {option.label}
                 </span>
-                <span className="mt-0.5 block font-mono text-[9px] uppercase text-muted">{source}</span>
               </button>
             );
           })}
@@ -720,17 +841,54 @@ function ParamField({
       )}
 
       {param.type === 'display' && <ReadonlyModelField model={displayModel} hint={param.displaySub} />}
+    </>
+  );
 
-      {error && (
-        <p className="flex items-center gap-1.5 text-[11.5px] font-semibold text-error">
-          <AlertCircle size={12} />
-          {error}
-        </p>
+  return (
+    <div
+      className={cn(
+        'min-w-0 gap-3',
+        compactNumberField
+          ? 'grid xl:col-span-2 xl:w-[calc((100%-2rem)/2)] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4'
+          : stackedField
+            ? 'flex flex-col'
+            : wideField
+              ? 'grid xl:col-span-2 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)] lg:gap-8'
+              : 'grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4',
+        disabled && 'pointer-events-none opacity-40',
       )}
+      title={[param.envKey, param.description].filter(Boolean).join(' · ')}
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-[13.5px] font-semibold text-ink">{param.label}</p>
+          {param.type === 'multiselect' && (
+            <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">
+              {arrayValue.length}/{param.options?.length ?? 0}
+            </span>
+          )}
+        </div>
+        {param.showDescription && param.description && param.type !== 'display' && (
+          <p className="mt-1 text-[11.5px] leading-5 text-ink">{param.description}</p>
+        )}
+      </div>
 
-      {param.showDescription && param.description && param.type !== 'display' && (
-        <p className="text-[11.5px] leading-5 text-muted">{param.description}</p>
-      )}
+      <div className="min-w-0">
+        <div
+          className={cn(
+            'flex min-w-0 justify-start',
+            param.type === 'toggle' || param.type === 'number' ? 'lg:justify-end' : 'w-full',
+          )}
+        >
+          {control}
+        </div>
+        {error && (
+          <p className="mt-2 flex items-center gap-1.5 text-[11.5px] font-semibold text-error">
+            <AlertCircle size={12} />
+            {error}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
