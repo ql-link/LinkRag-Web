@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
 import { useBeforeUnload, useNavigate, useParams } from 'react-router';
 import { AlertCircle, Box, BrainCircuit, Check, Loader2 } from 'lucide-react';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
@@ -134,7 +134,9 @@ export default function DatasetParseConfigPage() {
         id: group.id,
         name: group.name,
         note: group.en,
-        count: group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values)).length,
+        count: group.params.filter(
+          (param) => (!param.visibleWhen || param.visibleWhen(values)) && isEditableKey(param.key),
+        ).length,
         changed: group.params.some(isParamChanged),
         errorCount: group.params.filter((param) => isEditableKey(param.key) && errors[param.key]).length,
         icon: group.icon,
@@ -293,10 +295,6 @@ export default function DatasetParseConfigPage() {
     }));
   }
 
-  function handleDiscard() {
-    setValues({ ...initial });
-  }
-
   async function handleSave() {
     if (!dataset || saveDisabled) return;
     if (!values.sparse_embedding_config_id || !values.dense_embedding_config_id) {
@@ -358,64 +356,55 @@ export default function DatasetParseConfigPage() {
           />
         </div>
 
-        <div className="flex min-w-0 items-center gap-1.5 lg:shrink-0 lg:gap-2">
-          {dirty && (
-            <span className="hidden h-9 items-center rounded-lg bg-primary/8 px-3 text-xs font-bold text-text-secondary lg:inline-flex">
-              未保存改动
-            </span>
-          )}
-          {dirty && (
-            <button
-              type="button"
-              onClick={handleDiscard}
-              disabled={saving}
-              className="inline-flex h-9 items-center rounded-lg bg-transparent px-2.5 text-xs font-bold text-text-secondary transition-colors hover:bg-primary/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
-            >
-              放弃
-            </button>
-          )}
+        <div className="flex min-w-0 items-center gap-2 lg:shrink-0">
           <button
             type="button"
             onClick={handleRestoreDefault}
             disabled={saving}
-            className="inline-flex h-9 items-center rounded-lg bg-transparent px-2.5 text-xs font-bold text-text-secondary transition-colors hover:bg-primary/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 lg:px-3"
+            className="inline-flex h-9 items-center rounded-lg bg-transparent px-3 text-xs font-bold text-text-secondary transition-colors hover:bg-primary/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
-            默认
+            恢复默认
           </button>
           <button
             type="button"
             onClick={() => void handleSave()}
             disabled={saveDisabled}
-            className="inline-flex h-9 min-w-[64px] items-center justify-center rounded-lg bg-primary px-3 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-45 lg:min-w-[82px] lg:px-4"
+            className="inline-flex h-9 min-w-[88px] items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-white transition-colors hover:bg-primary-active disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {saving ? '保存中' : '保存'}
+            {saving ? '保存中' : '保存配置'}
           </button>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
-        <div className="mx-auto grid w-full max-w-[1280px] gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="mx-auto grid w-full max-w-[1280px] gap-7 lg:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
-            <nav className="sticky top-8 space-y-1" aria-label="解析配置分组">
+            <nav className="sticky top-4 -mt-3 space-y-2" aria-label="解析配置分组">
               {parseConfigNavItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <a
                     key={item.id}
                     href={`#${item.id}`}
-                    className="group flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-xs text-ink transition-colors hover:bg-surface-soft"
+                    className="group flex min-w-0 items-start gap-3 rounded-lg px-3 py-3 text-ink transition-colors hover:bg-surface-soft"
                   >
-                    <Icon size={14} className="shrink-0 text-muted-soft transition-colors group-hover:text-primary" />
+                    <Icon
+                      size={18}
+                      className="mt-0.5 shrink-0 text-muted-soft transition-colors group-hover:text-primary"
+                    />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{item.name}</span>
-                      <span className="mt-0.5 block truncate font-mono text-[10px] text-ink">
+                      <span className="block truncate text-[15.5px] font-bold leading-5">{item.name}</span>
+                      <span className="mt-1 block truncate font-mono text-[11.5px] leading-4 text-ink">
                         {item.note} · {item.count}
                       </span>
                     </span>
                     {item.errorCount > 0 ? (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-error" title={`${item.errorCount} 个错误`} />
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full bg-error"
+                        title={`${item.errorCount} 个错误`}
+                      />
                     ) : item.changed ? (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" title="已修改" />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" title="已修改" />
                     ) : null}
                   </a>
                 );
@@ -507,7 +496,7 @@ function EmbeddingBindingSection({
           value={denseValue}
           configs={denseConfigs}
           error={denseError}
-          unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
+          unavailableMessage="请先配置并启用稠密向量模型"
           loading={loading}
           disabled={disabled || denseLocked}
           helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
@@ -519,7 +508,7 @@ function EmbeddingBindingSection({
           value={sparseValue}
           configs={sparseConfigs}
           error={sparseError}
-          unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
+          unavailableMessage="请先配置并启用稀疏向量模型"
           loading={loading}
           disabled={disabled || sparseLocked}
           helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
@@ -552,6 +541,7 @@ function ConfigGroup({
 }) {
   const Icon = group.icon;
   const visibleParams = group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values));
+  const visibleControlCount = visibleParams.filter((param) => isEditableKey(param.key)).length;
   const renderParamField = (param: ParamSpec) => (
     <ParamField
       key={param.key}
@@ -586,33 +576,194 @@ function ConfigGroup({
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="text-[15.5px] font-bold text-ink">{group.name}</h2>
             <span className="rounded-full bg-surface-soft px-2 py-0.5 font-mono text-[10px] font-semibold text-muted">
-              {visibleParams.length}
+              {visibleControlCount}
             </span>
           </div>
           <p className="mt-0.5 text-[11.5px] leading-5 text-ink">{group.note}</p>
         </div>
       </header>
       {group.id === 'enhancement' ? (
-        <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
-          <div className="min-w-0 space-y-3">
-            {paramByKey.get('enable_table_enhancement') &&
-              renderParamField(paramByKey.get('enable_table_enhancement')!)}
-            {paramByKey.get('table_model') && renderParamField(paramByKey.get('table_model')!)}
-          </div>
-          <div className="min-w-0 space-y-3">
-            {paramByKey.get('enable_image_enhancement') &&
-              renderParamField(paramByKey.get('enable_image_enhancement')!)}
-            {paramByKey.get('vision_model') && renderParamField(paramByKey.get('vision_model')!)}
-          </div>
-          <div className="xl:col-span-2">
-            {paramByKey.get('enable_heading_hierarchy') &&
-              renderParamField(paramByKey.get('enable_heading_hierarchy')!)}
-          </div>
-        </div>
+        <MarkdownEnhancementControls
+          paramByKey={paramByKey}
+          values={values}
+          disabled={disabled}
+          displayModels={displayModels}
+          onChange={onChange}
+        />
+      ) : group.id === 'recall' ? (
+        <RecallControls
+          paramByKey={paramByKey}
+          weighted={values.recall_fusion_strategy === 'weighted_score'}
+          renderParam={renderParamField}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">{visibleParams.map(renderParamField)}</div>
       )}
     </section>
+  );
+}
+
+function RecallControls({
+  paramByKey,
+  weighted,
+  renderParam,
+}: {
+  paramByKey: Map<ParamSpec['key'], ParamSpec>;
+  weighted: boolean;
+  renderParam: (param: ParamSpec) => ReactNode;
+}) {
+  const renderParamByKey = (key: ParamSpec['key']) => {
+    const param = paramByKey.get(key);
+    return param ? <div className="min-w-0">{renderParam(param)}</div> : null;
+  };
+
+  return (
+    <div className="space-y-7">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
+        {renderParamByKey('recall_enabled_sources')}
+        {renderParamByKey('recall_fusion_strategy')}
+      </div>
+
+      {weighted && (
+        <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-y border-border-subtle/70 py-5 xl:grid-cols-2">
+          {renderParamByKey('fusion_bm25_weight')}
+          {renderParamByKey('fusion_sparse_weight')}
+          {renderParamByKey('fusion_dense_weight')}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
+        {renderParamByKey('rerank_top_n')}
+        {renderParamByKey('recall_strict')}
+        {renderParamByKey('recall_result_limit')}
+        {renderParamByKey('recall_context_token_budget')}
+      </div>
+
+      <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border-subtle/70 pt-5 xl:grid-cols-2">
+        {renderParamByKey('dense_score_threshold')}
+        {renderParamByKey('dense_top_k')}
+        {renderParamByKey('sparse_score_threshold')}
+        {renderParamByKey('sparse_top_k')}
+        {renderParamByKey('bm25_top_k')}
+      </div>
+    </div>
+  );
+}
+
+function MarkdownEnhancementControls({
+  paramByKey,
+  values,
+  disabled,
+  displayModels,
+  onChange,
+}: {
+  paramByKey: Map<ParamSpec['key'], ParamSpec>;
+  values: ParseConfigValues;
+  disabled: boolean;
+  displayModels: DefaultModels;
+  onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
+}) {
+  const tableParam = paramByKey.get('enable_table_enhancement');
+  const imageParam = paramByKey.get('enable_image_enhancement');
+  const headingParam = paramByKey.get('enable_heading_hierarchy');
+
+  return (
+    <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
+      {tableParam && (
+        <MarkdownEnhancementItem
+          param={tableParam}
+          checked={values.enable_table_enhancement}
+          disabled={disabled}
+          model={displayModels.chat}
+          modelParam={paramByKey.get('table_model')}
+          onToggle={() => onChange('enable_table_enhancement', !values.enable_table_enhancement)}
+        />
+      )}
+      {imageParam && (
+        <MarkdownEnhancementItem
+          param={imageParam}
+          checked={values.enable_image_enhancement}
+          disabled={disabled}
+          model={displayModels.vision}
+          modelParam={paramByKey.get('vision_model')}
+          onToggle={() => onChange('enable_image_enhancement', !values.enable_image_enhancement)}
+        />
+      )}
+      {headingParam && (
+        <MarkdownEnhancementItem
+          param={headingParam}
+          checked={values.enable_heading_hierarchy}
+          disabled={disabled}
+          onToggle={() => onChange('enable_heading_hierarchy', !values.enable_heading_hierarchy)}
+        />
+      )}
+    </div>
+  );
+}
+
+function MarkdownEnhancementItem({
+  param,
+  checked,
+  disabled,
+  model,
+  modelParam,
+  onToggle,
+}: {
+  param: ParamSpec;
+  checked: boolean;
+  disabled: boolean;
+  model?: DefaultModelInfo | null;
+  modelParam?: ParamSpec;
+  onToggle: () => void;
+}) {
+  return (
+    <div className={cn('min-w-0', disabled && 'opacity-50')} title={param.description}>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+        <div className="min-w-0">
+          <p className="text-[13.5px] font-semibold text-ink">{param.label}</p>
+          {param.description && <p className="mt-1 text-[11.5px] leading-5 text-ink">{param.description}</p>}
+        </div>
+        <div className="flex min-w-0 justify-end pt-0.5">
+          <ToggleSwitch checked={checked} disabled={disabled} label={param.label} onClick={onToggle} />
+        </div>
+      </div>
+      {modelParam && (
+        <div className={cn('mt-3 min-w-0', !checked && 'opacity-40')}>
+          <ReadonlyModelField model={model} hint={modelParam.displaySub} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  disabled,
+  label,
+  onClick,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex h-6 w-[42px] shrink-0 items-center rounded-full p-[3px] transition-colors',
+        checked ? 'bg-primary' : 'bg-text-main/15',
+        disabled && 'cursor-not-allowed',
+      )}
+      aria-label={label}
+      aria-pressed={checked}
+    >
+      <span
+        className={cn('h-[18px] w-[18px] rounded-full bg-white transition-transform', checked && 'translate-x-[18px]')}
+      />
+    </button>
   );
 }
 
@@ -674,7 +825,7 @@ function ParamField({
           'grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4',
           disabled && 'pointer-events-none opacity-40',
         )}
-        title={[param.envKey, param.description].filter(Boolean).join(' · ')}
+        title={param.description}
       >
         <div className="min-w-0">
           <p className="truncate text-[13.5px] font-semibold text-ink">{param.label}</p>
@@ -857,7 +1008,7 @@ function ParamField({
               : 'grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-4',
         disabled && 'pointer-events-none opacity-40',
       )}
-      title={[param.envKey, param.description].filter(Boolean).join(' · ')}
+      title={param.description}
     >
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
