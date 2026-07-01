@@ -3,6 +3,7 @@ import type {
   LLMCapability,
   LLMConfigDTO,
   ProviderModelDTO,
+  ProviderIconUploadResult,
   SystemProvider,
   ProviderModel,
   SystemPreset,
@@ -19,6 +20,12 @@ import type {
   ModelUsageDTO,
   UsageTrendDTO,
   PageResult,
+  ModelSyncCandidate,
+  ModelSyncJob,
+  ModelSyncJobStatus,
+  ModelSyncPublishRequest,
+  ModelSyncReviewStatus,
+  ModelSyncSource,
 } from '@/types/api';
 
 export async function getLLMConfigs(filters?: {
@@ -70,6 +77,12 @@ export async function listAdminProviders(page = 1, size = 20): Promise<PageResul
   return apiClient.get<PageResult<SystemProvider>>('/api/v1/admin/providers', { page, size });
 }
 
+export async function uploadAdminProviderIcon(file: File): Promise<ProviderIconUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.postForm<ProviderIconUploadResult>('/api/v1/admin/providers/icon', formData);
+}
+
 export async function createAdminProvider(data: CreateProviderRequest): Promise<void> {
   await apiClient.post('/api/v1/admin/providers', data);
 }
@@ -116,6 +129,65 @@ export async function deleteAdminProviderModel(id: number): Promise<void> {
 
 export async function toggleAdminProviderModel(id: number, isActive: boolean): Promise<void> {
   await apiClient.patch(`/api/v1/admin/provider-models/${id}/active?isActive=${encodeURIComponent(String(isActive))}`);
+}
+
+export async function syncAdminProviderModels(
+  providerId: number,
+  syncSource: ModelSyncSource = 'MODELS_DEV',
+): Promise<ModelSyncJob> {
+  return apiClient.post<ModelSyncJob>(
+    `/api/v1/admin/providers/${providerId}/model-sync`,
+    { syncSource },
+    { timeout: 60_000 },
+  );
+}
+
+export async function listAdminModelSyncJobs(filters?: {
+  page?: number;
+  size?: number;
+  providerId?: number;
+  syncSource?: ModelSyncSource;
+  status?: ModelSyncJobStatus;
+}): Promise<PageResult<ModelSyncJob>> {
+  return apiClient.get<PageResult<ModelSyncJob>>('/api/v1/admin/model-sync-jobs', {
+    page: filters?.page ?? 1,
+    size: filters?.size ?? 10,
+    ...(filters?.providerId ? { providerId: filters.providerId } : {}),
+    ...(filters?.syncSource ? { syncSource: filters.syncSource } : {}),
+    ...(filters?.status ? { status: filters.status } : {}),
+  });
+}
+
+export async function listAdminModelSyncCandidates(filters?: {
+  page?: number;
+  size?: number;
+  providerId?: number;
+  jobId?: number;
+  reviewStatus?: ModelSyncReviewStatus;
+  capability?: LLMCapability;
+}): Promise<PageResult<ModelSyncCandidate>> {
+  return apiClient.get<PageResult<ModelSyncCandidate>>('/api/v1/admin/model-sync-candidates', {
+    page: filters?.page ?? 1,
+    size: filters?.size ?? 20,
+    ...(filters?.providerId ? { providerId: filters.providerId } : {}),
+    ...(filters?.jobId ? { jobId: filters.jobId } : {}),
+    ...(filters?.reviewStatus ? { reviewStatus: filters.reviewStatus } : {}),
+    ...(filters?.capability ? { capability: filters.capability } : {}),
+  });
+}
+
+export async function publishAdminModelSyncCandidate(
+  id: number,
+  data?: ModelSyncPublishRequest,
+): Promise<ProviderModel> {
+  return apiClient.post<ProviderModel>(`/api/v1/admin/model-sync-candidates/${id}/publish`, data);
+}
+
+export async function reviewAdminModelSyncCandidate(
+  id: number,
+  reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>,
+): Promise<ModelSyncCandidate> {
+  return apiClient.patch<ModelSyncCandidate>(`/api/v1/admin/model-sync-candidates/${id}/review`, { reviewStatus });
 }
 
 export async function listAdminSystemPresets(): Promise<SystemPreset[]> {

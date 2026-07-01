@@ -77,12 +77,19 @@ export interface SystemProvider {
   id: number;
   providerType: string;
   providerName: string;
+  iconUrl?: string | null;
+  iconObjectKey?: string | null;
   apiBaseUrl: string;
   defaultProtocol: LLMProtocol;
   isActive: boolean;
   priority: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProviderIconUploadResult {
+  iconUrl: string;
+  iconObjectKey: string;
 }
 
 export interface ProviderModel {
@@ -117,9 +124,62 @@ export interface SystemPreset {
 
 export type LLMProtocol = 'openai' | 'anthropic' | 'google' | 'jina' | 'dashscope';
 
+export type ModelSyncSource = 'MODELS_DEV';
+export type ModelSyncJobStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type ModelSyncReviewStatus = 'PENDING' | 'PUBLISHED' | 'REJECTED';
+
+export interface ModelSyncJob {
+  id: number;
+  providerId: number;
+  syncSource: ModelSyncSource;
+  status: ModelSyncJobStatus;
+  addedCount: number;
+  updatedCount: number;
+  staleCount: number;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface ModelSyncCandidate {
+  id: number;
+  jobId: number;
+  providerId: number;
+  syncSource: ModelSyncSource;
+  externalModelId: string;
+  modelName: string;
+  displayName: string | null;
+  capability?: LLMCapability | null;
+  inferredCapability: LLMCapability | null;
+  protocol?: LLMProtocol | null;
+  inferredProtocol: LLMProtocol | null;
+  inferredApiBaseUrl: string | null;
+  contextWindow: number | null;
+  maxOutputTokens: number | null;
+  releaseDate: string | null;
+  inputModalities: string | null;
+  outputModalities: string | null;
+  rawMetadata: string | null;
+  reviewStatus: ModelSyncReviewStatus;
+  matchedProviderModelId: number | null;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModelSyncPublishRequest {
+  modelName?: string;
+  displayName?: string;
+  capability?: LLMCapability;
+  protocol?: LLMProtocol;
+  apiBaseUrl?: string;
+}
+
 export interface CreateProviderRequest {
   providerType: string;
   providerName: string;
+  iconUrl?: string;
+  iconObjectKey?: string;
   apiBaseUrl: string;
   defaultProtocol: LLMProtocol;
   isActive: boolean;
@@ -128,6 +188,8 @@ export interface CreateProviderRequest {
 
 export interface UpdateProviderRequest {
   providerName?: string;
+  iconUrl?: string;
+  iconObjectKey?: string;
   apiBaseUrl?: string;
   defaultProtocol?: LLMProtocol;
   isActive?: boolean;
@@ -152,17 +214,26 @@ export interface UpdateProviderModelRequest {
 }
 
 export interface CreatePresetRequest {
-  providerId: number;
-  modelName: string;
-  capability: LLMCapability;
-  apiKey: string;
+  sourceProviderModelId?: number;
+  providerId?: number;
+  modelName?: string;
+  displayName?: string;
+  capability?: LLMCapability;
+  protocol?: LLMProtocol;
+  apiBaseUrl?: string;
+  apiKey?: string;
   isDefault?: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdatePresetRequest {
+  sourceProviderModelId?: number;
   providerId?: number;
   modelName?: string;
+  displayName?: string;
   capability?: LLMCapability;
+  protocol?: LLMProtocol;
+  apiBaseUrl?: string;
   apiKey?: string;
   isActive?: boolean;
   isDefault?: boolean;
