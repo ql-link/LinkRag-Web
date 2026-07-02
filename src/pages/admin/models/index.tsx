@@ -1531,13 +1531,12 @@ function SystemPresetList({
               {preset.apiBaseUrl}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
+          <div className="flex shrink-0 flex-wrap items-center gap-1 xl:justify-end">
             <ActionButton onClick={() => onEdit(preset)}>
               <Edit2 size={13} />
               编辑
             </ActionButton>
             <ToggleSwitch
-              darkMode={darkMode}
               checked={preset.isActive}
               disabled={togglingIds.has(preset.id)}
               onChange={() => onToggle(preset)}
@@ -1616,13 +1615,12 @@ function ModelCapabilityList({
                 {model.apiBaseUrl}
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-1 xl:justify-end">
+            <div className="flex shrink-0 flex-wrap items-center gap-1 xl:justify-end">
               <ActionButton onClick={() => onEdit(model)}>
                 <Edit2 size={13} />
                 编辑
               </ActionButton>
               <ToggleSwitch
-                darkMode={darkMode}
                 checked={model.isActive}
                 disabled={togglingIds.has(model.id)}
                 onChange={() => onToggle(model)}
@@ -1913,53 +1911,38 @@ function ActionButton({
   );
 }
 
-function ToggleSwitch({
-  darkMode,
-  checked,
-  disabled,
-  onChange,
-}: {
-  darkMode: boolean;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: () => void;
-}) {
+function ToggleSwitch({ checked, disabled, onChange }: { checked: boolean; disabled?: boolean; onChange: () => void }) {
   return (
     <button
       type="button"
-      role="switch"
-      aria-checked={checked}
+      aria-pressed={checked}
       aria-label={checked ? '点击下架' : '点击上架'}
       title={checked ? '点击下架' : '点击上架'}
       disabled={disabled}
       onClick={onChange}
       className={cn(
-        'inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-[background-color,opacity,transform] duration-200 ease-out active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/20',
-        darkMode ? 'hover:bg-white/[0.055]' : 'hover:bg-primary/5',
-        disabled && 'cursor-not-allowed opacity-60 active:scale-100',
+        'group relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border px-[2px] outline-none transition-[background-color,border-color,box-shadow,transform,opacity] duration-200 ease-out active:scale-95 focus-visible:ring-2 focus-visible:ring-primary/20',
+        checked
+          ? 'border-primary/40 bg-primary/85 shadow-[0_3px_10px_rgba(204,107,79,0.20)] hover:bg-primary'
+          : 'border-border-subtle bg-surface-soft hover:border-primary/30 hover:bg-surface-card',
+        disabled && 'cursor-wait opacity-70 active:scale-100',
       )}
     >
+      {disabled ? (
+        <span className="absolute inset-[2px] rounded-full bg-white/20 opacity-70 transition-opacity group-hover:opacity-90" />
+      ) : null}
       <span
         className={cn(
-          'relative h-5 w-9 rounded-full border px-[2px] transition-[background-color,border-color,box-shadow] duration-200 ease-out',
-          checked
-            ? 'border-primary/40 bg-primary/85 shadow-[0_3px_10px_rgba(204,107,79,0.20)]'
-            : darkMode
-              ? 'border-white/[0.12] bg-white/[0.08]'
-              : 'border-border-subtle bg-surface-soft',
+          'relative h-4 w-4 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] will-change-transform group-hover:shadow-[0_2px_6px_rgba(0,0,0,0.20)]',
+          checked ? 'bg-white' : 'bg-muted-soft group-hover:bg-text-main/45',
+          disabled && 'animate-pulse',
         )}
-      >
-        <span
-          className={cn(
-            'block h-4 w-4 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[background-color,transform] duration-200 ease-out',
-            checked
-              ? 'translate-x-4 bg-white'
-              : darkMode
-                ? 'translate-x-0 bg-[#8f8f8f]'
-                : 'translate-x-0 bg-muted-soft',
-          )}
-        />
-      </span>
+        style={{
+          transform: checked ? 'translateX(16px)' : 'translateX(0)',
+          transition:
+            'transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 180ms ease-out, box-shadow 180ms ease-out',
+        }}
+      />
     </button>
   );
 }
