@@ -25,6 +25,7 @@ import mermaid from 'mermaid';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { extractMarkdownHeadings, parseMarkdownContent, slugifyMarkdownHeading } from '@/lib/markdown';
+import { MediaLightbox, ZoomableImage } from '@/components/MediaPreview';
 
 interface MarkdownRendererProps {
   content: string;
@@ -262,6 +263,7 @@ const CodeBlockFrame = ({ code, language, notice, compact = false }: CodeBlockFr
 const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean }) => {
   const [svgContent, setSvgContent] = useState('');
   const [error, setError] = useState('');
+  const [open, setOpen] = useState(false);
   const reactId = useId();
   const renderId = useMemo(() => `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`, [reactId]);
 
@@ -299,11 +301,37 @@ const MermaidChart = ({ chart, darkMode }: { chart: string; darkMode: boolean })
     return <CodeBlockFrame code={chart} language="mermaid" notice={error} />;
   }
 
+  const handleOpenKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!svgContent || !isOpenMediaKey(event)) return;
+    event.preventDefault();
+    setOpen(true);
+  };
+
   return (
-    <div
-      className="not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 dark:bg-[#1f1f1f] [&_svg]:h-auto [&_svg]:max-w-none"
-      dangerouslySetInnerHTML={{ __html: svgContent }}
-    />
+    <>
+      <div
+        className={cn(
+          'not-prose my-8 overflow-x-auto rounded-lg border border-border-subtle bg-surface-card p-4 transition-colors dark:bg-[#1f1f1f]',
+          '[&_svg]:h-auto [&_svg]:max-w-none',
+          svgContent && 'cursor-zoom-in hover:border-primary/35',
+        )}
+        role={svgContent ? 'button' : undefined}
+        tabIndex={svgContent ? 0 : undefined}
+        aria-label={svgContent ? '查看 Mermaid 图详情' : undefined}
+        title={svgContent ? '查看 Mermaid 图详情' : undefined}
+        onClick={() => {
+          if (svgContent) setOpen(true);
+        }}
+        onKeyDown={handleOpenKeyDown}
+        dangerouslySetInnerHTML={{ __html: svgContent }}
+      />
+      <MediaLightbox open={open} title="Mermaid 图详情" onClose={() => setOpen(false)}>
+        <div
+          className="flex h-[86vh] w-[92vw] select-none items-center justify-center rounded-md bg-white p-5 text-slate-950 shadow-2xl dark:bg-[#1f1f1f] dark:text-white [&_svg]:h-auto [&_svg]:max-h-[78vh] [&_svg]:w-full"
+          dangerouslySetInnerHTML={{ __html: svgContent }}
+        />
+      </MediaLightbox>
+    </>
   );
 };
 
@@ -387,6 +415,8 @@ const getCodeElement = (children: React.ReactNode): React.ReactElement<CodeRende
   const [firstChild] = React.Children.toArray(children);
   return React.isValidElement<CodeRendererProps>(firstChild) ? firstChild : null;
 };
+
+const isOpenMediaKey = (event: React.KeyboardEvent<HTMLElement>) => event.key === 'Enter' || event.key === ' ';
 
 const PreRenderer = ({ children, node: _node, compact = false, ...props }: PreRendererProps) => {
   const { darkMode } = useTheme();
@@ -560,7 +590,7 @@ export function MarkdownRenderer({
       );
     },
     img: ({ node: _node, className: imageClassName, alt, ...props }) => (
-      <img className={cn('mx-auto rounded-lg ', imageClassName)} alt={alt ?? ''} loading="lazy" {...props} />
+      <ZoomableImage className={imageClassName} alt={alt ?? ''} {...props} />
     ),
     input: ({ node: _node, className: inputClassName, ...props }) => (
       <input className={cn('mr-2 translate-y-[1px] accent-primary', inputClassName)} readOnly {...props} />

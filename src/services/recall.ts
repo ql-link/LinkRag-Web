@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { normalizeRecallStreamUrl } from '@/lib/public-url';
 import { RAG_QUERY_MAX_LENGTH_MESSAGE, isRagQueryTooLong, normalizeRagQuery } from '@/lib/rag-query';
 import type { RecallSessionDTO, RecallDonePayload, RecallErrorPayload, RecallStreamEvent } from '@/types/api';
 
@@ -102,9 +103,10 @@ interface RawRecallSession {
  */
 export async function createRecallSession(datasetIds: number[], signal?: AbortSignal): Promise<RecallSessionDTO> {
   const raw = await apiClient.post<RawRecallSession>('/api/v1/recall/sessions', { datasetIds }, { signal });
+  const streamUrl = raw.streamUrl ?? raw.stream_url ?? '';
   return {
     token: raw.token,
-    streamUrl: raw.streamUrl ?? raw.stream_url ?? '',
+    streamUrl: normalizeRecallStreamUrl(streamUrl),
     datasetIds: raw.datasetIds ?? raw.dataset_ids,
     expiresIn: raw.expiresIn ?? raw.expires_in,
   };

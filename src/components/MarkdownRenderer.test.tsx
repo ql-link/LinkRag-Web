@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -68,6 +68,31 @@ describe('MarkdownRenderer', () => {
     expect(diagramBlock?.closest('pre')).toBeNull();
     expect(diagramBlock).toHaveClass('overflow-x-auto');
     expect(diagramBlock).toHaveClass('[&_svg]:max-w-none');
+  });
+
+  it('opens mermaid diagrams in a zoomable detail view', async () => {
+    render(<MarkdownRenderer content={'```mermaid\ngraph TD\n  A --> B\n```'} />);
+
+    const svg = await waitFor(() => screen.getByTestId('mermaid-svg'));
+    const diagramBlock = svg.closest('.not-prose');
+
+    expect(diagramBlock).toHaveAttribute('role', 'button');
+
+    fireEvent.click(diagramBlock as HTMLElement);
+
+    expect(screen.getByRole('dialog', { name: 'Mermaid 图详情' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '放大' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '缩小' })).toBeInTheDocument();
+  });
+
+  it('opens markdown images in a zoomable detail view', () => {
+    render(<MarkdownRenderer content={'![架构图](https://example.com/architecture.png)'} />);
+
+    const image = screen.getByRole('button', { name: '架构图' });
+    fireEvent.click(image);
+
+    expect(screen.getByRole('dialog', { name: '架构图' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重置' })).toBeInTheDocument();
   });
 
   it('falls back to a code block when mermaid syntax is invalid', async () => {
