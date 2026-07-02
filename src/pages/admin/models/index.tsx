@@ -75,13 +75,13 @@ const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
 
 const PROTOCOLS: LLMProtocol[] = ['openai', 'anthropic', 'google', 'jina', 'dashscope'];
 const LINKRAG_PROVIDER_TYPE = 'linkrag';
-type ModelStatusFilter = 'all' | 'active' | 'inactive' | 'pending';
+type ModelStatusFilter = 'all' | 'active' | 'inactive';
+type CatalogMode = 'models' | 'candidates';
 
 const MODEL_STATUS_FILTERS: Array<{ value: ModelStatusFilter; label: string; dotClassName: string }> = [
   { value: 'all', label: '全部', dotClassName: 'bg-muted-soft' },
-  { value: 'active', label: '上架', dotClassName: 'bg-success' },
-  { value: 'inactive', label: '下架', dotClassName: 'bg-muted-soft' },
-  { value: 'pending', label: '待审核', dotClassName: 'bg-warning' },
+  { value: 'active', label: '已上架', dotClassName: 'bg-success' },
+  { value: 'inactive', label: '已下架', dotClassName: 'bg-error' },
 ];
 
 const CANDIDATE_STATUS_FILTERS: Array<{ value: ModelSyncReviewStatus; label: string; dotClassName: string }> = [
@@ -201,6 +201,7 @@ export default function AdminModelsPage() {
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [catalogMode, setCatalogMode] = useState<CatalogMode>('models');
   const [modelFilters, setModelFilters] = useState<{
     capability: '' | LLMCapability;
     status: ModelStatusFilter;
@@ -224,6 +225,8 @@ export default function AdminModelsPage() {
   const [candidateTotal, setCandidateTotal] = useState(0);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [syncingProviderId, setSyncingProviderId] = useState<number | null>(null);
+  const [togglingModelIds, setTogglingModelIds] = useState<Set<number>>(() => new Set());
+  const [togglingPresetIds, setTogglingPresetIds] = useState<Set<number>>(() => new Set());
   const [metadataCandidate, setMetadataCandidate] = useState<ModelSyncCandidate | null>(null);
   const [publishingCandidate, setPublishingCandidate] = useState<ModelSyncCandidate | null>(null);
   const [publishCandidateForm, setPublishCandidateForm] = useState(publishCandidateInitialState);
@@ -313,10 +316,10 @@ export default function AdminModelsPage() {
   );
 
   useEffect(() => {
-    if (selectedProvider && isLinkRagProvider(selectedProvider) && modelFilters.status === 'pending') {
-      setModelFilters((prev) => ({ ...prev, status: 'all' }));
+    if (selectedProvider && isLinkRagProvider(selectedProvider) && catalogMode === 'candidates') {
+      setCatalogMode('models');
     }
-  }, [modelFilters.status, selectedProvider]);
+  }, [catalogMode, selectedProvider]);
 
   const filteredProviders = useMemo(() => {
     return providers.filter((provider) => {
@@ -356,7 +359,6 @@ export default function AdminModelsPage() {
     return models
       .filter((model) => model.providerId === selectedProvider.id)
       .filter((model) => {
-        if (modelFilters.status === 'pending') return false;
         if (modelFilters.capability && model.capability !== modelFilters.capability) return false;
         if (modelFilters.status === 'active' && !model.isActive) return false;
         if (modelFilters.status === 'inactive' && model.isActive) return false;
@@ -369,7 +371,7 @@ export default function AdminModelsPage() {
   }, [keyword, modelFilters.capability, modelFilters.status, models, selectedProvider]);
 
   const selectedCandidates = useMemo(() => {
-    if (!selectedProvider || modelFilters.status !== 'pending') return [];
+    if (!selectedProvider || catalogMode !== 'candidates') return [];
     return candidates
       .filter((candidate) => candidate.providerId === selectedProvider.id)
       .filter((candidate) => {
@@ -393,14 +395,13 @@ export default function AdminModelsPage() {
       .sort((a, b) =>
         `${a.modelName}${candidateCapability(a)}`.localeCompare(`${b.modelName}${candidateCapability(b)}`),
       );
-  }, [candidates, keyword, modelFilters.capability, modelFilters.status, selectedProvider]);
+  }, [candidates, catalogMode, keyword, modelFilters.capability, selectedProvider]);
 
   const selectedPresets = useMemo(() => {
     if (!selectedProvider || !isLinkRagProvider(selectedProvider)) return [];
     return presets
       .filter((preset) => preset.providerId === selectedProvider.id)
       .filter((preset) => {
-        if (modelFilters.status === 'pending') return false;
         if (modelFilters.capability && normalizeCapability(preset.capability) !== modelFilters.capability) {
           return false;
         }
@@ -692,6 +693,50 @@ export default function AdminModelsPage() {
     }
   }
 
+  async function handleToggleModelActive(model: ProviderModel) {
+    const nextActive = !model.isActive;
+    setTogglingModelIds((current) => new Set(current).add(model.id));
+    setModels((current) => current.map((item) => (item.id === model.id ? { ...item, isActive: nextActive } : item)));
+    try {
+      await toggleAdminProviderModel(model.id, nextActive);
+      addToast('success', nextActive ? '模型能力已上架' : '模型能力已下架');
+    } catch (error) {
+      console.error(error);
+      setModels((current) =>
+        current.map((item) => (item.id === model.id ? { ...item, isActive: model.isActive } : item)),
+      );
+      addToast('error', '模型能力状态更新失败');
+    } finally {
+      setTogglingModelIds((current) => {
+        const next = new Set(current);
+        next.delete(model.id);
+        return next;
+      });
+    }
+  }
+
+  async function handleToggleLinkRagPresetActive(preset: SystemPreset) {
+    const nextActive = !preset.isActive;
+    setTogglingPresetIds((current) => new Set(current).add(preset.id));
+    setPresets((current) => current.map((item) => (item.id === preset.id ? { ...item, isActive: nextActive } : item)));
+    try {
+      await toggleAdminSystemPreset(preset.id, nextActive);
+      addToast('success', nextActive ? 'LinkRag 模型已启用' : 'LinkRag 模型已停用');
+    } catch (error) {
+      console.error(error);
+      setPresets((current) =>
+        current.map((item) => (item.id === preset.id ? { ...item, isActive: preset.isActive } : item)),
+      );
+      addToast('error', 'LinkRag 模型状态更新失败');
+    } finally {
+      setTogglingPresetIds((current) => {
+        const next = new Set(current);
+        next.delete(preset.id);
+        return next;
+      });
+    }
+  }
+
   async function handleRefreshExternalModels(provider: SystemProvider) {
     setSyncingProviderId(provider.id);
     try {
@@ -832,6 +877,8 @@ export default function AdminModelsPage() {
                       presets={selectedPresets}
                       candidates={selectedCandidates}
                       candidateTotal={candidateTotal}
+                      catalogMode={catalogMode}
+                      setCatalogMode={setCatalogMode}
                       candidateStatusFilter={candidateStatusFilter}
                       setCandidateStatusFilter={setCandidateStatusFilter}
                       modelFilters={modelFilters}
@@ -859,13 +906,8 @@ export default function AdminModelsPage() {
                       onOpenPublishCandidate={openPublishCandidate}
                       onReviewCandidate={handleReviewCandidate}
                       onViewCandidateMetadata={setMetadataCandidate}
-                      onToggleLinkRagPreset={(preset) =>
-                        withRefresh(
-                          () => toggleAdminSystemPreset(preset.id, !preset.isActive),
-                          preset.isActive ? 'LinkRag 模型已停用' : 'LinkRag 模型已启用',
-                          'LinkRag 模型状态更新失败',
-                        )
-                      }
+                      togglingPresetIds={togglingPresetIds}
+                      onToggleLinkRagPreset={handleToggleLinkRagPresetActive}
                       onDeleteLinkRagPreset={(preset) =>
                         window.confirm(`确定删除 LinkRag 模型「${getModelDisplayName(preset)}」吗？`)
                           ? void withRefresh(
@@ -875,13 +917,8 @@ export default function AdminModelsPage() {
                             )
                           : undefined
                       }
-                      onToggleModel={(model) =>
-                        withRefresh(
-                          () => toggleAdminProviderModel(model.id, !model.isActive),
-                          model.isActive ? '模型能力已下架' : '模型能力已上架',
-                          '模型能力状态更新失败',
-                        )
-                      }
+                      togglingModelIds={togglingModelIds}
+                      onToggleModel={handleToggleModelActive}
                       onDeleteModel={(model) =>
                         window.confirm(
                           `确定删除模型能力「${getModelDisplayName(model)} / ${capabilityLabel(model.capability)}」吗？`,
@@ -1107,6 +1144,8 @@ function ProviderWorkspace({
   presets,
   candidates,
   candidateTotal,
+  catalogMode,
+  setCatalogMode,
   candidateStatusFilter,
   setCandidateStatusFilter,
   modelFilters,
@@ -1124,8 +1163,10 @@ function ProviderWorkspace({
   onOpenPublishCandidate,
   onReviewCandidate,
   onViewCandidateMetadata,
+  togglingPresetIds,
   onToggleLinkRagPreset,
   onDeleteLinkRagPreset,
+  togglingModelIds,
   onToggleModel,
   onDeleteModel,
 }: {
@@ -1136,6 +1177,8 @@ function ProviderWorkspace({
   presets: SystemPreset[];
   candidates: ModelSyncCandidate[];
   candidateTotal: number;
+  catalogMode: CatalogMode;
+  setCatalogMode: React.Dispatch<React.SetStateAction<CatalogMode>>;
   candidateStatusFilter: ModelSyncReviewStatus;
   setCandidateStatusFilter: React.Dispatch<React.SetStateAction<ModelSyncReviewStatus>>;
   modelFilters: { capability: '' | LLMCapability; status: ModelStatusFilter };
@@ -1153,8 +1196,10 @@ function ProviderWorkspace({
   onOpenPublishCandidate: (candidate: ModelSyncCandidate) => void;
   onReviewCandidate: (candidate: ModelSyncCandidate, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
   onViewCandidateMetadata: (candidate: ModelSyncCandidate) => void;
+  togglingPresetIds: Set<number>;
   onToggleLinkRagPreset: (preset: SystemPreset) => void;
   onDeleteLinkRagPreset: (preset: SystemPreset) => void;
+  togglingModelIds: Set<number>;
   onToggleModel: (model: ProviderModel) => void;
   onDeleteModel: (model: ProviderModel) => void;
 }) {
@@ -1165,9 +1210,6 @@ function ProviderWorkspace({
   const configTotal = isLinkRag ? presets.length : allProviderModels.length;
   const capabilityDimensionCount = new Set((isLinkRag ? presets : allProviderModels).map((item) => item.capability))
     .size;
-  const visibleStatusFilters = isLinkRag
-    ? MODEL_STATUS_FILTERS.filter((status) => status.value !== 'pending')
-    : MODEL_STATUS_FILTERS;
 
   return (
     <div className="min-w-0">
@@ -1211,7 +1253,7 @@ function ProviderWorkspace({
             </ActionButton>
             <ActionButton onClick={isLinkRag ? onCreateLinkRagPreset : onCreateModel}>
               <Plus size={13} />
-              {isLinkRag ? '添加模型' : '能力'}
+              添加模型
             </ActionButton>
             {!isLinkRag ? (
               <ActionButton onClick={() => onRefreshExternal(provider)} disabled={syncing}>
@@ -1234,31 +1276,13 @@ function ProviderWorkspace({
       <section className="pt-1">
         <SectionHeader
           darkMode={darkMode}
-          title={isLinkRag ? 'LinkRag 系统兜底模型' : '模型能力目录'}
+          title={isLinkRag ? 'LinkRag 系统兜底模型' : catalogMode === 'candidates' ? '外部模型候选' : '模型能力目录'}
           meta={
             isLinkRag
               ? `${presets.length} 条系统预设`
-              : modelFilters.status === 'pending'
+              : catalogMode === 'candidates'
                 ? `${candidates.length}/${candidateTotal} 条${formatModelSyncStatus(candidateStatusFilter)} · MODELS_DEV`
                 : `${models.length}/${allProviderModels.length} 条`
-          }
-          action={
-            isLinkRag ? (
-              <HeaderAction darkMode={darkMode} onClick={onCreateLinkRagPreset}>
-                <Plus size={14} />
-                添加模型
-              </HeaderAction>
-            ) : modelFilters.status === 'pending' ? (
-              <HeaderAction darkMode={darkMode} onClick={() => onRefreshExternal(provider)} disabled={syncing}>
-                {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                同步模型
-              </HeaderAction>
-            ) : (
-              <HeaderAction darkMode={darkMode} onClick={onCreateModel}>
-                <Plus size={14} />
-                新增能力
-              </HeaderAction>
-            )
           }
         />
         <div className="flex flex-col gap-2.5 px-1 pb-4 sm:flex-row sm:items-center sm:gap-3">
@@ -1287,32 +1311,38 @@ function ProviderWorkspace({
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <FilterLabel darkMode={darkMode} icon={<Power size={13} />}>
-                状态
+                目录状态
               </FilterLabel>
-              {visibleStatusFilters.map((status) => (
+              {MODEL_STATUS_FILTERS.map((status) => (
                 <FilterChip
                   key={status.value}
                   darkMode={darkMode}
-                  active={modelFilters.status === status.value}
+                  active={catalogMode === 'models' && modelFilters.status === status.value}
                   dotClassName={status.dotClassName}
-                  onClick={() => setModelFilters((prev) => ({ ...prev, status: status.value }))}
+                  onClick={() => {
+                    setCatalogMode('models');
+                    setModelFilters((prev) => ({ ...prev, status: status.value }));
+                  }}
                 >
                   {status.label}
                 </FilterChip>
               ))}
             </div>
-            {!isLinkRag && modelFilters.status === 'pending' ? (
+            {!isLinkRag ? (
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <FilterLabel darkMode={darkMode} icon={<Check size={13} />}>
-                  审核
+                  审核状态
                 </FilterLabel>
                 {CANDIDATE_STATUS_FILTERS.map((status) => (
                   <FilterChip
                     key={status.value}
                     darkMode={darkMode}
-                    active={candidateStatusFilter === status.value}
+                    active={catalogMode === 'candidates' && candidateStatusFilter === status.value}
                     dotClassName={status.dotClassName}
-                    onClick={() => setCandidateStatusFilter(status.value)}
+                    onClick={() => {
+                      setCatalogMode('candidates');
+                      setCandidateStatusFilter(status.value);
+                    }}
                   >
                     {status.label}
                   </FilterChip>
@@ -1321,7 +1351,7 @@ function ProviderWorkspace({
             ) : null}
           </div>
           <AnimatePresence initial={false}>
-            {modelFilters.capability || modelFilters.status !== 'all' ? (
+            {modelFilters.capability || modelFilters.status !== 'all' || catalogMode !== 'models' ? (
               <motion.button
                 type="button"
                 initial={{ opacity: 0, scale: 0.96 }}
@@ -1329,6 +1359,7 @@ function ProviderWorkspace({
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.16, ease: 'easeOut' }}
                 onClick={() => {
+                  setCatalogMode('models');
                   setModelFilters({ capability: '', status: 'all' });
                   setCandidateStatusFilter(DEFAULT_CANDIDATE_STATUS);
                 }}
@@ -1349,11 +1380,12 @@ function ProviderWorkspace({
           <SystemPresetList
             darkMode={darkMode}
             presets={presets}
+            togglingIds={togglingPresetIds}
             onEdit={onEditLinkRagPreset}
             onToggle={onToggleLinkRagPreset}
             onDelete={onDeleteLinkRagPreset}
           />
-        ) : modelFilters.status === 'pending' ? (
+        ) : catalogMode === 'candidates' ? (
           <ModelSyncCandidateList
             darkMode={darkMode}
             candidates={candidates}
@@ -1367,6 +1399,7 @@ function ProviderWorkspace({
             darkMode={darkMode}
             models={models}
             presets={presets}
+            togglingIds={togglingModelIds}
             onEdit={onEditModel}
             showLinkRagConfig={isLinkRag}
             onToggle={onToggleModel}
@@ -1378,17 +1411,7 @@ function ProviderWorkspace({
   );
 }
 
-function SectionHeader({
-  darkMode,
-  title,
-  meta,
-  action,
-}: {
-  darkMode: boolean;
-  title: string;
-  meta: string;
-  action?: ReactNode;
-}) {
+function SectionHeader({ darkMode, title, meta }: { darkMode: boolean; title: string; meta: string }) {
   return (
     <div
       className={cn(
@@ -1400,7 +1423,6 @@ function SectionHeader({
         <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>{title}</h3>
         <p className={cn('mt-0.5 text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>{meta}</p>
       </div>
-      {action}
     </div>
   );
 }
@@ -1409,7 +1431,7 @@ function FilterLabel({ darkMode, icon, children }: { darkMode: boolean; icon?: R
   return (
     <span
       className={cn(
-        'inline-flex h-8 w-12 shrink-0 items-center gap-1.5 text-[11px] font-bold',
+        'inline-flex h-8 w-[72px] shrink-0 items-center gap-1.5 text-[11px] font-bold',
         darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40',
       )}
     >
@@ -1438,6 +1460,7 @@ function FilterChip({
       onClick={onClick}
       className={cn(
         'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]',
+        dotClassName && 'w-[76px] justify-start',
         active
           ? darkMode
             ? 'bg-white/[0.09] text-[#f2f2f2]'
@@ -1456,12 +1479,14 @@ function FilterChip({
 function SystemPresetList({
   darkMode,
   presets,
+  togglingIds,
   onEdit,
   onToggle,
   onDelete,
 }: {
   darkMode: boolean;
   presets: SystemPreset[];
+  togglingIds: Set<number>;
   onEdit: (preset: SystemPreset) => void;
   onToggle: (preset: SystemPreset) => void;
   onDelete: (preset: SystemPreset) => void;
@@ -1511,10 +1536,12 @@ function SystemPresetList({
               <Edit2 size={13} />
               编辑
             </ActionButton>
-            <ActionButton onClick={() => onToggle(preset)}>
-              <Power size={13} />
-              {preset.isActive ? '停用' : '启用'}
-            </ActionButton>
+            <ToggleSwitch
+              darkMode={darkMode}
+              checked={preset.isActive}
+              disabled={togglingIds.has(preset.id)}
+              onChange={() => onToggle(preset)}
+            />
             <ActionButton danger onClick={() => onDelete(preset)}>
               <Trash2 size={13} />
               删除
@@ -1530,6 +1557,7 @@ function ModelCapabilityList({
   darkMode,
   models,
   presets,
+  togglingIds,
   onEdit,
   showLinkRagConfig,
   onToggle,
@@ -1538,6 +1566,7 @@ function ModelCapabilityList({
   darkMode: boolean;
   models: ProviderModel[];
   presets: SystemPreset[];
+  togglingIds: Set<number>;
   onEdit: (model: ProviderModel) => void;
   showLinkRagConfig: boolean;
   onToggle: (model: ProviderModel) => void;
@@ -1592,10 +1621,12 @@ function ModelCapabilityList({
                 <Edit2 size={13} />
                 编辑
               </ActionButton>
-              <ActionButton onClick={() => onToggle(model)}>
-                <Power size={13} />
-                {model.isActive ? '下架' : '上架'}
-              </ActionButton>
+              <ToggleSwitch
+                darkMode={darkMode}
+                checked={model.isActive}
+                disabled={togglingIds.has(model.id)}
+                onChange={() => onToggle(model)}
+              />
               <ActionButton danger onClick={() => onDelete(model)}>
                 <Trash2 size={13} />
                 删除
@@ -1882,6 +1913,57 @@ function ActionButton({
   );
 }
 
+function ToggleSwitch({
+  darkMode,
+  checked,
+  disabled,
+  onChange,
+}: {
+  darkMode: boolean;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={checked ? '点击下架' : '点击上架'}
+      title={checked ? '点击下架' : '点击上架'}
+      disabled={disabled}
+      onClick={onChange}
+      className={cn(
+        'inline-flex h-8 w-10 shrink-0 items-center justify-center rounded-lg outline-none transition-[background-color,opacity,transform] duration-200 ease-out active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/20',
+        darkMode ? 'hover:bg-white/[0.055]' : 'hover:bg-primary/5',
+        disabled && 'cursor-not-allowed opacity-60 active:scale-100',
+      )}
+    >
+      <span
+        className={cn(
+          'relative h-5 w-9 rounded-full border px-[2px] transition-[background-color,border-color,box-shadow] duration-200 ease-out',
+          checked
+            ? 'border-primary/40 bg-primary/85 shadow-[0_3px_10px_rgba(204,107,79,0.20)]'
+            : darkMode
+              ? 'border-white/[0.12] bg-white/[0.08]'
+              : 'border-border-subtle bg-surface-soft',
+        )}
+      >
+        <span
+          className={cn(
+            'block h-4 w-4 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[background-color,transform] duration-200 ease-out',
+            checked
+              ? 'translate-x-4 bg-white'
+              : darkMode
+                ? 'translate-x-0 bg-[#8f8f8f]'
+                : 'translate-x-0 bg-muted-soft',
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 function EmptyTableState({ darkMode, label }: { darkMode: boolean; label: string }) {
   return (
     <div
@@ -2018,18 +2100,186 @@ function FormChoice({
       type="button"
       onClick={onClick}
       className={cn(
-        'inline-flex h-9 items-center rounded-md px-3 text-xs font-bold transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]',
+        'inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-bold transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.98]',
         active
           ? darkMode
-            ? 'bg-white/[0.09] text-[#f2f2f2]'
-            : 'bg-ink/[0.065] text-text-main'
+            ? 'border-white/[0.16] bg-white/[0.09] text-[#f2f2f2]'
+            : 'border-ink/10 bg-ink/[0.065] text-text-main'
           : darkMode
-            ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
-            : 'text-text-main/55 hover:bg-ink/[0.03] hover:text-text-main',
+            ? 'border-white/[0.06] text-[#a6a6a6] hover:border-white/[0.12] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+            : 'border-border-subtle text-text-main/55 hover:border-ink/10 hover:bg-ink/[0.03] hover:text-text-main',
       )}
     >
+      {active ? <Check size={13} /> : null}
       {children}
     </button>
+  );
+}
+
+function FormSelect({
+  darkMode,
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  darkMode: boolean;
+  value: string;
+  placeholder: string;
+  options: Array<{
+    value: string;
+    label: string;
+    description?: string;
+    icon?: { providerType: string; providerName?: string; iconUrl?: string | null };
+  }>;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectRef = useRef<HTMLDivElement | null>(null);
+  const selectedOption = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (target && selectRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={selectRef} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          'flex min-h-10 w-full items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-left text-sm outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out active:scale-[0.995]',
+          darkMode
+            ? 'bg-white/[0.045] text-[#f2f2f2] hover:bg-white/[0.07] focus-visible:shadow-[0_0_0_2px_rgba(255,255,255,0.12)]'
+            : 'bg-bg-base/60 text-text-main hover:bg-ink/[0.035] focus-visible:shadow-[0_0_0_2px_rgba(24,24,24,0.08)]',
+          open && (darkMode ? 'bg-white/[0.075]' : 'bg-ink/[0.04]'),
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          {selectedOption?.icon ? (
+            <ProviderAvatar
+              providerType={selectedOption.icon.providerType}
+              providerName={selectedOption.icon.providerName}
+              iconUrl={selectedOption.icon.iconUrl}
+              darkMode={darkMode}
+            />
+          ) : null}
+          <span className="min-w-0">
+            <span
+              className={cn(
+                'block truncate font-bold',
+                !selectedOption && (darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40'),
+              )}
+            >
+              {selectedOption?.label || placeholder}
+            </span>
+            {selectedOption?.description ? (
+              <span
+                className={cn('mt-0.5 block truncate text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}
+              >
+                {selectedOption.description}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <ChevronDown
+          size={16}
+          className={cn(
+            'shrink-0 transition-transform duration-200 ease-out',
+            open && 'rotate-180',
+            darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40',
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.985 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className={cn(
+              'absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-64 overflow-y-auto rounded-[8px] p-1 shadow-xl',
+              darkMode ? 'bg-[#303030] shadow-black/25' : 'bg-white shadow-ink/10',
+            )}
+            role="listbox"
+          >
+            {options.map((option) => {
+              const active = option.value === value;
+              return (
+                <button
+                  key={option.value || '__empty__'}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full min-w-0 items-start gap-3 rounded-[6px] px-2.5 py-2 text-left transition-[background-color,color] duration-150',
+                    active
+                      ? darkMode
+                        ? 'bg-white/[0.08]'
+                        : 'bg-ink/[0.045]'
+                      : darkMode
+                        ? 'hover:bg-white/[0.055]'
+                        : 'hover:bg-ink/[0.028]',
+                  )}
+                >
+                  {option.icon ? (
+                    <ProviderAvatar
+                      providerType={option.icon.providerType}
+                      providerName={option.icon.providerName}
+                      iconUrl={option.icon.iconUrl}
+                      darkMode={darkMode}
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn('block truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}
+                    >
+                      {option.label}
+                    </span>
+                    {option.description ? (
+                      <span
+                        className={cn(
+                          'mt-0.5 block truncate text-[11px]',
+                          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                        )}
+                      >
+                        {option.description}
+                      </span>
+                    ) : null}
+                  </span>
+                  {active ? <Check size={15} className={darkMode ? 'text-[#f2f2f2]' : 'text-text-main/65'} /> : null}
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -2499,6 +2749,27 @@ function LinkRagPresetDialog({
   }, [form.sourceCapability, form.sourceProviderId, providerById, sourceModels]);
 
   const sourceProviders = providers.filter((provider) => !isLinkRagProvider(provider));
+  const sourceProviderOptions = [
+    { value: '', label: '全部厂商', description: '不限制来源厂商' },
+    ...sourceProviders.map((provider) => ({
+      value: String(provider.id),
+      label: provider.providerName,
+      description: `${provider.providerType} · ${provider.defaultProtocol}`,
+      icon: {
+        providerType: provider.providerType,
+        providerName: provider.providerName,
+        iconUrl: provider.iconUrl,
+      },
+    })),
+  ];
+  const sourceCapabilityOptions = [
+    { value: '', label: '全部能力', description: '不限制模型能力' },
+    ...CAPABILITIES.map((capability) => ({
+      value: capability.value,
+      label: capability.label,
+      description: capability.value,
+    })),
+  ];
 
   return (
     <DialogShell
@@ -2530,43 +2801,40 @@ function LinkRagPresetDialog({
 
           {!editingPreset && form.mode === 'source' ? (
             <div className="space-y-4">
+              <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
+                从正式模型目录复制模型名、展示名、能力、协议和调用入口；这里只需要选择来源模型并填写平台 Key。
+              </p>
               <div className="grid gap-3 md:grid-cols-2">
-                <FormField darkMode={darkMode} label="来源厂商">
-                  <select
+                <FormField darkMode={darkMode} label="来源厂商" hint="用于缩小下方正式模型目录范围，不会写入系统预设。">
+                  <FormSelect
+                    darkMode={darkMode}
                     value={form.sourceProviderId}
-                    onChange={(e) => setForm({ ...form, sourceProviderId: e.target.value, sourceProviderModelId: '' })}
-                    className={inputClassName(darkMode)}
-                  >
-                    <option value="">全部厂商</option>
-                    {sourceProviders.map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.providerName}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="选择来源厂商"
+                    options={sourceProviderOptions}
+                    onChange={(value) => setForm({ ...form, sourceProviderId: value, sourceProviderModelId: '' })}
+                  />
                 </FormField>
-                <FormField darkMode={darkMode} label="来源能力">
-                  <select
+                <FormField darkMode={darkMode} label="来源能力" hint="用于筛选 CHAT、EMBEDDING 等能力维度。">
+                  <FormSelect
+                    darkMode={darkMode}
                     value={form.sourceCapability}
-                    onChange={(e) =>
+                    placeholder="选择来源能力"
+                    options={sourceCapabilityOptions}
+                    onChange={(value) =>
                       setForm({
                         ...form,
-                        sourceCapability: e.target.value as '' | LLMCapability,
+                        sourceCapability: value as '' | LLMCapability,
                         sourceProviderModelId: '',
                       })
                     }
-                    className={inputClassName(darkMode)}
-                  >
-                    <option value="">全部能力</option>
-                    {CAPABILITIES.map((capability) => (
-                      <option key={capability.value} value={capability.value}>
-                        {capability.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </FormField>
               </div>
-              <FormField darkMode={darkMode} label="已上架正式模型">
+              <FormField
+                darkMode={darkMode}
+                label="已上架正式模型"
+                hint="选中的模型 ID 会作为 sourceProviderModelId 提交，后端会复制该行的运行事实。"
+              >
                 {sourceModelsLoading ? (
                   <div className="flex min-h-[120px] items-center justify-center">
                     <Loader2
@@ -2634,7 +2902,10 @@ function LinkRagPresetDialog({
             </div>
           ) : (
             <div className="space-y-4">
-              <FormField darkMode={darkMode} label="真实模型名">
+              <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
+                手动填写会直接创建 LinkRag 系统预设；这些值会作为后端实际调用模型时使用的运行事实。
+              </p>
+              <FormField darkMode={darkMode} label="真实模型名" hint="传给模型服务的 modelName，例如 deepseek-chat。">
                 <input
                   required
                   value={form.modelName}
@@ -2643,7 +2914,7 @@ function LinkRagPresetDialog({
                   className={inputClassName(darkMode)}
                 />
               </FormField>
-              <FormField darkMode={darkMode} label="展示名">
+              <FormField darkMode={darkMode} label="展示名" hint="管理端和用户侧展示名称；为空时回退为真实模型名。">
                 <input
                   value={form.displayName}
                   onChange={(e) => setForm({ ...form, displayName: e.target.value })}
@@ -2651,7 +2922,11 @@ function LinkRagPresetDialog({
                   className={inputClassName(darkMode)}
                 />
               </FormField>
-              <FormField darkMode={darkMode} label="能力维度">
+              <FormField
+                darkMode={darkMode}
+                label="能力维度"
+                hint="决定该预设服务哪类能力；同一模型多个能力需分别维护。"
+              >
                 <div className="flex flex-wrap gap-1.5">
                   {CAPABILITIES.map((capability) => (
                     <FormChoice
@@ -2665,7 +2940,7 @@ function LinkRagPresetDialog({
                   ))}
                 </div>
               </FormField>
-              <FormField darkMode={darkMode} label="协议">
+              <FormField darkMode={darkMode} label="协议" hint="后端执行调用时使用的协议适配器，保存值必须是小写枚举。">
                 <div className="flex flex-wrap gap-1.5">
                   {PROTOCOLS.map((protocol) => (
                     <FormChoice
@@ -2679,7 +2954,11 @@ function LinkRagPresetDialog({
                   ))}
                 </div>
               </FormField>
-              <FormField darkMode={darkMode} label="调用入口">
+              <FormField
+                darkMode={darkMode}
+                label="调用入口"
+                hint="模型服务的完整调用端点，会随系统预设保存并用于后端请求。"
+              >
                 <input
                   required
                   value={form.apiBaseUrl}
