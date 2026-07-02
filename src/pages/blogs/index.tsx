@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpenText, Search, Settings } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { ZoomableImage } from '@/components/MediaPreview';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -28,7 +29,12 @@ function BlogThumbnail({ article, darkMode }: { article: BlogPostPublicListDTO; 
           darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
         )}
       >
-        <img src={article.coverPublicUrl} alt={article.title} className="absolute inset-0 h-full w-full object-cover" />
+        <ZoomableImage
+          src={article.coverPublicUrl}
+          alt={article.title}
+          previewTitle={`${article.title} 封面`}
+          className="absolute inset-0 h-full w-full rounded-none object-cover"
+        />
       </div>
     );
   }
