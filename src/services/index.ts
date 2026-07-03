@@ -5,3 +5,4 @@ export * from './dataset';
 export * from './llm';
 export * from './oss';
 export * from './recall';
+export * from './admin-logs';

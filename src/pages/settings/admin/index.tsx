@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Cpu, Settings2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,13 @@ export default function AdminPage() {
       description: '维护模型厂商、能力目录和 LinkRAG 平台配置。',
       icon: Cpu,
       path: Routes.AdminModels,
+      enabled: true,
+    },
+    {
+      title: '日志追踪',
+      description: '按服务、级别和 trace_id 检索集中日志。',
+      icon: ScrollText,
+      path: Routes.AdminLogs,
       enabled: true,
     },
     {
@@ -79,7 +86,7 @@ export default function AdminPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {modules.map((item) => {
                 const Icon = item.icon;
                 return (

@@ -592,3 +592,50 @@ export interface UpdateBlogPostRequest {
   summary?: string;
   coverAssetId?: number;
 }
+
+// ── Admin Logs ─────────────────────────────────────────────────────────
+
+export type AdminLogLevel =
+  | 'TRACE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'FATAL'
+  | 'ACCESS'
+  | 'AUDIT'
+  | (string & {});
+
+export interface AdminLogEntryDTO {
+  id?: string | null;
+  time?: string | null;
+  timestamp?: string | null;
+  service?: string | null;
+  host?: string | null;
+  pid?: number | string | null;
+  level?: AdminLogLevel | null;
+  trace_id?: string | null;
+  traceId?: string | null;
+  logger_name?: string | null;
+  loggerName?: string | null;
+  message?: string | null;
+  exception?: string | null;
+  raw?: unknown;
+  labels?: Record<string, string>;
+}
+
+export interface AdminLogLabelsDTO {
+  services: string[];
+  levels: AdminLogLevel[];
+}
+
+export interface AdminLogQueryParams {
+  service?: string;
+  level?: string;
+  traceId?: string;
+  keyword?: string;
+  startTime?: string;
+  endTime?: string;
+  page?: number;
+  pageSize?: number;
+}

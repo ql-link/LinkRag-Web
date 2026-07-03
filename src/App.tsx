@@ -20,6 +20,7 @@ const FeedbackPage = lazy(() => import('@/pages/feedback'));
 
 const AdminLayout = lazy(() => import('@/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminModelsPage = lazy(() => import('@/pages/admin/models'));
+const AdminLogsPage = lazy(() => import('@/pages/admin/logs'));
 const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => ({ default: m.CreatorLayout })));
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
@@ -91,6 +92,14 @@ function AppContent() {
                     element={
                       <DesktopOnlyRoute>
                         <AdminModelsPage />
+                      </DesktopOnlyRoute>
+                    }
+                  />
+                  <Route
+                    path="logs"
+                    element={
+                      <DesktopOnlyRoute>
+                        <AdminLogsPage />
                       </DesktopOnlyRoute>
                     }
                   />
