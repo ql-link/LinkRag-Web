@@ -18,6 +18,10 @@ export default defineConfig(() => {
           target: 'http://localhost:8080',
           changeOrigin: true,
         },
+        '/tolink-public': {
+          target: 'http://103.205.254.30:39000',
+          changeOrigin: true,
+        },
       },
     },
   };

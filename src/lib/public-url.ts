@@ -1,15 +1,32 @@
-const OSS_PUBLIC_ORIGIN = 'http://103.205.254.30:39000';
 const OSS_PUBLIC_PATH_PREFIX = '/tolink-public/';
+const OSS_PUBLIC_ORIGINS = ['http://103.205.254.30:39000', 'http://100.86.10.52:9000'];
 const RAG_STREAM_URL = 'http://117.72.214.40:8000/api/v1/rag/stream';
 
 export function normalizePublicUrl(url: string | null | undefined): string | null {
   if (!url) return null;
 
-  if (url.startsWith(`${OSS_PUBLIC_ORIGIN}${OSS_PUBLIC_PATH_PREFIX}`)) {
-    return url.slice(OSS_PUBLIC_ORIGIN.length);
+  return OSS_PUBLIC_ORIGINS.reduce(
+    (normalizedUrl, origin) => normalizedUrl.replaceAll(`${origin}${OSS_PUBLIC_PATH_PREFIX}`, OSS_PUBLIC_PATH_PREFIX),
+    url,
+  );
+}
+
+export function normalizePublicUrlsInPayload<T>(value: T): T {
+  if (typeof value === 'string') {
+    return normalizePublicUrl(value) as T;
   }
 
-  return url;
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizePublicUrlsInPayload(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, normalizePublicUrlsInPayload(item)]),
+    ) as T;
+  }
+
+  return value;
 }
 
 export function normalizeRecallStreamUrl(url: string): string {
