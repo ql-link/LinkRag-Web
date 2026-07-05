@@ -18,6 +18,7 @@ export const Routes = {
   AdminRoot: '/admin',
   AdminBlogs: '/admin/blogs',
   AdminModels: '/admin/models',
+  AdminLogs: '/admin/logs',
   AdminBlogEdit: '/admin/blogs/edit/:id',
   CreatorRoot: '/creator',
   CreatorBlogs: '/creator/blogs',
