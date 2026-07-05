@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { createBlogCoverThumbnail } from '@/lib/blog-cover-thumbnail';
 import {
   createDraft,
   updateMetadata,
@@ -200,10 +201,12 @@ export default function CreatorBlogEditor() {
 
     try {
       setLoading(true);
-      await uploadAsset(targetId, 'COVER', file);
+      const thumbnail = await createBlogCoverThumbnail(file);
+      await uploadAsset(targetId, 'COVER', thumbnail);
       await fetchPostDetail(targetId, false);
     } catch (error) {
       console.error(error);
+      alert('封面压缩或上传失败，请确认图片文件可正常打开。');
     } finally {
       setLoading(false);
       e.target.value = ''; // Reset input
