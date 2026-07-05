@@ -1,4 +1,5 @@
 import { Result } from '@/types/api';
+import { normalizePublicUrlsInPayload } from './public-url';
 
 // 默认用相对路径：生产由 nginx 把 /api 转发到后端；如需指定绝对地址可设 VITE_API_BASE_URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -157,7 +158,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     throw new ApiError(result.code || response.status, message, result.data);
   }
 
-  return result.data;
+  return normalizePublicUrlsInPayload(result.data);
 }
 
 export const apiClient = {
