@@ -407,6 +407,7 @@ export type FileParseFrontendStatus =
   | 'uploaded'
   | 'upload_failed'
   | 'parse_waiting'
+  | 'asset_missing'
   | 'parsing'
   | 'parse_success'
   | 'parse_failed';
@@ -415,6 +416,8 @@ export interface FileParseSubmitDTO {
   fileId: number;
   originalFilename: string;
   frontendStatus: FileParseFrontendStatus;
+  canContinue?: boolean | null;
+  missingAssets?: string[] | null;
 }
 
 export interface FileParseResultDTO {
