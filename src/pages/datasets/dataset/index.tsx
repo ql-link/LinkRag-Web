@@ -23,6 +23,13 @@ import {
   KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
+import {
+  collectMarkdownAssetFiles,
+  extractLocalMarkdownImageReferences,
+  isMarkdownKnowledgeFile,
+  pickMarkdownAssetDirectory,
+  type MarkdownAssetFile,
+} from '@/lib/markdown-assets';
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes)) return '-';
@@ -42,6 +49,21 @@ function normalizeFilename(value: string) {
 }
 
 type FileStatusVariant = 'empty' | 'queued' | 'parsing' | 'done' | 'failed';
+
+interface PendingMarkdownAssetUpload {
+  files: File[];
+  skippedCount: number;
+  references: string[];
+}
+
+interface MissingAssetsPrompt {
+  files: KnowledgeFileDTO[];
+  items: Array<{
+    fileId: number;
+    filename: string;
+    missingAssets: string[];
+  }>;
+}
 
 const fileStatusMeta: Record<FileStatusVariant, { label: string; className: string; dotClassName: string }> = {
   empty: {
@@ -117,6 +139,18 @@ function canSubmitBulkParse(file: KnowledgeFileDTO) {
   return canSubmitParse(file) && file.frontendStatus !== 'parse_success';
 }
 
+function getMissingAssetsPromptItem(file: KnowledgeFileDTO, result: Awaited<ReturnType<typeof createParseTask>>) {
+  if (result.frontendStatus !== 'asset_missing' || !result.canContinue || !result.missingAssets?.length) {
+    return null;
+  }
+
+  return {
+    fileId: file.id,
+    filename: file.originalFilename,
+    missingAssets: result.missingAssets,
+  };
+}
+
 function ParseAfterUploadSwitch({
   checked,
   onToggle,
@@ -155,6 +189,7 @@ export default function DatasetPage() {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const assetFolderInputRef = useRef<HTMLInputElement | null>(null);
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
@@ -171,6 +206,8 @@ export default function DatasetPage() {
   const [deletingConversationIds, setDeletingConversationIds] = useState<number[]>([]);
   const [filePendingDelete, setFilePendingDelete] = useState<KnowledgeFileDTO | null>(null);
   const [conversationPendingDelete, setConversationPendingDelete] = useState<ConversationDTO | null>(null);
+  const [pendingMarkdownAssetUpload, setPendingMarkdownAssetUpload] = useState<PendingMarkdownAssetUpload | null>(null);
+  const [missingAssetsPrompt, setMissingAssetsPrompt] = useState<MissingAssetsPrompt | null>(null);
   const [submittingParseFileIds, setSubmittingParseFileIds] = useState<number[]>([]);
   const { addPollingFiles, removePollingFiles } = useParseResultPolling({
     datasetId: dataset?.id ?? null,
@@ -241,11 +278,109 @@ export default function DatasetPage() {
     return () => window.removeEventListener('focus', handleWindowFocus);
   }, [choosingFiles]);
 
+  const setAssetFolderInput = useCallback((input: HTMLInputElement | null) => {
+    assetFolderInputRef.current = input;
+    if (!input) return;
+
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+  }, []);
+
   function openFilePicker() {
     if (uploading) return;
     if (!fileInputRef.current) return;
     setChoosingFiles(true);
     fileInputRef.current?.click();
+  }
+
+  async function submitPendingMarkdownAssets(assets: MarkdownAssetFile[]) {
+    const pendingUpload = pendingMarkdownAssetUpload;
+    if (!pendingUpload) return;
+
+    if (assets.length === 0) {
+      addToast('error', '所选文件夹中没有匹配当前文档引用路径的图片');
+      return;
+    }
+
+    setPendingMarkdownAssetUpload(null);
+    await uploadKnowledgeFiles(pendingUpload.files, pendingUpload.skippedCount, assets);
+  }
+
+  async function openAssetFolderPicker() {
+    if (uploading) return;
+    const pendingUpload = pendingMarkdownAssetUpload;
+    if (!pendingUpload) return;
+
+    try {
+      const assets = await pickMarkdownAssetDirectory(pendingUpload.references);
+      if (assets === null) {
+        return;
+      }
+      if (assets !== undefined) {
+        await submitPendingMarkdownAssets(assets);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to pick Markdown asset folder:', error);
+      addToast('error', '读取图片文件夹失败，请重试');
+      return;
+    }
+
+    assetFolderInputRef.current?.click();
+  }
+
+  async function getLocalMarkdownImageReferences(file: File) {
+    if (!isMarkdownKnowledgeFile(file)) return [];
+
+    try {
+      return extractLocalMarkdownImageReferences(await file.text());
+    } catch (error) {
+      console.error('Failed to read Markdown file:', error);
+      return [];
+    }
+  }
+
+  async function getUploadLocalMarkdownImageReferences(uploadableFiles: File[]) {
+    const references = new Set<string>();
+
+    for (const file of uploadableFiles) {
+      const fileReferences = await getLocalMarkdownImageReferences(file);
+      fileReferences.forEach((reference) => references.add(reference));
+    }
+
+    return Array.from(references);
+  }
+
+  async function uploadKnowledgeFiles(filesToUpload: File[], skippedCount: number, assets: MarkdownAssetFile[] = []) {
+    if (!dataset) return;
+
+    setUploading(true);
+    try {
+      const shouldPollParse = parseAfterUpload;
+      const uploadedFiles = [];
+      for (const file of filesToUpload) {
+        uploadedFiles.push(
+          await uploadKnowledgeFile(dataset.id, file, parseAfterUpload, isMarkdownKnowledgeFile(file) ? assets : []),
+        );
+      }
+      addToast(
+        'success',
+        [
+          parseAfterUpload
+            ? `${filesToUpload.length} 个文件已上传，已请求上传后解析`
+            : `${filesToUpload.length} 个文件已上传`,
+          assets.length > 0 ? `已附带 ${assets.length} 个图片文件` : '',
+          skippedCount > 0 ? `已跳过 ${skippedCount} 个重复文件` : '',
+        ]
+          .filter(Boolean)
+          .join('，'),
+      );
+      await Promise.all(uploadedFiles.map((file) => pollUntilUploadSettled(file.id, dataset.id, shouldPollParse)));
+    } catch (error) {
+      console.error('Failed to upload knowledge file:', error);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -277,30 +412,35 @@ export default function DatasetPage() {
       return;
     }
 
-    setUploading(true);
-    try {
-      const shouldPollParse = parseAfterUpload;
-      const uploadedFiles = [];
-      for (const file of uploadableFiles) {
-        uploadedFiles.push(await uploadKnowledgeFile(dataset.id, file, parseAfterUpload));
-      }
-      addToast(
-        'success',
-        [
-          parseAfterUpload
-            ? `${uploadableFiles.length} 个文件已上传，解析任务已提交`
-            : `${uploadableFiles.length} 个文件已上传`,
-          skippedCount > 0 ? `已跳过 ${skippedCount} 个重复文件` : '',
-        ]
-          .filter(Boolean)
-          .join('，'),
-      );
-      await Promise.all(uploadedFiles.map((file) => pollUntilUploadSettled(file.id, dataset.id, shouldPollParse)));
-    } catch (error) {
-      console.error('Failed to upload knowledge file:', error);
-    } finally {
-      setUploading(false);
+    const localImageReferences = await getUploadLocalMarkdownImageReferences(uploadableFiles);
+    if (localImageReferences.length > 0) {
+      setPendingMarkdownAssetUpload({
+        files: uploadableFiles,
+        skippedCount,
+        references: localImageReferences,
+      });
+      return;
     }
+
+    await uploadKnowledgeFiles(uploadableFiles, skippedCount);
+  }
+
+  async function handleSkipAssetFolderUpload() {
+    const pendingUpload = pendingMarkdownAssetUpload;
+    if (!pendingUpload) return;
+
+    setPendingMarkdownAssetUpload(null);
+    await uploadKnowledgeFiles(pendingUpload.files, pendingUpload.skippedCount);
+  }
+
+  async function handleAssetFolderChange(event: ChangeEvent<HTMLInputElement>) {
+    const pendingUpload = pendingMarkdownAssetUpload;
+    const folderFiles = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!pendingUpload) return;
+    if (folderFiles.length === 0) return;
+
+    await submitPendingMarkdownAssets(collectMarkdownAssetFiles(folderFiles, pendingUpload.references));
   }
 
   async function pollUntilUploadSettled(fileId: number, datasetId: number, shouldPollParse: boolean) {
@@ -316,6 +456,7 @@ export default function DatasetPage() {
           ? enrichedFiles.map((item) => {
               if (
                 item.id !== fileId ||
+                item.frontendStatus === 'asset_missing' ||
                 item.frontendStatus === 'parse_success' ||
                 item.frontendStatus === 'parse_failed'
               ) {
@@ -376,23 +517,74 @@ export default function DatasetPage() {
     }
   }
 
+  function markFilesParsing(fileIds: number[]) {
+    if (fileIds.length === 0) return;
+
+    setFiles((prev) =>
+      prev.map((item) =>
+        fileIds.includes(item.id)
+          ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
+          : item,
+      ),
+    );
+    addPollingFiles(fileIds);
+  }
+
   async function handleParseFile(fileId: number) {
+    const file = files.find((item) => item.id === fileId);
+    if (!file) return;
+
     setSubmittingParseFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     try {
-      await createParseTask(fileId);
-      setFiles((prev) =>
-        prev.map((item) =>
-          item.id === fileId
-            ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
-            : item,
-        ),
-      );
-      addPollingFiles(fileId);
+      const result = await createParseTask(fileId);
+      const missingAssetsItem = getMissingAssetsPromptItem(file, result);
+      if (missingAssetsItem) {
+        setMissingAssetsPrompt({
+          files: [file],
+          items: [missingAssetsItem],
+        });
+        return;
+      }
+
+      markFilesParsing([fileId]);
       addToast('success', '解析任务已提交');
     } catch (error) {
       console.error('Failed to create parse task:', error);
     } finally {
       setSubmittingParseFileIds((prev) => prev.filter((item) => item !== fileId));
+    }
+  }
+
+  async function handleConfirmMissingAssetsParse() {
+    const prompt = missingAssetsPrompt;
+    if (!prompt) return;
+
+    const fileIds = prompt.files.map((file) => file.id);
+    setSubmittingParseFileIds((prev) => Array.from(new Set([...prev, ...fileIds])));
+    try {
+      const results = await Promise.allSettled(prompt.files.map((file) => createParseTask(file.id, true)));
+      const successIds = prompt.files
+        .filter((_, index) => results[index].status === 'fulfilled')
+        .map((file) => file.id);
+      const failedCount = results.length - successIds.length;
+
+      if (successIds.length > 0) {
+        markFilesParsing(successIds);
+        setMissingAssetsPrompt(null);
+      }
+
+      if (successIds.length > 0 && failedCount === 0) {
+        addToast('success', `${successIds.length} 个解析任务已提交`);
+      } else if (successIds.length > 0) {
+        addToast('info', `${successIds.length} 个解析任务已提交，${failedCount} 个提交失败`);
+      } else {
+        addToast('error', '解析任务提交失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('Failed to continue parse with missing assets:', error);
+      addToast('error', '解析任务提交失败，请稍后重试');
+    } finally {
+      setSubmittingParseFileIds((prev) => prev.filter((id) => !fileIds.includes(id)));
     }
   }
 
@@ -407,24 +599,51 @@ export default function DatasetPage() {
     setSubmittingParseFileIds((prev) => Array.from(new Set([...prev, ...candidateIds])));
     try {
       const results = await Promise.allSettled(candidates.map((file) => createParseTask(file.id)));
-      const successIds = candidates.filter((_, index) => results[index].status === 'fulfilled').map((file) => file.id);
-      const failedCount = results.length - successIds.length;
+      const missingAssetsItems = [];
+      const successIds = [];
+      let failedCount = 0;
+
+      results.forEach((result, index) => {
+        const file = candidates[index];
+        if (result.status === 'rejected') {
+          failedCount += 1;
+          return;
+        }
+
+        const missingAssetsItem = getMissingAssetsPromptItem(file, result.value);
+        if (missingAssetsItem) {
+          missingAssetsItems.push(missingAssetsItem);
+          return;
+        }
+
+        successIds.push(file.id);
+      });
 
       if (successIds.length > 0) {
-        setFiles((prev) =>
-          prev.map((item) =>
-            successIds.includes(item.id)
-              ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
-              : item,
-          ),
-        );
-        addPollingFiles(successIds);
+        markFilesParsing(successIds);
+      }
+
+      if (missingAssetsItems.length > 0) {
+        setMissingAssetsPrompt({
+          files: candidates.filter((file) => missingAssetsItems.some((item) => item.fileId === file.id)),
+          items: missingAssetsItems,
+        });
       }
 
       if (successIds.length > 0 && failedCount === 0) {
-        addToast('success', `${successIds.length} 个解析任务已提交`);
+        addToast(
+          missingAssetsItems.length > 0 ? 'info' : 'success',
+          [
+            `${successIds.length} 个解析任务已提交`,
+            missingAssetsItems.length > 0 ? `${missingAssetsItems.length} 个文件缺少图片，确认后可继续解析` : '',
+          ]
+            .filter(Boolean)
+            .join('，'),
+        );
       } else if (successIds.length > 0) {
         addToast('info', `${successIds.length} 个解析任务已提交，${failedCount} 个提交失败`);
+      } else if (missingAssetsItems.length > 0) {
+        addToast('info', `${missingAssetsItems.length} 个文件缺少图片，确认后可继续解析`);
       } else {
         addToast('error', '解析任务提交失败，请稍后重试');
       }
@@ -439,6 +658,9 @@ export default function DatasetPage() {
   const deletingPendingFile = filePendingDelete ? deletingFileIds.includes(filePendingDelete.id) : false;
   const deletingPendingConversation = conversationPendingDelete
     ? deletingConversationIds.includes(conversationPendingDelete.id)
+    : false;
+  const missingAssetsSubmitting = missingAssetsPrompt
+    ? missingAssetsPrompt.files.some((file) => submittingParseFileIds.includes(file.id))
     : false;
 
   if (loading) {
@@ -543,6 +765,7 @@ export default function DatasetPage() {
             className="hidden"
             onChange={handleUpload}
           />
+          <input ref={setAssetFolderInput} type="file" multiple className="hidden" onChange={handleAssetFolderChange} />
         </div>
       </header>
 
@@ -709,6 +932,68 @@ export default function DatasetPage() {
           </div>
         </section>
       </main>
+
+      <ConfirmDialog
+        open={Boolean(pendingMarkdownAssetUpload)}
+        title="建议上传图片文件夹"
+        confirmLabel="选择文件夹"
+        cancelLabel="跳过"
+        confirmVariant="primary"
+        loading={uploading}
+        loadingLabel="上传中"
+        onCancel={() => void handleSkipAssetFolderUpload()}
+        onConfirm={openAssetFolderPicker}
+      >
+        <p>当前文档包含本地图片，建议上传图片所在文件夹。</p>
+        <div className="rounded-lg border border-hairline bg-surface-soft px-3 py-2">
+          <p className="mb-2 text-xs font-semibold text-muted">
+            检测到 {pendingMarkdownAssetUpload?.references.length ?? 0} 个本地图片引用
+          </p>
+          <ul className="max-h-36 space-y-1 overflow-y-auto font-mono text-xs text-text-secondary">
+            {pendingMarkdownAssetUpload?.references.slice(0, 12).map((reference) => (
+              <li key={reference} className="truncate">
+                {reference}
+              </li>
+            ))}
+          </ul>
+          {(pendingMarkdownAssetUpload?.references.length ?? 0) > 12 && (
+            <p className="mt-2 text-xs text-muted">
+              还有 {(pendingMarkdownAssetUpload?.references.length ?? 0) - 12} 个引用未展示
+            </p>
+          )}
+        </div>
+        <p className="text-muted">也可以跳过图片文件夹上传，未匹配的图片链接会保留，解析前仍可继续确认。</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(missingAssetsPrompt)}
+        title="仍有图片未上传"
+        confirmLabel="继续解析"
+        cancelLabel="取消"
+        confirmVariant="primary"
+        loading={missingAssetsSubmitting}
+        loadingLabel="提交中"
+        onCancel={() => {
+          if (!missingAssetsSubmitting) setMissingAssetsPrompt(null);
+        }}
+        onConfirm={() => void handleConfirmMissingAssetsParse()}
+      >
+        <p>当前文档仍有部分图片未上传，解析后这些图片可能无法读取。是否继续解析？</p>
+        <div className="max-h-64 space-y-3 overflow-y-auto rounded-lg border border-hairline bg-surface-soft px-3 py-3">
+          {missingAssetsPrompt?.items.map((item) => (
+            <div key={item.fileId}>
+              <p className="truncate text-xs font-semibold text-ink">{item.filename}</p>
+              <ul className="mt-2 space-y-1 font-mono text-xs text-text-secondary">
+                {item.missingAssets.map((asset) => (
+                  <li key={asset} className="truncate">
+                    {asset}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(filePendingDelete)}

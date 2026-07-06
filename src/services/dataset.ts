@@ -9,6 +9,7 @@ import type {
   FileParseResultDTO,
   FileParseSubmitDTO,
 } from '@/types/api';
+import type { MarkdownAssetFile } from '@/lib/markdown-assets';
 
 export async function getDatasets(page = 1, pageSize = 20): Promise<PageResult<DatasetDTO>> {
   return apiClient.get<PageResult<DatasetDTO>>('/api/v1/datasets', {
@@ -82,9 +83,14 @@ export async function uploadKnowledgeFile(
   datasetId: number,
   file: File,
   parseImmediately = false,
+  assets: MarkdownAssetFile[] = [],
 ): Promise<KnowledgeFileDTO> {
   const formData = new FormData();
   formData.append('file', file);
+  assets.forEach((asset) => {
+    formData.append('assets', asset.file);
+    formData.append('assetRelativePaths', asset.relativePath);
+  });
   formData.append('parseImmediately', String(parseImmediately));
   return apiClient.postForm<KnowledgeFileDTO>(`/api/v1/datasets/${datasetId}/files`, formData);
 }
@@ -93,8 +99,9 @@ export async function getKnowledgeFile(fileId: number): Promise<KnowledgeFileDTO
   return apiClient.get<KnowledgeFileDTO>(`/api/v1/files/${fileId}`);
 }
 
-export async function createParseTask(fileId: number): Promise<FileParseSubmitDTO> {
-  return apiClient.post<FileParseSubmitDTO>(`/api/v1/files/${fileId}/parse`);
+export async function createParseTask(fileId: number, ignoreMissingAssets = false): Promise<FileParseSubmitDTO> {
+  const query = ignoreMissingAssets ? '?ignoreMissingAssets=true' : '';
+  return apiClient.post<FileParseSubmitDTO>(`/api/v1/files/${fileId}/parse${query}`);
 }
 
 export async function deleteKnowledgeFile(fileId: number): Promise<void> {
