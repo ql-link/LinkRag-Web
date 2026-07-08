@@ -4,7 +4,7 @@ import { AlertCircle, Box, BrainCircuit, Check, Loader2 } from 'lucide-react';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { EmbeddingModelSelect } from '@/components/EmbeddingModelSelect';
+import { EmbeddingModelSelect, type EmbeddingModelBindingValue } from '@/components/EmbeddingModelSelect';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
 import {
@@ -47,6 +47,15 @@ type DefaultModelInfo = {
 const DISPLAY_MODEL_FALLBACK = '未配置默认模型';
 const LEAVE_MESSAGE = '解析配置有未保存改动，确定离开吗？';
 const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
+
+type EmbeddingBindingKey = 'sparse' | 'dense';
+
+function createEmbeddingBindingValue(
+  id: number | null,
+  source: EmbeddingModelBindingValue['source'],
+): EmbeddingModelBindingValue | null {
+  return id === null ? null : { id, source };
+}
 
 function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDTO[]): DefaultModelInfo {
   const provider = providers.find((item) => item.providerType === config.providerType);
@@ -113,7 +122,9 @@ export default function DatasetParseConfigPage() {
   const saveDisabled = !dirty || errorCount > 0 || saving;
   const embeddingBindingChanged =
     values.sparse_embedding_config_id !== initial.sparse_embedding_config_id ||
-    values.dense_embedding_config_id !== initial.dense_embedding_config_id;
+    values.sparse_embedding_config_source !== initial.sparse_embedding_config_source ||
+    values.dense_embedding_config_id !== initial.dense_embedding_config_id ||
+    values.dense_embedding_config_source !== initial.dense_embedding_config_source;
   const parseConfigNavItems = useMemo(() => {
     const isParamChanged = (param: ParamSpec) => {
       if (!isEditableKey(param.key)) return false;
@@ -275,21 +286,32 @@ export default function DatasetParseConfigPage() {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
-  function updateEmbeddingBinding(
-    key: 'sparse_embedding_config_id' | 'dense_embedding_config_id',
-    value: number | null,
-  ) {
-    if (initial[key] !== null) {
+  function updateEmbeddingBinding(key: EmbeddingBindingKey, value: EmbeddingModelBindingValue | null) {
+    if (key === 'sparse') {
+      if (initial.sparse_embedding_config_id !== null) return;
+      setValues((prev) => ({
+        ...prev,
+        sparse_embedding_config_id: value?.id ?? null,
+        sparse_embedding_config_source: value?.source ?? DEFAULT_VALUES.sparse_embedding_config_source,
+      }));
       return;
     }
-    setValues((prev) => ({ ...prev, [key]: value }));
+
+    if (initial.dense_embedding_config_id !== null) return;
+    setValues((prev) => ({
+      ...prev,
+      dense_embedding_config_id: value?.id ?? null,
+      dense_embedding_config_source: value?.source ?? DEFAULT_VALUES.dense_embedding_config_source,
+    }));
   }
 
   function handleRestoreDefault() {
     setValues((prev) => ({
       ...DEFAULT_VALUES,
       sparse_embedding_config_id: prev.sparse_embedding_config_id,
+      sparse_embedding_config_source: prev.sparse_embedding_config_source,
       dense_embedding_config_id: prev.dense_embedding_config_id,
+      dense_embedding_config_source: prev.dense_embedding_config_source,
       enable_table_enhancement: !!defaultModels.chat,
       enable_image_enhancement: !!defaultModels.vision,
     }));
@@ -415,8 +437,14 @@ export default function DatasetParseConfigPage() {
             <EmbeddingBindingSection
               sparseConfigs={sparseEmbeddingConfigs}
               denseConfigs={denseEmbeddingConfigs}
-              sparseValue={values.sparse_embedding_config_id}
-              denseValue={values.dense_embedding_config_id}
+              sparseValue={createEmbeddingBindingValue(
+                values.sparse_embedding_config_id,
+                values.sparse_embedding_config_source,
+              )}
+              denseValue={createEmbeddingBindingValue(
+                values.dense_embedding_config_id,
+                values.dense_embedding_config_source,
+              )}
               sparseError={bindingErrors.sparse_embedding_config_id}
               denseError={bindingErrors.dense_embedding_config_id}
               sparseLocked={initial.sparse_embedding_config_id !== null}
@@ -460,8 +488,8 @@ function EmbeddingBindingSection({
 }: {
   sparseConfigs: LLMConfigDTO[];
   denseConfigs: LLMConfigDTO[];
-  sparseValue: number | null;
-  denseValue: number | null;
+  sparseValue: EmbeddingModelBindingValue | null;
+  denseValue: EmbeddingModelBindingValue | null;
   sparseError?: string;
   denseError?: string;
   sparseLocked: boolean;
@@ -469,7 +497,7 @@ function EmbeddingBindingSection({
   loading: boolean;
   disabled: boolean;
   changed: boolean;
-  onChange: (key: 'sparse_embedding_config_id' | 'dense_embedding_config_id', value: number | null) => void;
+  onChange: (key: EmbeddingBindingKey, value: EmbeddingModelBindingValue | null) => void;
 }) {
   const sparseUnavailable = !loading && sparseConfigs.length === 0;
   const denseUnavailable = !loading && denseConfigs.length === 0;
@@ -500,7 +528,7 @@ function EmbeddingBindingSection({
           loading={loading}
           disabled={disabled || denseLocked}
           helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
-          onChange={(value) => onChange('dense_embedding_config_id', value)}
+          onChange={(value) => onChange('dense', value)}
         />
         <EmbeddingModelSelect
           label="稀疏向量模型"
@@ -512,7 +540,7 @@ function EmbeddingBindingSection({
           loading={loading}
           disabled={disabled || sparseLocked}
           helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
-          onChange={(value) => onChange('sparse_embedding_config_id', value)}
+          onChange={(value) => onChange('sparse', value)}
         />
       </div>
       {changed && (
