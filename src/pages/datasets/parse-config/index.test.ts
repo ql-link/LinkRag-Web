@@ -8,6 +8,8 @@ describe('dataset parse config mapping', () => {
     const values = normalizeConfig({});
 
     expect(values).toMatchObject({
+      sparse_embedding_config_source: 'USER',
+      dense_embedding_config_source: 'USER',
       max_chunk_tokens: 512,
       hard_max_tokens: 1024,
       stage_two_algorithm: 'noop',
@@ -28,7 +30,9 @@ describe('dataset parse config mapping', () => {
     const request = toRequest({
       ...DEFAULT_VALUES,
       sparse_embedding_config_id: 11,
+      sparse_embedding_config_source: 'SYSTEM',
       dense_embedding_config_id: 12,
+      dense_embedding_config_source: 'USER',
       stage_two_algorithm: 'semantic_depth_window',
       protected_neighbor_overlap: true,
       enable_heading_hierarchy: true,
@@ -37,7 +41,9 @@ describe('dataset parse config mapping', () => {
 
     expect(request).toMatchObject({
       sparse_embedding_config_id: 11,
+      sparse_embedding_config_source: 'SYSTEM',
       dense_embedding_config_id: 12,
+      dense_embedding_config_source: 'USER',
       chunking: {
         max_chunk_tokens: 512,
         hard_max_tokens: 1024,

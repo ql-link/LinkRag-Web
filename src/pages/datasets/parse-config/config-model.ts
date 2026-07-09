@@ -1,6 +1,7 @@
 import { FileCode2, FileScan, Layers3, Search, type LucideIcon } from 'lucide-react';
 import type {
   DatasetParseConfigDTO,
+  LLMConfigSource,
   PdfParserBackend,
   RecallFusionStrategy,
   RecallSource,
@@ -42,7 +43,9 @@ export type EditableParamKey = Exclude<ParamKey, 'table_model' | 'vision_model'>
 
 export type ParseConfigValues = {
   sparse_embedding_config_id: number | null;
+  sparse_embedding_config_source: LLMConfigSource;
   dense_embedding_config_id: number | null;
+  dense_embedding_config_source: LLMConfigSource;
   heading_break_level: number | null;
   min_candidate_chunk_tokens: number | null;
   overlap_tokens: number | null;
@@ -103,7 +106,9 @@ export interface ParamGroup {
 
 export const DEFAULT_VALUES: ParseConfigValues = {
   sparse_embedding_config_id: null,
+  sparse_embedding_config_source: 'USER',
   dense_embedding_config_id: null,
+  dense_embedding_config_source: 'USER',
   heading_break_level: 5,
   min_candidate_chunk_tokens: 128,
   overlap_tokens: 64,
@@ -487,6 +492,10 @@ function readConfigId(raw: unknown) {
   return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
 }
 
+function readConfigSource(raw: unknown, fallback: LLMConfigSource): LLMConfigSource {
+  return typeof raw === 'string' && raw.trim() ? (raw as LLMConfigSource) : fallback;
+}
+
 function readBoolean(raw: unknown, fallback: boolean) {
   return typeof raw === 'boolean' ? raw : fallback;
 }
@@ -520,7 +529,15 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
 
   return {
     sparse_embedding_config_id: readConfigId(config.sparse_embedding_config_id),
+    sparse_embedding_config_source: readConfigSource(
+      config.sparse_embedding_config_source,
+      DEFAULT_VALUES.sparse_embedding_config_source,
+    ),
     dense_embedding_config_id: readConfigId(config.dense_embedding_config_id),
+    dense_embedding_config_source: readConfigSource(
+      config.dense_embedding_config_source,
+      DEFAULT_VALUES.dense_embedding_config_source,
+    ),
     heading_break_level: readNumber(chunking.heading_break_level, DEFAULT_VALUES.heading_break_level),
     min_candidate_chunk_tokens: readNumber(
       chunking.min_candidate_chunk_tokens,
@@ -570,7 +587,9 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
 export function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
   return {
     sparse_embedding_config_id: values.sparse_embedding_config_id,
+    sparse_embedding_config_source: values.sparse_embedding_config_source,
     dense_embedding_config_id: values.dense_embedding_config_id,
+    dense_embedding_config_source: values.dense_embedding_config_source,
     chunking: {
       heading_break_level: values.heading_break_level,
       min_candidate_chunk_tokens: values.min_candidate_chunk_tokens,
