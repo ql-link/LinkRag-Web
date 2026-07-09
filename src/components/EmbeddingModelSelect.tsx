@@ -4,11 +4,16 @@ import { AlertCircle, Box, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getProviderIcon } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
-import type { LLMConfigDTO } from '@/types/api';
+import type { LLMConfigDTO, LLMConfigSource } from '@/types/api';
+
+export type EmbeddingModelBindingValue = {
+  id: number;
+  source: LLMConfigSource;
+};
 
 interface EmbeddingModelSelectProps {
   label: string;
-  value: number | null;
+  value: EmbeddingModelBindingValue | null;
   configs: LLMConfigDTO[];
   loading?: boolean;
   disabled?: boolean;
@@ -16,17 +21,26 @@ interface EmbeddingModelSelectProps {
   unavailableMessage: string;
   helperText?: string;
   iconUrl?: string;
-  onChange: (value: number | null) => void;
+  onChange: (value: EmbeddingModelBindingValue | null) => void;
 }
 
 const LINKRAG_PROVIDER_TYPE = 'linkrag';
+const DEFAULT_CONFIG_SOURCE: LLMConfigSource = 'USER';
+
+function getConfigSource(config: LLMConfigDTO): LLMConfigSource {
+  return config.source || (config.isSystemPreset || config.isEditable === false ? 'SYSTEM' : DEFAULT_CONFIG_SOURCE);
+}
+
+function isSameBinding(config: LLMConfigDTO, value: EmbeddingModelBindingValue | null) {
+  return value !== null && config.id === value.id && getConfigSource(config) === value.source;
+}
 
 function getConfigLabel(config: LLMConfigDTO) {
   return config.displayName?.trim() || config.modelName;
 }
 
 function getConfigSubLabel(config: LLMConfigDTO) {
-  return `${getConfigProviderName(config)} · #${config.id}`;
+  return `${getConfigProviderName(config)} · ${getConfigSource(config)} · #${config.id}`;
 }
 
 function getConfigProviderType(config: LLMConfigDTO) {
@@ -85,7 +99,7 @@ export function EmbeddingModelSelect({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const selected = useMemo(() => configs.find((config) => config.id === value) ?? null, [configs, value]);
+  const selected = useMemo(() => configs.find((config) => isSameBinding(config, value)) ?? null, [configs, value]);
   const hasHistoricalBinding = value !== null && !selected;
   const unavailable = !loading && configs.length === 0 && value === null;
   const inactive = disabled || loading || unavailable;
@@ -190,7 +204,7 @@ export function EmbeddingModelSelect({
               : selected
                 ? getConfigLabel(selected)
                 : hasHistoricalBinding
-                  ? `当前绑定 #${value}`
+                  ? `当前绑定 ${value.source} #${value.id}`
                   : unavailable
                     ? '暂无可用'
                     : '选择模型'}
@@ -235,7 +249,9 @@ export function EmbeddingModelSelect({
               >
                 <ProviderIcon fallbackIconUrl={iconUrl} darkMode={darkMode} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-ink">当前绑定 #{value}</span>
+                  <span className="block truncate text-sm font-semibold text-ink">
+                    当前绑定 {value.source} #{value.id}
+                  </span>
                   <span className="mt-0.5 block truncate text-[11px] text-muted">不在可用列表中</span>
                 </span>
                 <Check size={14} className="shrink-0 text-primary" />
@@ -243,15 +259,15 @@ export function EmbeddingModelSelect({
             )}
 
             {configs.map((config) => {
-              const active = config.id === value;
+              const active = isSameBinding(config, value);
               return (
                 <button
-                  key={config.id}
+                  key={`${getConfigSource(config)}:${config.id}`}
                   type="button"
                   role="option"
                   aria-selected={active}
                   onClick={() => {
-                    onChange(config.id);
+                    onChange({ id: config.id, source: getConfigSource(config) });
                     setOpen(false);
                   }}
                   className={cn(

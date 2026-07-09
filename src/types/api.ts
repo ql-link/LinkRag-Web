@@ -32,6 +32,8 @@ export interface UserProfileDTO {
   status: 0 | 1;
 }
 
+export type LLMConfigSource = 'USER' | 'SYSTEM' | (string & {});
+
 export interface LLMConfigDTO {
   id: number;
   configId?: number;
@@ -47,7 +49,7 @@ export interface LLMConfigDTO {
   isDefault: boolean;
   isSystemPreset: boolean;
   isEditable?: boolean;
-  source?: 'USER' | 'SYSTEM' | (string & {});
+  source?: LLMConfigSource;
   createdAt: string;
   updatedAt: string;
 }
@@ -330,7 +332,9 @@ export interface DatasetParseRecallConfig {
 
 export interface DatasetParseConfigDTO {
   sparse_embedding_config_id?: number | null;
+  sparse_embedding_config_source?: LLMConfigSource | null;
   dense_embedding_config_id?: number | null;
+  dense_embedding_config_source?: LLMConfigSource | null;
   chunking?: DatasetParseChunkingConfig | null;
   enhancement?: DatasetParseEnhancementConfig | null;
   pdf?: DatasetParsePdfConfig | null;
@@ -491,7 +495,9 @@ export interface CreateDatasetRequest {
   name: string;
   description?: string;
   sparse_embedding_config_id: number;
+  sparse_embedding_config_source: LLMConfigSource;
   dense_embedding_config_id: number;
+  dense_embedding_config_source: LLMConfigSource;
 }
 
 export interface UpdateDatasetRequest {
