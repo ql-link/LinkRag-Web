@@ -1,6 +1,6 @@
 import { getKnowledgeFileSuffix } from './knowledge-file';
 
-const IMAGE_ASSET_SUFFIXES = new Set(['apng', 'avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'svg', 'webp']);
+const MARKDOWN_ASSET_SUFFIXES = new Set(['jpeg', 'jpg', 'png', 'gif', 'webp']);
 
 export interface MarkdownAssetFile {
   file: File;
@@ -141,7 +141,7 @@ export async function pickMarkdownAssetDirectory(
 
   for (const relativePath of referencedPathSet) {
     const file = await getReferencedFileFromDirectory(root, relativePath);
-    if (file && isImageAssetFile(file)) {
+    if (file && isSupportedMarkdownAssetFile(file, relativePath)) {
       assets.push({ file, relativePath });
     }
   }
@@ -161,8 +161,13 @@ function getFolderRelativePath(file: File) {
   return normalizeAssetRelativePath(parts.join('/'));
 }
 
-function isImageAssetFile(file: File) {
-  return file.type.startsWith('image/') || IMAGE_ASSET_SUFFIXES.has(getKnowledgeFileSuffix(file.name));
+function isSupportedMarkdownAssetPath(path: string) {
+  return MARKDOWN_ASSET_SUFFIXES.has(getKnowledgeFileSuffix(path));
+}
+
+function isSupportedMarkdownAssetFile(file: File, relativePath: string) {
+  if (!isSupportedMarkdownAssetPath(relativePath)) return false;
+  return !file.type || file.type.startsWith('image/');
 }
 
 export function collectMarkdownAssetFiles(
@@ -181,10 +186,9 @@ export function collectMarkdownAssetFiles(
         );
 
   for (const file of files) {
-    if (!isImageAssetFile(file)) continue;
-
     const relativePath = getFolderRelativePath(file);
-    if (!relativePath || seenRelativePaths.has(relativePath)) continue;
+    if (!relativePath || !isSupportedMarkdownAssetFile(file, relativePath)) continue;
+    if (seenRelativePaths.has(relativePath)) continue;
     if (referencedPathSet && !referencedPathSet.has(relativePath)) continue;
 
     seenRelativePaths.add(relativePath);

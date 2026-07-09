@@ -88,11 +88,12 @@ describe('markdown assets', () => {
     const assets = collectMarkdownAssetFiles([
       folderFile('a.png', 'assets/images/a.png'),
       folderFile('b.svg', 'assets/icons/b.svg', ''),
+      folderFile('c.bmp', 'assets/images/c.bmp', 'image/bmp'),
       folderFile('notes.txt', 'assets/notes.txt', 'text/plain'),
       folderFile('unsafe.png', 'assets/../unsafe.png'),
     ]);
 
-    expect(assets.map((asset) => asset.relativePath)).toEqual(['images/a.png', 'icons/b.svg']);
+    expect(assets.map((asset) => asset.relativePath)).toEqual(['images/a.png']);
   });
 
   it('collects only image files referenced by the Markdown document', () => {
@@ -113,6 +114,7 @@ describe('markdown assets', () => {
       images: directoryHandle({
         'a.png': fileNamed('a.png', 'image/png'),
         'b.png': fileNamed('b.png', 'image/png'),
+        'c.svg': fileNamed('c.svg', 'image/svg+xml'),
       }),
     });
     const win = {
@@ -121,7 +123,7 @@ describe('markdown assets', () => {
       },
     } as Window & { showDirectoryPicker: () => Promise<typeof root> };
 
-    const assets = await pickMarkdownAssetDirectory(['images/a.png'], win);
+    const assets = await pickMarkdownAssetDirectory(['images/a.png', 'images/c.svg'], win);
 
     expect(assets?.map((asset) => asset.relativePath)).toEqual(['images/a.png']);
     expect(assets?.map((asset) => asset.file.name)).toEqual(['a.png']);
