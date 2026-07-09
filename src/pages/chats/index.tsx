@@ -74,6 +74,7 @@ import type {
   DatasetDTO,
   KnowledgeFileDTO,
   LLMConfigDTO,
+  ModelConfigSource,
   RecallChunk,
   RecallHit,
   UiChatMessage,
@@ -84,6 +85,7 @@ const COMPOSER_TEXTAREA_MAX_HEIGHT = 132;
 const MESSAGE_SCROLL_BOTTOM_THRESHOLD = 96;
 const RIGHT_PANEL_RESIZE_ROW_PX = 6;
 const RIGHT_PANEL_TRANSITION_MS = 200;
+const DEFAULT_MODEL_CONFIG_SOURCE: ModelConfigSource = 'USER';
 
 type ChatRouteState = {
   datasetId?: unknown;
@@ -96,6 +98,12 @@ interface LocalMessage extends UiChatMessage {
 
 type ChatModel = LLMConfigDTO & {
   providerName?: string;
+};
+
+type ChatModelOption = {
+  configId: number;
+  configSource: ModelConfigSource;
+  label: string;
 };
 
 interface ConversationDraft {
@@ -290,11 +298,31 @@ function linkifyRecallChunkMentions(content: string, chunks?: RecallChunk[]) {
 const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
 
 function getModelProviderName(model: ChatModel | null | undefined) {
+  if (getChatModelConfigSource(model) === 'SYSTEM') return 'LinkRag';
   return model?.providerName?.trim() || model?.providerType || '';
 }
 
 function getChatModelDisplayName(model: ChatModel | null | undefined) {
   return getModelDisplayName(model) || model?.modelName || '选择模型';
+}
+
+function getChatModelConfigSource(
+  model: Pick<LLMConfigDTO, 'source' | 'isSystemPreset' | 'isEditable'> | null | undefined,
+) {
+  if (!model) return DEFAULT_MODEL_CONFIG_SOURCE;
+  return model.source === 'SYSTEM' || model.isSystemPreset || model.isEditable === false ? 'SYSTEM' : 'USER';
+}
+
+function toChatModelOption(model: ChatModel): ChatModelOption {
+  return {
+    configId: model.id,
+    configSource: getChatModelConfigSource(model),
+    label: getChatModelDisplayName(model),
+  };
+}
+
+function isChatModelOption(model: ChatModel, option: ChatModelOption | null | undefined) {
+  return Boolean(option && model.id === option.configId && getChatModelConfigSource(model) === option.configSource);
 }
 
 function getModelIdentityValue(value: string | null | undefined) {
@@ -303,16 +331,19 @@ function getModelIdentityValue(value: string | null | undefined) {
 
 function isSameChatModel(a: LLMConfigDTO | null | undefined, b: LLMConfigDTO | null | undefined) {
   if (!a || !b) return false;
-  if (a.id === b.id) return true;
+  const aSource = getChatModelConfigSource(a);
+  const bSource = getChatModelConfigSource(b);
+  if (a.id === b.id && aSource === bSource) return true;
 
   if (a.configId !== undefined && a.configId !== null) {
-    if (a.configId === b.id || a.configId === b.configId) return true;
+    if ((a.configId === b.id || a.configId === b.configId) && aSource === bSource) return true;
   }
   if (b.configId !== undefined && b.configId !== null) {
-    if (b.configId === a.id || b.configId === a.configId) return true;
+    if ((b.configId === a.id || b.configId === a.configId) && aSource === bSource) return true;
   }
 
   return (
+    aSource === bSource &&
     getModelIdentityValue(a.providerType) === getModelIdentityValue(b.providerType) &&
     getModelIdentityValue(a.modelName) === getModelIdentityValue(b.modelName) &&
     getModelIdentityValue(a.capability) === getModelIdentityValue(b.capability)
@@ -697,8 +728,8 @@ export default function ChatsPage() {
   const [inputValue, setInputValue] = useState('');
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(() => routeDatasetId);
   const [chatModels, setChatModels] = useState<ChatModel[]>([]);
-  const [selectedModelConfigId, setSelectedModelConfigId] = useState<number | null>(null);
-  const [defaultChatModelConfigId, setDefaultChatModelConfigId] = useState<number | null>(null);
+  const [selectedModelOption, setSelectedModelOption] = useState<ChatModelOption | null>(null);
+  const [defaultChatModelOption, setDefaultChatModelOption] = useState<ChatModelOption | null>(null);
   const [kbOpen, setKbOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -756,7 +787,9 @@ export default function ChatsPage() {
   const displayName = user?.nickname || user?.username || '用户';
   const datasetById = useMemo(() => new Map(datasets.map((dataset) => [dataset.id, dataset])), [datasets]);
   const selectedDataset = selectedDatasetId ? datasetById.get(selectedDatasetId) : null;
-  const selectedModel = selectedModelConfigId ? chatModels.find((model) => model.id === selectedModelConfigId) : null;
+  const selectedModel = selectedModelOption
+    ? (chatModels.find((model) => isChatModelOption(model, selectedModelOption)) ?? null)
+    : null;
   const messageTurnIdById = useMemo(() => {
     const turnIdById = new Map<string, string>();
     let currentTurnId: string | null = null;
@@ -880,8 +913,9 @@ export default function ChatsPage() {
           (defaultChatModel ? chatModelItems.find((model) => isSameChatModel(model, defaultChatModel)) : null) ??
           chatModelItems.find((model) => model.isDefault) ??
           chatModelItems[0];
-        setDefaultChatModelConfigId(defaultModel?.id ?? null);
-        setSelectedModelConfigId(defaultModel?.id ?? null);
+        const defaultOption = defaultModel ? toChatModelOption(defaultModel) : null;
+        setDefaultChatModelOption(defaultOption);
+        setSelectedModelOption(defaultOption);
       } catch (error) {
         if (!cancelled) console.error('Failed to load chat workspace:', error);
       }
@@ -995,9 +1029,9 @@ export default function ChatsPage() {
   }, [activeConversationId, routeDatasetId]);
 
   useEffect(() => {
-    if (!defaultChatModelConfigId) return;
-    setSelectedModelConfigId(defaultChatModelConfigId);
-  }, [activeConversationId, defaultChatModelConfigId]);
+    if (!defaultChatModelOption) return;
+    setSelectedModelOption(defaultChatModelOption);
+  }, [activeConversationId, defaultChatModelOption]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
@@ -1203,7 +1237,7 @@ export default function ChatsPage() {
         addToast('error', '请先选择知识库');
         return false;
       }
-      if (!selectedModelConfigId) {
+      if (!selectedModelOption) {
         addToast('error', '请先选择对话模型');
         setModelOpen(true);
         return false;
@@ -1225,7 +1259,7 @@ export default function ChatsPage() {
         if (!activeConversation) {
           activeConversation = await createConversation({
             datasetId: selectedDatasetId,
-            lastConfigId: selectedModelConfigId,
+            lastConfigId: selectedModelOption.configId,
           });
           setConversation(activeConversation);
         }
@@ -1252,7 +1286,7 @@ export default function ChatsPage() {
         conversationId: activeConversation.id,
         role: 'assistant',
         content: '',
-        configId: selectedModelConfigId,
+        configId: selectedModelOption.configId,
         modelName: selectedModel?.modelName ?? null,
         createdAt: new Date().toISOString(),
       };
@@ -1275,7 +1309,8 @@ export default function ChatsPage() {
         const result = await recall({
           query: content,
           datasetIds: [selectedDatasetId],
-          configId: selectedModelConfigId,
+          configId: selectedModelOption.configId,
+          configSource: selectedModelOption.configSource,
           conversationId: activeConversation.id,
           // LINK-209：仅会话首条用户消息带 is_first_turn=true，由 Python 基于 query 生成会话标题。
           isFirstTurn,
@@ -1345,7 +1380,7 @@ export default function ChatsPage() {
       messages,
       selectedDatasetId,
       selectedModel?.modelName,
-      selectedModelConfigId,
+      selectedModelOption,
       sending,
     ],
   );
@@ -1357,7 +1392,7 @@ export default function ChatsPage() {
       !conversation ||
       conversation.id !== activeConversationId ||
       !selectedDatasetId ||
-      !selectedModelConfigId ||
+      !selectedModelOption ||
       loadingConversation ||
       sending
     ) {
@@ -1392,7 +1427,7 @@ export default function ChatsPage() {
     pendingInitialQuestion,
     routeInitialQuestion,
     selectedDatasetId,
-    selectedModelConfigId,
+    selectedModelOption,
     sending,
   ]);
 
@@ -1832,15 +1867,15 @@ export default function ChatsPage() {
             >
               {chatModels.map((model) => (
                 <button
-                  key={model.id}
+                  key={`${getChatModelConfigSource(model)}:${model.id}`}
                   type="button"
                   onClick={() => {
-                    setSelectedModelConfigId(model.id);
+                    setSelectedModelOption(toChatModelOption(model));
                     setModelOpen(false);
                   }}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors',
-                    model.id === selectedModelConfigId
+                    isChatModelOption(model, selectedModelOption)
                       ? 'bg-primary/10 text-ink'
                       : 'text-text-secondary hover:bg-primary/5 hover:text-ink',
                   )}

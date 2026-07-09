@@ -32,7 +32,8 @@ export interface UserProfileDTO {
   status: 0 | 1;
 }
 
-export type LLMConfigSource = 'USER' | 'SYSTEM' | (string & {});
+export type ModelConfigSource = 'USER' | 'SYSTEM';
+export type LLMConfigSource = ModelConfigSource | (string & {});
 
 export interface LLMConfigDTO {
   id: number;
