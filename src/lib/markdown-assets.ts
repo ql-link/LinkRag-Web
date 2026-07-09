@@ -54,7 +54,8 @@ export function extractLocalMarkdownImageReferences(markdown: string): string[] 
   for (const match of markdown.matchAll(markdownImagePattern)) {
     const destination = getMarkdownLinkDestination(match[1] ?? '');
     if (isLocalMarkdownImageReference(destination)) {
-      references.add(destination);
+      const normalized = normalizeMarkdownAssetReference(destination);
+      if (normalized) references.add(normalized);
     }
   }
 
@@ -62,7 +63,8 @@ export function extractLocalMarkdownImageReferences(markdown: string): string[] 
   for (const match of markdown.matchAll(htmlImagePattern)) {
     const destination = (match[1] ?? match[2] ?? match[3] ?? '').trim();
     if (isLocalMarkdownImageReference(destination)) {
-      references.add(destination);
+      const normalized = normalizeMarkdownAssetReference(destination);
+      if (normalized) references.add(normalized);
     }
   }
 
@@ -82,7 +84,7 @@ export function normalizeAssetRelativePath(path: string) {
 export function normalizeMarkdownAssetReference(path: string) {
   const queryIndex = path.search(/[?#]/);
   const pathOnly = queryIndex >= 0 ? path.slice(0, queryIndex) : path;
-  const normalized = pathOnly.replace(/\\/g, '/').trim().replace(/^\/+/, '');
+  const normalized = safePercentDecode(pathOnly).replace(/\\/g, '/').trim().replace(/^\/+/, '');
   const parts = normalized.split('/').filter(Boolean);
 
   if (parts.length === 0) return null;
@@ -96,6 +98,15 @@ export function canPickMarkdownAssetDirectory(win: Window = window) {
 }
 
 async function getReferencedFileFromDirectory(root: BrowserDirectoryHandle, relativePath: string) {
+  for (const candidate of lookupCandidates(relativePath)) {
+    const file = await getFileFromDirectory(root, candidate);
+    if (file) return file;
+  }
+
+  return null;
+}
+
+async function getFileFromDirectory(root: BrowserDirectoryHandle, relativePath: string) {
   const parts = relativePath.split('/').filter(Boolean);
   if (parts.length === 0) return null;
 
@@ -149,16 +160,18 @@ export async function pickMarkdownAssetDirectory(
   return assets;
 }
 
-function getFolderRelativePath(file: File) {
+function getFolderRelativePathCandidates(file: File) {
   const webkitRelativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
   const rawPath = webkitRelativePath || file.name;
   const parts = rawPath.replace(/\\/g, '/').split('/').filter(Boolean);
+  const candidates: string[] = [];
 
   if (webkitRelativePath && parts.length > 1) {
-    parts.shift();
+    candidates.push(parts.slice(1).join('/'));
   }
+  candidates.push(parts.join('/'));
 
-  return normalizeAssetRelativePath(parts.join('/'));
+  return Array.from(new Set(candidates.map((path) => normalizeAssetRelativePath(path)).filter(Boolean))) as string[];
 }
 
 function isSupportedMarkdownAssetPath(path: string) {
@@ -167,7 +180,29 @@ function isSupportedMarkdownAssetPath(path: string) {
 
 function isSupportedMarkdownAssetFile(file: File, relativePath: string) {
   if (!isSupportedMarkdownAssetPath(relativePath)) return false;
-  return !file.type || file.type.startsWith('image/');
+  return !file.type || file.type.startsWith('image/') || file.type === 'application/octet-stream';
+}
+
+function lookupCandidates(relativePath: string) {
+  const normalized = normalizeMarkdownAssetReference(relativePath);
+  if (!normalized) return [];
+
+  const parts = normalized.split('/').filter(Boolean);
+  const candidates = [normalized];
+  if (parts.length > 1) {
+    candidates.push(parts.slice(1).join('/'));
+  }
+  return Array.from(new Set(candidates));
+}
+
+function safePercentDecode(value: string) {
+  return value.replace(/(?:%[0-9a-fA-F]{2})+/g, (encoded) => {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  });
 }
 
 export function collectMarkdownAssetFiles(
@@ -186,10 +221,13 @@ export function collectMarkdownAssetFiles(
         );
 
   for (const file of files) {
-    const relativePath = getFolderRelativePath(file);
+    const relativePathCandidates = getFolderRelativePathCandidates(file);
+    const relativePath =
+      referencedPathSet === null
+        ? (relativePathCandidates[0] ?? null)
+        : (relativePathCandidates.find((candidate) => referencedPathSet.has(candidate)) ?? null);
     if (!relativePath || !isSupportedMarkdownAssetFile(file, relativePath)) continue;
     if (seenRelativePaths.has(relativePath)) continue;
-    if (referencedPathSet && !referencedPathSet.has(relativePath)) continue;
 
     seenRelativePaths.add(relativePath);
     assets.push({ file, relativePath });

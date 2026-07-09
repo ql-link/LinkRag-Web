@@ -61,6 +61,7 @@ describe('markdown assets', () => {
     const markdown = [
       '![a](images/a.png)',
       '![b](<images/b.png>)',
+      '![space](assets/Pasted%20image%2020260330172405.png)',
       '<img src="images/c.png">',
       "<img alt='d' src='images/d.webp'>",
       '![remote](https://example.com/a.png)',
@@ -72,6 +73,7 @@ describe('markdown assets', () => {
     expect(extractLocalMarkdownImageReferences(markdown)).toEqual([
       'images/a.png',
       'images/b.png',
+      'assets/Pasted image 20260330172405.png',
       'images/c.png',
       'images/d.webp',
     ]);
@@ -102,11 +104,25 @@ describe('markdown assets', () => {
         folderFile('a.png', 'assets/images/a.png'),
         folderFile('b.png', 'assets/images/b.png'),
         folderFile('c.png', 'assets/images/c.png'),
+        folderFile('Pasted image 20260330172405.png', 'assets/Pasted image 20260330172405.png'),
       ],
-      ['./images/a.png', 'images/c.png?version=1'],
+      ['./images/a.png', 'images/c.png?version=1', 'assets/Pasted%20image%2020260330172405.png'],
     );
 
-    expect(assets.map((asset) => asset.relativePath)).toEqual(['images/a.png', 'images/c.png']);
+    expect(assets.map((asset) => asset.relativePath)).toEqual([
+      'images/a.png',
+      'images/c.png',
+      'assets/Pasted image 20260330172405.png',
+    ]);
+  });
+
+  it('matches referenced assets when the selected folder is the assets directory itself', () => {
+    const assets = collectMarkdownAssetFiles(
+      [folderFile('Pasted image 20260330172405.png', 'assets/Pasted image 20260330172405.png')],
+      ['assets/Pasted%20image%2020260330172405.png'],
+    );
+
+    expect(assets.map((asset) => asset.relativePath)).toEqual(['assets/Pasted image 20260330172405.png']);
   });
 
   it('picks only referenced files from a directory handle', async () => {
@@ -127,5 +143,21 @@ describe('markdown assets', () => {
 
     expect(assets?.map((asset) => asset.relativePath)).toEqual(['images/a.png']);
     expect(assets?.map((asset) => asset.file.name)).toEqual(['a.png']);
+  });
+
+  it('picks referenced assets when the selected handle points at the assets directory', async () => {
+    const root = directoryHandle({
+      'Pasted image 20260330172405.png': fileNamed('Pasted image 20260330172405.png', 'image/png'),
+    });
+    const win = {
+      async showDirectoryPicker() {
+        return root;
+      },
+    } as Window & { showDirectoryPicker: () => Promise<typeof root> };
+
+    const assets = await pickMarkdownAssetDirectory(['assets/Pasted%20image%2020260330172405.png'], win);
+
+    expect(assets?.map((asset) => asset.relativePath)).toEqual(['assets/Pasted image 20260330172405.png']);
+    expect(assets?.map((asset) => asset.file.name)).toEqual(['Pasted image 20260330172405.png']);
   });
 });
