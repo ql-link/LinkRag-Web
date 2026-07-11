@@ -6,3 +6,4 @@ export * from './llm';
 export * from './oss';
 export * from './recall';
 export * from './admin-logs';
+export * from './admin-users';

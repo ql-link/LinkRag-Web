@@ -21,6 +21,7 @@ const FeedbackPage = lazy(() => import('@/pages/feedback'));
 const AdminLayout = lazy(() => import('@/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })));
 const AdminModelsPage = lazy(() => import('@/pages/admin/models'));
 const AdminLogsPage = lazy(() => import('@/pages/admin/logs'));
+const AdminUsersPage = lazy(() => import('@/pages/admin/users'));
 const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => ({ default: m.CreatorLayout })));
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
@@ -85,7 +86,8 @@ function AppContent() {
             {user?.role === 'ADMIN' && (
               <>
                 <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/blogs" replace />} />
+                  <Route index element={<Navigate to={RoutePaths.AdminUsers} replace />} />
+                  <Route path="users" element={<AdminUsersPage />} />
                   <Route path="blogs" element={<CreatorBlogsPage />} />
                   <Route
                     path="models"
