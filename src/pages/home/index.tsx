@@ -124,7 +124,7 @@ export default function HomePage() {
           getDatasets(1, 100),
           getRecentKnowledgeFiles(8),
           getConversations(1, 100),
-          getUsageSummary(usageRange.startDate, usageRange.endDate).catch((error) => {
+          getUsageSummary(usageRange.startDate, usageRange.endDate, 'all').catch((error) => {
             console.error('Failed to load home usage summary:', error);
             return null;
           }),
