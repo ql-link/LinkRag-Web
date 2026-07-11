@@ -162,7 +162,7 @@ export default function DatasetPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState<'files' | 'conversations'>(() =>
-    searchParams.get('tab') === 'files' ? 'files' : 'conversations',
+    searchParams.get('tab') === 'conversations' ? 'conversations' : 'files',
   );
   const [uploading, setUploading] = useState(false);
   const [choosingFiles, setChoosingFiles] = useState(false);
@@ -551,8 +551,8 @@ export default function DatasetPage() {
           <div className="flex flex-col gap-3 px-0 py-3 lg:flex-row lg:items-center lg:justify-between lg:border-b lg:border-hairline lg:px-5 lg:py-4">
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-soft p-1 lg:flex lg:items-center lg:gap-2 lg:bg-transparent lg:p-0">
               {[
-                { key: 'conversations' as const, label: '历史对话', count: conversations.length },
                 { key: 'files' as const, label: '知识文件', count: files.length },
+                { key: 'conversations' as const, label: '历史对话', count: conversations.length },
               ].map((tab) => (
                 <button
                   key={tab.key}
