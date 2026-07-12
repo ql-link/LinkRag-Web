@@ -43,6 +43,7 @@ export default function CreatorBlogEditor() {
   const blogEditPath = pathname.startsWith('/admin') ? '/admin/blogs/edit' : '/creator/blogs/edit';
 
   const isAutoSavingRef = useRef(false);
+  const assetPostIdRef = useRef<number | null>(postId);
 
   const [showCoverModal, setShowCoverModal] = useState(false);
   const [showImagesModal, setShowImagesModal] = useState(false);
@@ -53,6 +54,7 @@ export default function CreatorBlogEditor() {
   const [assets, setAssets] = useState<BlogAssetDTO[]>([]);
 
   useEffect(() => {
+    assetPostIdRef.current = postId;
     if (!isNew && postId) {
       if (isAutoSavingRef.current) {
         isAutoSavingRef.current = false;
@@ -66,6 +68,7 @@ export default function CreatorBlogEditor() {
     try {
       setLoading(true);
       const res = await getAdminPostDetail(targetId);
+      assetPostIdRef.current = res.id;
       setPostDetail(res);
       if (updateForm) {
         setFormData({
@@ -164,6 +167,7 @@ export default function CreatorBlogEditor() {
 
       const submitData = { ...formData, title: tempTitle, slug: currentSlug };
       const res = await createDraft(submitData);
+      assetPostIdRef.current = res.id;
 
       // Save markdown immediately to prevent data loss
       if (markdownText) {
@@ -230,6 +234,19 @@ export default function CreatorBlogEditor() {
       setLoading(false);
       e.target.value = ''; // Reset input
     }
+  };
+
+  const handlePasteContentImage = async (file: File): Promise<string> => {
+    let targetId = assetPostIdRef.current || postDetail?.id || postId;
+    if (!targetId) {
+      targetId = await autoCreateDraft();
+      if (!targetId) throw new Error('创建文章草稿失败，无法上传正文图片');
+      assetPostIdRef.current = targetId;
+    }
+
+    const uploaded = await uploadAsset(targetId, 'CONTENT_IMAGE', file);
+    setAssets((current) => [...current.filter((asset) => asset.id !== uploaded.id), uploaded]);
+    return uploaded.publicUrl;
   };
 
   const handleDeleteAsset = async (assetId: number) => {
@@ -443,6 +460,7 @@ export default function CreatorBlogEditor() {
               onChange={setMarkdownText}
               docKey={`blog-${postId ?? 'new'}`}
               onSave={handleSaveAll}
+              uploadImage={handlePasteContentImage}
             />
           </div>
         </div>
