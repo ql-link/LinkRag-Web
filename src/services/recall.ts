@@ -238,11 +238,16 @@ export interface RecallOptions {
   /** 流式生成增量回调：每收到一帧 answer_delta 触发，参数为本帧增量文本。 */
   onAnswerDelta?: (text: string) => void;
   /**
+   * LINK-208：收到首帧 stream_started 时触发。conversationId 用于侧栏定位会话，
+   * requestId 用于防止旧请求结束时误清除新请求的“回复中”状态。
+   */
+  onStreamStarted?: (payload: { conversationId: number; requestId: string }) => void;
+  /**
    * 会话标题回调（LINK-209）：收到 conversation_title 事件时触发，参数为 Python 生成的标题。
-   * 到达时机不固定——可能在 answer_delta 中途，也可能在 answer_done 之后补发；一次会话最多一条。
+   * 到达时机不固定——可能在 answer_delta 中途，也可能在本轮终态前补发；一次会话最多一条。
    */
   onConversationTitle?: (title: string) => void;
-  /** 转发非终态 / 未知 SSE 帧（前向兼容；recall_done / answer_done / error / answer_delta / conversation_title 不经此回调）。 */
+  /** 转发非终态 / 未知 SSE 帧（前向兼容；已知事件不经此回调）。 */
   onEvent?: (event: RecallStreamEvent) => void;
 }
 
@@ -333,6 +338,17 @@ async function streamOnce(
   const handleFrame = (frame: string): RecallDonePayload | undefined => {
     const parsed = parseFrame(frame);
     if (!parsed) return undefined;
+    // LINK-208：生命周期首帧。以后端 payload 为准，避免仅靠本页 sending 推断跨会话状态。
+    if (parsed.event === 'stream_started') {
+      const payload = parsed.data as { conversation_id?: number; request_id?: string };
+      if (Number.isInteger(payload?.conversation_id) && payload.conversation_id! > 0 && payload.request_id) {
+        options.onStreamStarted?.({
+          conversationId: payload.conversation_id!,
+          requestId: payload.request_id,
+        });
+      }
+      return undefined;
+    }
     // 终态：生成完成（answer_done）或空命中不生成（recall_done）。
     if (parsed.event === 'answer_done' || parsed.event === 'recall_done') {
       return parsed.data as RecallDonePayload;
@@ -343,7 +359,7 @@ async function streamOnce(
       if (delta?.text) options.onAnswerDelta?.(delta.text);
       return undefined;
     }
-    // LINK-209：会话标题事件，到达时机不固定（可能在 answer_delta 中途或 answer_done 之后），一次会话最多一条。
+    // LINK-209：会话标题事件，到达时机不固定（可能在 answer_delta 中途或终态前），一次会话最多一条。
     if (parsed.event === 'conversation_title') {
       const payload = parsed.data as { title?: string };
       const title = payload?.title?.trim();

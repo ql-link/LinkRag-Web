@@ -733,6 +733,10 @@ export default function ChatsPage() {
   const [kbOpen, setKbOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [streamingConversation, setStreamingConversation] = useState<{
+    conversationId: number;
+    requestId: string;
+  } | null>(null);
   const [pendingInitialQuestion, setPendingInitialQuestion] = useState('');
   const [recallPanelOpen, setRecallPanelOpen] = useState(false);
   const [recallPanelMounted, setRecallPanelMounted] = useState(false);
@@ -1270,8 +1274,16 @@ export default function ChatsPage() {
         return false;
       }
 
-      // 新建或再次发言的会话都置顶：新会话加入列表，已有会话提到最前，体现“最近进行”。
-      setConversations((prev) => [activeConversation!, ...prev.filter((item) => item.id !== activeConversation!.id)]);
+      // 乐观置顶：用户一发出消息就更新时间并移到最前，不等待后端会话列表回写。
+      // ChatWorkspacePanel 仍按 updatedAt 排序，因此必须同时写入本地时间，避免刚置顶又被旧时间排回去。
+      const optimisticUpdatedAt = new Date().toISOString();
+      setConversations((prev) => [
+        { ...activeConversation!, updatedAt: optimisticUpdatedAt },
+        ...prev.filter((item) => item.id !== activeConversation!.id),
+      ]);
+      setConversation((prev) =>
+        prev?.id === activeConversation!.id ? { ...prev, updatedAt: optimisticUpdatedAt } : prev,
+      );
 
       const userMsg: UiChatMessage = {
         id: `${Date.now()}:user`,
@@ -1303,6 +1315,7 @@ export default function ChatsPage() {
       recallAbortRef.current?.abort();
       const controller = new AbortController();
       recallAbortRef.current = controller;
+      let streamRequestId: string | null = null;
       options?.onStarted?.();
 
       try {
@@ -1315,6 +1328,10 @@ export default function ChatsPage() {
           // LINK-209：仅会话首条用户消息带 is_first_turn=true，由 Python 基于 query 生成会话标题。
           isFirstTurn,
           signal: controller.signal,
+          onStreamStarted: ({ conversationId, requestId }) => {
+            streamRequestId = requestId;
+            setStreamingConversation({ conversationId, requestId });
+          },
           onAnswerDelta: (text) => {
             updateConversationDraft(activeConversation.id, (draft) => ({
               messages: (draft?.messages ?? nextMessages).map((msg) =>
@@ -1364,6 +1381,9 @@ export default function ChatsPage() {
         }
       } finally {
         if (recallAbortRef.current === controller) recallAbortRef.current = null;
+        if (streamRequestId) {
+          setStreamingConversation((current) => (current?.requestId === streamRequestId ? null : current));
+        }
         updateConversationDraft(activeConversation.id, (draft) => ({
           messages: draft?.messages ?? nextMessages,
           sending: false,
@@ -1534,6 +1554,7 @@ export default function ChatsPage() {
     () => ({
       conversations,
       activeConversationId,
+      streamingConversationId: streamingConversation?.conversationId ?? null,
       // 仅在确无数据且仍在拉取时显示加载态；有缓存/已加载数据时后台静默刷新
       loadingConversations: loadingHistory && conversations.length === 0,
       onBeginNewConversation: beginNewConversation,
@@ -1543,6 +1564,7 @@ export default function ChatsPage() {
     [
       conversations,
       activeConversationId,
+      streamingConversation?.conversationId,
       loadingHistory,
       beginNewConversation,
       handleDeleteConversation,

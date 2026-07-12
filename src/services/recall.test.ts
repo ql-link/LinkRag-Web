@@ -266,6 +266,30 @@ describe('recall - SSE 解析', () => {
     expect(result.hits).toHaveLength(1);
   });
 
+  it('stream_started 回调会话与请求标识且不转发为未知事件', async () => {
+    const onStreamStarted = vi.fn();
+    const onEvent = vi.fn();
+    fetchMock.mockResolvedValue(
+      sseResponse([
+        'event: stream_started\ndata: {"conversation_id":99,"request_id":"req-208"}\n\n',
+        'event: recall_done\ndata: {"hits":[],"failed_sources":[]}\n\n',
+      ]),
+    );
+
+    await recall({
+      query: 'q',
+      configId: 77,
+      conversationId: 99,
+      datasetIds: [1],
+      onStreamStarted,
+      onEvent,
+    });
+
+    expect(onStreamStarted).toHaveBeenCalledOnce();
+    expect(onStreamStarted).toHaveBeenCalledWith({ conversationId: 99, requestId: 'req-208' });
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
   it('空命中 recall_done 作为终态返回（hits 空、无 answer）', async () => {
     fetchMock.mockResolvedValue(sseResponse(['event: recall_done\ndata: {"hits":[],"failed_sources":[]}\n\n']));
     const result = await recall({ query: 'q', configId: 77, conversationId: 99, datasetIds: [1] });
