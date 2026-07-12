@@ -32,6 +32,36 @@ export interface UserProfileDTO {
   status: 0 | 1;
 }
 
+// ── Admin User Dashboard ───────────────────────────────────────────────
+
+export interface AdminUserCountBreakdownDTO {
+  user: number;
+  admin: number;
+  enabled: number;
+  disabled: number;
+}
+
+export interface AdminUserPeriodMetricDTO {
+  current: number;
+  previous: number;
+  growthRate: number | null;
+}
+
+export interface AdminUserTrendPointDTO {
+  date: string;
+  newUsers: number;
+  activeUsers: number;
+}
+
+export interface AdminUserDashboardDTO {
+  rangeDays: 7 | 30 | 90;
+  totalUsers: number;
+  breakdown: AdminUserCountBreakdownDTO;
+  newUsers: AdminUserPeriodMetricDTO;
+  activeUsers: AdminUserPeriodMetricDTO;
+  trend: AdminUserTrendPointDTO[];
+}
+
 export type ModelConfigSource = 'USER' | 'SYSTEM';
 export type LLMConfigSource = ModelConfigSource | (string & {});
 

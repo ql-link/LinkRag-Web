@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { LiveMarkdownEditor } from '@/components/LiveMarkdownEditor';
 import { createBlogCoverThumbnail } from '@/lib/blog-cover-thumbnail';
 import {
   createDraft,
@@ -42,10 +42,6 @@ export default function CreatorBlogEditor() {
   const blogListPath = pathname.startsWith('/admin') ? RoutePaths.AdminBlogs : RoutePaths.CreatorBlogs;
   const blogEditPath = pathname.startsWith('/admin') ? '/admin/blogs/edit' : '/creator/blogs/edit';
 
-  const leftPaneRef = useRef<HTMLDivElement>(null);
-  const rightPaneRef = useRef<HTMLDivElement>(null);
-  const isSyncingLeft = useRef(false);
-  const isSyncingRight = useRef(false);
   const isAutoSavingRef = useRef(false);
 
   const [showCoverModal, setShowCoverModal] = useState(false);
@@ -263,36 +259,6 @@ export default function CreatorBlogEditor() {
     }
   };
 
-  const handleScrollLeft = () => {
-    if (!leftPaneRef.current || !rightPaneRef.current) return;
-    if (isSyncingLeft.current) {
-      isSyncingLeft.current = false;
-      return;
-    }
-    isSyncingRight.current = true;
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
-    const leftScrollable = left.scrollHeight - left.clientHeight;
-    if (leftScrollable <= 0) return;
-    const percentage = left.scrollTop / leftScrollable;
-    right.scrollTop = Math.round(percentage * (right.scrollHeight - right.clientHeight));
-  };
-
-  const handleScrollRight = () => {
-    if (!leftPaneRef.current || !rightPaneRef.current) return;
-    if (isSyncingRight.current) {
-      isSyncingRight.current = false;
-      return;
-    }
-    isSyncingLeft.current = true;
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
-    const rightScrollable = right.scrollHeight - right.clientHeight;
-    if (rightScrollable <= 0) return;
-    const percentage = right.scrollTop / rightScrollable;
-    left.scrollTop = Math.round(percentage * (left.scrollHeight - left.clientHeight));
-  };
-
   const handlePublishToggle = async () => {
     if (!postDetail) return;
     try {
@@ -430,98 +396,57 @@ export default function CreatorBlogEditor() {
         </div>
       </header>
 
-      {/* Main Split Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Column: Editor & Settings */}
-        <div
-          ref={leftPaneRef}
-          onScroll={handleScrollLeft}
-          className={cn(
-            'w-full lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-border-subtle overflow-y-auto transition-colors custom-scrollbar scroll-smooth bg-bg-base',
-          )}
-        >
-          <div className="flex flex-col p-4 sm:p-8 md:p-12 max-w-[800px] mx-auto w-full">
-            {/* Meta Data Inputs */}
-            <div className="mb-8 space-y-4">
-              <input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className={cn(
-                  'w-full text-3xl font-extrabold bg-transparent outline-none placeholder-opacity-40 transition-colors',
-                  'placeholder:text-text-main/30',
-                )}
-                placeholder="在此输入文章标题..."
-              />
-              <textarea
-                value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                rows={2}
-                className={cn(
-                  'w-full text-sm bg-transparent outline-none resize-none opacity-80 leading-relaxed placeholder-opacity-40',
-                  'placeholder:text-text-main/35',
-                )}
-                placeholder="撰写一小段简介，吸引读者阅读 (选填)..."
-              />
-            </div>
-
-            {/* Markdown Textarea */}
-            <div className="relative group flex-1 flex flex-col min-h-[500px]">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 opacity-50 text-xs font-bold uppercase tracking-widest">
-                  <FileText size={14} />
-                  <span>Markdown 正文</span>
-                </div>
-              </div>
-              <textarea
-                className={cn(
-                  'flex-1 w-full bg-transparent outline-none resize-none font-mono text-[14px] leading-relaxed',
-                  'text-text-main',
-                )}
-                placeholder="使用 Markdown 语法尽情创作..."
-                value={markdownText}
-                onChange={(e) => setMarkdownText(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Live Preview */}
-        <div
-          ref={rightPaneRef}
-          onScroll={handleScrollRight}
-          className={cn(
-            'w-full lg:w-1/2 flex-1 lg:flex-none overflow-y-auto transition-colors toc-scrollbar relative scroll-smooth bg-bg-base',
-          )}
-        >
-          <div className="max-w-[800px] mx-auto p-4 sm:p-8 md:p-12 lg:absolute lg:inset-0">
-            <article>
-              {/* Live Preview Header */}
-              <h1 className="serif-heading text-3xl leading-tight text-text-main md:text-4xl lg:text-5xl">
-                {formData.title || <span className="opacity-20 italic">标题预览区</span>}
-              </h1>
-              {formData.summary && (
-                <p className="mt-4 border-l border-primary py-1 pl-4 text-sm leading-relaxed text-text-main/60">
-                  {formData.summary}
-                </p>
+      {/* Single-column live Markdown canvas */}
+      <main className="flex-1 overflow-y-auto bg-bg-base custom-scrollbar">
+        <div className="mx-auto flex w-full max-w-[900px] flex-col px-4 py-8 sm:px-8 md:px-12 md:py-12">
+          {/* Meta Data Inputs */}
+          <div className="mb-8 space-y-4">
+            <input
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className={cn(
+                'w-full text-3xl font-extrabold bg-transparent outline-none placeholder-opacity-40 transition-colors',
+                'placeholder:text-text-main/30',
               )}
+              placeholder="在此输入文章标题..."
+            />
+            <textarea
+              value={formData.summary}
+              onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+              rows={2}
+              className={cn(
+                'w-full text-sm bg-transparent outline-none resize-none opacity-80 leading-relaxed placeholder-opacity-40',
+                'placeholder:text-text-main/35',
+              )}
+              placeholder="撰写一小段简介，吸引读者阅读 (选填)..."
+            />
+          </div>
 
-              <hr className="my-10 border-border-subtle" />
-
-              {/* Live Markdown Render */}
-              <div>
-                {markdownText ? (
-                  <MarkdownRenderer content={markdownText} />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                    <ImageIcon size={48} className="mb-4" />
-                    <p className="font-bold tracking-widest uppercase">Live Preview Area</p>
-                  </div>
-                )}
+          <div className="relative flex min-h-[500px] flex-1 flex-col">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 opacity-50 text-xs font-bold uppercase tracking-widest">
+                <FileText size={14} />
+                <span>Markdown 实时编辑</span>
               </div>
-            </article>
+            </div>
+            {!markdownText && (
+              <button
+                type="button"
+                onClick={() => setMarkdownText('开始写作...')}
+                className="mb-2 min-h-24 w-full rounded-md border border-dashed border-border-subtle text-left text-sm text-muted-soft transition-colors hover:border-primary/35 hover:text-text-secondary"
+              >
+                点击这里开始写作，内容会在同一列实时渲染
+              </button>
+            )}
+            <LiveMarkdownEditor
+              value={markdownText}
+              onChange={setMarkdownText}
+              docKey={`blog-${postId ?? 'new'}`}
+              onSave={handleSaveAll}
+            />
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Cover Modal */}
       {showCoverModal && (

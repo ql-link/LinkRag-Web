@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BarChart3, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Routes as RoutePaths } from '@/routes';
@@ -19,6 +19,7 @@ export function AdminLayout() {
   const { darkMode } = useTheme();
 
   const menuItems = [
+    { label: '用户看板', path: RoutePaths.AdminUsers, icon: <BarChart3 size={16} /> },
     { label: '博客管理', path: RoutePaths.AdminBlogs, icon: <BookOpen size={16} /> },
     { label: '模型管理', path: RoutePaths.AdminModels, icon: <Cpu size={16} /> },
     { label: '日志追踪', path: RoutePaths.AdminLogs, icon: <ScrollText size={16} /> },

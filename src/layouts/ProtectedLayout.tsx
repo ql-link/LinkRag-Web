@@ -117,6 +117,7 @@ function ChatWorkspaceProvider({ children }: { children: ReactNode }) {
     () => ({
       conversations,
       activeConversationId: null,
+      streamingConversationId: null,
       loadingConversations: loading && conversations.length === 0,
       // 非对话页发起「新建」时跳转到对话页，由 ChatsPage 负责真正建立新会话。
       onBeginNewConversation: () => navigate(RoutePaths.Chats),

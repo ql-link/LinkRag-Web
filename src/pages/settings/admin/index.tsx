@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BarChart3, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,13 @@ export default function AdminPage() {
   const { darkMode } = useTheme();
   const isAdmin = user?.role === 'ADMIN';
   const modules = [
+    {
+      title: '用户看板',
+      description: '查看用户规模、增长趋势、角色结构与登录活跃情况。',
+      icon: BarChart3,
+      path: Routes.AdminUsers,
+      enabled: true,
+    },
     {
       title: '博客管理',
       description: '管理官方博客文章、草稿和发布状态。',
