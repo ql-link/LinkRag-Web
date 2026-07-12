@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { Code, Heading2, Image, List, ListOrdered, Minus, Quote, SquareCheck, Table } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 
@@ -87,7 +96,7 @@ const parseInlineTokens = (text: string): InlineToken[] => {
   return tokens;
 };
 
-function InlineTokenView({ token, active }: { token: InlineToken; active: boolean }) {
+function InlineTokenView({ token, active, editing }: { token: InlineToken; active: boolean; editing: boolean }) {
   if (token.type === 'text') return <>{token.raw}</>;
   const className = active ? 'live-md-token live-md-token-active' : 'live-md-token';
   if (token.type === 'link') {
@@ -100,6 +109,9 @@ function InlineTokenView({ token, active }: { token: InlineToken; active: boolea
     );
   }
   if (token.type === 'image') {
+    if (!editing && !token.src.startsWith('uploading://')) {
+      return <img src={token.src} alt={token.alt || '正文图片'} className="my-4 block max-w-full rounded-md" />;
+    }
     return (
       <span className={className}>
         <span className="live-md-marker">![</span>
@@ -167,6 +179,17 @@ const visiblePrefix = (prefix: string) => {
   if (/^\s*[-*+]\s+$/.test(prefix)) return '•';
   const ordered = prefix.match(/(\d+)\.\s+$/);
   return ordered ? `${ordered[1]}.` : '';
+};
+
+const clipboardImageFiles = (clipboard: DataTransfer) =>
+  Array.from(clipboard.items)
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file));
+
+const imageAltText = (file: File, index: number) => {
+  const basename = file.name.replace(/\.[^.]+$/, '').trim();
+  return basename && basename !== 'image' ? basename : `正文图片 ${index + 1}`;
 };
 
 const caretOffset = (element: HTMLElement) => {
@@ -352,6 +375,7 @@ function EditableLine({
                 key={`${token.start}-${token.end}-${index}`}
                 token={token}
                 active={editing && token.type !== 'text' && token.id === activeTokenId}
+                editing={editing}
               />
             ))
           : editableText}
@@ -365,21 +389,25 @@ export function LiveMarkdownEditor({
   onChange,
   docKey,
   onSave,
+  uploadImage,
 }: {
   value: string;
   onChange: (value: string) => void;
   docKey: string;
   onSave?: () => void;
+  uploadImage?: (file: File) => Promise<string>;
 }) {
   const [lines, setLines] = useState(() => (value || '').split('\n'));
   const [focusLine, setFocusLine] = useState<number | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
   const [caretHint, setCaretHint] = useState<number | null>(null);
+  const [uploadingImageCount, setUploadingImageCount] = useState(0);
   const lastFocusRef = useRef<number | null>(null);
   const internalValueRef = useRef(value);
   const undoStackRef = useRef<string[]>([]);
   const redoStackRef = useRef<string[]>([]);
   const historyDocKeyRef = useRef(docKey);
+  const pasteBatchRef = useRef(0);
 
   useEffect(() => {
     if (historyDocKeyRef.current !== docKey) {
@@ -436,6 +464,40 @@ export function LiveMarkdownEditor({
     restoreHistoryValue(next);
   };
 
+  const handlePasteImages = async (event: ClipboardEvent<HTMLDivElement>) => {
+    const images = clipboardImageFiles(event.clipboardData);
+    if (images.length === 0 || !uploadImage) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const insertAfter = focusLine ?? lastFocusRef.current ?? Math.max(0, lines.length - 1);
+    pasteBatchRef.current += 1;
+    const batchId = pasteBatchRef.current;
+    const placeholders = images.map(
+      (file, index) => `![${imageAltText(file, index)}](uploading://clipboard-image-${batchId}-${index})`,
+    );
+    const next = [...lines];
+    next.splice(insertAfter + 1, 0, ...placeholders);
+    update(next);
+    setUploadingImageCount((count) => count + images.length);
+
+    for (const [index, file] of images.entries()) {
+      try {
+        const url = await uploadImage(file);
+        const current = internalValueRef.current;
+        const replacement = `![${imageAltText(file, index)}](${url})`;
+        update(current.replace(placeholders[index], replacement).split('\n'));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '图片上传失败';
+        const current = internalValueRef.current;
+        update(current.replace(placeholders[index], `<!-- ${message} -->`).split('\n'));
+        window.alert(message);
+      } finally {
+        setUploadingImageCount((count) => Math.max(0, count - 1));
+      }
+    }
+  };
+
   const blocks = useMemo(() => groupBlocks(lines), [lines]);
   const focus = (line: number, caret: number | null = null) => update(lines, line, caret);
   const mutateFocused = (mutation: (line: string) => string) => {
@@ -454,6 +516,7 @@ export function LiveMarkdownEditor({
   return (
     <div
       className="live-markdown-editor"
+      onPasteCapture={handlePasteImages}
       onKeyDownCapture={(event) => {
         const modifier = event.metaKey || event.ctrlKey;
         if (!modifier) return;
@@ -509,7 +572,11 @@ export function LiveMarkdownEditor({
         />
         <ToolbarButton title="图片" icon={<Image size={16} />} onClick={() => insertBlock(['![图片说明](图片地址)'])} />
         <ToolbarButton title="分割线" icon={<Minus size={16} />} onClick={() => insertBlock(['---'])} />
-        <span className="ml-auto pr-1 text-[11px] text-muted-soft">⌘/Ctrl+B 加粗 · ⌘/Ctrl+S 保存</span>
+        <span className="ml-auto pr-1 text-[11px] text-muted-soft">
+          {uploadingImageCount > 0
+            ? `正在上传 ${uploadingImageCount} 张图片…`
+            : '支持粘贴剪贴板图片 · ⌘/Ctrl+B 加粗 · ⌘/Ctrl+S 保存'}
+        </span>
       </div>
       <div className="pb-20 pt-3">
         {blocks.map((block) => {
