@@ -224,15 +224,19 @@ function ToolbarButton({ title, icon, onClick }: { title: string; icon: ReactEle
 
 function EditableLine({
   line,
+  editing,
   focusNonce,
   caret,
+  onActivate,
   onInput,
   onKeyDown,
   onBlur,
 }: {
   line: string;
+  editing: boolean;
   focusNonce: number;
   caret: number | null;
+  onActivate: () => void;
   onInput: (text: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onBlur: (text: string) => void;
@@ -246,16 +250,20 @@ function EditableLine({
   const [tokens] = useState(() => parseInlineTokens(text));
   const [activeTokenId, setActiveTokenId] = useState<string | null>(null);
   const updateActiveToken = () => {
+    if (!editing) {
+      setActiveTokenId(null);
+      return;
+    }
     if (!ref.current) return;
     const offset = caretOffset(ref.current);
     const token = tokens.find((item) => item.type !== 'text' && offset >= item.start && offset <= item.end);
     setActiveTokenId(token?.type === 'text' ? null : (token?.id ?? null));
   };
   useEffect(() => {
-    if (!focusNonce || !ref.current) return;
+    if (!editing || !focusNonce || !ref.current) return;
     ref.current.focus();
     placeCaret(ref.current, caret);
-  }, [focusNonce, caret]);
+  }, [editing, focusNonce, caret]);
   const kind = classify(line);
   const headingLevel = line.match(/^(#{1,6})\s+/)?.[1].length ?? 0;
   const headingClass =
@@ -281,21 +289,27 @@ function EditableLine({
   };
   return (
     <div
-      className={`live-markdown-preview flex items-baseline gap-2 ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
+      onClick={() => {
+        if (!editing) onActivate();
+      }}
+      className={`live-markdown-preview flex cursor-text items-baseline gap-2 ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
     >
       {displayPrefix && (
         <span className="w-5 shrink-0 select-none text-right text-base leading-8 text-text-main">{displayPrefix}</span>
       )}
       <div
         ref={ref}
-        contentEditable
+        contentEditable={editing}
         suppressContentEditableWarning
         spellCheck={false}
-        onInput={(event: FormEvent<HTMLDivElement>) => onInput(prefix + (event.currentTarget.textContent ?? ''))}
+        onInput={(event: FormEvent<HTMLDivElement>) => {
+          if (editing) onInput(prefix + (event.currentTarget.textContent ?? ''));
+        }}
         onFocus={() => window.requestAnimationFrame(updateActiveToken)}
         onMouseUp={updateActiveToken}
         onKeyUp={updateActiveToken}
         onKeyDown={(event) => {
+          if (!editing) return;
           const modifier = event.metaKey || event.ctrlKey;
           if (modifier) {
             const key = event.key.toLowerCase();
@@ -327,7 +341,9 @@ function EditableLine({
           }
           onKeyDown(event);
         }}
-        onBlur={(event) => onBlur(prefix + (event.currentTarget.textContent ?? ''))}
+        onBlur={(event) => {
+          if (editing) onBlur(prefix + (event.currentTarget.textContent ?? ''));
+        }}
         className={`min-h-8 min-w-0 flex-1 whitespace-pre-wrap break-words text-text-main outline-none ${kind === 'heading' ? headingClass : kind === 'quote' ? 'text-base leading-8 text-text-main/85' : 'text-base leading-8'}`}
       >
         {tokens.length > 0
@@ -335,7 +351,7 @@ function EditableLine({
               <InlineTokenView
                 key={`${token.start}-${token.end}-${index}`}
                 token={token}
-                active={token.type !== 'text' && token.id === activeTokenId}
+                active={editing && token.type !== 'text' && token.id === activeTokenId}
               />
             ))
           : editableText}
@@ -499,23 +515,21 @@ export function LiveMarkdownEditor({
         {blocks.map((block) => {
           const focused = focusLine !== null && focusLine >= block.start && focusLine <= block.end;
           const markdown = lines.slice(block.start, block.end + 1).join('\n');
-          if (!focused) {
-            if (!markdown)
-              return <div key={block.start} onClick={() => focus(block.start, 0)} className="min-h-8 cursor-text" />;
-            return (
-              <div
-                key={block.start}
-                onClickCapture={(event) => {
-                  event.preventDefault();
-                  focus(block.start);
-                }}
-                className="live-markdown-preview cursor-text"
-              >
-                <MarkdownRenderer content={markdown} showFrontmatter={false} />
-              </div>
-            );
-          }
           if (block.type !== 'line') {
+            if (!focused) {
+              return (
+                <div
+                  key={`${block.type}-${block.start}`}
+                  onClickCapture={(event) => {
+                    event.preventDefault();
+                    focus(block.start);
+                  }}
+                  className="live-markdown-preview cursor-text"
+                >
+                  <MarkdownRenderer content={markdown || '\u00a0'} showFrontmatter={false} />
+                </div>
+              );
+            }
             return (
               <textarea
                 key={block.start}
@@ -534,10 +548,12 @@ export function LiveMarkdownEditor({
           }
           return (
             <EditableLine
-              key={`${block.start}-${focusNonce}`}
+              key={`${block.start}-${focused ? `editing-${focusNonce}` : `rendered-${markdown}`}`}
               line={lines[block.start] ?? ''}
-              focusNonce={focusNonce}
+              editing={focused}
+              focusNonce={focused ? focusNonce : 0}
               caret={caretHint}
+              onActivate={() => focus(block.start)}
               onInput={(text) => {
                 const next = [...lines];
                 next[block.start] = text;
