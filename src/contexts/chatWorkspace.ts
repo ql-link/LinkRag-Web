@@ -9,6 +9,8 @@ import type { ConversationDTO } from '@/types/api';
 export interface ChatWorkspaceSnapshot {
   conversations: ConversationDTO[];
   activeConversationId: number | null;
+  /** LINK-208：当前收到 stream_started 且尚未终止/断连的会话。 */
+  streamingConversationId: number | null;
   loadingConversations: boolean;
   onBeginNewConversation: () => void;
   onDeleteConversation: (id: number) => Promise<void> | void;

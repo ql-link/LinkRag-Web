@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
+import { motion } from 'motion/react';
 import { ChevronRight, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { cn } from '@/lib/utils';
@@ -293,11 +294,17 @@ export function ChatWorkspacePanel({
         <div className="thin-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3 pb-1">
           {filtered.map((item) => {
             const active = snapshot.activeConversationId === item.id;
+            const isStreaming = snapshot.streamingConversationId === item.id;
             const isRenaming = renameTargetId === item.id;
             const isBusy = deletingConversationId === item.id || renamingConversationId === item.id;
             const menuOpen = openMenuId === item.id;
             return (
-              <div key={item.id} className="group relative">
+              <motion.div
+                key={item.id}
+                layout="position"
+                transition={{ layout: { duration: 0.24, ease: [0.22, 1, 0.36, 1] } }}
+                className="group relative"
+              >
                 {isRenaming ? (
                   <form onSubmit={(event) => handleRenameSubmit(event, item)} className="py-0.5">
                     <input
@@ -323,11 +330,21 @@ export function ChatWorkspacePanel({
                     onClick={() => goToConversation(item.id)}
                     className={cn(
                       'relative block w-full truncate rounded-[8px] py-[8.5px] pr-8 text-left text-[13.5px] transition-[background-color,color] duration-200 ease-out',
+                      isStreaming && 'pr-14',
                       active ? 'font-bold text-ink' : 'font-medium text-body hover:bg-ink/[0.035] hover:text-ink',
                     )}
                   >
                     {getConversationTitle(item)}
                   </button>
+                )}
+                {isStreaming && !isRenaming && (
+                  <span
+                    className="pointer-events-none absolute right-8 top-1/2 flex -translate-y-1/2 items-center text-primary"
+                    aria-label="正在回复"
+                    title="正在回复"
+                  >
+                    <Loader2 size={13} className="animate-spin" />
+                  </span>
                 )}
                 <button
                   type="button"
@@ -355,7 +372,7 @@ export function ChatWorkspacePanel({
                 >
                   {isBusy ? <Loader2 size={13} className="animate-spin" /> : <MoreHorizontal size={15} />}
                 </button>
-              </div>
+              </motion.div>
             );
           })}
         </div>
