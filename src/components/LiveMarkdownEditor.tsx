@@ -408,6 +408,8 @@ export function LiveMarkdownEditor({
   const redoStackRef = useRef<string[]>([]);
   const historyDocKeyRef = useRef(docKey);
   const pasteBatchRef = useRef(0);
+  const contentRootRef = useRef<HTMLDivElement>(null);
+  const lastSelectAllRef = useRef<{ line: number; timeStamp: number } | null>(null);
 
   useEffect(() => {
     if (historyDocKeyRef.current !== docKey) {
@@ -521,6 +523,29 @@ export function LiveMarkdownEditor({
         const modifier = event.metaKey || event.ctrlKey;
         if (!modifier) return;
         const key = event.key.toLowerCase();
+        if (
+          key === 'a' &&
+          !event.repeat &&
+          focusLine !== null &&
+          contentRootRef.current?.contains(document.activeElement)
+        ) {
+          const previous = lastSelectAllRef.current;
+          const isSecondPress =
+            previous !== null && previous.line === focusLine && event.timeStamp - previous.timeStamp <= 1200;
+          if (isSecondPress) {
+            event.preventDefault();
+            event.stopPropagation();
+            const range = document.createRange();
+            range.selectNodeContents(contentRootRef.current);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            lastSelectAllRef.current = null;
+          } else {
+            lastSelectAllRef.current = { line: focusLine, timeStamp: event.timeStamp };
+          }
+          return;
+        }
         if (key === 'z') {
           event.preventDefault();
           event.stopPropagation();
@@ -575,10 +600,10 @@ export function LiveMarkdownEditor({
         <span className="ml-auto pr-1 text-[11px] text-muted-soft">
           {uploadingImageCount > 0
             ? `正在上传 ${uploadingImageCount} 张图片…`
-            : '支持粘贴剪贴板图片 · ⌘/Ctrl+B 加粗 · ⌘/Ctrl+S 保存'}
+            : '连续两次 ⌘/Ctrl+A 全选正文 · 支持粘贴图片 · ⌘/Ctrl+S 保存'}
         </span>
       </div>
-      <div className="pb-20 pt-3">
+      <div ref={contentRootRef} className="pb-20 pt-3">
         {blocks.map((block) => {
           const focused = focusLine !== null && focusLine >= block.start && focusLine <= block.end;
           const markdown = lines.slice(block.start, block.end + 1).join('\n');
