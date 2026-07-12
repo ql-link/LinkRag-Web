@@ -94,7 +94,7 @@ function InlineTokenView({ token, active }: { token: InlineToken; active: boolea
     return (
       <span className={className}>
         <span className="live-md-marker">[</span>
-        <span className="live-md-link">{token.text}</span>
+        <span className="font-medium text-primary no-underline underline-offset-4">{token.text}</span>
         <span className="live-md-marker">]({token.url})</span>
       </span>
     );
@@ -110,13 +110,15 @@ function InlineTokenView({ token, active }: { token: InlineToken; active: boolea
   }
   const content =
     token.type === 'strong' ? (
-      <strong>{token.text}</strong>
+      <strong className="font-extrabold text-text-main">{token.text}</strong>
     ) : token.type === 'em' ? (
       <em>{token.text}</em>
     ) : token.type === 'delete' ? (
       <del>{token.text}</del>
     ) : (
-      <code className="live-md-inline-code">{token.text}</code>
+      <code className="rounded-md border border-primary/18 bg-primary/8 px-1.5 py-[0.12rem] font-mono text-[0.86em] font-semibold text-primary">
+        {token.text}
+      </code>
     );
   return (
     <span className={className}>
@@ -279,7 +281,7 @@ function EditableLine({
   };
   return (
     <div
-      className={`my-[0.125rem] flex items-baseline gap-2 rounded-md border border-transparent ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
+      className={`live-markdown-preview flex items-baseline gap-2 ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
     >
       {displayPrefix && (
         <span className="w-5 shrink-0 select-none text-right text-base leading-8 text-text-main">{displayPrefix}</span>

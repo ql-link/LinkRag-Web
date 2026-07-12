@@ -277,14 +277,6 @@
     opacity: 1;
   }
 
-  .live-md-link {
-    color: var(--color-primary);
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 0.18em;
-  }
-
-  .live-md-inline-code,
   .live-md-image-alt {
     border-radius: 0.35rem;
     background: var(--color-surface-soft);
