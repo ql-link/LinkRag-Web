@@ -102,9 +102,9 @@ function InlineTokenView({ token, active, editing }: { token: InlineToken; activ
   if (token.type === 'link') {
     return (
       <span className={className}>
-        <span className="live-md-marker">[</span>
+        <span className="live-md-marker live-md-marker-open">[</span>
         <span className="font-medium text-primary no-underline underline-offset-4">{token.text}</span>
-        <span className="live-md-marker">]({token.url})</span>
+        <span className="live-md-marker live-md-marker-close">]({token.url})</span>
       </span>
     );
   }
@@ -114,9 +114,9 @@ function InlineTokenView({ token, active, editing }: { token: InlineToken; activ
     }
     return (
       <span className={className}>
-        <span className="live-md-marker">![</span>
+        <span className="live-md-marker live-md-marker-open">![</span>
         <span className="live-md-image-alt">{token.alt || '图片'}</span>
-        <span className="live-md-marker">]({token.src})</span>
+        <span className="live-md-marker live-md-marker-close">]({token.src})</span>
       </span>
     );
   }
@@ -134,9 +134,9 @@ function InlineTokenView({ token, active, editing }: { token: InlineToken; activ
     );
   return (
     <span className={className}>
-      <span className="live-md-marker">{token.markerOpen}</span>
+      <span className="live-md-marker live-md-marker-open">{token.markerOpen}</span>
       {content}
-      <span className="live-md-marker">{token.markerClose}</span>
+      <span className="live-md-marker live-md-marker-close">{token.markerClose}</span>
     </span>
   );
 }
@@ -279,7 +279,7 @@ function EditableLine({
     }
     if (!ref.current) return;
     const offset = caretOffset(ref.current);
-    const token = tokens.find((item) => item.type !== 'text' && offset >= item.start && offset <= item.end);
+    const token = tokens.find((item) => item.type !== 'text' && offset > item.start && offset < item.end);
     setActiveTokenId(token?.type === 'text' ? null : (token?.id ?? null));
   };
   useEffect(() => {
