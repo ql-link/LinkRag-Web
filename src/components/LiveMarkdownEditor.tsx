@@ -1,4 +1,5 @@
 import {
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -245,16 +246,7 @@ function ToolbarButton({ title, icon, onClick }: { title: string; icon: ReactEle
   );
 }
 
-function EditableLine({
-  line,
-  editing,
-  focusNonce,
-  caret,
-  onActivate,
-  onInput,
-  onKeyDown,
-  onBlur,
-}: {
+type EditableLineProps = {
   line: string;
   editing: boolean;
   focusNonce: number;
@@ -263,7 +255,18 @@ function EditableLine({
   onInput: (text: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onBlur: (text: string) => void;
-}) {
+};
+
+function EditableLineComponent({
+  line,
+  editing,
+  focusNonce,
+  caret,
+  onActivate,
+  onInput,
+  onKeyDown,
+  onBlur,
+}: EditableLineProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { prefix, text } = prefixParts(line);
   // Keep the editable DOM uncontrolled for the lifetime of an edit session.
@@ -384,6 +387,14 @@ function EditableLine({
   );
 }
 
+const EditableLine = memo(EditableLineComponent, (previous, next) => {
+  if (previous.editing !== next.editing) return false;
+  if (next.editing) {
+    return previous.focusNonce === next.focusNonce && previous.caret === next.caret;
+  }
+  return previous.line === next.line;
+});
+
 export function LiveMarkdownEditor({
   value,
   onChange,
@@ -398,6 +409,7 @@ export function LiveMarkdownEditor({
   uploadImage?: (file: File) => Promise<string>;
 }) {
   const [lines, setLines] = useState(() => (value || '').split('\n'));
+  const linesRef = useRef(lines);
   const [focusLine, setFocusLine] = useState<number | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
   const [caretHint, setCaretHint] = useState<number | null>(null);
@@ -419,7 +431,9 @@ export function LiveMarkdownEditor({
     }
     if (value === internalValueRef.current) return;
     internalValueRef.current = value;
-    setLines((value || '').split('\n'));
+    const nextLines = (value || '').split('\n');
+    linesRef.current = nextLines;
+    setLines(nextLines);
     setFocusLine(null);
   }, [docKey, value]);
 
@@ -429,6 +443,7 @@ export function LiveMarkdownEditor({
       undoStackRef.current.push(internalValueRef.current);
       redoStackRef.current = [];
     }
+    linesRef.current = next;
     setLines(next);
     internalValueRef.current = markdown;
     onChange(markdown);
@@ -443,6 +458,7 @@ export function LiveMarkdownEditor({
   const restoreHistoryValue = (markdown: string) => {
     const next = markdown.split('\n');
     const targetLine = Math.min(lastFocusRef.current ?? 0, Math.max(0, next.length - 1));
+    linesRef.current = next;
     setLines(next);
     internalValueRef.current = markdown;
     onChange(markdown);
@@ -647,12 +663,12 @@ export function LiveMarkdownEditor({
               caret={caretHint}
               onActivate={() => focus(block.start)}
               onInput={(text) => {
-                const next = [...lines];
+                const next = [...linesRef.current];
                 next[block.start] = text;
                 update(next);
               }}
               onBlur={(text) => {
-                const next = [...lines];
+                const next = [...linesRef.current];
                 next[block.start] = text;
                 update(next);
                 setFocusLine(null);
@@ -662,15 +678,15 @@ export function LiveMarkdownEditor({
                   event.preventDefault();
                   const offset = caretOffset(event.currentTarget);
                   const text = event.currentTarget.textContent ?? '';
-                  const prefix = prefixParts(lines[block.start]).prefix;
-                  const next = [...lines];
+                  const prefix = prefixParts(linesRef.current[block.start]).prefix;
+                  const next = [...linesRef.current];
                   next[block.start] = prefix + text.slice(0, offset);
                   next.splice(block.start + 1, 0, text.slice(offset));
                   update(next, block.start + 1, 0);
                 }
                 if (event.key === 'Backspace' && caretOffset(event.currentTarget) === 0 && block.start > 0) {
                   event.preventDefault();
-                  const next = [...lines];
+                  const next = [...linesRef.current];
                   const previousLength = next[block.start - 1].length;
                   next[block.start - 1] += event.currentTarget.textContent ?? '';
                   next.splice(block.start, 1);
