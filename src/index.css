@@ -256,35 +256,44 @@
   }
 
   .live-md-token {
+    position: relative;
     white-space: pre-wrap;
   }
 
   .live-md-marker {
-    display: inline-block;
-    max-width: 0;
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    width: max-content;
+    max-width: min(40rem, 60vw);
     overflow: hidden;
+    border-radius: 0.25rem;
+    background: var(--color-bg-base);
     color: var(--color-muted-soft);
     font-family: var(--font-mono);
-    font-size: 0;
+    font-size: 0.72em;
     font-weight: 700;
+    line-height: 1.35;
     opacity: 0;
-    vertical-align: baseline;
+    padding: 0 0.18rem;
+    pointer-events: none;
+    text-overflow: ellipsis;
+    transform: translateY(-50%);
+    white-space: nowrap;
+  }
+
+  .live-md-marker-open {
+    right: calc(100% + 0.1rem);
+  }
+
+  .live-md-marker-close {
+    left: calc(100% + 0.1rem);
   }
 
   .live-md-token-active .live-md-marker {
-    max-width: 40rem;
-    font-size: 0.78em;
     opacity: 1;
   }
 
-  .live-md-link {
-    color: var(--color-primary);
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 0.18em;
-  }
-
-  .live-md-inline-code,
   .live-md-image-alt {
     border-radius: 0.35rem;
     background: var(--color-surface-soft);

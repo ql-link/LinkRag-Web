@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement } from 'react';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactElement,
+} from 'react';
 import { Code, Heading2, Image, List, ListOrdered, Minus, Quote, SquareCheck, Table } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 
@@ -87,42 +97,47 @@ const parseInlineTokens = (text: string): InlineToken[] => {
   return tokens;
 };
 
-function InlineTokenView({ token, active }: { token: InlineToken; active: boolean }) {
+function InlineTokenView({ token, active, editing }: { token: InlineToken; active: boolean; editing: boolean }) {
   if (token.type === 'text') return <>{token.raw}</>;
   const className = active ? 'live-md-token live-md-token-active' : 'live-md-token';
   if (token.type === 'link') {
     return (
       <span className={className}>
-        <span className="live-md-marker">[</span>
-        <span className="live-md-link">{token.text}</span>
-        <span className="live-md-marker">]({token.url})</span>
+        <span className="live-md-marker live-md-marker-open">[</span>
+        <span className="font-medium text-primary no-underline underline-offset-4">{token.text}</span>
+        <span className="live-md-marker live-md-marker-close">]({token.url})</span>
       </span>
     );
   }
   if (token.type === 'image') {
+    if (!editing && !token.src.startsWith('uploading://')) {
+      return <img src={token.src} alt={token.alt || '正文图片'} className="my-4 block max-w-full rounded-md" />;
+    }
     return (
       <span className={className}>
-        <span className="live-md-marker">![</span>
+        <span className="live-md-marker live-md-marker-open">![</span>
         <span className="live-md-image-alt">{token.alt || '图片'}</span>
-        <span className="live-md-marker">]({token.src})</span>
+        <span className="live-md-marker live-md-marker-close">]({token.src})</span>
       </span>
     );
   }
   const content =
     token.type === 'strong' ? (
-      <strong>{token.text}</strong>
+      <strong className="font-extrabold text-text-main">{token.text}</strong>
     ) : token.type === 'em' ? (
       <em>{token.text}</em>
     ) : token.type === 'delete' ? (
       <del>{token.text}</del>
     ) : (
-      <code className="live-md-inline-code">{token.text}</code>
+      <code className="rounded-md border border-primary/18 bg-primary/8 px-1.5 py-[0.12rem] font-mono text-[0.86em] font-semibold text-primary">
+        {token.text}
+      </code>
     );
   return (
     <span className={className}>
-      <span className="live-md-marker">{token.markerOpen}</span>
+      <span className="live-md-marker live-md-marker-open">{token.markerOpen}</span>
       {content}
-      <span className="live-md-marker">{token.markerClose}</span>
+      <span className="live-md-marker live-md-marker-close">{token.markerClose}</span>
     </span>
   );
 }
@@ -165,6 +180,17 @@ const visiblePrefix = (prefix: string) => {
   if (/^\s*[-*+]\s+$/.test(prefix)) return '•';
   const ordered = prefix.match(/(\d+)\.\s+$/);
   return ordered ? `${ordered[1]}.` : '';
+};
+
+const clipboardImageFiles = (clipboard: DataTransfer) =>
+  Array.from(clipboard.items)
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file));
+
+const imageAltText = (file: File, index: number) => {
+  const basename = file.name.replace(/\.[^.]+$/, '').trim();
+  return basename && basename !== 'image' ? basename : `正文图片 ${index + 1}`;
 };
 
 const caretOffset = (element: HTMLElement) => {
@@ -220,21 +246,27 @@ function ToolbarButton({ title, icon, onClick }: { title: string; icon: ReactEle
   );
 }
 
-function EditableLine({
-  line,
-  focusNonce,
-  caret,
-  onInput,
-  onKeyDown,
-  onBlur,
-}: {
+type EditableLineProps = {
   line: string;
+  editing: boolean;
   focusNonce: number;
   caret: number | null;
+  onActivate: () => void;
   onInput: (text: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   onBlur: (text: string) => void;
-}) {
+};
+
+function EditableLineComponent({
+  line,
+  editing,
+  focusNonce,
+  caret,
+  onActivate,
+  onInput,
+  onKeyDown,
+  onBlur,
+}: EditableLineProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { prefix, text } = prefixParts(line);
   // Keep the editable DOM uncontrolled for the lifetime of an edit session.
@@ -244,16 +276,20 @@ function EditableLine({
   const [tokens] = useState(() => parseInlineTokens(text));
   const [activeTokenId, setActiveTokenId] = useState<string | null>(null);
   const updateActiveToken = () => {
+    if (!editing) {
+      setActiveTokenId(null);
+      return;
+    }
     if (!ref.current) return;
     const offset = caretOffset(ref.current);
-    const token = tokens.find((item) => item.type !== 'text' && offset >= item.start && offset <= item.end);
+    const token = tokens.find((item) => item.type !== 'text' && offset > item.start && offset < item.end);
     setActiveTokenId(token?.type === 'text' ? null : (token?.id ?? null));
   };
   useEffect(() => {
-    if (!focusNonce || !ref.current) return;
+    if (!editing || !focusNonce || !ref.current) return;
     ref.current.focus();
     placeCaret(ref.current, caret);
-  }, [focusNonce, caret]);
+  }, [editing, focusNonce, caret]);
   const kind = classify(line);
   const headingLevel = line.match(/^(#{1,6})\s+/)?.[1].length ?? 0;
   const headingClass =
@@ -279,21 +315,27 @@ function EditableLine({
   };
   return (
     <div
-      className={`my-[0.125rem] flex items-baseline gap-2 rounded-md border border-transparent ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
+      onClick={() => {
+        if (!editing) onActivate();
+      }}
+      className={`live-markdown-preview flex cursor-text items-baseline gap-2 ${kind === 'quote' ? 'border-l-2 border-l-primary/45 py-1 pl-4' : ''}`}
     >
       {displayPrefix && (
         <span className="w-5 shrink-0 select-none text-right text-base leading-8 text-text-main">{displayPrefix}</span>
       )}
       <div
         ref={ref}
-        contentEditable
+        contentEditable={editing}
         suppressContentEditableWarning
         spellCheck={false}
-        onInput={(event: FormEvent<HTMLDivElement>) => onInput(prefix + (event.currentTarget.textContent ?? ''))}
+        onInput={(event: FormEvent<HTMLDivElement>) => {
+          if (editing) onInput(prefix + (event.currentTarget.textContent ?? ''));
+        }}
         onFocus={() => window.requestAnimationFrame(updateActiveToken)}
         onMouseUp={updateActiveToken}
         onKeyUp={updateActiveToken}
         onKeyDown={(event) => {
+          if (!editing) return;
           const modifier = event.metaKey || event.ctrlKey;
           if (modifier) {
             const key = event.key.toLowerCase();
@@ -325,7 +367,9 @@ function EditableLine({
           }
           onKeyDown(event);
         }}
-        onBlur={(event) => onBlur(prefix + (event.currentTarget.textContent ?? ''))}
+        onBlur={(event) => {
+          if (editing) onBlur(prefix + (event.currentTarget.textContent ?? ''));
+        }}
         className={`min-h-8 min-w-0 flex-1 whitespace-pre-wrap break-words text-text-main outline-none ${kind === 'heading' ? headingClass : kind === 'quote' ? 'text-base leading-8 text-text-main/85' : 'text-base leading-8'}`}
       >
         {tokens.length > 0
@@ -333,7 +377,8 @@ function EditableLine({
               <InlineTokenView
                 key={`${token.start}-${token.end}-${index}`}
                 token={token}
-                active={token.type !== 'text' && token.id === activeTokenId}
+                active={editing && token.type !== 'text' && token.id === activeTokenId}
+                editing={editing}
               />
             ))
           : editableText}
@@ -342,26 +387,41 @@ function EditableLine({
   );
 }
 
+const EditableLine = memo(EditableLineComponent, (previous, next) => {
+  if (previous.editing !== next.editing) return false;
+  if (next.editing) {
+    return previous.focusNonce === next.focusNonce && previous.caret === next.caret;
+  }
+  return previous.line === next.line;
+});
+
 export function LiveMarkdownEditor({
   value,
   onChange,
   docKey,
   onSave,
+  uploadImage,
 }: {
   value: string;
   onChange: (value: string) => void;
   docKey: string;
   onSave?: () => void;
+  uploadImage?: (file: File) => Promise<string>;
 }) {
   const [lines, setLines] = useState(() => (value || '').split('\n'));
+  const linesRef = useRef(lines);
   const [focusLine, setFocusLine] = useState<number | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
   const [caretHint, setCaretHint] = useState<number | null>(null);
+  const [uploadingImageCount, setUploadingImageCount] = useState(0);
   const lastFocusRef = useRef<number | null>(null);
   const internalValueRef = useRef(value);
   const undoStackRef = useRef<string[]>([]);
   const redoStackRef = useRef<string[]>([]);
   const historyDocKeyRef = useRef(docKey);
+  const pasteBatchRef = useRef(0);
+  const contentRootRef = useRef<HTMLDivElement>(null);
+  const lastSelectAllRef = useRef<{ line: number; timeStamp: number } | null>(null);
 
   useEffect(() => {
     if (historyDocKeyRef.current !== docKey) {
@@ -371,7 +431,9 @@ export function LiveMarkdownEditor({
     }
     if (value === internalValueRef.current) return;
     internalValueRef.current = value;
-    setLines((value || '').split('\n'));
+    const nextLines = (value || '').split('\n');
+    linesRef.current = nextLines;
+    setLines(nextLines);
     setFocusLine(null);
   }, [docKey, value]);
 
@@ -381,6 +443,7 @@ export function LiveMarkdownEditor({
       undoStackRef.current.push(internalValueRef.current);
       redoStackRef.current = [];
     }
+    linesRef.current = next;
     setLines(next);
     internalValueRef.current = markdown;
     onChange(markdown);
@@ -395,6 +458,7 @@ export function LiveMarkdownEditor({
   const restoreHistoryValue = (markdown: string) => {
     const next = markdown.split('\n');
     const targetLine = Math.min(lastFocusRef.current ?? 0, Math.max(0, next.length - 1));
+    linesRef.current = next;
     setLines(next);
     internalValueRef.current = markdown;
     onChange(markdown);
@@ -418,6 +482,40 @@ export function LiveMarkdownEditor({
     restoreHistoryValue(next);
   };
 
+  const handlePasteImages = async (event: ClipboardEvent<HTMLDivElement>) => {
+    const images = clipboardImageFiles(event.clipboardData);
+    if (images.length === 0 || !uploadImage) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const insertAfter = focusLine ?? lastFocusRef.current ?? Math.max(0, lines.length - 1);
+    pasteBatchRef.current += 1;
+    const batchId = pasteBatchRef.current;
+    const placeholders = images.map(
+      (file, index) => `![${imageAltText(file, index)}](uploading://clipboard-image-${batchId}-${index})`,
+    );
+    const next = [...lines];
+    next.splice(insertAfter + 1, 0, ...placeholders);
+    update(next);
+    setUploadingImageCount((count) => count + images.length);
+
+    for (const [index, file] of images.entries()) {
+      try {
+        const url = await uploadImage(file);
+        const current = internalValueRef.current;
+        const replacement = `![${imageAltText(file, index)}](${url})`;
+        update(current.replace(placeholders[index], replacement).split('\n'));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '图片上传失败';
+        const current = internalValueRef.current;
+        update(current.replace(placeholders[index], `<!-- ${message} -->`).split('\n'));
+        window.alert(message);
+      } finally {
+        setUploadingImageCount((count) => Math.max(0, count - 1));
+      }
+    }
+  };
+
   const blocks = useMemo(() => groupBlocks(lines), [lines]);
   const focus = (line: number, caret: number | null = null) => update(lines, line, caret);
   const mutateFocused = (mutation: (line: string) => string) => {
@@ -436,10 +534,34 @@ export function LiveMarkdownEditor({
   return (
     <div
       className="live-markdown-editor"
+      onPasteCapture={handlePasteImages}
       onKeyDownCapture={(event) => {
         const modifier = event.metaKey || event.ctrlKey;
         if (!modifier) return;
         const key = event.key.toLowerCase();
+        if (
+          key === 'a' &&
+          !event.repeat &&
+          focusLine !== null &&
+          contentRootRef.current?.contains(document.activeElement)
+        ) {
+          const previous = lastSelectAllRef.current;
+          const isSecondPress =
+            previous !== null && previous.line === focusLine && event.timeStamp - previous.timeStamp <= 1200;
+          if (isSecondPress) {
+            event.preventDefault();
+            event.stopPropagation();
+            const range = document.createRange();
+            range.selectNodeContents(contentRootRef.current);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            lastSelectAllRef.current = null;
+          } else {
+            lastSelectAllRef.current = { line: focusLine, timeStamp: event.timeStamp };
+          }
+          return;
+        }
         if (key === 'z') {
           event.preventDefault();
           event.stopPropagation();
@@ -491,29 +613,31 @@ export function LiveMarkdownEditor({
         />
         <ToolbarButton title="图片" icon={<Image size={16} />} onClick={() => insertBlock(['![图片说明](图片地址)'])} />
         <ToolbarButton title="分割线" icon={<Minus size={16} />} onClick={() => insertBlock(['---'])} />
-        <span className="ml-auto pr-1 text-[11px] text-muted-soft">⌘/Ctrl+B 加粗 · ⌘/Ctrl+S 保存</span>
+        <span className="ml-auto pr-1 text-[11px] text-muted-soft">
+          {uploadingImageCount > 0
+            ? `正在上传 ${uploadingImageCount} 张图片…`
+            : '连续两次 ⌘/Ctrl+A 全选正文 · 支持粘贴图片 · ⌘/Ctrl+S 保存'}
+        </span>
       </div>
-      <div className="pb-20 pt-3">
+      <div ref={contentRootRef} className="pb-20 pt-3">
         {blocks.map((block) => {
           const focused = focusLine !== null && focusLine >= block.start && focusLine <= block.end;
           const markdown = lines.slice(block.start, block.end + 1).join('\n');
-          if (!focused) {
-            if (!markdown)
-              return <div key={block.start} onClick={() => focus(block.start, 0)} className="min-h-8 cursor-text" />;
-            return (
-              <div
-                key={block.start}
-                onClickCapture={(event) => {
-                  event.preventDefault();
-                  focus(block.start);
-                }}
-                className="live-markdown-preview cursor-text"
-              >
-                <MarkdownRenderer content={markdown} showFrontmatter={false} />
-              </div>
-            );
-          }
           if (block.type !== 'line') {
+            if (!focused) {
+              return (
+                <div
+                  key={`${block.type}-${block.start}`}
+                  onClickCapture={(event) => {
+                    event.preventDefault();
+                    focus(block.start);
+                  }}
+                  className="live-markdown-preview cursor-text"
+                >
+                  <MarkdownRenderer content={markdown || '\u00a0'} showFrontmatter={false} />
+                </div>
+              );
+            }
             return (
               <textarea
                 key={block.start}
@@ -532,17 +656,19 @@ export function LiveMarkdownEditor({
           }
           return (
             <EditableLine
-              key={`${block.start}-${focusNonce}`}
+              key={`${block.start}-${focused ? `editing-${focusNonce}` : `rendered-${markdown}`}`}
               line={lines[block.start] ?? ''}
-              focusNonce={focusNonce}
+              editing={focused}
+              focusNonce={focused ? focusNonce : 0}
               caret={caretHint}
+              onActivate={() => focus(block.start)}
               onInput={(text) => {
-                const next = [...lines];
+                const next = [...linesRef.current];
                 next[block.start] = text;
                 update(next);
               }}
               onBlur={(text) => {
-                const next = [...lines];
+                const next = [...linesRef.current];
                 next[block.start] = text;
                 update(next);
                 setFocusLine(null);
@@ -552,15 +678,15 @@ export function LiveMarkdownEditor({
                   event.preventDefault();
                   const offset = caretOffset(event.currentTarget);
                   const text = event.currentTarget.textContent ?? '';
-                  const prefix = prefixParts(lines[block.start]).prefix;
-                  const next = [...lines];
+                  const prefix = prefixParts(linesRef.current[block.start]).prefix;
+                  const next = [...linesRef.current];
                   next[block.start] = prefix + text.slice(0, offset);
                   next.splice(block.start + 1, 0, text.slice(offset));
                   update(next, block.start + 1, 0);
                 }
                 if (event.key === 'Backspace' && caretOffset(event.currentTarget) === 0 && block.start > 0) {
                   event.preventDefault();
-                  const next = [...lines];
+                  const next = [...linesRef.current];
                   const previousLength = next[block.start - 1].length;
                   next[block.start - 1] += event.currentTarget.textContent ?? '';
                   next.splice(block.start, 1);
