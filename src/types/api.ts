@@ -318,7 +318,7 @@ export interface DatasetDTO {
   updatedAt: string;
 }
 
-export type PdfParserBackend = 'auto' | 'mineru' | 'opendataloader' | 'naive';
+export type PdfParserBackend = 'mineru' | 'opendataloader' | 'naive';
 export type StageTwoAlgorithm = 'noop' | 'semantic_depth_window';
 export type RecallFusionStrategy = 'rrf' | 'weighted_score';
 
