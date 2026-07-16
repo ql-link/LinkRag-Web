@@ -954,7 +954,7 @@ function ParamField({
           className={cn(
             'grid w-full gap-1 rounded-md bg-surface-soft p-1',
             compactOptions
-              ? 'grid-cols-3 sm:grid-cols-5'
+              ? 'grid-cols-1 sm:grid-cols-3'
               : segmentOptionCount <= 2
                 ? 'grid-cols-2'
                 : 'grid-cols-2 sm:grid-cols-4',
@@ -969,19 +969,11 @@ function ParamField({
                 onClick={() => onChange(editableKey, option.value as ParseConfigValues[EditableParamKey])}
                 title={option.value ?? 'default'}
                 className={cn(
-                  'min-w-0 rounded text-center transition-colors',
-                  compactOptions ? 'px-1.5 py-1.5' : 'px-3 py-2',
+                  'min-w-0 rounded px-3 py-2 text-center transition-colors',
                   active ? 'bg-canvas text-ink shadow-sm' : 'text-muted hover:bg-canvas/60 hover:text-ink',
                 )}
               >
-                <span
-                  className={cn(
-                    'block max-w-full truncate font-semibold leading-tight',
-                    compactOptions ? 'text-[11px]' : 'text-xs',
-                  )}
-                >
-                  {option.label}
-                </span>
+                <span className="block max-w-full break-words text-xs font-semibold leading-tight">{option.label}</span>
               </button>
             );
           })}
