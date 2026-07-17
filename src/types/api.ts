@@ -62,27 +62,40 @@ export interface AdminUserDashboardDTO {
   trend: AdminUserTrendPointDTO[];
 }
 
-export type ModelConfigSource = 'USER' | 'SYSTEM';
-export type LLMConfigSource = ModelConfigSource | (string & {});
+export type LLMScope = 'USER' | 'SYSTEM';
 
-export interface LLMConfigDTO {
-  id: number;
-  configId?: number;
-  providerId?: number;
+/**
+ * A complete, executable LLM runtime snapshot.
+ *
+ * configId is the only identity field. scope and editable are presentation/
+ * authorization facts and must never be used to choose an endpoint or an id
+ * namespace.
+ */
+export interface ExecutableLLMConfigDTO {
+  configId: number;
+  scope: LLMScope;
+  providerId: number;
   providerType: string;
+  providerName?: string | null;
+  iconUrl?: string | null;
   modelName: string;
   displayName?: string | null;
   capability: LLMCapabilityValue;
-  protocol?: LLMProtocol;
+  protocol: LLMProtocol;
   apiKeyMasked: string;
   apiBaseUrl: string | null;
   isActive: boolean;
-  isDefault: boolean;
-  isSystemPreset: boolean;
-  isEditable?: boolean;
-  source?: LLMConfigSource;
+  editable: boolean;
+  snapshotVersion: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CapabilityDefaultDTO {
+  capability: LLMCapability;
+  userDefaultConfigId: number | null;
+  systemDefaultConfigId: number | null;
+  effectiveConfigId: number | null;
 }
 
 export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'SPARSE_EMBEDDING' | 'RERANK' | 'VISION' | 'ASR';
@@ -138,24 +151,7 @@ export interface ProviderModel {
   updatedAt: string;
 }
 
-export interface SystemPreset {
-  id: number;
-  providerId: number;
-  providerType: string;
-  modelName: string;
-  displayName?: string | null;
-  capability: LLMCapabilityValue;
-  protocol: LLMProtocol;
-  apiBaseUrl: string;
-  apiKey?: string;
-  apiKeyMasked?: string;
-  isActive: boolean;
-  isDefault?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type LLMProtocol = 'openai' | 'anthropic' | 'google' | 'jina' | 'dashscope';
+export type LLMProtocol = 'openai' | 'anthropic' | 'google' | 'jina' | 'dashscope' | 'bge_m3' | 'doubao_vision';
 
 export type ModelSyncSource = 'MODELS_DEV';
 export type ModelSyncJobStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
@@ -246,30 +242,25 @@ export interface UpdateProviderModelRequest {
   isActive?: boolean;
 }
 
-export interface CreatePresetRequest {
-  sourceProviderModelId?: number;
-  providerId?: number;
-  modelName?: string;
+export interface AdminCatalogMutation {
+  providerId: number;
+  modelName: string;
   displayName?: string;
-  capability?: LLMCapability;
-  protocol?: LLMProtocol;
-  apiBaseUrl?: string;
-  apiKey?: string;
-  isDefault?: boolean;
-  isActive?: boolean;
+  capability: LLMCapability;
+  protocol: LLMProtocol;
+  apiBaseUrl: string;
 }
 
-export interface UpdatePresetRequest {
+export interface AdminPlatformConfigSaveRequest {
   sourceProviderModelId?: number;
-  providerId?: number;
-  modelName?: string;
-  displayName?: string;
-  capability?: LLMCapability;
-  protocol?: LLMProtocol;
-  apiBaseUrl?: string;
+  catalogMutation?: AdminCatalogMutation;
   apiKey?: string;
-  isActive?: boolean;
-  isDefault?: boolean;
+  setAsDefault: boolean;
+}
+
+export interface AdminPlatformConfigSaveResult {
+  config: ExecutableLLMConfigDTO;
+  capabilityDefault: CapabilityDefaultDTO;
 }
 
 export interface ConversationDTO {
@@ -358,14 +349,16 @@ export interface DatasetParseRecallConfig {
   fusion_sparse_weight?: number | null;
   fusion_dense_weight?: number | null;
   rerank_top_n?: number | null;
+  enable_rerank?: boolean | null;
   recall_strict?: boolean | null;
 }
 
 export interface DatasetParseConfigDTO {
   sparse_embedding_config_id?: number | null;
-  sparse_embedding_config_source?: LLMConfigSource | null;
   dense_embedding_config_id?: number | null;
-  dense_embedding_config_source?: LLMConfigSource | null;
+  enhancement_chat_config_id?: number | null;
+  enhancement_vision_config_id?: number | null;
+  rerank_config_id?: number | null;
   chunking?: DatasetParseChunkingConfig | null;
   enhancement?: DatasetParseEnhancementConfig | null;
   pdf?: DatasetParsePdfConfig | null;
@@ -526,9 +519,7 @@ export interface CreateDatasetRequest {
   name: string;
   description?: string;
   sparse_embedding_config_id: number;
-  sparse_embedding_config_source: LLMConfigSource;
   dense_embedding_config_id: number;
-  dense_embedding_config_source: LLMConfigSource;
 }
 
 export interface UpdateDatasetRequest {

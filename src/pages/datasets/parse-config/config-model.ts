@@ -1,7 +1,6 @@
 import { FileCode2, FileScan, Layers3, Search, type LucideIcon } from 'lucide-react';
 import type {
   DatasetParseConfigDTO,
-  LLMConfigSource,
   PdfParserBackend,
   RecallFusionStrategy,
   RecallSource,
@@ -34,6 +33,7 @@ type ParamKey =
   | 'fusion_bm25_weight'
   | 'fusion_sparse_weight'
   | 'fusion_dense_weight'
+  | 'enable_rerank'
   | 'rerank_top_n'
   | 'recall_strict'
   | 'table_model'
@@ -43,9 +43,10 @@ export type EditableParamKey = Exclude<ParamKey, 'table_model' | 'vision_model'>
 
 export type ParseConfigValues = {
   sparse_embedding_config_id: number | null;
-  sparse_embedding_config_source: LLMConfigSource;
   dense_embedding_config_id: number | null;
-  dense_embedding_config_source: LLMConfigSource;
+  enhancement_chat_config_id: number | null;
+  enhancement_vision_config_id: number | null;
+  rerank_config_id: number | null;
   heading_break_level: number | null;
   min_candidate_chunk_tokens: number | null;
   overlap_tokens: number | null;
@@ -69,6 +70,7 @@ export type ParseConfigValues = {
   fusion_bm25_weight: number | null;
   fusion_sparse_weight: number | null;
   fusion_dense_weight: number | null;
+  enable_rerank: boolean;
   rerank_top_n: number | null;
   recall_strict: boolean;
 };
@@ -106,9 +108,10 @@ export interface ParamGroup {
 
 export const DEFAULT_VALUES: ParseConfigValues = {
   sparse_embedding_config_id: null,
-  sparse_embedding_config_source: 'USER',
   dense_embedding_config_id: null,
-  dense_embedding_config_source: 'USER',
+  enhancement_chat_config_id: null,
+  enhancement_vision_config_id: null,
+  rerank_config_id: null,
   heading_break_level: 5,
   min_candidate_chunk_tokens: 128,
   overlap_tokens: 64,
@@ -116,8 +119,8 @@ export const DEFAULT_VALUES: ParseConfigValues = {
   hard_max_tokens: 1024,
   stage_two_algorithm: 'noop',
   protected_neighbor_overlap: false,
-  enable_table_enhancement: true,
-  enable_image_enhancement: true,
+  enable_table_enhancement: false,
+  enable_image_enhancement: false,
   enable_heading_hierarchy: false,
   pdf_parser_backend: 'mineru',
   recall_result_limit: 64,
@@ -132,6 +135,7 @@ export const DEFAULT_VALUES: ParseConfigValues = {
   fusion_bm25_weight: 0.2,
   fusion_sparse_weight: 0.3,
   fusion_dense_weight: 0.5,
+  enable_rerank: false,
   rerank_top_n: 8,
   recall_strict: false,
 };
@@ -252,14 +256,14 @@ export const GROUPS: ParamGroup[] = [
         type: 'toggle',
         label: '表格增强',
         envKey: 'MARKDOWN_PARSER_ENABLE_TABLE_ENHANCEMENT',
-        description: '使用默认对话模型为表格补充语义描述，便于后续检索命中。',
+        description: '使用数据集固定绑定的对话模型为表格补充语义描述，便于后续检索命中。',
       },
       {
         key: 'enable_image_enhancement',
         type: 'toggle',
         label: '图片增强',
         envKey: 'MARKDOWN_PARSER_ENABLE_IMAGE_ENHANCEMENT',
-        description: '使用默认视觉模型为图片生成文本描述，让图片内容可被检索。',
+        description: '使用数据集固定绑定的视觉模型为图片生成文本描述，让图片内容可被检索。',
       },
       {
         key: 'enable_heading_hierarchy',
@@ -274,14 +278,14 @@ export const GROUPS: ParamGroup[] = [
         type: 'display',
         label: '表格增强模型',
         envKey: 'MARKDOWN_PARSER_TABLE_MODEL',
-        displaySub: '用户默认 CHAT 模型',
+        displaySub: '数据集固定 CHAT 模型',
       },
       {
         key: 'vision_model',
         type: 'display',
         label: '图片增强模型',
         envKey: 'MARKDOWN_PARSER_VISION_MODEL',
-        displaySub: '用户默认 VISION 模型',
+        displaySub: '数据集固定 VISION 模型',
       },
     ],
   },
@@ -317,7 +321,7 @@ export const GROUPS: ParamGroup[] = [
     name: '召回检索',
     en: 'Recall',
     note: '控制检索通道、融合方式、候选数量和上下文预算',
-    count: 14,
+    count: 15,
     colorClass: 'text-muted',
     dotClass: 'bg-primary/40',
     icon: Search,
@@ -378,6 +382,14 @@ export const GROUPS: ParamGroup[] = [
         visibleWhen: (values) => values.recall_fusion_strategy === 'weighted_score',
       },
       {
+        key: 'enable_rerank',
+        type: 'toggle',
+        label: '启用重排',
+        envKey: 'RECALL_ENABLE_RERANK',
+        description: '开启后使用数据集固定绑定的重排模型对候选进行组内重排。',
+        showDescription: true,
+      },
+      {
         key: 'rerank_top_n',
         type: 'number',
         label: '重排候选条数',
@@ -387,6 +399,7 @@ export const GROUPS: ParamGroup[] = [
         integer: true,
         description: '进入重排阶段的候选数量，越大覆盖更广，但计算成本更高。',
         showDescription: true,
+        visibleWhen: (values) => values.enable_rerank,
       },
       {
         key: 'recall_strict',
@@ -490,10 +503,6 @@ function readConfigId(raw: unknown) {
   return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
 }
 
-function readConfigSource(raw: unknown, fallback: LLMConfigSource): LLMConfigSource {
-  return typeof raw === 'string' && raw.trim() ? (raw as LLMConfigSource) : fallback;
-}
-
 function readBoolean(raw: unknown, fallback: boolean) {
   return typeof raw === 'boolean' ? raw : fallback;
 }
@@ -524,18 +533,27 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
   const enhancement = config.enhancement ?? {};
   const pdf = config.pdf ?? {};
   const recall = config.recall ?? {};
+  const enableTableEnhancement = readBoolean(
+    enhancement.enable_table_enhancement,
+    DEFAULT_VALUES.enable_table_enhancement,
+  );
+  const enableImageEnhancement = readBoolean(
+    enhancement.enable_image_enhancement,
+    DEFAULT_VALUES.enable_image_enhancement,
+  );
+  const enableHeadingHierarchy = readBoolean(
+    enhancement.enable_heading_hierarchy,
+    DEFAULT_VALUES.enable_heading_hierarchy,
+  );
+  const enableRerank = readBoolean(recall.enable_rerank, DEFAULT_VALUES.enable_rerank);
 
   return {
     sparse_embedding_config_id: readConfigId(config.sparse_embedding_config_id),
-    sparse_embedding_config_source: readConfigSource(
-      config.sparse_embedding_config_source,
-      DEFAULT_VALUES.sparse_embedding_config_source,
-    ),
     dense_embedding_config_id: readConfigId(config.dense_embedding_config_id),
-    dense_embedding_config_source: readConfigSource(
-      config.dense_embedding_config_source,
-      DEFAULT_VALUES.dense_embedding_config_source,
-    ),
+    enhancement_chat_config_id:
+      enableTableEnhancement || enableHeadingHierarchy ? readConfigId(config.enhancement_chat_config_id) : null,
+    enhancement_vision_config_id: enableImageEnhancement ? readConfigId(config.enhancement_vision_config_id) : null,
+    rerank_config_id: enableRerank ? readConfigId(config.rerank_config_id) : null,
     heading_break_level: readNumber(chunking.heading_break_level, DEFAULT_VALUES.heading_break_level),
     min_candidate_chunk_tokens: readNumber(
       chunking.min_candidate_chunk_tokens,
@@ -549,18 +567,9 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
       chunking.protected_neighbor_overlap,
       DEFAULT_VALUES.protected_neighbor_overlap,
     ),
-    enable_table_enhancement: readBoolean(
-      enhancement.enable_table_enhancement,
-      DEFAULT_VALUES.enable_table_enhancement,
-    ),
-    enable_image_enhancement: readBoolean(
-      enhancement.enable_image_enhancement,
-      DEFAULT_VALUES.enable_image_enhancement,
-    ),
-    enable_heading_hierarchy: readBoolean(
-      enhancement.enable_heading_hierarchy,
-      DEFAULT_VALUES.enable_heading_hierarchy,
-    ),
+    enable_table_enhancement: enableTableEnhancement,
+    enable_image_enhancement: enableImageEnhancement,
+    enable_heading_hierarchy: enableHeadingHierarchy,
     pdf_parser_backend: pdf.pdf_parser_backend ?? DEFAULT_VALUES.pdf_parser_backend,
     recall_result_limit: readNumber(recall.recall_result_limit, DEFAULT_VALUES.recall_result_limit),
     recall_context_token_budget: readNumber(
@@ -577,6 +586,7 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
     fusion_bm25_weight: readNumber(recall.fusion_bm25_weight, DEFAULT_VALUES.fusion_bm25_weight),
     fusion_sparse_weight: readNumber(recall.fusion_sparse_weight, DEFAULT_VALUES.fusion_sparse_weight),
     fusion_dense_weight: readNumber(recall.fusion_dense_weight, DEFAULT_VALUES.fusion_dense_weight),
+    enable_rerank: enableRerank,
     rerank_top_n: readNumber(recall.rerank_top_n, DEFAULT_VALUES.rerank_top_n),
     recall_strict: readBoolean(recall.recall_strict, DEFAULT_VALUES.recall_strict),
   };
@@ -585,9 +595,10 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
 export function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
   return {
     sparse_embedding_config_id: values.sparse_embedding_config_id,
-    sparse_embedding_config_source: values.sparse_embedding_config_source,
     dense_embedding_config_id: values.dense_embedding_config_id,
-    dense_embedding_config_source: values.dense_embedding_config_source,
+    enhancement_chat_config_id: values.enhancement_chat_config_id,
+    enhancement_vision_config_id: values.enhancement_vision_config_id,
+    rerank_config_id: values.rerank_config_id,
     chunking: {
       heading_break_level: values.heading_break_level,
       min_candidate_chunk_tokens: values.min_candidate_chunk_tokens,
@@ -618,9 +629,31 @@ export function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
       fusion_bm25_weight: values.fusion_bm25_weight,
       fusion_sparse_weight: values.fusion_sparse_weight,
       fusion_dense_weight: values.fusion_dense_weight,
+      enable_rerank: values.enable_rerank,
       rerank_top_n: values.rerank_top_n,
       recall_strict: values.recall_strict,
     },
+  };
+}
+
+export type ModelBindingField =
+  | 'dense_embedding_config_id'
+  | 'sparse_embedding_config_id'
+  | 'enhancement_chat_config_id'
+  | 'enhancement_vision_config_id'
+  | 'rerank_config_id';
+
+export function validateModelBindings(values: ParseConfigValues): Partial<Record<ModelBindingField, string>> {
+  return {
+    ...(values.dense_embedding_config_id ? {} : { dense_embedding_config_id: '请选择稠密向量模型' }),
+    ...(values.sparse_embedding_config_id ? {} : { sparse_embedding_config_id: '请选择稀疏向量模型' }),
+    ...((values.enable_table_enhancement || values.enable_heading_hierarchy) && !values.enhancement_chat_config_id
+      ? { enhancement_chat_config_id: '请选择增强对话模型' }
+      : {}),
+    ...(values.enable_image_enhancement && !values.enhancement_vision_config_id
+      ? { enhancement_vision_config_id: '请选择增强视觉模型' }
+      : {}),
+    ...(values.enable_rerank && !values.rerank_config_id ? { rerank_config_id: '请选择重排模型' } : {}),
   };
 }
 

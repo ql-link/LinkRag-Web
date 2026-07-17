@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_VALUES, GROUPS, normalizeConfig, toRequest, validateValues } from './config-model';
+import {
+  DEFAULT_VALUES,
+  GROUPS,
+  normalizeConfig,
+  toRequest,
+  validateModelBindings,
+  validateValues,
+} from './config-model';
 
 const PARAMS = GROUPS.flatMap((group) => group.params);
 
@@ -8,13 +15,19 @@ describe('dataset parse config mapping', () => {
     const values = normalizeConfig({});
 
     expect(values).toMatchObject({
-      sparse_embedding_config_source: 'USER',
-      dense_embedding_config_source: 'USER',
+      sparse_embedding_config_id: null,
+      dense_embedding_config_id: null,
+      enhancement_chat_config_id: null,
+      enhancement_vision_config_id: null,
+      rerank_config_id: null,
       max_chunk_tokens: 512,
       hard_max_tokens: 1024,
       stage_two_algorithm: 'noop',
       protected_neighbor_overlap: false,
       enable_heading_hierarchy: false,
+      enable_table_enhancement: false,
+      enable_image_enhancement: false,
+      enable_rerank: false,
       recall_result_limit: 64,
       bm25_top_k: 100,
       sparse_top_k: 50,
@@ -30,20 +43,25 @@ describe('dataset parse config mapping', () => {
     const request = toRequest({
       ...DEFAULT_VALUES,
       sparse_embedding_config_id: 11,
-      sparse_embedding_config_source: 'SYSTEM',
       dense_embedding_config_id: 12,
-      dense_embedding_config_source: 'USER',
+      enhancement_chat_config_id: 13,
+      enhancement_vision_config_id: 14,
+      rerank_config_id: 15,
       stage_two_algorithm: 'semantic_depth_window',
       protected_neighbor_overlap: true,
       enable_heading_hierarchy: true,
+      enable_table_enhancement: true,
+      enable_image_enhancement: true,
+      enable_rerank: true,
       recall_fusion_strategy: 'weighted_score',
     });
 
     expect(request).toMatchObject({
       sparse_embedding_config_id: 11,
-      sparse_embedding_config_source: 'SYSTEM',
       dense_embedding_config_id: 12,
-      dense_embedding_config_source: 'USER',
+      enhancement_chat_config_id: 13,
+      enhancement_vision_config_id: 14,
+      rerank_config_id: 15,
       chunking: {
         max_chunk_tokens: 512,
         hard_max_tokens: 1024,
@@ -54,6 +72,7 @@ describe('dataset parse config mapping', () => {
         enable_heading_hierarchy: true,
       },
       recall: {
+        enable_rerank: true,
         bm25_top_k: 100,
         recall_fusion_strategy: 'weighted_score',
         fusion_bm25_weight: 0.2,
@@ -61,6 +80,61 @@ describe('dataset parse config mapping', () => {
         fusion_dense_weight: 0.5,
       },
     });
+    expect('sparse_embedding_config_source' in request).toBe(false);
+    expect('dense_embedding_config_source' in request).toBe(false);
+  });
+
+  it('restores all five selections by configId when their features are enabled', () => {
+    const values = normalizeConfig({
+      dense_embedding_config_id: 11,
+      sparse_embedding_config_id: 12,
+      enhancement_chat_config_id: 13,
+      enhancement_vision_config_id: 14,
+      rerank_config_id: 15,
+      enhancement: {
+        enable_table_enhancement: true,
+        enable_image_enhancement: true,
+        enable_heading_hierarchy: true,
+      },
+      recall: { enable_rerank: true },
+    });
+
+    expect(values).toMatchObject({
+      dense_embedding_config_id: 11,
+      sparse_embedding_config_id: 12,
+      enhancement_chat_config_id: 13,
+      enhancement_vision_config_id: 14,
+      rerank_config_id: 15,
+    });
+  });
+
+  it.each([
+    [{ dense_embedding_config_id: null }, 'dense_embedding_config_id', '请选择稠密向量模型'],
+    [{ sparse_embedding_config_id: null }, 'sparse_embedding_config_id', '请选择稀疏向量模型'],
+    [
+      { enable_table_enhancement: true, enhancement_chat_config_id: null },
+      'enhancement_chat_config_id',
+      '请选择增强对话模型',
+    ],
+    [
+      { enable_heading_hierarchy: true, enhancement_chat_config_id: null },
+      'enhancement_chat_config_id',
+      '请选择增强对话模型',
+    ],
+    [
+      { enable_image_enhancement: true, enhancement_vision_config_id: null },
+      'enhancement_vision_config_id',
+      '请选择增强视觉模型',
+    ],
+    [{ enable_rerank: true, rerank_config_id: null }, 'rerank_config_id', '请选择重排模型'],
+  ])('validates conditional model binding %s', (overrides, field, message) => {
+    const errors = validateModelBindings({
+      ...DEFAULT_VALUES,
+      dense_embedding_config_id: 1,
+      sparse_embedding_config_id: 2,
+      ...overrides,
+    });
+    expect(errors[field as keyof typeof errors]).toBe(message);
   });
 
   it('validates token bounds and weighted-score active weight sum', () => {

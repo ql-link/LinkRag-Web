@@ -1,7 +1,7 @@
 # ToLink Service 前端 API 文档
 
-> 文档版本：2.0
-> 更新日期：2026-04-28
+> 文档版本：3.0
+> 更新日期：2026-07-17
 > 文档来源：基于当前 `link-api` Controller、Request/Response DTO、异常处理与配置代码梳理
 > 适用范围：Web 前端、管理后台、联调文档、接口台账
 
@@ -12,6 +12,10 @@
 本文档以“当前代码真实实现”为准，适合前端直接联调。
 
 本次校准重点：
+
+- LLM 可执行配置统一使用全局 `configId`，默认关系独立管理
+- 管理员平台配置改为单次原子保存，Dataset 解析配置扩展为五个模型绑定 ID
+- Chat/Recall 只向 Python 提交 `config_id`，删除配置来源字段
 - 认证请求头已按实际代码修正为 `satoken`
 - 补全了数据集、知识文件、OSS、管理员知识文件配置接口
 - 标注了哪些接口适合前端调用，哪些属于内部服务接口
@@ -45,6 +49,7 @@ satoken: {accessToken}
 ```
 
 注意：
+
 - 登录接口返回体里的 `tokenType` 虽然是 `Bearer`
 - 但当前 Java 后端的 sa-token 配置实际校验的是 `satoken` 请求头
 - 前端联调时不要使用 `Authorization: Bearer xxx` 代替
@@ -61,11 +66,11 @@ satoken: {accessToken}
 
 字段说明：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| code | number | 业务状态码，成功固定为 `200` |
-| message | string | 提示信息，成功通常为 `success` |
-| data | any | 实际业务数据，可能为对象、数组、分页对象或 `null` |
+| 字段    | 类型   | 说明                                              |
+| ------- | ------ | ------------------------------------------------- |
+| code    | number | 业务状态码，成功固定为 `200`                      |
+| message | string | 提示信息，成功通常为 `success`                    |
+| data    | any    | 实际业务数据，可能为对象、数组、分页对象或 `null` |
 
 ### 2.5 分页响应格式
 
@@ -85,13 +90,13 @@ satoken: {accessToken}
 
 分页字段说明：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| items | array | 当前页数据 |
-| total | number | 总记录数 |
-| page | number | 当前页码，从 1 开始 |
-| pageSize | number | 每页条数 |
-| totalPages | number | 总页数 |
+| 字段       | 类型   | 说明                |
+| ---------- | ------ | ------------------- |
+| items      | array  | 当前页数据          |
+| total      | number | 总记录数            |
+| page       | number | 当前页码，从 1 开始 |
+| pageSize   | number | 每页条数            |
+| totalPages | number | 总页数              |
 
 ### 2.6 通用错误处理
 
@@ -137,40 +142,40 @@ satoken: {accessToken}
 
 ### 3.1 业务错误码
 
-| 错误码 | 说明 | HTTP 状态 |
-|--------|------|-----------|
-| 10001 | 系统厂商不存在 | 404 |
-| 10002 | 系统厂商已被禁用 | 400 |
-| 10003 | 厂商被用户使用中，无法删除 | 409 |
-| 10004 | 用户配置不存在 | 404 |
-| 10005 | 用户配置已被禁用 | 400 |
-| 10006 | 用户没有设置默认配置 | 404 |
-| 10007 | API Key 格式无效 | 400 |
-| 10008 | 模型不被该厂商支持 | 400 |
-| 10009 | 用户已存在该厂商相同模型的配置 | 409 |
-| 10010 | 知识文件上传配置不合法 | 400 |
-| 20001 | 用户不存在 | 404 |
-| 20002 | 密码错误 | 401 |
-| 20003 | 账号已被禁用 | 403 |
-| 20004 | 对话不存在 | 404 |
-| 20005 | 无权访问该对话内容 | 403 |
-| 20006 | 用户名已存在 | 409 |
-| 20007 | 邮箱已被使用 | 409 |
-| 40001 | OSS 上传业务错误 | 400 |
-| 50001 | 系统内部错误 | 500 |
+| 错误码 | 说明                           | HTTP 状态 |
+| ------ | ------------------------------ | --------- |
+| 10001  | 系统厂商不存在                 | 404       |
+| 10002  | 系统厂商已被禁用               | 400       |
+| 10003  | 厂商被用户使用中，无法删除     | 409       |
+| 10004  | 用户配置不存在                 | 404       |
+| 10005  | 用户配置已被禁用               | 400       |
+| 10006  | 用户没有设置默认配置           | 404       |
+| 10007  | API Key 格式无效               | 400       |
+| 10008  | 模型不被该厂商支持             | 400       |
+| 10009  | 用户已存在该厂商相同模型的配置 | 409       |
+| 10010  | 知识文件上传配置不合法         | 400       |
+| 20001  | 用户不存在                     | 404       |
+| 20002  | 密码错误                       | 401       |
+| 20003  | 账号已被禁用                   | 403       |
+| 20004  | 对话不存在                     | 404       |
+| 20005  | 无权访问该对话内容             | 403       |
+| 20006  | 用户名已存在                   | 409       |
+| 20007  | 邮箱已被使用                   | 409       |
+| 40001  | OSS 上传业务错误               | 400       |
+| 50001  | 系统内部错误                   | 500       |
 
 ### 3.2 常见前端可见业务提示
 
 这些提示不是枚举常量，但前端联调时会直接收到：
 
-| 场景 | 可能提示 |
-|------|----------|
-| 登录失败 | 用户不存在 / 密码错误 / 账号已被禁用 |
-| 注册失败 | 用户名已存在 / 邮箱已被使用 / username: 用户名长度必须在3-64之间 / password: 密码长度必须在6-128之间 / email: 邮箱格式不正确 |
-| 数据集创建失败 | 当前用户下已存在同名数据集 |
-| 文件上传失败 | 请选择要上传的文件 / 当前文件格式暂不支持 / 文件大小超过限制 / 文件名包含非法字符 |
-| 文件重名 | 当前数据集下已存在同名原文件，请先重命名后再上传 |
-| 解析任务失败 | 原文件未上传成功，不能创建解析任务 / 文件已上传，解析任务投递失败 |
+| 场景           | 可能提示                                                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 登录失败       | 用户不存在 / 密码错误 / 账号已被禁用                                                                                         |
+| 注册失败       | 用户名已存在 / 邮箱已被使用 / username: 用户名长度必须在3-64之间 / password: 密码长度必须在6-128之间 / email: 邮箱格式不正确 |
+| 数据集创建失败 | 当前用户下已存在同名数据集                                                                                                   |
+| 文件上传失败   | 请选择要上传的文件 / 当前文件格式暂不支持 / 文件大小超过限制 / 文件名包含非法字符                                            |
+| 文件重名       | 当前数据集下已存在同名原文件，请先重命名后再上传                                                                             |
+| 解析任务失败   | 原文件未上传成功，不能创建解析任务 / 文件已上传，解析任务投递失败                                                            |
 
 ---
 
@@ -178,185 +183,187 @@ satoken: {accessToken}
 
 ### 4.1 AuthResult
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| accessToken | string | 登录令牌 |
-| tokenType | string | 固定为 `Bearer` |
-| expiresIn | number | 过期时间，单位秒，当前默认 7 天即 `604800` |
-| userId | number | 当前登录用户 ID |
+| 字段        | 类型   | 说明                                       |
+| ----------- | ------ | ------------------------------------------ |
+| accessToken | string | 登录令牌                                   |
+| tokenType   | string | 固定为 `Bearer`                            |
+| expiresIn   | number | 过期时间，单位秒，当前默认 7 天即 `604800` |
+| userId      | number | 当前登录用户 ID                            |
 
 补充说明：
+
 - 登录接口会按最新实现更新用户 `lastLoginAt`
 - 注册接口会自动登录，并由后端生成默认昵称
 - 登录与注册都会返回 `AuthResult`，前端仍建议紧接着调用 `GET /api/v1/user/profile` 获取完整用户资料
 
 ### 4.1.1 LoginRequest
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| account | string | 是 | 登录账号，可为用户名或邮箱，后端会先做 trim |
-| password | string | 是 | 登录密码 |
+| 字段     | 类型   | 必填 | 说明                                        |
+| -------- | ------ | ---- | ------------------------------------------- |
+| account  | string | 是   | 登录账号，可为用户名或邮箱，后端会先做 trim |
+| password | string | 是   | 登录密码                                    |
 
 ### 4.1.2 RegisterRequest
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| username | string | 是 | 用户名，长度 3-64，后端会先做 trim |
-| password | string | 是 | 密码，长度 6-128 |
-| email | string | 是 | 邮箱，需格式正确且不可重复 |
+| 字段     | 类型   | 必填 | 说明                               |
+| -------- | ------ | ---- | ---------------------------------- |
+| username | string | 是   | 用户名，长度 3-64，后端会先做 trim |
+| password | string | 是   | 密码，长度 6-128                   |
+| email    | string | 是   | 邮箱，需格式正确且不可重复         |
 
 ### 4.2 UserProfileDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 用户 ID |
-| username | string | 用户名 |
-| nickname | string | 昵称 |
-| email | string | 邮箱 |
-| phone | string | 手机号 |
-| avatarUrl | string | 头像 URL |
-| role | string | `ADMIN` / `USER` |
-| status | number | `1=启用`，`0=禁用` |
+| 字段      | 类型   | 说明               |
+| --------- | ------ | ------------------ |
+| id        | number | 用户 ID            |
+| username  | string | 用户名             |
+| nickname  | string | 昵称               |
+| email     | string | 邮箱               |
+| phone     | string | 手机号             |
+| avatarUrl | string | 头像 URL           |
+| role      | string | `ADMIN` / `USER`   |
+| status    | number | `1=启用`，`0=禁用` |
 
-### 4.3 UserLLMConfigDTO
+### 4.3 ExecutableLLMConfigDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 配置 ID |
-| configName | string | 配置名称 |
-| providerType | string | 厂商类型，如 `openai` |
-| providerName | string | 厂商名称 |
-| modelName | string | 模型名称 |
-| capabilities | string | 能力描述，当前为字符串 |
-| apiKeyMasked | string | 脱敏后的 API Key |
-| customApiBaseUrl | string | 自定义 API 地址 |
-| priority | number | 优先级 |
-| isActive | boolean | 是否启用 |
-| isDefault | boolean | 是否默认 |
-| timeoutMs | number | 超时毫秒数 |
-| maxRetries | number | 最大重试次数 |
-| streamEnabled | boolean | 是否启用流式 |
-| extraConfig | string | 扩展配置，通常为 JSON 字符串 |
-| createdAt | string | 创建时间 |
-| updatedAt | string | 更新时间 |
+| 字段            | 类型    | 说明                                                                    |
+| --------------- | ------- | ----------------------------------------------------------------------- |
+| configId        | number  | 全局唯一配置 ID，也是唯一身份字段                                       |
+| scope           | string  | `SYSTEM` / `USER`，仅用于展示和授权                                     |
+| providerId      | number  | 厂商 ID                                                                 |
+| providerType    | string  | 厂商类型，如 `openai`                                                   |
+| providerName    | string  | 厂商名称                                                                |
+| modelName       | string  | 模型名称                                                                |
+| displayName     | string  | 展示名称                                                                |
+| capability      | string  | `CHAT` / `EMBEDDING` / `SPARSE_EMBEDDING` / `VISION` / `RERANK` / `ASR` |
+| protocol        | string  | 调用协议                                                                |
+| apiKeyMasked    | string  | 脱敏后的 API Key                                                        |
+| apiBaseUrl      | string  | 完整调用入口                                                            |
+| isActive        | boolean | 是否启用                                                                |
+| editable        | boolean | 当前用户是否可编辑、启停和删除                                          |
+| snapshotVersion | number  | 运行快照版本                                                            |
+| createdAt       | string  | 创建时间                                                                |
+| updatedAt       | string  | 更新时间                                                                |
+
+该 DTO 不包含 `id`、`source`、`configSource`、`isSystemPreset` 或默认标记。默认关系由独立的 `CapabilityDefaultDTO` 返回，包含 `capability`、`userDefaultConfigId`、`systemDefaultConfigId` 和 `effectiveConfigId`。
 
 ### 4.4 ConversationDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 对话 ID |
-| title | string | 对话标题 |
-| datasetId | number | 绑定的数据集 ID |
-| lastConfigId | number | 上次使用配置 ID |
-| lastModelName | string | 上次使用模型名称 |
-| isPinned | boolean | 是否置顶 |
-| createdAt | string | 创建时间 |
-| updatedAt | string | 更新时间 |
+| 字段          | 类型    | 说明             |
+| ------------- | ------- | ---------------- |
+| id            | number  | 对话 ID          |
+| title         | string  | 对话标题         |
+| datasetId     | number  | 绑定的数据集 ID  |
+| lastConfigId  | number  | 上次使用配置 ID  |
+| lastModelName | string  | 上次使用模型名称 |
+| isPinned      | boolean | 是否置顶         |
+| createdAt     | string  | 创建时间         |
+| updatedAt     | string  | 更新时间         |
 
 ### 4.5 MessageDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 消息 ID |
-| conversationId | number | 对话 ID |
-| role | string | 消息角色，如 `user` / `assistant` |
-| content | string | 消息内容 |
-| configId | number | 配置 ID |
-| modelName | string | 模型名称 |
-| tokenCount | number | Token 数量 |
-| createdAt | string | 创建时间 |
+| 字段           | 类型   | 说明                              |
+| -------------- | ------ | --------------------------------- |
+| id             | number | 消息 ID                           |
+| conversationId | number | 对话 ID                           |
+| role           | string | 消息角色，如 `user` / `assistant` |
+| content        | string | 消息内容                          |
+| configId       | number | 配置 ID                           |
+| modelName      | string | 模型名称                          |
+| tokenCount     | number | Token 数量                        |
+| createdAt      | string | 创建时间                          |
 
 ### 4.6 DatasetDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 数据集 ID |
-| name | string | 数据集名称 |
-| description | string | 数据集描述 |
-| status | string | 当前实际状态值为 `ACTIVE` |
-| createdAt | string | 创建时间 |
-| updatedAt | string | 更新时间 |
+| 字段        | 类型   | 说明                      |
+| ----------- | ------ | ------------------------- |
+| id          | number | 数据集 ID                 |
+| name        | string | 数据集名称                |
+| description | string | 数据集描述                |
+| status      | string | 当前实际状态值为 `ACTIVE` |
+| createdAt   | string | 创建时间                  |
+| updatedAt   | string | 更新时间                  |
 
 ### 4.7 KnowledgeFileDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 文件 ID |
-| datasetId | number | 所属数据集 ID |
-| originalFilename | string | 原始文件名 |
-| fileSuffix | string | 文件后缀 |
-| fileSize | number | 文件大小，单位字节 |
-| uploadStatus | string | 上传状态 |
-| isUploadSuccess | boolean | 上传是否成功 |
-| parseNoticeStatus | string | 解析任务投递状态 |
-| parseTaskId | string | 解析任务 ID |
-| parseStatus | string | 解析执行状态 |
-| isParseSuccess | boolean | 解析是否成功 |
-| failureReason | string | 失败原因 |
-| createdAt | string | 创建时间 |
-| updatedAt | string | 更新时间 |
+| 字段              | 类型    | 说明               |
+| ----------------- | ------- | ------------------ |
+| id                | number  | 文件 ID            |
+| datasetId         | number  | 所属数据集 ID      |
+| originalFilename  | string  | 原始文件名         |
+| fileSuffix        | string  | 文件后缀           |
+| fileSize          | number  | 文件大小，单位字节 |
+| uploadStatus      | string  | 上传状态           |
+| isUploadSuccess   | boolean | 上传是否成功       |
+| parseNoticeStatus | string  | 解析任务投递状态   |
+| parseTaskId       | string  | 解析任务 ID        |
+| parseStatus       | string  | 解析执行状态       |
+| isParseSuccess    | boolean | 解析是否成功       |
+| failureReason     | string  | 失败原因           |
+| createdAt         | string  | 创建时间           |
+| updatedAt         | string  | 更新时间           |
 
 ### 4.8 KnowledgeFileConfigDTO
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| maxSizeBytes | number | 单文件大小上限，单位字节 |
-| allowedSuffixes | string[] | 允许上传的后缀白名单 |
-| updatedBy | number | 最后修改人 ID |
-| updatedAt | string | 最后修改时间 |
+| 字段            | 类型     | 说明                     |
+| --------------- | -------- | ------------------------ |
+| maxSizeBytes    | number   | 单文件大小上限，单位字节 |
+| allowedSuffixes | string[] | 允许上传的后缀白名单     |
+| updatedBy       | number   | 最后修改人 ID            |
+| updatedAt       | string   | 最后修改时间             |
 
 ### 4.9 SystemProvider
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 厂商 ID |
-| providerType | string | 厂商类型 |
-| providerName | string | 厂商名称 |
-| apiBaseUrl | string | API 基础地址 |
-| supportedModels | string | 支持模型列表，当前为 JSON 字符串 |
-| configSchema | string | 动态配置 Schema，当前为 JSON 字符串 |
-| isActive | boolean | 是否启用 |
-| priority | number | 优先级 |
-| createdAt | string | 创建时间 |
-| updatedAt | string | 更新时间 |
+| 字段            | 类型    | 说明                                |
+| --------------- | ------- | ----------------------------------- |
+| id              | number  | 厂商 ID                             |
+| providerType    | string  | 厂商类型                            |
+| providerName    | string  | 厂商名称                            |
+| apiBaseUrl      | string  | API 基础地址                        |
+| supportedModels | string  | 支持模型列表，当前为 JSON 字符串    |
+| configSchema    | string  | 动态配置 Schema，当前为 JSON 字符串 |
+| isActive        | boolean | 是否启用                            |
+| priority        | number  | 优先级                              |
+| createdAt       | string  | 创建时间                            |
+| updatedAt       | string  | 更新时间                            |
 
 ### 4.10 用量统计 DTO
 
 `UsageSummaryDTO`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| totalCalls | number | 总调用次数 |
-| totalTokens | number | 总 Token 数 |
-| promptTokens | number | 提示词 Token 数 |
-| completionTokens | number | 补全 Token 数 |
-| averageLatencyMs | number | 平均延迟 |
+| 字段             | 类型   | 说明            |
+| ---------------- | ------ | --------------- |
+| totalCalls       | number | 总调用次数      |
+| totalTokens      | number | 总 Token 数     |
+| promptTokens     | number | 提示词 Token 数 |
+| completionTokens | number | 补全 Token 数   |
+| averageLatencyMs | number | 平均延迟        |
 
 `DailyUsageDTO`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| date | string | 日期，格式 `yyyy-MM-dd` |
-| calls | number | 调用次数 |
-| promptTokens | number | 提示词 Token 数 |
-| completionTokens | number | 补全 Token 数 |
-| totalTokens | number | 总 Token 数 |
+| 字段             | 类型   | 说明                    |
+| ---------------- | ------ | ----------------------- |
+| date             | string | 日期，格式 `yyyy-MM-dd` |
+| calls            | number | 调用次数                |
+| promptTokens     | number | 提示词 Token 数         |
+| completionTokens | number | 补全 Token 数           |
+| totalTokens      | number | 总 Token 数             |
 
 `UsageLogDTO`
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | number | 日志 ID |
-| configId | number | 配置 ID |
-| providerType | string | 厂商类型 |
-| modelName | string | 模型名称 |
-| promptTokens | number | 提示词 Token 数 |
-| completionTokens | number | 补全 Token 数 |
-| totalTokens | number | 总 Token 数 |
-| latencyMs | number | 延迟毫秒数 |
-| status | string | 调用状态 |
-| errorMessage | string | 错误信息 |
-| createdAt | string | 创建时间 |
+| 字段             | 类型   | 说明            |
+| ---------------- | ------ | --------------- |
+| id               | number | 日志 ID         |
+| configId         | number | 配置 ID         |
+| providerType     | string | 厂商类型        |
+| modelName        | string | 模型名称        |
+| promptTokens     | number | 提示词 Token 数 |
+| completionTokens | number | 补全 Token 数   |
+| totalTokens      | number | 总 Token 数     |
+| latencyMs        | number | 延迟毫秒数      |
+| status           | string | 调用状态        |
+| errorMessage     | string | 错误信息        |
+| createdAt        | string | 创建时间        |
 
 ---
 
@@ -364,56 +371,64 @@ satoken: {accessToken}
 
 ### 5.1 普通用户接口
 
-| 模块 | 方法 | 路径 | 是否鉴权 | 说明 |
-|------|------|------|----------|------|
-| 认证 | POST | `/api/v1/auth/login` | 否 | 用户登录 |
-| 认证 | POST | `/api/v1/auth/register` | 否 | 用户注册 |
-| 认证 | POST | `/api/v1/auth/logout` | 是 | 退出登录 |
-| 用户 | GET | `/api/v1/user/profile` | 是 | 获取当前用户信息 |
-| 用户 | PATCH | `/api/v1/user/profile` | 是 | 修改个人资料 |
-| LLM 配置 | GET | `/api/v1/llm/configs` | 是 | 获取配置列表 |
-| LLM 配置 | POST | `/api/v1/llm/configs` | 是 | 创建配置 |
-| LLM 配置 | PATCH | `/api/v1/llm/configs/{id}` | 是 | 更新配置 |
-| LLM 配置 | DELETE | `/api/v1/llm/configs/{id}` | 是 | 删除配置 |
-| 用量统计 | GET | `/api/v1/llm/usage/summary` | 是 | 用量汇总 |
-| 用量统计 | GET | `/api/v1/llm/usage/daily` | 是 | 日趋势 |
-| 用量统计 | GET | `/api/v1/llm/usage/logs` | 是 | 用量明细 |
-| 对话 | POST | `/api/v1/chat/conversations` | 是 | 创建对话 |
-| 对话 | GET | `/api/v1/chat/conversations` | 是 | 查询对话列表 |
-| 对话 | GET | `/api/v1/chat/conversations/{id}/messages` | 是 | 查询消息历史 |
-| 对话 | DELETE | `/api/v1/chat/conversations/{id}` | 是 | 删除对话 |
-| 数据集 | POST | `/api/v1/datasets` | 是 | 创建数据集 |
-| 数据集 | GET | `/api/v1/datasets` | 是 | 数据集分页列表 |
-| 数据集 | GET | `/api/v1/datasets/{datasetId}` | 是 | 数据集详情 |
-| 数据集 | DELETE | `/api/v1/datasets/{datasetId}` | 是 | 删除数据集 |
-| 知识文件 | POST | `/api/v1/datasets/{datasetId}/knowledge-files` | 是 | 上传知识文件 |
-| 知识文件 | GET | `/api/v1/datasets/{datasetId}/knowledge-files` | 是 | 知识文件列表 |
-| 知识文件 | GET | `/api/v1/knowledge-files/{fileId}` | 是 | 知识文件详情 |
-| 知识文件 | POST | `/api/v1/knowledge-files/{fileId}/parse-tasks` | 是 | 创建解析任务 |
-| 知识文件 | DELETE | `/api/v1/knowledge-files/{fileId}` | 是 | 删除知识文件 |
-| OSS | POST | `/api/v1/oss-files/{bizType}` | 否 | 通用业务文件上传 |
-| OSS | GET | `/api/v1/oss-files/public/**` | 否 | 公共文件预览 |
+| 模块     | 方法   | 路径                                           | 是否鉴权 | 说明                       |
+| -------- | ------ | ---------------------------------------------- | -------- | -------------------------- |
+| 认证     | POST   | `/api/v1/auth/login`                           | 否       | 用户登录                   |
+| 认证     | POST   | `/api/v1/auth/register`                        | 否       | 用户注册                   |
+| 认证     | POST   | `/api/v1/auth/logout`                          | 是       | 退出登录                   |
+| 用户     | GET    | `/api/v1/user/profile`                         | 是       | 获取当前用户信息           |
+| 用户     | PATCH  | `/api/v1/user/profile`                         | 是       | 修改个人资料               |
+| LLM 配置 | GET    | `/api/v1/llm/configs`                          | 是       | 获取配置列表               |
+| LLM 配置 | POST   | `/api/v1/llm/configs/setup-provider`           | 是       | 添加或刷新厂商凭据         |
+| LLM 配置 | PATCH  | `/api/v1/llm/configs/{configId}/active`        | 是       | 启停配置                   |
+| LLM 配置 | DELETE | `/api/v1/llm/configs/{configId}`               | 是       | 删除配置                   |
+| LLM 默认 | GET    | `/api/v1/llm/defaults`                         | 是       | 获取各能力默认关系         |
+| LLM 默认 | PUT    | `/api/v1/llm/defaults/{capability}`            | 是       | 设置用户默认覆盖           |
+| LLM 默认 | DELETE | `/api/v1/llm/defaults/{capability}`            | 是       | 清除用户覆盖，跟随平台默认 |
+| 用量统计 | GET    | `/api/v1/llm/usage/summary`                    | 是       | 用量汇总                   |
+| 用量统计 | GET    | `/api/v1/llm/usage/daily`                      | 是       | 日趋势                     |
+| 用量统计 | GET    | `/api/v1/llm/usage/logs`                       | 是       | 用量明细                   |
+| 对话     | POST   | `/api/v1/chat/conversations`                   | 是       | 创建对话                   |
+| 对话     | GET    | `/api/v1/chat/conversations`                   | 是       | 查询对话列表               |
+| 对话     | GET    | `/api/v1/chat/conversations/{id}/messages`     | 是       | 查询消息历史               |
+| 对话     | DELETE | `/api/v1/chat/conversations/{id}`              | 是       | 删除对话                   |
+| 数据集   | POST   | `/api/v1/datasets`                             | 是       | 创建数据集                 |
+| 数据集   | GET    | `/api/v1/datasets`                             | 是       | 数据集分页列表             |
+| 数据集   | GET    | `/api/v1/datasets/{datasetId}`                 | 是       | 数据集详情                 |
+| 数据集   | DELETE | `/api/v1/datasets/{datasetId}`                 | 是       | 删除数据集                 |
+| 知识文件 | POST   | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 上传知识文件               |
+| 知识文件 | GET    | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 知识文件列表               |
+| 知识文件 | GET    | `/api/v1/knowledge-files/{fileId}`             | 是       | 知识文件详情               |
+| 知识文件 | POST   | `/api/v1/knowledge-files/{fileId}/parse-tasks` | 是       | 创建解析任务               |
+| 知识文件 | DELETE | `/api/v1/knowledge-files/{fileId}`             | 是       | 删除知识文件               |
+| OSS      | POST   | `/api/v1/oss-files/{bizType}`                  | 否       | 通用业务文件上传           |
+| OSS      | GET    | `/api/v1/oss-files/public/**`                  | 否       | 公共文件预览               |
 
 ### 5.2 管理员接口
 
-| 模块 | 方法 | 路径 | 额外权限 | 说明 |
-|------|------|------|----------|------|
-| 用户管理 | GET | `/api/v1/admin/users` | `ADMIN` | 用户列表 |
-| 用户管理 | PATCH | `/api/v1/admin/users/{id}/status` | `ADMIN` | 修改用户状态 |
-| 用户管理 | PATCH | `/api/v1/admin/users/{id}/role` | `ADMIN` | 修改用户角色 |
-| 厂商管理 | GET | `/api/v1/admin/providers` | `ADMIN` | 厂商列表 |
-| 厂商管理 | POST | `/api/v1/admin/providers` | `ADMIN` | 创建厂商 |
-| 厂商管理 | PATCH | `/api/v1/admin/providers/{id}` | `ADMIN` | 更新厂商 |
-| 厂商管理 | DELETE | `/api/v1/admin/providers/{id}` | `ADMIN` | 删除厂商 |
-| 厂商管理 | PATCH | `/api/v1/admin/providers/{id}/active` | `ADMIN` | 启用或禁用厂商 |
-| 知识文件配置 | GET | `/api/v1/admin/knowledge-file-config` | `ADMIN` | 查看上传配置 |
-| 知识文件配置 | PATCH | `/api/v1/admin/knowledge-file-config` | `ADMIN` | 修改上传配置 |
+| 模块         | 方法   | 路径                                          | 额外权限 | 说明                           |
+| ------------ | ------ | --------------------------------------------- | -------- | ------------------------------ |
+| 用户管理     | GET    | `/api/v1/admin/users`                         | `ADMIN`  | 用户列表                       |
+| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/status`             | `ADMIN`  | 修改用户状态                   |
+| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/role`               | `ADMIN`  | 修改用户角色                   |
+| 厂商管理     | GET    | `/api/v1/admin/providers`                     | `ADMIN`  | 厂商列表                       |
+| 厂商管理     | POST   | `/api/v1/admin/providers`                     | `ADMIN`  | 创建厂商                       |
+| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 更新厂商                       |
+| 厂商管理     | DELETE | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 删除厂商                       |
+| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}/active`         | `ADMIN`  | 启用或禁用厂商                 |
+| 平台模型     | GET    | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 平台可执行配置列表             |
+| 平台模型     | POST   | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 原子创建配置，可同时设为默认   |
+| 平台模型     | PUT    | `/api/v1/admin/llm/configs/{configId}`        | `ADMIN`  | 原子更新配置，可保持或切换默认 |
+| 平台模型     | PATCH  | `/api/v1/admin/llm/configs/{configId}/active` | `ADMIN`  | 启停平台配置                   |
+| 平台模型     | PUT    | `/api/v1/admin/llm/defaults/{capability}`     | `ADMIN`  | 切换平台默认                   |
+| 知识文件配置 | GET    | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 查看上传配置                   |
+| 知识文件配置 | PATCH  | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 修改上传配置                   |
 
 ### 5.3 非前端直连接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/internal/knowledge-files/{fileId}/content` | 内部服务下载原始知识文件，依赖服务级 `Authorization`，前端不要直接调用 |
+| 方法 | 路径                                                | 说明                                                                   |
+| ---- | --------------------------------------------------- | ---------------------------------------------------------------------- |
+| GET  | `/api/v1/internal/knowledge-files/{fileId}/content` | 内部服务下载原始知识文件，依赖服务级 `Authorization`，前端不要直接调用 |
 
 ---
 
@@ -438,10 +453,10 @@ POST /api/v1/auth/login
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| username | string | 是 | 用户名 |
-| password | string | 是 | 密码 |
+| 字段     | 类型   | 必填 | 说明   |
+| -------- | ------ | ---- | ------ |
+| username | string | 是   | 用户名 |
+| password | string | 是   | 密码   |
 
 **响应示例**
 
@@ -484,12 +499,12 @@ POST /api/v1/auth/register
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| username | string | 是 | 3-64 位 |
-| password | string | 是 | 6-128 位 |
-| nickname | string | 否 | 昵称 |
-| email | string | 否 | 邮箱，需满足邮箱格式 |
+| 字段     | 类型   | 必填 | 说明                 |
+| -------- | ------ | ---- | -------------------- |
+| username | string | 是   | 3-64 位              |
+| password | string | 是   | 6-128 位             |
+| nickname | string | 否   | 昵称                 |
+| email    | string | 否   | 邮箱，需满足邮箱格式 |
 
 **响应**
 
@@ -607,10 +622,10 @@ satoken: {accessToken}
 
 **Query 参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| providerType | string | 否 | 厂商类型过滤 |
-| isActive | boolean | 否 | 启用状态过滤 |
+| 参数         | 类型    | 必填 | 说明         |
+| ------------ | ------- | ---- | ------------ |
+| providerType | string  | 否   | 厂商类型过滤 |
+| isActive     | boolean | 否   | 启用状态过滤 |
 
 **响应**
 
@@ -620,21 +635,20 @@ satoken: {accessToken}
   "message": "success",
   "data": [
     {
-      "id": 1,
-      "configName": "我的 OpenAI 配置",
+      "configId": 101,
+      "scope": "USER",
+      "providerId": 1,
       "providerType": "openai",
       "providerName": "OpenAI",
-      "modelName": "gpt-4",
-      "capabilities": null,
+      "modelName": "gpt-4.1",
+      "displayName": "GPT-4.1",
+      "capability": "CHAT",
+      "protocol": "openai",
       "apiKeyMasked": "sk-****",
-      "customApiBaseUrl": null,
-      "priority": 50,
+      "apiBaseUrl": "https://api.openai.com/v1/chat/completions",
       "isActive": true,
-      "isDefault": true,
-      "timeoutMs": 60000,
-      "maxRetries": 3,
-      "streamEnabled": true,
-      "extraConfig": null,
+      "editable": true,
+      "snapshotVersion": 1,
       "createdAt": "2026-04-27T10:00:00",
       "updatedAt": "2026-04-27T10:00:00"
     }
@@ -642,12 +656,12 @@ satoken: {accessToken}
 }
 ```
 
-### 8.2 创建 LLM 配置
+### 8.2 添加或刷新厂商凭据
 
 **接口**
 
 ```http
-POST /api/v1/llm/configs
+POST /api/v1/llm/configs/setup-provider
 ```
 
 **请求体**
@@ -655,55 +669,33 @@ POST /api/v1/llm/configs
 ```json
 {
   "providerType": "openai",
-  "configName": "我的 OpenAI 配置",
-  "apiKey": "sk-xxxxx",
-  "modelName": "gpt-4",
-  "priority": 50,
-  "isDefault": false,
-  "timeoutMs": 60000,
-  "maxRetries": 3,
-  "streamEnabled": true,
-  "extraConfig": "{\"temperature\":0.7}"
+  "providerType": "openai",
+  "apiKey": "sk-xxxxx"
 }
 ```
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| providerType | string | 是 | 厂商类型 |
-| configName | string | 是 | 配置名称 |
-| apiKey | string | 是 | API Key，后端会加密存储 |
-| modelName | string | 是 | 模型名称 |
-| priority | number | 否 | 默认 `50` |
-| isDefault | boolean | 否 | 默认 `false` |
-| timeoutMs | number | 否 | 默认 `60000` |
-| maxRetries | number | 否 | 默认 `3` |
-| streamEnabled | boolean | 否 | 默认 `true` |
-| extraConfig | string | 否 | JSON 字符串 |
+| 字段         | 类型   | 必填 | 说明                    |
+| ------------ | ------ | ---- | ----------------------- |
+| providerType | string | 是   | 厂商类型                |
+| apiKey       | string | 是   | API Key，后端会加密存储 |
 
-### 8.3 更新 LLM 配置
+响应为该厂商全部用户配置的 `ExecutableLLMConfigDTO[]`；刷新密钥会复用已有 `configId`。
+
+### 8.3 启停 LLM 配置
 
 **接口**
 
 ```http
-PATCH /api/v1/llm/configs/{id}
+PATCH /api/v1/llm/configs/{configId}/active
 ```
 
 **说明**
 
-- 仅传要更新的字段
-- 支持更新 `apiKey`
-- 更新后的响应为 `Result<Void>`
-
-**请求体示例**
-
 ```json
 {
-  "priority": 80,
-  "isActive": true,
-  "isDefault": true,
-  "timeoutMs": 30000
+  "isActive": true
 }
 ```
 
@@ -712,8 +704,30 @@ PATCH /api/v1/llm/configs/{id}
 **接口**
 
 ```http
-DELETE /api/v1/llm/configs/{id}
+DELETE /api/v1/llm/configs/{configId}
 ```
+
+### 8.5 默认关系
+
+- `GET /api/v1/llm/defaults`：一次返回全部能力默认关系。
+- `GET /api/v1/llm/defaults/{capability}`：返回单个能力默认关系。
+- `PUT /api/v1/llm/defaults/{capability}`，请求体 `{ "configId": 101 }`：设置用户默认覆盖。
+- `DELETE /api/v1/llm/defaults/{capability}`：清除用户覆盖并跟随平台默认。
+
+默认关系只保存指针，不会改变配置的 `isActive`。
+
+### 8.6 管理员平台配置原子保存
+
+- 创建：`POST /api/v1/admin/llm/configs`
+- 更新：`PUT /api/v1/admin/llm/configs/{configId}`
+
+请求必须在 `sourceProviderModelId` 与 `catalogMutation` 中二选一；`catalogMutation` 包含 `providerId`、`modelName`、`displayName`、`capability`、`protocol`、`apiBaseUrl`。另可提交 `apiKey` 与 `setAsDefault`。一次保存只发送一个业务写请求，Java 在同一事务中提交目录、运行配置和可选的平台默认关系。响应为 `{ config, capabilityDefault }`。
+
+管理员启停、删除和切换默认分别使用：
+
+- `PATCH /api/v1/admin/llm/configs/{configId}/active`，请求体 `{ "isActive": false }`
+- `DELETE /api/v1/admin/llm/configs/{configId}`
+- `PUT /api/v1/admin/llm/defaults/{capability}`，请求体 `{ "configId": 101 }`
 
 ---
 
@@ -729,10 +743,10 @@ GET /api/v1/llm/usage/summary?startDate=2026-04-01&endDate=2026-04-27
 
 **Query 参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| startDate | string | 是 | 格式 `yyyy-MM-dd` |
-| endDate | string | 是 | 格式 `yyyy-MM-dd` |
+| 参数      | 类型   | 必填 | 说明              |
+| --------- | ------ | ---- | ----------------- |
+| startDate | string | 是   | 格式 `yyyy-MM-dd` |
+| endDate   | string | 是   | 格式 `yyyy-MM-dd` |
 
 ### 9.2 获取日度用量趋势
 
@@ -752,12 +766,12 @@ GET /api/v1/llm/usage/logs?startDate=2026-04-01&endDate=2026-04-27&page=1&pageSi
 
 **Query 参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| startDate | string | 是 | 开始日期 |
-| endDate | string | 是 | 结束日期 |
-| page | number | 否 | 默认 `1` |
-| pageSize | number | 否 | 默认 `20` |
+| 参数      | 类型   | 必填 | 说明      |
+| --------- | ------ | ---- | --------- |
+| startDate | string | 是   | 开始日期  |
+| endDate   | string | 是   | 结束日期  |
+| page      | number | 否   | 默认 `1`  |
+| pageSize  | number | 否   | 默认 `20` |
 
 ---
 
@@ -783,11 +797,11 @@ POST /api/v1/chat/conversations
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| title | string | 否 | 不传时后端默认 `新对话` |
-| datasetId | number | 是 | 所属数据集 ID |
-| lastConfigId | number | 否 | 初始配置 ID |
+| 字段         | 类型   | 必填 | 说明                    |
+| ------------ | ------ | ---- | ----------------------- |
+| title        | string | 否   | 不传时后端默认 `新对话` |
+| datasetId    | number | 是   | 所属数据集 ID           |
+| lastConfigId | number | 否   | 初始配置 ID             |
 
 ### 10.2 获取对话列表
 
@@ -838,6 +852,7 @@ DELETE /api/v1/chat/conversations/{id}
 - 新增消息保存接口
 
 说明：
+
 - 代码里存在 `SaveMessageRequest` DTO
 - 但当前 `Controller` 中没有对应公开 API
 - 前端若要做完整聊天闭环，后端仍需补接口
@@ -859,16 +874,22 @@ POST /api/v1/datasets
 ```json
 {
   "name": "我的数据集",
-  "description": "用于知识问答"
+  "description": "用于知识问答",
+  "dense_embedding_config_id": 101,
+  "sparse_embedding_config_id": 102
 }
 ```
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| name | string | 是 | 不能为空，最大 128 字符 |
-| description | string | 否 | 最大 512 字符 |
+| 字段                       | 类型   | 必填 | 说明                      |
+| -------------------------- | ------ | ---- | ------------------------- |
+| name                       | string | 是   | 不能为空，最大 128 字符   |
+| description                | string | 否   | 最大 512 字符             |
+| dense_embedding_config_id  | number | 是   | 稠密向量模型的全局配置 ID |
+| sparse_embedding_config_id | number | 是   | 稀疏向量模型的全局配置 ID |
+
+创建后通过 `GET/PUT /api/v1/datasets/{datasetId}/parse-config` 读取和保存完整解析配置。模型绑定只使用五个全局 ID：`dense_embedding_config_id`、`sparse_embedding_config_id`、`enhancement_chat_config_id`、`enhancement_vision_config_id`、`rerank_config_id`，不再提交任何 `config_source`。表格增强或标题层级增强开启时 CHAT 绑定必填；图片增强开启时 VISION 绑定必填；`recall.enable_rerank=true` 时 RERANK 绑定必填。
 
 ### 11.2 获取数据集分页列表
 
@@ -927,10 +948,10 @@ multipart/form-data
 
 **表单字段**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | file | 是 | 上传文件 |
-| parseImmediately | boolean | 否 | 是否立即创建解析任务，默认 `false` |
+| 字段             | 类型    | 必填 | 说明                               |
+| ---------------- | ------- | ---- | ---------------------------------- |
+| file             | file    | 是   | 上传文件                           |
+| parseImmediately | boolean | 否   | 是否立即创建解析任务，默认 `false` |
 
 **curl 示例**
 
@@ -945,9 +966,9 @@ curl -X POST "http://{host}:8080/api/v1/datasets/10001/knowledge-files" \
 
 当前默认配置来自 `application.yml`：
 
-| 配置项 | 默认值 |
-|--------|--------|
-| 最大大小 | `20971520` 字节，即 `20MB` |
+| 配置项   | 默认值                          |
+| -------- | ------------------------------- |
+| 最大大小 | `20971520` 字节，即 `20MB`      |
 | 允许后缀 | `md`, `markdown`, `pdf`, `docx` |
 
 ### 12.2 获取知识文件列表
@@ -960,41 +981,41 @@ GET /api/v1/datasets/{datasetId}/knowledge-files?page=1&pageSize=20
 
 **Query 参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| uploadStatus | string | 否 | 上传状态过滤 |
-| parseNoticeStatus | string | 否 | 解析任务投递状态过滤 |
-| parseStatus | string | 否 | 解析状态过滤 |
-| page | number | 否 | 默认 `1` |
-| pageSize | number | 否 | 默认 `20` |
+| 参数              | 类型   | 必填 | 说明                 |
+| ----------------- | ------ | ---- | -------------------- |
+| uploadStatus      | string | 否   | 上传状态过滤         |
+| parseNoticeStatus | string | 否   | 解析任务投递状态过滤 |
+| parseStatus       | string | 否   | 解析状态过滤         |
+| page              | number | 否   | 默认 `1`             |
+| pageSize          | number | 否   | 默认 `20`            |
 
 **支持的状态值**
 
 `uploadStatus`
 
-| 值 | 说明 |
-|----|------|
-| `UPLOADING` | 上传中 |
+| 值               | 说明     |
+| ---------------- | -------- |
+| `UPLOADING`      | 上传中   |
 | `UPLOAD_SUCCESS` | 上传成功 |
-| `UPLOAD_FAILED` | 上传失败 |
+| `UPLOAD_FAILED`  | 上传失败 |
 
 `parseNoticeStatus`
 
-| 值 | 说明 |
-|----|------|
-| `PARSE_NOTICE_PENDING` | 待投递 |
-| `PARSE_NOTICE_SENT` | 已投递 |
-| `PARSE_NOTICE_FAILED` | 投递失败 |
+| 值                     | 说明     |
+| ---------------------- | -------- |
+| `PARSE_NOTICE_PENDING` | 待投递   |
+| `PARSE_NOTICE_SENT`    | 已投递   |
+| `PARSE_NOTICE_FAILED`  | 投递失败 |
 
 `parseStatus`
 
-| 值 | 说明 |
-|----|------|
+| 值            | 说明   |
+| ------------- | ------ |
 | `NOT_STARTED` | 未开始 |
-| `PENDING` | 已排队 |
-| `PROCESSING` | 解析中 |
-| `SUCCESS` | 成功 |
-| `FAILED` | 失败 |
+| `PENDING`     | 已排队 |
+| `PROCESSING`  | 解析中 |
+| `SUCCESS`     | 成功   |
+| `FAILED`      | 失败   |
 
 ### 12.3 获取知识文件详情
 
@@ -1069,10 +1090,10 @@ POST /api/v1/oss-files/{bizType}
 
 **表单字段**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| file | file | 是 | 上传文件 |
-| bizType | path | 是 | 业务类型 |
+| 字段    | 类型 | 必填 | 说明     |
+| ------- | ---- | ---- | -------- |
+| file    | file | 是   | 上传文件 |
+| bizType | path | 是   | 业务类型 |
 
 **响应示例**
 
@@ -1085,6 +1106,7 @@ POST /api/v1/oss-files/{bizType}
 ```
 
 注意：
+
 - 返回值 `data` 是可预览 URL
 - 不是 object key
 
@@ -1140,10 +1162,10 @@ PATCH /api/v1/admin/users/{id}/status
 
 **状态定义**
 
-| 值 | 说明 |
-|----|------|
-| 1 | 启用 |
-| 0 | 禁用 |
+| 值  | 说明 |
+| --- | ---- |
+| 1   | 启用 |
+| 0   | 禁用 |
 
 ### 14.3 修改用户角色
 
@@ -1163,10 +1185,10 @@ PATCH /api/v1/admin/users/{id}/role
 
 **角色值**
 
-| 值 | 说明 |
-|----|------|
-| `ADMIN` | 管理员 |
-| `USER` | 普通用户 |
+| 值      | 说明     |
+| ------- | -------- |
+| `ADMIN` | 管理员   |
+| `USER`  | 普通用户 |
 
 ### 14.4 获取厂商列表
 
@@ -1234,9 +1256,9 @@ PATCH /api/v1/admin/providers/{id}/active?isActive=false
 
 **Query 参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| isActive | boolean | 是 | 是否启用 |
+| 参数     | 类型    | 必填 | 说明     |
+| -------- | ------- | ---- | -------- |
+| isActive | boolean | 是   | 是否启用 |
 
 ### 14.9 获取知识文件上传配置
 
@@ -1265,10 +1287,10 @@ PATCH /api/v1/admin/knowledge-file-config
 
 **参数说明**
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| maxSizeBytes | number | 是 | 必须大于 0 |
-| allowedSuffixes | string[] | 是 | 至少一个后缀 |
+| 字段            | 类型     | 必填 | 说明         |
+| --------------- | -------- | ---- | ------------ |
+| maxSizeBytes    | number   | 是   | 必须大于 0   |
+| allowedSuffixes | string[] | 是   | 至少一个后缀 |
 
 ---
 
@@ -1311,9 +1333,10 @@ Authorization: Bearer {serviceToken}
 ### 16.3 LLM 配置页
 
 - 列表：`GET /api/v1/llm/configs`
-- 新建：`POST /api/v1/llm/configs`
-- 编辑：`PATCH /api/v1/llm/configs/{id}`
-- 删除：`DELETE /api/v1/llm/configs/{id}`
+- 添加或刷新厂商：`POST /api/v1/llm/configs/setup-provider`
+- 启停：`PATCH /api/v1/llm/configs/{configId}/active`
+- 删除：`DELETE /api/v1/llm/configs/{configId}`
+- 默认关系：`GET /api/v1/llm/defaults`、`PUT/DELETE /api/v1/llm/defaults/{capability}`
 
 ### 16.4 用量统计页
 
@@ -1344,6 +1367,7 @@ Authorization: Bearer {serviceToken}
 - 删除对话：`DELETE /api/v1/chat/conversations/{id}`
 
 说明：
+
 - 目前还不能直接完成“发消息并生成 AI 回复”的完整闭环
 - 因为后端未提供公开发送消息接口
 
@@ -1457,7 +1481,7 @@ export interface PageResult<T> {
 
 export interface AuthResult {
   accessToken: string;
-  tokenType: "Bearer";
+  tokenType: 'Bearer';
   expiresIn: number;
   userId: number;
 }
@@ -1469,26 +1493,15 @@ export interface UserProfileDTO {
   email: string | null;
   phone: string | null;
   avatarUrl: string | null;
-  role: "ADMIN" | "USER";
+  role: 'ADMIN' | 'USER';
   status: 0 | 1;
 }
 
-export type KnowledgeUploadStatus =
-  | "UPLOADING"
-  | "UPLOAD_SUCCESS"
-  | "UPLOAD_FAILED";
+export type KnowledgeUploadStatus = 'UPLOADING' | 'UPLOAD_SUCCESS' | 'UPLOAD_FAILED';
 
-export type KnowledgeParseNoticeStatus =
-  | "PARSE_NOTICE_PENDING"
-  | "PARSE_NOTICE_SENT"
-  | "PARSE_NOTICE_FAILED";
+export type KnowledgeParseNoticeStatus = 'PARSE_NOTICE_PENDING' | 'PARSE_NOTICE_SENT' | 'PARSE_NOTICE_FAILED';
 
-export type KnowledgeParseStatus =
-  | "NOT_STARTED"
-  | "PENDING"
-  | "PROCESSING"
-  | "SUCCESS"
-  | "FAILED";
+export type KnowledgeParseStatus = 'NOT_STARTED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 ```
 
 ---

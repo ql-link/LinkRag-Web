@@ -28,28 +28,29 @@ import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
   addAdminProviderModel,
+  createAdminLLMConfig,
   createAdminProvider,
-  createAdminSystemPreset,
+  deleteAdminLLMConfig,
   deleteAdminProvider,
   deleteAdminProviderModel,
-  deleteAdminSystemPreset,
+  getLLMCapabilityDefaults,
   listAdminModelSyncCandidates,
   listAdminProviderModels,
   listAdminProviders,
-  listAdminSystemPresets,
+  listAdminLLMConfigs,
   publishAdminModelSyncCandidate,
   reviewAdminModelSyncCandidate,
   syncAdminProviderModels,
   toggleAdminProvider,
   toggleAdminProviderModel,
-  toggleAdminSystemPreset,
+  setAdminLLMConfigActive,
   updateAdminProvider,
   updateAdminProviderModel,
-  updateAdminSystemPreset,
+  updateAdminLLMConfig,
   uploadAdminProviderIcon,
 } from '@/services/llm';
 import type {
-  CreatePresetRequest,
+  ExecutableLLMConfigDTO,
   CreateProviderRequest,
   LLMCapability,
   LLMProtocol,
@@ -57,12 +58,12 @@ import type {
   ModelSyncPublishRequest,
   ModelSyncReviewStatus,
   ProviderModel,
-  SystemPreset,
   SystemProvider,
-  UpdatePresetRequest,
   UpdateProviderModelRequest,
   UpdateProviderRequest,
 } from '@/types/api';
+
+type PlatformConfigView = ExecutableLLMConfigDTO & { isDefault: boolean };
 
 const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
   { value: 'CHAT', label: '对话' },
@@ -73,7 +74,7 @@ const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
   { value: 'ASR', label: '语音识别' },
 ];
 
-const PROTOCOLS: LLMProtocol[] = ['openai', 'anthropic', 'google', 'jina', 'dashscope'];
+const PROTOCOLS: LLMProtocol[] = ['openai', 'anthropic', 'google', 'jina', 'dashscope', 'bge_m3', 'doubao_vision'];
 const LINKRAG_PROVIDER_TYPE = 'linkrag';
 type ModelStatusFilter = 'all' | 'active' | 'inactive';
 type CatalogMode = 'models' | 'candidates';
@@ -154,12 +155,12 @@ function candidateProtocol(candidate: ModelSyncCandidate) {
   return candidate.inferredProtocol ?? candidate.protocol;
 }
 
-function presetMaskedKey(preset: SystemPreset | null | undefined) {
-  return preset?.apiKeyMasked || preset?.apiKey || '';
+function presetMaskedKey(preset: PlatformConfigView | null | undefined) {
+  return preset?.apiKeyMasked || '';
 }
 
 function findPresetForModel(
-  presets: SystemPreset[],
+  presets: PlatformConfigView[],
   model: Pick<ProviderModel, 'providerId' | 'modelName' | 'capability'>,
 ) {
   return presets.find(
@@ -197,7 +198,7 @@ export default function AdminModelsPage() {
   const { addToast } = useToast();
   const [providers, setProviders] = useState<SystemProvider[]>([]);
   const [models, setModels] = useState<ProviderModel[]>([]);
-  const [presets, setPresets] = useState<SystemPreset[]>([]);
+  const [presets, setPresets] = useState<PlatformConfigView[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -216,7 +217,7 @@ export default function AdminModelsPage() {
   const [editingModel, setEditingModel] = useState<ProviderModel | null>(null);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [linkRagPresetDialogOpen, setLinkRagPresetDialogOpen] = useState(false);
-  const [editingLinkRagPreset, setEditingLinkRagPreset] = useState<SystemPreset | null>(null);
+  const [editingLinkRagPreset, setEditingLinkRagPreset] = useState<PlatformConfigView | null>(null);
   const [linkRagPresetForm, setLinkRagPresetForm] = useState(linkRagPresetInitialState);
   const [linkRagSourceModels, setLinkRagSourceModels] = useState<ProviderModel[]>([]);
   const [linkRagSourceModelsLoading, setLinkRagSourceModelsLoading] = useState(false);
@@ -234,14 +235,23 @@ export default function AdminModelsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [providerResult, modelResult, presetResult] = await Promise.all([
+      const [providerResult, modelResult, configResult, defaultResult] = await Promise.all([
         listAdminProviders(1, 500),
         listAdminProviderModels({ page: 1, size: 500 }),
-        listAdminSystemPresets(),
+        listAdminLLMConfigs(),
+        getLLMCapabilityDefaults(),
       ]);
       setProviders(providerResult.items || []);
       setModels(modelResult.items || []);
-      setPresets(presetResult || []);
+      const systemDefaultByCapability = new Map(
+        defaultResult.map((selection) => [selection.capability, selection.systemDefaultConfigId]),
+      );
+      setPresets(
+        (configResult || []).map((config) => ({
+          ...config,
+          isDefault: systemDefaultByCapability.get(config.capability as LLMCapability) === config.configId,
+        })),
+      );
     } catch (error) {
       console.error(error);
       addToast('error', '模型管理数据加载失败');
@@ -324,9 +334,7 @@ export default function AdminModelsPage() {
   const filteredProviders = useMemo(() => {
     return providers.filter((provider) => {
       const providerModels = models.filter((model) => model.providerId === provider.id);
-      const providerPresets = isLinkRagProvider(provider)
-        ? presets.filter((preset) => preset.providerId === provider.id)
-        : [];
+      const providerPresets = isLinkRagProvider(provider) ? presets : [];
       return matchesKeyword(
         [
           provider.providerName,
@@ -400,7 +408,6 @@ export default function AdminModelsPage() {
   const selectedPresets = useMemo(() => {
     if (!selectedProvider || !isLinkRagProvider(selectedProvider)) return [];
     return presets
-      .filter((preset) => preset.providerId === selectedProvider.id)
       .filter((preset) => {
         if (modelFilters.capability && normalizeCapability(preset.capability) !== modelFilters.capability) {
           return false;
@@ -531,7 +538,22 @@ export default function AdminModelsPage() {
     }
 
     try {
-      if (editingModel) {
+      if (linkRagModel) {
+        const request = {
+          catalogMutation: {
+            providerId: Number(modelForm.providerId),
+            modelName: modelForm.modelName.trim(),
+            ...(modelForm.displayName.trim() ? { displayName: modelForm.displayName.trim() } : {}),
+            capability: modelForm.capability,
+            protocol: modelForm.protocol,
+            apiBaseUrl: modelForm.apiBaseUrl.trim(),
+          },
+          ...(modelForm.apiKey.trim() ? { apiKey: modelForm.apiKey.trim() } : {}),
+          setAsDefault: modelForm.isDefault,
+        };
+        if (existingPreset) await updateAdminLLMConfig(existingPreset.configId, request);
+        else await createAdminLLMConfig(request);
+      } else if (editingModel) {
         const payload: UpdateProviderModelRequest = {
           modelName: modelForm.modelName.trim(),
           displayName: modelForm.displayName.trim(),
@@ -541,44 +563,14 @@ export default function AdminModelsPage() {
           isActive: modelForm.isActive,
         };
         await updateAdminProviderModel(editingModel.id, payload);
-        if (linkRagModel) {
-          if (existingPreset) {
-            const presetPayload: UpdatePresetRequest = {
-              providerId: Number(modelForm.providerId),
-              modelName: modelForm.modelName.trim(),
-              capability: modelForm.capability,
-              isActive: modelForm.isActive,
-              isDefault: modelForm.isDefault,
-              ...(modelForm.apiKey.trim() ? { apiKey: modelForm.apiKey.trim() } : {}),
-            };
-            await updateAdminSystemPreset(existingPreset.id, presetPayload);
-          } else {
-            await createAdminSystemPreset({
-              providerId: Number(modelForm.providerId),
-              modelName: modelForm.modelName.trim(),
-              capability: modelForm.capability,
-              apiKey: modelForm.apiKey.trim(),
-              isDefault: modelForm.isDefault,
-            });
-          }
-        }
       } else {
-        const createdModel = await addAdminProviderModel(Number(modelForm.providerId), {
+        await addAdminProviderModel(Number(modelForm.providerId), {
           modelName: modelForm.modelName.trim(),
           ...(modelForm.displayName.trim() ? { displayName: modelForm.displayName.trim() } : {}),
           capability: modelForm.capability,
           protocol: modelForm.protocol,
           apiBaseUrl: modelForm.apiBaseUrl.trim(),
         });
-        if (linkRagModel) {
-          await createAdminSystemPreset({
-            providerId: createdModel.providerId,
-            modelName: createdModel.modelName,
-            capability: createdModel.capability as LLMCapability,
-            apiKey: modelForm.apiKey.trim(),
-            isDefault: modelForm.isDefault,
-          });
-        }
       }
       setModelDialogOpen(false);
       addToast('success', editingModel ? '模型能力已更新' : '模型能力已新增');
@@ -610,7 +602,7 @@ export default function AdminModelsPage() {
     void loadLinkRagSourceModels();
   }
 
-  function openEditLinkRagPreset(preset: SystemPreset) {
+  function openEditLinkRagPreset(preset: PlatformConfigView) {
     setEditingLinkRagPreset(preset);
     setLinkRagPresetForm({
       ...linkRagPresetInitialState,
@@ -632,7 +624,7 @@ export default function AdminModelsPage() {
     const apiKey = linkRagPresetForm.apiKey.trim();
 
     if (!editingLinkRagPreset && !apiKey) {
-      addToast('error', 'LinkRag 系统预设需要填写平台 API Key');
+      addToast('error', 'LinkRag 平台配置需要填写平台 API Key');
       return;
     }
     if (!editingLinkRagPreset && linkRagPresetForm.mode === 'source' && !linkRagPresetForm.sourceProviderModelId) {
@@ -642,35 +634,41 @@ export default function AdminModelsPage() {
 
     try {
       if (editingLinkRagPreset) {
-        const payload: UpdatePresetRequest = {
-          modelName: linkRagPresetForm.modelName.trim(),
-          displayName: linkRagPresetForm.displayName.trim(),
-          capability: linkRagPresetForm.capability,
-          protocol: linkRagPresetForm.protocol,
-          apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
-          isActive: linkRagPresetForm.isActive,
-          isDefault: linkRagPresetForm.isDefault,
+        const payload = {
+          catalogMutation: {
+            providerId: editingLinkRagPreset.providerId,
+            modelName: linkRagPresetForm.modelName.trim(),
+            ...(linkRagPresetForm.displayName.trim() ? { displayName: linkRagPresetForm.displayName.trim() } : {}),
+            capability: linkRagPresetForm.capability,
+            protocol: linkRagPresetForm.protocol,
+            apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
+          },
           ...(apiKey ? { apiKey } : {}),
+          setAsDefault: linkRagPresetForm.isDefault,
         };
-        await updateAdminSystemPreset(editingLinkRagPreset.id, payload);
+        await updateAdminLLMConfig(editingLinkRagPreset.configId, payload);
       } else if (linkRagPresetForm.mode === 'source') {
-        const payload: CreatePresetRequest = {
+        const payload = {
           sourceProviderModelId: Number(linkRagPresetForm.sourceProviderModelId),
           apiKey,
-          isDefault: linkRagPresetForm.isDefault,
+          setAsDefault: linkRagPresetForm.isDefault,
         };
-        await createAdminSystemPreset(payload);
+        await createAdminLLMConfig(payload);
       } else {
-        const payload: CreatePresetRequest = {
-          modelName: linkRagPresetForm.modelName.trim(),
-          displayName: linkRagPresetForm.displayName.trim(),
-          capability: linkRagPresetForm.capability,
-          protocol: linkRagPresetForm.protocol,
-          apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
+        if (!selectedProvider) throw new Error('缺少平台厂商');
+        const payload = {
+          catalogMutation: {
+            providerId: selectedProvider.id,
+            modelName: linkRagPresetForm.modelName.trim(),
+            ...(linkRagPresetForm.displayName.trim() ? { displayName: linkRagPresetForm.displayName.trim() } : {}),
+            capability: linkRagPresetForm.capability,
+            protocol: linkRagPresetForm.protocol,
+            apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
+          },
           apiKey,
-          isDefault: linkRagPresetForm.isDefault,
+          setAsDefault: linkRagPresetForm.isDefault,
         };
-        await createAdminSystemPreset(payload);
+        await createAdminLLMConfig(payload);
       }
 
       setLinkRagPresetDialogOpen(false);
@@ -715,23 +713,25 @@ export default function AdminModelsPage() {
     }
   }
 
-  async function handleToggleLinkRagPresetActive(preset: SystemPreset) {
+  async function handleToggleLinkRagPresetActive(preset: PlatformConfigView) {
     const nextActive = !preset.isActive;
-    setTogglingPresetIds((current) => new Set(current).add(preset.id));
-    setPresets((current) => current.map((item) => (item.id === preset.id ? { ...item, isActive: nextActive } : item)));
+    setTogglingPresetIds((current) => new Set(current).add(preset.configId));
+    setPresets((current) =>
+      current.map((item) => (item.configId === preset.configId ? { ...item, isActive: nextActive } : item)),
+    );
     try {
-      await toggleAdminSystemPreset(preset.id, nextActive);
+      await setAdminLLMConfigActive(preset.configId, nextActive);
       addToast('success', nextActive ? 'LinkRag 模型已启用' : 'LinkRag 模型已停用');
     } catch (error) {
       console.error(error);
       setPresets((current) =>
-        current.map((item) => (item.id === preset.id ? { ...item, isActive: preset.isActive } : item)),
+        current.map((item) => (item.configId === preset.configId ? { ...item, isActive: preset.isActive } : item)),
       );
       addToast('error', 'LinkRag 模型状态更新失败');
     } finally {
       setTogglingPresetIds((current) => {
         const next = new Set(current);
-        next.delete(preset.id);
+        next.delete(preset.configId);
         return next;
       });
     }
@@ -911,7 +911,7 @@ export default function AdminModelsPage() {
                       onDeleteLinkRagPreset={(preset) =>
                         window.confirm(`确定删除 LinkRag 模型「${getModelDisplayName(preset)}」吗？`)
                           ? void withRefresh(
-                              () => deleteAdminSystemPreset(preset.id),
+                              () => deleteAdminLLMConfig(preset.configId),
                               'LinkRag 模型已删除',
                               'LinkRag 模型删除失败',
                             )
@@ -927,7 +927,7 @@ export default function AdminModelsPage() {
                               async () => {
                                 const preset = findPresetForModel(presets, model);
                                 if (preset) {
-                                  await deleteAdminSystemPreset(preset.id);
+                                  await deleteAdminLLMConfig(preset.configId);
                                 }
                                 await deleteAdminProviderModel(model.id);
                               },
@@ -1174,7 +1174,7 @@ function ProviderWorkspace({
   provider: SystemProvider;
   models: ProviderModel[];
   allProviderModels: ProviderModel[];
-  presets: SystemPreset[];
+  presets: PlatformConfigView[];
   candidates: ModelSyncCandidate[];
   candidateTotal: number;
   catalogMode: CatalogMode;
@@ -1191,14 +1191,14 @@ function ProviderWorkspace({
   onCreateModel: () => void;
   onEditModel: (model: ProviderModel) => void;
   onCreateLinkRagPreset: () => void;
-  onEditLinkRagPreset: (preset: SystemPreset) => void;
+  onEditLinkRagPreset: (preset: PlatformConfigView) => void;
   onRefreshExternal: (provider: SystemProvider) => void;
   onOpenPublishCandidate: (candidate: ModelSyncCandidate) => void;
   onReviewCandidate: (candidate: ModelSyncCandidate, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
   onViewCandidateMetadata: (candidate: ModelSyncCandidate) => void;
   togglingPresetIds: Set<number>;
-  onToggleLinkRagPreset: (preset: SystemPreset) => void;
-  onDeleteLinkRagPreset: (preset: SystemPreset) => void;
+  onToggleLinkRagPreset: (preset: PlatformConfigView) => void;
+  onDeleteLinkRagPreset: (preset: PlatformConfigView) => void;
   togglingModelIds: Set<number>;
   onToggleModel: (model: ProviderModel) => void;
   onDeleteModel: (model: ProviderModel) => void;
@@ -1279,7 +1279,7 @@ function ProviderWorkspace({
           title={isLinkRag ? 'LinkRag 系统兜底模型' : catalogMode === 'candidates' ? '外部模型候选' : '模型能力目录'}
           meta={
             isLinkRag
-              ? `${presets.length} 条系统预设`
+              ? `${presets.length} 条平台配置`
               : catalogMode === 'candidates'
                 ? `${candidates.length}/${candidateTotal} 条${formatModelSyncStatus(candidateStatusFilter)} · MODELS_DEV`
                 : `${models.length}/${allProviderModels.length} 条`
@@ -1377,7 +1377,7 @@ function ProviderWorkspace({
           </AnimatePresence>
         </div>
         {isLinkRag ? (
-          <SystemPresetList
+          <PlatformConfigList
             darkMode={darkMode}
             presets={presets}
             togglingIds={togglingPresetIds}
@@ -1476,7 +1476,7 @@ function FilterChip({
   );
 }
 
-function SystemPresetList({
+function PlatformConfigList({
   darkMode,
   presets,
   togglingIds,
@@ -1485,11 +1485,11 @@ function SystemPresetList({
   onDelete,
 }: {
   darkMode: boolean;
-  presets: SystemPreset[];
+  presets: PlatformConfigView[];
   togglingIds: Set<number>;
-  onEdit: (preset: SystemPreset) => void;
-  onToggle: (preset: SystemPreset) => void;
-  onDelete: (preset: SystemPreset) => void;
+  onEdit: (preset: PlatformConfigView) => void;
+  onToggle: (preset: PlatformConfigView) => void;
+  onDelete: (preset: PlatformConfigView) => void;
 }) {
   if (presets.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无 LinkRag 系统模型" />;
 
@@ -1497,7 +1497,7 @@ function SystemPresetList({
     <div className="max-h-[calc(100vh-410px)] min-h-0 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
       {presets.map((preset) => (
         <article
-          key={preset.id}
+          key={preset.configId}
           className={cn(
             'flex flex-col gap-3 rounded-md px-3 py-3 xl:flex-row xl:items-start xl:justify-between',
             darkMode ? 'hover:bg-white/[0.035]' : 'hover:bg-ink/[0.022]',
@@ -1538,7 +1538,7 @@ function SystemPresetList({
             </ActionButton>
             <ToggleSwitch
               checked={preset.isActive}
-              disabled={togglingIds.has(preset.id)}
+              disabled={togglingIds.has(preset.configId)}
               onChange={() => onToggle(preset)}
             />
             <ActionButton danger onClick={() => onDelete(preset)}>
@@ -1564,7 +1564,7 @@ function ModelCapabilityList({
 }: {
   darkMode: boolean;
   models: ProviderModel[];
-  presets: SystemPreset[];
+  presets: PlatformConfigView[];
   togglingIds: Set<number>;
   onEdit: (model: ProviderModel) => void;
   showLinkRagConfig: boolean;
@@ -2070,20 +2070,24 @@ function FormField({
 function FormChoice({
   darkMode,
   active,
+  disabled = false,
   children,
   onClick,
 }: {
   darkMode: boolean;
   active: boolean;
+  disabled?: boolean;
   children: ReactNode;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         'inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-xs font-bold transition-[background-color,border-color,color,transform] duration-200 ease-out active:scale-[0.98]',
+        disabled && 'cursor-not-allowed opacity-60 active:scale-100',
         active
           ? darkMode
             ? 'border-white/[0.16] bg-white/[0.09] text-[#f2f2f2]'
@@ -2710,7 +2714,7 @@ function LinkRagPresetDialog({
   providers: SystemProvider[];
   sourceModels: ProviderModel[];
   sourceModelsLoading: boolean;
-  editingPreset: SystemPreset | null;
+  editingPreset: PlatformConfigView | null;
   form: typeof linkRagPresetInitialState;
   setForm: (form: typeof linkRagPresetInitialState) => void;
   onClose: () => void;
@@ -2788,7 +2792,7 @@ function LinkRagPresetDialog({
                 从正式模型目录复制模型名、展示名、能力、协议和调用入口；这里只需要选择来源模型并填写平台 Key。
               </p>
               <div className="grid gap-3 md:grid-cols-2">
-                <FormField darkMode={darkMode} label="来源厂商" hint="用于缩小下方正式模型目录范围，不会写入系统预设。">
+                <FormField darkMode={darkMode} label="来源厂商" hint="用于缩小下方正式模型目录范围，不会改变配置身份。">
                   <FormSelect
                     darkMode={darkMode}
                     value={form.sourceProviderId}
@@ -2886,7 +2890,7 @@ function LinkRagPresetDialog({
           ) : (
             <div className="space-y-4">
               <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-                手动填写会直接创建 LinkRag 系统预设；这些值会作为后端实际调用模型时使用的运行事实。
+                手动填写会原子创建 LinkRag 平台配置；这些值会作为后端实际调用模型时使用的运行事实。
               </p>
               <FormField darkMode={darkMode} label="真实模型名" hint="传给模型服务的 modelName，例如 deepseek-chat。">
                 <input
@@ -2908,7 +2912,11 @@ function LinkRagPresetDialog({
               <FormField
                 darkMode={darkMode}
                 label="能力维度"
-                hint="决定该预设服务哪类能力；同一模型多个能力需分别维护。"
+                hint={
+                  editingPreset
+                    ? '已有配置的能力不可原地修改；如需其它能力请新增配置。'
+                    : '决定该配置服务哪类能力；同一模型多个能力需分别维护。'
+                }
               >
                 <div className="flex flex-wrap gap-1.5">
                   {CAPABILITIES.map((capability) => (
@@ -2916,6 +2924,7 @@ function LinkRagPresetDialog({
                       key={capability.value}
                       darkMode={darkMode}
                       active={form.capability === capability.value}
+                      disabled={Boolean(editingPreset)}
                       onClick={() => setForm({ ...form, capability: capability.value })}
                     >
                       {capability.label}
@@ -2940,7 +2949,7 @@ function LinkRagPresetDialog({
               <FormField
                 darkMode={darkMode}
                 label="调用入口"
-                hint="模型服务的完整调用端点，会随系统预设保存并用于后端请求。"
+                hint="模型服务的完整调用端点，会随平台配置保存并用于后端请求。"
               >
                 <input
                   required
@@ -2960,7 +2969,7 @@ function LinkRagPresetDialog({
               hint={
                 editingPreset
                   ? '不修改 Key 可留空；重新输入会覆盖当前 Key。'
-                  : '用户侧不会填写该 Key，由系统预设加密保存。'
+                  : '用户侧不会填写该 Key，由平台配置加密保存。'
               }
             >
               <input
@@ -2972,16 +2981,7 @@ function LinkRagPresetDialog({
                 className={inputClassName(darkMode)}
               />
             </FormField>
-            {editingPreset ? (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                />
-                启用
-              </label>
-            ) : null}
+            {editingPreset ? <p className="text-xs text-muted">启停状态请在配置列表中单独操作。</p> : null}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -3011,7 +3011,7 @@ function ModelDialog({
 }: {
   darkMode: boolean;
   providers: SystemProvider[];
-  presets: SystemPreset[];
+  presets: PlatformConfigView[];
   editing: boolean;
   editingModel: ProviderModel | null;
   form: typeof modelInitialState;
@@ -3068,13 +3068,22 @@ function ModelDialog({
               className={inputClassName(darkMode)}
             />
           </FormField>
-          <FormField darkMode={darkMode} label="能力维度" hint="同一个模型支持多个能力时，需要分别新增多条配置。">
+          <FormField
+            darkMode={darkMode}
+            label="能力维度"
+            hint={
+              currentPreset
+                ? '已有平台配置的能力不可原地修改；如需其它能力请新增配置。'
+                : '同一个模型支持多个能力时，需要分别新增多条配置。'
+            }
+          >
             <div className="flex flex-wrap gap-1.5">
               {CAPABILITIES.map((capability) => (
                 <FormChoice
                   key={capability.value}
                   darkMode={darkMode}
                   active={form.capability === capability.value}
+                  disabled={Boolean(currentPreset)}
                   onClick={() => setForm({ ...form, capability: capability.value })}
                 >
                   {capability.label}
@@ -3144,7 +3153,7 @@ function ModelDialog({
               </label>
             </div>
           ) : null}
-          {editing ? (
+          {editing && !linkRagModel ? (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -3153,9 +3162,9 @@ function ModelDialog({
               />
               上架
             </label>
-          ) : (
+          ) : !editing ? (
             <p className={cn('text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>新增后默认上架。</p>
-          )}
+          ) : null}
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />
       </form>
