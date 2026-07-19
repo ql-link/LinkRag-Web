@@ -1,13 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { normalizeRecallStreamUrl } from '@/lib/public-url';
 import { RAG_QUERY_MAX_LENGTH_MESSAGE, isRagQueryTooLong, normalizeRagQuery } from '@/lib/rag-query';
-import type {
-  ModelConfigSource,
-  RecallSessionDTO,
-  RecallDonePayload,
-  RecallErrorPayload,
-  RecallStreamEvent,
-} from '@/types/api';
+import type { RecallSessionDTO, RecallDonePayload, RecallErrorPayload, RecallStreamEvent } from '@/types/api';
 
 // LINK-105：前端直连 Python 召回 SSE。
 //
@@ -212,11 +206,9 @@ export interface RecallOptions {
   datasetIds: number[];
   /**
    * 必填：本次生成所用 CHAT 模型配置 id（用户在对话页选中的模型）。
-   * Python 按 (config_source, config_id) 精确定位 USER 配置或 SYSTEM 预设。
+   * Python 按全局 config_id 精确定位可执行配置。
    */
   configId: number;
-  /** 本次生成所用 CHAT 模型来源：USER -> llm_user_config.id，SYSTEM -> llm_system_preset.id。 */
-  configSource?: ModelConfigSource;
   /**
    * 必填（LINK-181）：本轮问答归属的对话 id，来自 Java「创建对话」接口（POST /api/v1/chat/conversations 的 data.id）。
    * 作为对话轮次落库的挂载锚点；Python /rag/stream 请求体 extra="forbid" 且该字段必填，缺失/拼错会直接 422。同一对话多轮复用同一个 id。
@@ -260,7 +252,7 @@ async function streamOnce(
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
-  // 请求体只允许 query + config_id + config_source + conversation_id + turn_id + dataset_ids——任何未知字段 Python 直接 422。
+  // 请求体只允许 query + config_id + conversation_id + turn_id + dataset_ids——任何未知字段 Python 直接 422。
   //
   // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
   // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
@@ -279,7 +271,6 @@ async function streamOnce(
   const body: {
     query: string;
     config_id: number;
-    config_source: ModelConfigSource;
     conversation_id: number;
     turn_id: string;
     dataset_ids: number[];
@@ -287,7 +278,6 @@ async function streamOnce(
   } = {
     query: options.query,
     config_id: options.configId,
-    config_source: options.configSource ?? 'USER',
     conversation_id: options.conversationId,
     turn_id: options.turnId ?? '',
     dataset_ids: options.datasetIds,
@@ -447,6 +437,9 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   if (!options.datasetIds || options.datasetIds.length === 0) {
     // Java 端 @NotEmpty 必拒，提前本地拦截避免一次必败的 400 请求。
     throw new RecallError('RECALL_INVALID_REQUEST', 'datasetIds 不能为空');
+  }
+  if (!Number.isInteger(options.configId) || options.configId <= 0) {
+    throw new RecallError('RECALL_INVALID_REQUEST', 'configId 不能为空');
   }
   if (!Number.isInteger(options.conversationId) || options.conversationId <= 0) {
     // LINK-181：Python /rag/stream conversation_id 必填，缺失/非法会被 422 拒绝。

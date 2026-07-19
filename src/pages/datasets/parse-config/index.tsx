@@ -2,22 +2,21 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties, type Cha
 import { useBeforeUnload, useNavigate, useParams } from 'react-router';
 import { AlertCircle, Box, BrainCircuit, Check, Loader2 } from 'lucide-react';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
+import chatIconUrl from '@/assets/icons/color/chat.svg';
+import rerankIconUrl from '@/assets/icons/color/rerank.svg';
 import sparseIconUrl from '@/assets/icons/color/sparse.svg';
+import visionIconUrl from '@/assets/icons/color/vision.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { EmbeddingModelSelect, type EmbeddingModelBindingValue } from '@/components/EmbeddingModelSelect';
+import { LLMConfigSelect } from '@/components/LLMConfigSelect';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
-import {
-  createProviderModelDisplayNameMap,
-  getModelDisplayName,
-  getProviderModelDisplayName,
-} from '@/lib/model-display';
+import { getModelDisplayName } from '@/lib/model-display';
 import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
-import { getDefaultLLMConfig, getLLMConfigs, getLLMProviders } from '@/services/llm';
-import type { DatasetDTO, LLMConfigDTO, ProviderModelDTO, RecallSource } from '@/types/api';
+import { getLLMConfigs } from '@/services/llm';
+import type { DatasetDTO, ExecutableLLMConfigDTO, RecallSource } from '@/types/api';
 import {
   DEFAULT_VALUES,
   GROUPS,
@@ -25,6 +24,7 @@ import {
   isRecallSource,
   normalizeConfig,
   toRequest,
+  validateModelBindings,
   validateValues,
   type EditableParamKey,
   type ParamGroup,
@@ -50,24 +50,12 @@ const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
 
 type EmbeddingBindingKey = 'sparse' | 'dense';
 
-function createEmbeddingBindingValue(
-  id: number | null,
-  source: EmbeddingModelBindingValue['source'],
-): EmbeddingModelBindingValue | null {
-  return id === null ? null : { id, source };
-}
-
-function createDefaultModelInfo(config: LLMConfigDTO, providers: ProviderModelDTO[]): DefaultModelInfo {
-  const provider = providers.find((item) => item.providerType === config.providerType);
-  const providerDisplayNames = createProviderModelDisplayNameMap(providers);
+function createDefaultModelInfo(config: ExecutableLLMConfigDTO): DefaultModelInfo {
   return {
     providerType: config.providerType,
-    providerName: provider?.providerName || config.providerType,
+    providerName: config.providerName || config.providerType,
     modelName: config.modelName,
-    displayName:
-      config.displayName?.trim() ||
-      getProviderModelDisplayName(providerDisplayNames, config.providerType, config.modelName) ||
-      config.displayName,
+    displayName: config.displayName,
   };
 }
 
@@ -99,9 +87,7 @@ export default function DatasetParseConfigPage() {
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
   const [values, setValues] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [initial, setInitial] = useState<ParseConfigValues>(DEFAULT_VALUES);
-  const [defaultModels, setDefaultModels] = useState<DefaultModels>({ chat: null, vision: null });
-  const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
-  const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [modelConfigs, setModelConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
   const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,21 +96,31 @@ export default function DatasetParseConfigPage() {
   const datasetId = Number(id);
   const allParams = useMemo(() => GROUPS.flatMap((group) => group.params), []);
   const errors = useMemo(() => validateValues(values, allParams), [allParams, values]);
-  const bindingErrors = useMemo(
-    () => ({
-      ...(values.sparse_embedding_config_id ? {} : { sparse_embedding_config_id: '请选择稀疏向量模型' }),
-      ...(values.dense_embedding_config_id ? {} : { dense_embedding_config_id: '请选择稠密向量模型' }),
-    }),
-    [values.dense_embedding_config_id, values.sparse_embedding_config_id],
-  );
+  const bindingErrors = useMemo(() => validateModelBindings(values), [values]);
   const errorCount = Object.keys(errors).length + Object.keys(bindingErrors).length;
   const dirty = getComparable(values) !== getComparable(initial);
   const saveDisabled = !dirty || errorCount > 0 || saving;
   const embeddingBindingChanged =
     values.sparse_embedding_config_id !== initial.sparse_embedding_config_id ||
-    values.sparse_embedding_config_source !== initial.sparse_embedding_config_source ||
-    values.dense_embedding_config_id !== initial.dense_embedding_config_id ||
-    values.dense_embedding_config_source !== initial.dense_embedding_config_source;
+    values.dense_embedding_config_id !== initial.dense_embedding_config_id;
+  const configsByCapability = useMemo(
+    () => ({
+      sparse: modelConfigs.filter((config) => config.capability === 'SPARSE_EMBEDDING'),
+      dense: modelConfigs.filter((config) => config.capability === 'EMBEDDING'),
+      chat: modelConfigs.filter((config) => config.capability === 'CHAT'),
+      vision: modelConfigs.filter((config) => config.capability === 'VISION'),
+      rerank: modelConfigs.filter((config) => config.capability === 'RERANK'),
+    }),
+    [modelConfigs],
+  );
+  const selectedModels = useMemo<DefaultModels>(() => {
+    const chat = modelConfigs.find((config) => config.configId === values.enhancement_chat_config_id);
+    const vision = modelConfigs.find((config) => config.configId === values.enhancement_vision_config_id);
+    return {
+      chat: chat ? createDefaultModelInfo(chat) : null,
+      vision: vision ? createDefaultModelInfo(vision) : null,
+    };
+  }, [modelConfigs, values.enhancement_chat_config_id, values.enhancement_vision_config_id]);
   const parseConfigNavItems = useMemo(() => {
     const isParamChanged = (param: ParamSpec) => {
       if (!isEditableKey(param.key)) return false;
@@ -221,16 +217,10 @@ export default function DatasetParseConfigPage() {
       setErrorMessage('');
 
       try {
-        const [datasetResult, configResult, chatResult, visionResult, providersResult] = await Promise.allSettled([
+        const [datasetResult, configResult, configsResult] = await Promise.allSettled([
           getDataset(datasetId),
           getDatasetParseConfig(datasetId),
-          getDefaultLLMConfig('CHAT'),
-          getDefaultLLMConfig('VISION'),
-          getLLMProviders(),
-        ]);
-        const [sparseConfigsResult, denseConfigsResult] = await Promise.allSettled([
-          getLLMConfigs({ capability: 'SPARSE_EMBEDDING', isActive: true }),
-          getLLMConfigs({ capability: 'EMBEDDING', isActive: true }),
+          getLLMConfigs({ isActive: true }),
         ]);
 
         if (cancelled) return;
@@ -243,23 +233,11 @@ export default function DatasetParseConfigPage() {
         }
 
         const normalized = normalizeConfig(configResult.value);
-        const providers = providersResult.status === 'fulfilled' ? providersResult.value : [];
         setDataset(datasetResult.value);
         setValues(normalized);
         setInitial(normalized);
-        setDefaultModels({
-          chat: chatResult.status === 'fulfilled' ? createDefaultModelInfo(chatResult.value, providers) : null,
-          vision: visionResult.status === 'fulfilled' ? createDefaultModelInfo(visionResult.value, providers) : null,
-        });
-        setSparseEmbeddingConfigs(
-          sparseConfigsResult.status === 'fulfilled'
-            ? sparseConfigsResult.value.filter((config) => config.capability === 'SPARSE_EMBEDDING' && config.isActive)
-            : [],
-        );
-        setDenseEmbeddingConfigs(
-          denseConfigsResult.status === 'fulfilled'
-            ? denseConfigsResult.value.filter((config) => config.capability === 'EMBEDDING' && config.isActive)
-            : [],
+        setModelConfigs(
+          configsResult.status === 'fulfilled' ? configsResult.value.filter((config) => config.isActive) : [],
         );
       } catch (error) {
         console.error('Failed to load dataset parse config:', error);
@@ -283,16 +261,28 @@ export default function DatasetParseConfigPage() {
   }, [datasetId, id]);
 
   function updateValue(key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    setValues((prev) => {
+      const next = { ...prev, [key]: value } as ParseConfigValues;
+      if (
+        (key === 'enable_table_enhancement' || key === 'enable_heading_hierarchy') &&
+        !next.enable_table_enhancement &&
+        !next.enable_heading_hierarchy
+      ) {
+        next.enhancement_chat_config_id = null;
+      }
+      if (key === 'enable_image_enhancement' && !next.enable_image_enhancement)
+        next.enhancement_vision_config_id = null;
+      if (key === 'enable_rerank' && !next.enable_rerank) next.rerank_config_id = null;
+      return next;
+    });
   }
 
-  function updateEmbeddingBinding(key: EmbeddingBindingKey, value: EmbeddingModelBindingValue | null) {
+  function updateEmbeddingBinding(key: EmbeddingBindingKey, value: number | null) {
     if (key === 'sparse') {
       if (initial.sparse_embedding_config_id !== null) return;
       setValues((prev) => ({
         ...prev,
-        sparse_embedding_config_id: value?.id ?? null,
-        sparse_embedding_config_source: value?.source ?? DEFAULT_VALUES.sparse_embedding_config_source,
+        sparse_embedding_config_id: value,
       }));
       return;
     }
@@ -300,8 +290,7 @@ export default function DatasetParseConfigPage() {
     if (initial.dense_embedding_config_id !== null) return;
     setValues((prev) => ({
       ...prev,
-      dense_embedding_config_id: value?.id ?? null,
-      dense_embedding_config_source: value?.source ?? DEFAULT_VALUES.dense_embedding_config_source,
+      dense_embedding_config_id: value,
     }));
   }
 
@@ -309,11 +298,10 @@ export default function DatasetParseConfigPage() {
     setValues((prev) => ({
       ...DEFAULT_VALUES,
       sparse_embedding_config_id: prev.sparse_embedding_config_id,
-      sparse_embedding_config_source: prev.sparse_embedding_config_source,
       dense_embedding_config_id: prev.dense_embedding_config_id,
-      dense_embedding_config_source: prev.dense_embedding_config_source,
-      enable_table_enhancement: !!defaultModels.chat,
-      enable_image_enhancement: !!defaultModels.vision,
+      enhancement_chat_config_id: prev.enhancement_chat_config_id,
+      enhancement_vision_config_id: prev.enhancement_vision_config_id,
+      rerank_config_id: prev.rerank_config_id,
     }));
   }
 
@@ -435,16 +423,10 @@ export default function DatasetParseConfigPage() {
           </aside>
           <div className="flex min-w-0 flex-col gap-0">
             <EmbeddingBindingSection
-              sparseConfigs={sparseEmbeddingConfigs}
-              denseConfigs={denseEmbeddingConfigs}
-              sparseValue={createEmbeddingBindingValue(
-                values.sparse_embedding_config_id,
-                values.sparse_embedding_config_source,
-              )}
-              denseValue={createEmbeddingBindingValue(
-                values.dense_embedding_config_id,
-                values.dense_embedding_config_source,
-              )}
+              sparseConfigs={configsByCapability.sparse}
+              denseConfigs={configsByCapability.dense}
+              sparseValue={values.sparse_embedding_config_id}
+              denseValue={values.dense_embedding_config_id}
               sparseError={bindingErrors.sparse_embedding_config_id}
               denseError={bindingErrors.dense_embedding_config_id}
               sparseLocked={initial.sparse_embedding_config_id !== null}
@@ -460,9 +442,14 @@ export default function DatasetParseConfigPage() {
                 group={group}
                 values={values}
                 errors={errors}
+                bindingErrors={bindingErrors}
                 disabled={saving}
-                displayModels={defaultModels}
+                displayModels={selectedModels}
+                chatConfigs={configsByCapability.chat}
+                visionConfigs={configsByCapability.vision}
+                rerankConfigs={configsByCapability.rerank}
                 onChange={updateValue}
+                onBindingChange={(key, configId) => setValues((current) => ({ ...current, [key]: configId }))}
               />
             ))}
           </div>
@@ -486,10 +473,10 @@ function EmbeddingBindingSection({
   changed,
   onChange,
 }: {
-  sparseConfigs: LLMConfigDTO[];
-  denseConfigs: LLMConfigDTO[];
-  sparseValue: EmbeddingModelBindingValue | null;
-  denseValue: EmbeddingModelBindingValue | null;
+  sparseConfigs: ExecutableLLMConfigDTO[];
+  denseConfigs: ExecutableLLMConfigDTO[];
+  sparseValue: number | null;
+  denseValue: number | null;
   sparseError?: string;
   denseError?: string;
   sparseLocked: boolean;
@@ -497,7 +484,7 @@ function EmbeddingBindingSection({
   loading: boolean;
   disabled: boolean;
   changed: boolean;
-  onChange: (key: EmbeddingBindingKey, value: EmbeddingModelBindingValue | null) => void;
+  onChange: (key: EmbeddingBindingKey, value: number | null) => void;
 }) {
   const sparseUnavailable = !loading && sparseConfigs.length === 0;
   const denseUnavailable = !loading && denseConfigs.length === 0;
@@ -518,7 +505,7 @@ function EmbeddingBindingSection({
         {changed && <span className="shrink-0 text-[11px] font-semibold text-primary">已修改</span>}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <EmbeddingModelSelect
+        <LLMConfigSelect
           label="稠密向量模型"
           iconUrl={denseIconUrl}
           value={denseValue}
@@ -530,7 +517,7 @@ function EmbeddingBindingSection({
           helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('dense', value)}
         />
-        <EmbeddingModelSelect
+        <LLMConfigSelect
           label="稀疏向量模型"
           iconUrl={sparseIconUrl}
           value={sparseValue}
@@ -554,18 +541,31 @@ function ConfigGroup({
   group,
   values,
   errors,
+  bindingErrors,
   disabled,
   displayModels,
+  chatConfigs,
+  visionConfigs,
+  rerankConfigs,
   embedded = false,
   onChange,
+  onBindingChange,
 }: {
   group: ParamGroup;
   values: ParseConfigValues;
   errors: Partial<Record<EditableParamKey, string>>;
+  bindingErrors: ReturnType<typeof validateModelBindings>;
   disabled: boolean;
   displayModels: DefaultModels;
+  chatConfigs: ExecutableLLMConfigDTO[];
+  visionConfigs: ExecutableLLMConfigDTO[];
+  rerankConfigs: ExecutableLLMConfigDTO[];
   embedded?: boolean;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
+  onBindingChange: (
+    key: 'enhancement_chat_config_id' | 'enhancement_vision_config_id' | 'rerank_config_id',
+    configId: number | null,
+  ) => void;
 }) {
   const Icon = group.icon;
   const visibleParams = group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values));
@@ -616,13 +616,22 @@ function ConfigGroup({
           values={values}
           disabled={disabled}
           displayModels={displayModels}
+          chatConfigs={chatConfigs}
+          visionConfigs={visionConfigs}
+          bindingErrors={bindingErrors}
           onChange={onChange}
+          onBindingChange={onBindingChange}
         />
       ) : group.id === 'recall' ? (
         <RecallControls
           paramByKey={paramByKey}
           weighted={values.recall_fusion_strategy === 'weighted_score'}
           renderParam={renderParamField}
+          values={values}
+          rerankConfigs={rerankConfigs}
+          rerankError={bindingErrors.rerank_config_id}
+          disabled={disabled}
+          onRerankChange={(configId) => onBindingChange('rerank_config_id', configId)}
         />
       ) : (
         <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">{visibleParams.map(renderParamField)}</div>
@@ -635,10 +644,20 @@ function RecallControls({
   paramByKey,
   weighted,
   renderParam,
+  values,
+  rerankConfigs,
+  rerankError,
+  disabled,
+  onRerankChange,
 }: {
   paramByKey: Map<ParamSpec['key'], ParamSpec>;
   weighted: boolean;
   renderParam: (param: ParamSpec) => ReactNode;
+  values: ParseConfigValues;
+  rerankConfigs: ExecutableLLMConfigDTO[];
+  rerankError?: string;
+  disabled: boolean;
+  onRerankChange: (configId: number | null) => void;
 }) {
   const renderParamByKey = (key: ParamSpec['key']) => {
     const param = paramByKey.get(key);
@@ -661,11 +680,25 @@ function RecallControls({
       )}
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
+        {renderParamByKey('enable_rerank')}
         {renderParamByKey('rerank_top_n')}
         {renderParamByKey('recall_strict')}
         {renderParamByKey('recall_result_limit')}
         {renderParamByKey('recall_context_token_budget')}
       </div>
+
+      {values.enable_rerank && (
+        <LLMConfigSelect
+          label="重排模型"
+          iconUrl={rerankIconUrl}
+          value={values.rerank_config_id}
+          configs={rerankConfigs}
+          error={rerankError}
+          unavailableMessage="请先配置并启用 RERANK 能力模型"
+          disabled={disabled}
+          onChange={onRerankChange}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-t border-border-subtle/70 pt-5 xl:grid-cols-2">
         {renderParamByKey('dense_score_threshold')}
@@ -683,13 +716,24 @@ function MarkdownEnhancementControls({
   values,
   disabled,
   displayModels,
+  chatConfigs,
+  visionConfigs,
+  bindingErrors,
   onChange,
+  onBindingChange,
 }: {
   paramByKey: Map<ParamSpec['key'], ParamSpec>;
   values: ParseConfigValues;
   disabled: boolean;
   displayModels: DefaultModels;
+  chatConfigs: ExecutableLLMConfigDTO[];
+  visionConfigs: ExecutableLLMConfigDTO[];
+  bindingErrors: ReturnType<typeof validateModelBindings>;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
+  onBindingChange: (
+    key: 'enhancement_chat_config_id' | 'enhancement_vision_config_id',
+    configId: number | null,
+  ) => void;
 }) {
   const tableParam = paramByKey.get('enable_table_enhancement');
   const imageParam = paramByKey.get('enable_image_enhancement');
@@ -723,6 +767,30 @@ function MarkdownEnhancementControls({
           checked={values.enable_heading_hierarchy}
           disabled={disabled}
           onToggle={() => onChange('enable_heading_hierarchy', !values.enable_heading_hierarchy)}
+        />
+      )}
+      {(values.enable_table_enhancement || values.enable_heading_hierarchy) && (
+        <LLMConfigSelect
+          label="增强对话模型"
+          iconUrl={chatIconUrl}
+          value={values.enhancement_chat_config_id}
+          configs={chatConfigs}
+          error={bindingErrors.enhancement_chat_config_id}
+          unavailableMessage="请先配置并启用 CHAT 能力模型"
+          disabled={disabled}
+          onChange={(configId) => onBindingChange('enhancement_chat_config_id', configId)}
+        />
+      )}
+      {values.enable_image_enhancement && (
+        <LLMConfigSelect
+          label="增强视觉模型"
+          iconUrl={visionIconUrl}
+          value={values.enhancement_vision_config_id}
+          configs={visionConfigs}
+          error={bindingErrors.enhancement_vision_config_id}
+          unavailableMessage="请先配置并启用 VISION 能力模型"
+          disabled={disabled}
+          onChange={(configId) => onBindingChange('enhancement_vision_config_id', configId)}
         />
       )}
     </div>

@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { mergeKnowledgeFilesWithParseResults } from './dataset';
+import { describe, expect, it, vi } from 'vitest';
+import { apiClient } from '@/lib/api-client';
+import { createDataset, mergeKnowledgeFilesWithParseResults } from './dataset';
 import type { FileParseResultDTO, KnowledgeFileDTO } from '@/types/api';
+
+vi.mock('@/lib/api-client', () => ({
+  apiClient: {
+    post: vi.fn(),
+  },
+}));
 
 function knowledgeFile(overrides: Partial<KnowledgeFileDTO> = {}): KnowledgeFileDTO {
   return {
@@ -64,5 +71,27 @@ describe('mergeKnowledgeFilesWithParseResults', () => {
 
     expect(merged).toBe(files);
     expect(merged[0]).toBe(file);
+  });
+});
+
+describe('createDataset', () => {
+  it('submits only the two global embedding config ids', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({});
+
+    await createDataset({
+      name: 'D1',
+      dense_embedding_config_id: 100,
+      sparse_embedding_config_id: 101,
+    });
+
+    expect(apiClient.post).toHaveBeenCalledWith('/api/v1/datasets', {
+      name: 'D1',
+      dense_embedding_config_id: 100,
+      sparse_embedding_config_id: 101,
+    });
+    const body = vi.mocked(apiClient.post).mock.calls[0][1] as Record<string, unknown>;
+    expect('source' in body).toBe(false);
+    expect('dense_embedding_config_source' in body).toBe(false);
+    expect('sparse_embedding_config_source' in body).toBe(false);
   });
 });
