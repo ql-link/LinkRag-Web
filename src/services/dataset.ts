@@ -8,6 +8,7 @@ import type {
   PageResult,
   FileParseResultDTO,
   FileParseSubmitDTO,
+  DocumentFileCapabilitiesDTO,
 } from '@/types/api';
 import type { MarkdownAssetFile } from '@/lib/markdown-assets';
 
@@ -83,16 +84,28 @@ export async function uploadKnowledgeFile(
   datasetId: number,
   file: File,
   parseImmediately = false,
-  assets: MarkdownAssetFile[] = [],
+  options: {
+    matchMode?: 'FULL_PATH' | 'SHALLOW_BASENAME';
+    documentPath?: string;
+    assets?: MarkdownAssetFile[];
+    inventoryPaths?: string[];
+  } = {},
 ): Promise<KnowledgeFileDTO> {
   const formData = new FormData();
   formData.append('file', file);
-  assets.forEach((asset) => {
+  options.assets?.forEach((asset) => {
     formData.append('assets', asset.file);
     formData.append('assetRelativePaths', asset.relativePath);
   });
+  options.inventoryPaths?.forEach((path) => formData.append('assetInventoryPaths', path));
+  if (options.matchMode) formData.append('matchMode', options.matchMode);
+  if (options.documentPath) formData.append('documentPath', options.documentPath);
   formData.append('parseImmediately', String(parseImmediately));
   return apiClient.postForm<KnowledgeFileDTO>(`/api/v1/datasets/${datasetId}/files`, formData);
+}
+
+export async function getDocumentFileCapabilities(): Promise<DocumentFileCapabilitiesDTO> {
+  return apiClient.get<DocumentFileCapabilitiesDTO>('/api/v1/document-file-capabilities');
 }
 
 export async function getKnowledgeFile(fileId: number): Promise<KnowledgeFileDTO> {
@@ -133,13 +146,15 @@ export function mergeKnowledgeFilesWithParseResults<TFile extends KnowledgeFileD
       parsedFilename: result.parsedFilename,
       parseStatus: result.parseStatus,
       parseFailureReason: result.failureReason,
+      assetSummary: result.assetSummary ?? file.assetSummary,
     };
 
     const fileChanged =
       file.frontendStatus !== nextFile.frontendStatus ||
       file.parsedFilename !== nextFile.parsedFilename ||
       file.parseStatus !== nextFile.parseStatus ||
-      file.parseFailureReason !== nextFile.parseFailureReason;
+      file.parseFailureReason !== nextFile.parseFailureReason ||
+      file.assetSummary !== nextFile.assetSummary;
 
     if (fileChanged) {
       changed = true;

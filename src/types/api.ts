@@ -386,6 +386,56 @@ export interface KnowledgeFileDTO {
   parseStatus?: KnowledgeParseStatus | null;
   isParseSuccess?: boolean | null;
   parseFailureReason?: string | null;
+  assetSummary?: MarkdownAssetSummaryDTO | null;
+}
+
+export interface MarkdownAssetIssueDTO {
+  syntax: string;
+  originalTarget: string;
+  normalizedTarget: string;
+  resolution: 'MATCHED' | 'MISSING' | 'AMBIGUOUS' | 'UNSUPPORTED';
+  issueKind?: string | null;
+  originalFilename?: string | null;
+  storedFilename?: string | null;
+  logicalUri?: string | null;
+  basenameCandidates: string[];
+  candidateFilenames: string[];
+}
+
+export interface MarkdownAssetSummaryDTO {
+  matchMode: 'FULL_PATH' | 'SHALLOW_BASENAME';
+  outcome: 'READY' | 'ASSET_MISSING' | 'ASSET_AMBIGUOUS' | 'UNSUPPORTED_IMAGE_TYPE';
+  matchedCount: number;
+  missingCount: number;
+  ambiguousCount: number;
+  unsupportedCount: number;
+  blockingIssues: boolean;
+  missingPaths: string[];
+  candidateFilenames: string[];
+  issues: MarkdownAssetIssueDTO[];
+}
+
+export interface DocumentFileCapabilitiesDTO {
+  featureEnabled: boolean;
+  document: { allowedSuffixes: string[]; maxSizeBytes: number };
+  image: {
+    extensions: string[];
+    mimeTypes: string[];
+    maxAssetBytes: number;
+    maxAssetCount: number;
+    maxInventoryCount: number;
+    maxBundleBytes: number;
+    maxPathLength: number;
+    maxDocumentPathLength: number;
+  };
+  zip: {
+    maxCompressedBytes: number;
+    maxEntries: number;
+    maxExpandedBytes: number;
+    maxRatio: number;
+    maxDepth: number;
+  };
+  matchModes: Array<'FULL_PATH' | 'SHALLOW_BASENAME'>;
 }
 
 export type KnowledgeUploadStatus = 'UPLOADING' | 'UPLOAD_SUCCESS' | 'UPLOAD_FAILED';
@@ -393,24 +443,10 @@ export type KnowledgeUploadStatus = 'UPLOADING' | 'UPLOAD_SUCCESS' | 'UPLOAD_FAI
 export type KnowledgeParseNoticeStatus = 'PARSE_NOTICE_PENDING' | 'PARSE_NOTICE_SENT' | 'PARSE_NOTICE_FAILED';
 
 export type KnowledgeParseStatus =
-  | 'created'
-  | 'processing'
-  | 'success'
-  | 'failed'
-  | 'NOT_STARTED'
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'SUCCESS'
-  | 'FAILED';
+  'created' | 'processing' | 'success' | 'failed' | 'NOT_STARTED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
 export type FileParseFrontendStatus =
-  | 'uploaded'
-  | 'upload_failed'
-  | 'parse_waiting'
-  | 'asset_missing'
-  | 'parsing'
-  | 'parse_success'
-  | 'parse_failed';
+  'uploaded' | 'upload_failed' | 'parse_waiting' | 'asset_missing' | 'parsing' | 'parse_success' | 'parse_failed';
 
 export interface FileParseSubmitDTO {
   fileId: number;
@@ -418,6 +454,9 @@ export interface FileParseSubmitDTO {
   frontendStatus: FileParseFrontendStatus;
   canContinue?: boolean | null;
   missingAssets?: string[] | null;
+  taskId?: string | null;
+  alreadyRunning?: boolean;
+  assetSummary?: MarkdownAssetSummaryDTO | null;
 }
 
 export interface FileParseResultDTO {
@@ -427,6 +466,7 @@ export interface FileParseResultDTO {
   frontendStatus: FileParseFrontendStatus;
   parseStatus: KnowledgeParseStatus | null;
   failureReason: string | null;
+  assetSummary?: MarkdownAssetSummaryDTO | null;
 }
 
 export interface UsageSummaryDTO {
@@ -698,15 +738,7 @@ export interface UpdateBlogPostRequest {
 // ── Admin Logs ─────────────────────────────────────────────────────────
 
 export type AdminLogLevel =
-  | 'TRACE'
-  | 'DEBUG'
-  | 'INFO'
-  | 'WARN'
-  | 'ERROR'
-  | 'FATAL'
-  | 'ACCESS'
-  | 'AUDIT'
-  | (string & {});
+  'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'ACCESS' | 'AUDIT' | (string & {});
 
 export interface AdminLogEntryDTO {
   id?: string | null;

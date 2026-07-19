@@ -72,6 +72,25 @@ describe('mergeKnowledgeFilesWithParseResults', () => {
     expect(merged).toBe(files);
     expect(merged[0]).toBe(file);
   });
+
+  it('keeps the authoritative asset summary returned by parse results', () => {
+    const summary = {
+      matchMode: 'SHALLOW_BASENAME' as const,
+      outcome: 'ASSET_MISSING' as const,
+      matchedCount: 0,
+      missingCount: 1,
+      ambiguousCount: 0,
+      unsupportedCount: 0,
+      blockingIssues: true,
+      missingPaths: ['a.png'],
+      candidateFilenames: [],
+      issues: [],
+    };
+
+    const merged = mergeKnowledgeFilesWithParseResults([knowledgeFile()], [parseResult({ assetSummary: summary })]);
+
+    expect(merged[0].assetSummary).toBe(summary);
+  });
 });
 
 describe('createDataset', () => {
