@@ -68,6 +68,7 @@ import { getCachedConversations, setCachedConversations } from '@/lib/conversati
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { getModelDisplayName } from '@/lib/model-display';
+import { extractLocalMarkdownImageReferences, isMarkdownKnowledgeFile } from '@/lib/markdown-assets';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import type {
   ConversationDTO,
@@ -1443,6 +1444,22 @@ export default function ChatsPage() {
       addToast('error', '选择的文件已存在，无需重复上传');
       setDragging(false);
       return;
+    }
+
+    for (const file of uploadableFiles) {
+      if (isMarkdownKnowledgeFile(file)) {
+        try {
+          if (extractLocalMarkdownImageReferences(await file.text()).length > 0) {
+            addToast('info', '该 Markdown 包含本地图片，请到知识库文件页使用 ZIP、文件夹或单文件补图导入');
+            setDragging(false);
+            return;
+          }
+        } catch (error) {
+          addToast('error', error instanceof Error ? error.message : 'Markdown 图片路径无法识别');
+          setDragging(false);
+          return;
+        }
+      }
     }
 
     setUploading(true);

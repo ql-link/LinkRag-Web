@@ -9,7 +9,9 @@ interface ConfirmDialogProps {
   children: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  confirmVariant?: 'danger' | 'primary';
   loading?: boolean;
+  loadingLabel?: string;
   disabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -21,7 +23,9 @@ export function ConfirmDialog({
   children,
   confirmLabel = '确认',
   cancelLabel = '取消',
+  confirmVariant = 'danger',
   loading = false,
+  loadingLabel,
   disabled = false,
   onConfirm,
   onCancel,
@@ -73,12 +77,13 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={disabled || loading}
             className={cn(
-              'inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-xl bg-error px-4 text-sm font-semibold text-white transition-colors hover:bg-[#a83838]',
+              'inline-flex h-10 min-w-20 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white transition-colors',
+              confirmVariant === 'danger' ? 'bg-error hover:bg-[#a83838]' : 'bg-primary hover:bg-primary-active',
               (disabled || loading) && 'cursor-not-allowed opacity-60',
             )}
           >
             {loading && <Loader2 size={15} className="animate-spin" />}
-            {loading ? '删除中' : confirmLabel}
+            {loading ? (loadingLabel ?? '处理中') : confirmLabel}
           </button>
         </div>
       </section>
