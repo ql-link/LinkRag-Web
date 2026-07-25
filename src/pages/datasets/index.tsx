@@ -19,23 +19,15 @@ import { Routes } from '@/routes';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { EmbeddingModelSelect, type EmbeddingModelBindingValue } from '@/components/EmbeddingModelSelect';
+import { LLMConfigSelect } from '@/components/LLMConfigSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
 import { getLLMConfigs } from '@/services/llm';
 import { useToast } from '@/contexts/ToastContext';
-import type { DatasetDTO, LLMConfigDTO } from '@/types/api';
+import type { DatasetDTO, ExecutableLLMConfigDTO } from '@/types/api';
 
-function getConfigSource(config: LLMConfigDTO): EmbeddingModelBindingValue['source'] {
-  return config.source || (config.isSystemPreset || config.isEditable === false ? 'SYSTEM' : 'USER');
-}
-
-function createBinding(config: LLMConfigDTO | undefined): EmbeddingModelBindingValue | null {
-  return config ? { id: config.id, source: getConfigSource(config) } : null;
-}
-
-function getInitialModelBinding(configs: LLMConfigDTO[]) {
-  return createBinding(configs.find((config) => config.isDefault) ?? configs[0]);
+function getInitialConfigId(configs: ExecutableLLMConfigDTO[]) {
+  return configs[0]?.configId ?? null;
 }
 
 export default function DatasetsPage() {
@@ -49,14 +41,11 @@ export default function DatasetsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newDatasetName, setNewDatasetName] = useState('');
   const [newDatasetDesc, setNewDatasetDesc] = useState('');
-  const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
-  const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<LLMConfigDTO[]>([]);
+  const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
+  const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
   const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
-  const [selectedSparseEmbeddingBinding, setSelectedSparseEmbeddingBinding] =
-    useState<EmbeddingModelBindingValue | null>(null);
-  const [selectedDenseEmbeddingBinding, setSelectedDenseEmbeddingBinding] = useState<EmbeddingModelBindingValue | null>(
-    null,
-  );
+  const [selectedSparseEmbeddingConfigId, setSelectedSparseEmbeddingConfigId] = useState<number | null>(null);
+  const [selectedDenseEmbeddingConfigId, setSelectedDenseEmbeddingConfigId] = useState<number | null>(null);
   const [createFieldErrors, setCreateFieldErrors] = useState<{
     sparseEmbeddingConfigId?: string;
     denseEmbeddingConfigId?: string;
@@ -76,8 +65,8 @@ export default function DatasetsPage() {
 
   useEffect(() => {
     if (!createDialogOpen) return;
-    setSelectedSparseEmbeddingBinding((current) => current ?? getInitialModelBinding(sparseEmbeddingConfigs));
-    setSelectedDenseEmbeddingBinding((current) => current ?? getInitialModelBinding(denseEmbeddingConfigs));
+    setSelectedSparseEmbeddingConfigId((current) => current ?? getInitialConfigId(sparseEmbeddingConfigs));
+    setSelectedDenseEmbeddingConfigId((current) => current ?? getInitialConfigId(denseEmbeddingConfigs));
   }, [createDialogOpen, denseEmbeddingConfigs, sparseEmbeddingConfigs]);
 
   const loadDatasets = async () => {
@@ -116,8 +105,8 @@ export default function DatasetsPage() {
 
   const openCreateDialog = () => {
     setCreateFieldErrors({});
-    setSelectedSparseEmbeddingBinding(getInitialModelBinding(sparseEmbeddingConfigs));
-    setSelectedDenseEmbeddingBinding(getInitialModelBinding(denseEmbeddingConfigs));
+    setSelectedSparseEmbeddingConfigId(getInitialConfigId(sparseEmbeddingConfigs));
+    setSelectedDenseEmbeddingConfigId(getInitialConfigId(denseEmbeddingConfigs));
     setCreateDialogOpen(true);
   };
 
@@ -132,10 +121,10 @@ export default function DatasetsPage() {
     const description = newDatasetDesc.trim();
     if (!name || creating) return;
     const nextErrors: typeof createFieldErrors = {};
-    if (!selectedSparseEmbeddingBinding) {
+    if (!selectedSparseEmbeddingConfigId) {
       nextErrors.sparseEmbeddingConfigId = '请选择稀疏向量模型';
     }
-    if (!selectedDenseEmbeddingBinding) {
+    if (!selectedDenseEmbeddingConfigId) {
       nextErrors.denseEmbeddingConfigId = '请选择稠密向量模型';
     }
     if (Object.keys(nextErrors).length > 0) {
@@ -149,10 +138,8 @@ export default function DatasetsPage() {
       const ds = await createDataset({
         name,
         ...(description ? { description } : {}),
-        sparse_embedding_config_id: selectedSparseEmbeddingBinding.id,
-        sparse_embedding_config_source: selectedSparseEmbeddingBinding.source,
-        dense_embedding_config_id: selectedDenseEmbeddingBinding.id,
-        dense_embedding_config_source: selectedDenseEmbeddingBinding.source,
+        sparse_embedding_config_id: selectedSparseEmbeddingConfigId,
+        dense_embedding_config_id: selectedDenseEmbeddingConfigId,
       });
       setDatasets((prev) => [ds, ...prev]);
       setNewDatasetName('');
@@ -260,8 +247,8 @@ export default function DatasetsPage() {
     embeddingConfigsLoading ||
     sparseModelUnavailable ||
     denseModelUnavailable ||
-    !selectedSparseEmbeddingBinding ||
-    !selectedDenseEmbeddingBinding;
+    !selectedSparseEmbeddingConfigId ||
+    !selectedDenseEmbeddingConfigId;
 
   const formatDatasetTime = (value: string) => {
     if (!value) return '-';
@@ -526,31 +513,31 @@ export default function DatasetsPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <EmbeddingModelSelect
+                  <LLMConfigSelect
                     label="稀疏向量模型"
                     iconUrl={sparseIconUrl}
-                    value={selectedSparseEmbeddingBinding}
+                    value={selectedSparseEmbeddingConfigId}
                     configs={sparseEmbeddingConfigs}
                     loading={embeddingConfigsLoading}
                     error={createFieldErrors.sparseEmbeddingConfigId}
                     unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
                     helperText=""
                     onChange={(value) => {
-                      setSelectedSparseEmbeddingBinding(value);
+                      setSelectedSparseEmbeddingConfigId(value);
                       setCreateFieldErrors((prev) => ({ ...prev, sparseEmbeddingConfigId: undefined }));
                     }}
                   />
-                  <EmbeddingModelSelect
+                  <LLMConfigSelect
                     label="稠密向量模型"
                     iconUrl={denseIconUrl}
-                    value={selectedDenseEmbeddingBinding}
+                    value={selectedDenseEmbeddingConfigId}
                     configs={denseEmbeddingConfigs}
                     loading={embeddingConfigsLoading}
                     error={createFieldErrors.denseEmbeddingConfigId}
                     unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
                     helperText=""
                     onChange={(value) => {
-                      setSelectedDenseEmbeddingBinding(value);
+                      setSelectedDenseEmbeddingConfigId(value);
                       setCreateFieldErrors((prev) => ({ ...prev, denseEmbeddingConfigId: undefined }));
                     }}
                   />

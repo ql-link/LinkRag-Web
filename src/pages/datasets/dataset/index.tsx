@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { AlertCircle, Loader2, MessageSquare, PlayCircle, RefreshCw, Settings, Trash2, Upload } from 'lucide-react';
+import {
+  AlertCircle,
+  Archive,
+  FileUp,
+  FolderOpen,
+  Loader2,
+  MessageSquare,
+  PlayCircle,
+  RefreshCw,
+  Settings,
+  Trash2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -12,6 +23,7 @@ import {
   deleteKnowledgeFile,
   enrichKnowledgeFilesWithParseResults,
   getDataset,
+  getDocumentFileCapabilities,
   getKnowledgeFiles,
   uploadKnowledgeFile,
 } from '@/services/dataset';
@@ -23,6 +35,21 @@ import {
   KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE,
   isSupportedKnowledgeFile,
 } from '@/lib/knowledge-file';
+import {
+  collectShallowMarkdownAssetFiles,
+  extractLocalMarkdownImageReferences,
+  isMarkdownKnowledgeFile,
+} from '@/lib/markdown-assets';
+import { extractDatasetZip } from '@/lib/dataset-zip';
+import {
+  buildDocumentPackage,
+  buildShallowDocumentPackage,
+  listKnowledgeDocuments,
+  virtualFilesFromFolder,
+  type MarkdownDocumentPackage,
+  type VirtualFile,
+} from '@/lib/virtual-file-tree';
+import { ApiError } from '@/lib/api-client';
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes)) return '-';
@@ -41,7 +68,46 @@ function normalizeFilename(value: string) {
   return value.trim().toLowerCase();
 }
 
+async function mapWithConcurrency<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>) {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      try {
+        results[index] = { status: 'fulfilled', value: await run(items[index]) };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 type FileStatusVariant = 'empty' | 'queued' | 'parsing' | 'done' | 'failed';
+
+interface PendingMarkdownAssetUpload {
+  file: File;
+  skippedCount: number;
+  references: string[];
+}
+
+interface PendingFolderImport {
+  tree: VirtualFile[];
+  documents: VirtualFile[];
+  selectedPaths: Set<string>;
+}
+
+interface MissingAssetsPrompt {
+  files: KnowledgeFileDTO[];
+  items: Array<{
+    fileId: number;
+    filename: string;
+    missingAssets: string[];
+  }>;
+}
 
 const fileStatusMeta: Record<FileStatusVariant, { label: string; className: string; dotClassName: string }> = {
   empty: {
@@ -117,6 +183,31 @@ function canSubmitBulkParse(file: KnowledgeFileDTO) {
   return canSubmitParse(file) && file.frontendStatus !== 'parse_success';
 }
 
+function getMissingAssetsPromptItem(file: KnowledgeFileDTO, result: Awaited<ReturnType<typeof createParseTask>>) {
+  const missingAssets = result.assetSummary?.issues
+    .filter((issue) => issue.resolution !== 'MATCHED')
+    .map((issue) => issue.normalizedTarget);
+  const paths = missingAssets?.length ? missingAssets : result.missingAssets;
+  if (result.frontendStatus !== 'asset_missing' || !paths?.length) return null;
+
+  return {
+    fileId: file.id,
+    filename: file.originalFilename,
+    missingAssets: paths,
+  };
+}
+
+function getMissingAssetsPromptItemFromError(file: KnowledgeFileDTO, error: unknown) {
+  if (!(error instanceof ApiError) || error.code !== 30020 || !error.data || typeof error.data !== 'object')
+    return null;
+  const summary = (error.data as { assetSummary?: KnowledgeFileDTO['assetSummary'] }).assetSummary;
+  const paths = summary?.issues
+    .filter((issue) => issue.resolution !== 'MATCHED')
+    .map((issue) => issue.normalizedTarget);
+  if (!paths?.length) return null;
+  return { fileId: file.id, filename: file.originalFilename, missingAssets: paths };
+}
+
 function ParseAfterUploadSwitch({
   checked,
   onToggle,
@@ -155,6 +246,9 @@ export default function DatasetPage() {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const zipInputRef = useRef<HTMLInputElement | null>(null);
+  const assetFolderInputRef = useRef<HTMLInputElement | null>(null);
   const [dataset, setDataset] = useState<DatasetDTO | null>(null);
   const [files, setFiles] = useState<KnowledgeFileDTO[]>([]);
   const [conversations, setConversations] = useState<ConversationDTO[]>([]);
@@ -171,6 +265,9 @@ export default function DatasetPage() {
   const [deletingConversationIds, setDeletingConversationIds] = useState<number[]>([]);
   const [filePendingDelete, setFilePendingDelete] = useState<KnowledgeFileDTO | null>(null);
   const [conversationPendingDelete, setConversationPendingDelete] = useState<ConversationDTO | null>(null);
+  const [pendingMarkdownAssetUpload, setPendingMarkdownAssetUpload] = useState<PendingMarkdownAssetUpload | null>(null);
+  const [pendingFolderImport, setPendingFolderImport] = useState<PendingFolderImport | null>(null);
+  const [missingAssetsPrompt, setMissingAssetsPrompt] = useState<MissingAssetsPrompt | null>(null);
   const [submittingParseFileIds, setSubmittingParseFileIds] = useState<number[]>([]);
   const { addPollingFiles, removePollingFiles } = useParseResultPolling({
     datasetId: dataset?.id ?? null,
@@ -231,6 +328,13 @@ export default function DatasetPage() {
   }, [id, loadDataset]);
 
   useEffect(() => {
+    [folderInputRef.current, assetFolderInputRef.current].forEach((input) => {
+      input?.setAttribute('webkitdirectory', '');
+      input?.setAttribute('directory', '');
+    });
+  }, []);
+
+  useEffect(() => {
     if (!choosingFiles) return;
 
     function handleWindowFocus() {
@@ -248,57 +352,201 @@ export default function DatasetPage() {
     fileInputRef.current?.click();
   }
 
-  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const selectedFiles = Array.from(event.target.files ?? []);
-    event.target.value = '';
-    setChoosingFiles(false);
-    if (selectedFiles.length === 0 || !dataset) {
-      return;
-    }
-    if (selectedFiles.some((file) => !isSupportedKnowledgeFile(file))) {
-      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
-      return;
-    }
+  function openFolderPicker() {
+    if (!uploading) folderInputRef.current?.click();
+  }
 
-    const existingFilenames = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
-    const incomingFilenames = new Set<string>();
-    const uploadableFiles = selectedFiles.filter((file) => {
-      const filename = normalizeFilename(file.name);
-      if (existingFilenames.has(filename) || incomingFilenames.has(filename)) {
-        return false;
-      }
-      incomingFilenames.add(filename);
-      return true;
-    });
-    const skippedCount = selectedFiles.length - uploadableFiles.length;
+  function openZipPicker() {
+    if (!uploading) zipInputRef.current?.click();
+  }
 
-    if (uploadableFiles.length === 0) {
-      addToast('error', '选择的文件已存在，无需重复上传');
-      return;
-    }
+  function openAssetFolderPicker() {
+    if (uploading) return;
+    assetFolderInputRef.current?.click();
+  }
+
+  async function getLocalMarkdownImageReferences(file: File) {
+    if (!isMarkdownKnowledgeFile(file)) return [];
+    return extractLocalMarkdownImageReferences(await file.text());
+  }
+
+  async function uploadKnowledgeFiles(packages: MarkdownDocumentPackage[], skippedCount: number) {
+    if (!dataset) return;
 
     setUploading(true);
     try {
       const shouldPollParse = parseAfterUpload;
-      const uploadedFiles = [];
-      for (const file of uploadableFiles) {
-        uploadedFiles.push(await uploadKnowledgeFile(dataset.id, file, parseAfterUpload));
-      }
+      const results = await mapWithConcurrency(packages, 3, (item) =>
+        uploadKnowledgeFile(dataset.id, item.file, parseAfterUpload, {
+          matchMode: item.matchMode,
+          documentPath: item.documentPath,
+          assets: item.assets,
+          inventoryPaths: item.inventoryPaths,
+        }),
+      );
+      const uploadedFiles = results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+      const failedCount = results.length - uploadedFiles.length;
+      const blockingCount = uploadedFiles.filter((file) => file.assetSummary?.blockingIssues).length;
       addToast(
-        'success',
+        failedCount > 0 ? (uploadedFiles.length > 0 ? 'info' : 'error') : 'success',
         [
-          parseAfterUpload
-            ? `${uploadableFiles.length} 个文件已上传，解析任务已提交`
-            : `${uploadableFiles.length} 个文件已上传`,
+          uploadedFiles.length > 0 ? `${uploadedFiles.length} 个文件已提交` : '',
+          failedCount > 0 ? `${failedCount} 个失败` : '',
+          blockingCount > 0 ? `${blockingCount} 个文件存在缺图，已暂停自动解析` : '',
           skippedCount > 0 ? `已跳过 ${skippedCount} 个重复文件` : '',
         ]
           .filter(Boolean)
           .join('，'),
       );
       await Promise.all(uploadedFiles.map((file) => pollUntilUploadSettled(file.id, dataset.id, shouldPollParse)));
-    } catch (error) {
-      console.error('Failed to upload knowledge file:', error);
     } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+    setChoosingFiles(false);
+    if (!selectedFile || !dataset) return;
+    if (!isSupportedKnowledgeFile(selectedFile)) {
+      addToast('error', KNOWLEDGE_FILE_UNSUPPORTED_MESSAGE);
+      return;
+    }
+
+    const existingFilenames = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
+    if (existingFilenames.has(normalizeFilename(selectedFile.name))) {
+      addToast('error', '选择的文件已存在，无需重复上传');
+      return;
+    }
+
+    let localImageReferences: string[];
+    try {
+      localImageReferences = await getLocalMarkdownImageReferences(selectedFile);
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'Markdown 图片路径无法识别');
+      return;
+    }
+    if (localImageReferences.length > 0) {
+      setPendingMarkdownAssetUpload({
+        file: selectedFile,
+        skippedCount: 0,
+        references: localImageReferences,
+      });
+      return;
+    }
+
+    await uploadKnowledgeFiles([{ file: selectedFile, assets: [], inventoryPaths: [], localReferenceCount: 0 }], 0);
+  }
+
+  async function handleSkipAssetFolderUpload() {
+    const pendingUpload = pendingMarkdownAssetUpload;
+    if (!pendingUpload) return;
+
+    setPendingMarkdownAssetUpload(null);
+    await uploadKnowledgeFiles(
+      [buildShallowDocumentPackage(pendingUpload.file, [], [], pendingUpload.references)],
+      pendingUpload.skippedCount,
+    );
+  }
+
+  async function handleAssetFolderChange(event: ChangeEvent<HTMLInputElement>) {
+    const pendingUpload = pendingMarkdownAssetUpload;
+    const folderFiles = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!pendingUpload) return;
+    if (folderFiles.length === 0) return;
+
+    let selection;
+    try {
+      selection = collectShallowMarkdownAssetFiles(folderFiles);
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : '图片文件夹读取失败');
+      return;
+    }
+
+    setPendingMarkdownAssetUpload(null);
+    if (selection.ignoredNestedAssetCount > 0) {
+      addToast('info', `已忽略子目录中的 ${selection.ignoredNestedAssetCount} 张图片`);
+    }
+    await uploadKnowledgeFiles(
+      [
+        buildShallowDocumentPackage(
+          pendingUpload.file,
+          selection.assets,
+          selection.inventoryPaths,
+          pendingUpload.references,
+        ),
+      ],
+      pendingUpload.skippedCount,
+    );
+  }
+
+  async function handleFolderChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (selected.length === 0) return;
+    try {
+      const tree = virtualFilesFromFolder(selected);
+      const documents = listKnowledgeDocuments(tree);
+      if (documents.length === 0) {
+        addToast('error', '文件夹中没有可上传文档');
+        return;
+      }
+      setPendingFolderImport({
+        tree,
+        documents,
+        selectedPaths: new Set(documents.map((document) => document.path)),
+      });
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : '文件夹读取失败');
+    }
+  }
+
+  async function handleConfirmFolderImport() {
+    if (!pendingFolderImport) return;
+    const selected = pendingFolderImport.documents.filter((document) =>
+      pendingFolderImport.selectedPaths.has(document.path),
+    );
+    if (selected.length === 0) {
+      addToast('error', '请至少选择一个文档');
+      return;
+    }
+    const existing = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
+    const uploadable = selected.filter((document) => !existing.has(normalizeFilename(document.path)));
+    if (uploadable.length === 0) {
+      addToast('error', '没有新的文档需要上传');
+      return;
+    }
+    const tree = pendingFolderImport.tree;
+    setPendingFolderImport(null);
+    try {
+      const packages = await Promise.all(uploadable.map((document) => buildDocumentPackage(document, tree)));
+      await uploadKnowledgeFiles(packages, selected.length - uploadable.length);
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : '文件夹中的 Markdown 无法读取');
+    }
+  }
+
+  async function handleZipChange(event: ChangeEvent<HTMLInputElement>) {
+    const zip = event.target.files?.[0];
+    event.target.value = '';
+    if (!zip) return;
+    setUploading(true);
+    try {
+      const capabilities = await getDocumentFileCapabilities();
+      if (!capabilities.featureEnabled) throw new Error('当前环境未启用 Markdown 图片资源包');
+      const tree = await extractDatasetZip(zip, capabilities.zip);
+      const documents = listKnowledgeDocuments(tree);
+      if (documents.length === 0) throw new Error('ZIP 中没有可上传文档');
+      const existing = new Set(files.map((file) => normalizeFilename(file.originalFilename)));
+      const uploadable = documents.filter((document) => !existing.has(normalizeFilename(document.path)));
+      if (uploadable.length === 0) throw new Error('没有新的文档需要上传');
+      const packages = await Promise.all(uploadable.map((document) => buildDocumentPackage(document, tree)));
+      setUploading(false);
+      await uploadKnowledgeFiles(packages, documents.length - uploadable.length);
+    } catch (error) {
+      addToast('error', error instanceof Error ? error.message : 'ZIP 导入失败');
       setUploading(false);
     }
   }
@@ -316,6 +564,7 @@ export default function DatasetPage() {
           ? enrichedFiles.map((item) => {
               if (
                 item.id !== fileId ||
+                item.frontendStatus === 'asset_missing' ||
                 item.frontendStatus === 'parse_success' ||
                 item.frontendStatus === 'parse_failed'
               ) {
@@ -376,23 +625,79 @@ export default function DatasetPage() {
     }
   }
 
+  function markFilesParsing(fileIds: number[]) {
+    if (fileIds.length === 0) return;
+
+    setFiles((prev) =>
+      prev.map((item) =>
+        fileIds.includes(item.id)
+          ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
+          : item,
+      ),
+    );
+    addPollingFiles(fileIds);
+  }
+
   async function handleParseFile(fileId: number) {
+    const file = files.find((item) => item.id === fileId);
+    if (!file) return;
+
     setSubmittingParseFileIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
     try {
-      await createParseTask(fileId);
-      setFiles((prev) =>
-        prev.map((item) =>
-          item.id === fileId
-            ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
-            : item,
-        ),
-      );
-      addPollingFiles(fileId);
+      const result = await createParseTask(fileId);
+      const missingAssetsItem = getMissingAssetsPromptItem(file, result);
+      if (missingAssetsItem) {
+        setMissingAssetsPrompt({
+          files: [file],
+          items: [missingAssetsItem],
+        });
+        return;
+      }
+
+      markFilesParsing([fileId]);
       addToast('success', '解析任务已提交');
     } catch (error) {
+      const missingAssetsItem = getMissingAssetsPromptItemFromError(file, error);
+      if (missingAssetsItem) {
+        setMissingAssetsPrompt({ files: [file], items: [missingAssetsItem] });
+        return;
+      }
       console.error('Failed to create parse task:', error);
     } finally {
       setSubmittingParseFileIds((prev) => prev.filter((item) => item !== fileId));
+    }
+  }
+
+  async function handleConfirmMissingAssetsParse() {
+    const prompt = missingAssetsPrompt;
+    if (!prompt) return;
+
+    const fileIds = prompt.files.map((file) => file.id);
+    setSubmittingParseFileIds((prev) => Array.from(new Set([...prev, ...fileIds])));
+    try {
+      const results = await Promise.allSettled(prompt.files.map((file) => createParseTask(file.id, true)));
+      const successIds = prompt.files
+        .filter((_, index) => results[index].status === 'fulfilled')
+        .map((file) => file.id);
+      const failedCount = results.length - successIds.length;
+
+      if (successIds.length > 0) {
+        markFilesParsing(successIds);
+        setMissingAssetsPrompt(null);
+      }
+
+      if (successIds.length > 0 && failedCount === 0) {
+        addToast('success', `${successIds.length} 个解析任务已提交`);
+      } else if (successIds.length > 0) {
+        addToast('info', `${successIds.length} 个解析任务已提交，${failedCount} 个提交失败`);
+      } else {
+        addToast('error', '解析任务提交失败，请稍后重试');
+      }
+    } catch (error) {
+      console.error('Failed to continue parse with missing assets:', error);
+      addToast('error', '解析任务提交失败，请稍后重试');
+    } finally {
+      setSubmittingParseFileIds((prev) => prev.filter((id) => !fileIds.includes(id)));
     }
   }
 
@@ -407,24 +712,56 @@ export default function DatasetPage() {
     setSubmittingParseFileIds((prev) => Array.from(new Set([...prev, ...candidateIds])));
     try {
       const results = await Promise.allSettled(candidates.map((file) => createParseTask(file.id)));
-      const successIds = candidates.filter((_, index) => results[index].status === 'fulfilled').map((file) => file.id);
-      const failedCount = results.length - successIds.length;
+      const missingAssetsItems = [];
+      const successIds = [];
+      let failedCount = 0;
+
+      results.forEach((result, index) => {
+        const file = candidates[index];
+        if (result.status === 'rejected') {
+          const missingAssetsItem = getMissingAssetsPromptItemFromError(file, result.reason);
+          if (missingAssetsItem) {
+            missingAssetsItems.push(missingAssetsItem);
+            return;
+          }
+          failedCount += 1;
+          return;
+        }
+
+        const missingAssetsItem = getMissingAssetsPromptItem(file, result.value);
+        if (missingAssetsItem) {
+          missingAssetsItems.push(missingAssetsItem);
+          return;
+        }
+
+        successIds.push(file.id);
+      });
 
       if (successIds.length > 0) {
-        setFiles((prev) =>
-          prev.map((item) =>
-            successIds.includes(item.id)
-              ? { ...item, frontendStatus: 'parsing', parseStatus: 'created', parseFailureReason: null }
-              : item,
-          ),
-        );
-        addPollingFiles(successIds);
+        markFilesParsing(successIds);
+      }
+
+      if (missingAssetsItems.length > 0) {
+        setMissingAssetsPrompt({
+          files: candidates.filter((file) => missingAssetsItems.some((item) => item.fileId === file.id)),
+          items: missingAssetsItems,
+        });
       }
 
       if (successIds.length > 0 && failedCount === 0) {
-        addToast('success', `${successIds.length} 个解析任务已提交`);
+        addToast(
+          missingAssetsItems.length > 0 ? 'info' : 'success',
+          [
+            `${successIds.length} 个解析任务已提交`,
+            missingAssetsItems.length > 0 ? `${missingAssetsItems.length} 个文件缺少图片，确认后可继续解析` : '',
+          ]
+            .filter(Boolean)
+            .join('，'),
+        );
       } else if (successIds.length > 0) {
         addToast('info', `${successIds.length} 个解析任务已提交，${failedCount} 个提交失败`);
+      } else if (missingAssetsItems.length > 0) {
+        addToast('info', `${missingAssetsItems.length} 个文件缺少图片，确认后可继续解析`);
       } else {
         addToast('error', '解析任务提交失败，请稍后重试');
       }
@@ -439,6 +776,9 @@ export default function DatasetPage() {
   const deletingPendingFile = filePendingDelete ? deletingFileIds.includes(filePendingDelete.id) : false;
   const deletingPendingConversation = conversationPendingDelete
     ? deletingConversationIds.includes(conversationPendingDelete.id)
+    : false;
+  const missingAssetsSubmitting = missingAssetsPrompt
+    ? missingAssetsPrompt.files.some((file) => submittingParseFileIds.includes(file.id))
     : false;
 
   if (loading) {
@@ -494,18 +834,32 @@ export default function DatasetPage() {
           )}
         </div>
         <div className="mt-3 grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5 lg:mt-0 lg:flex lg:shrink-0 lg:gap-2 lg:overflow-x-auto">
-          <button
-            onClick={openFilePicker}
-            disabled={uploading || choosingFiles}
-            className="group inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active disabled:cursor-wait disabled:opacity-70 lg:h-9 lg:flex-none lg:gap-2 lg:rounded-md lg:border lg:border-border-subtle lg:bg-surface-soft lg:px-3 lg:text-text-secondary lg:hover:border-primary/30 lg:hover:bg-surface-card lg:hover:text-ink"
-          >
-            {uploading || choosingFiles ? (
-              <Loader2 size={14} className="animate-spin lg:text-muted" />
-            ) : (
-              <Upload size={14} className="lg:text-muted" />
-            )}
-            {uploading ? '上传中' : choosingFiles ? '选择中' : '上传文件'}
-          </button>
+          <div className="col-span-2 flex h-10 items-center overflow-hidden rounded-lg border border-border-subtle bg-surface-soft lg:h-9">
+            <button
+              type="button"
+              onClick={openZipPicker}
+              disabled={uploading || choosingFiles}
+              className="inline-flex h-full items-center justify-center gap-1 border-r border-hairline px-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-card hover:text-ink disabled:cursor-wait disabled:opacity-60"
+            >
+              {uploading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />} ZIP
+            </button>
+            <button
+              type="button"
+              onClick={openFolderPicker}
+              disabled={uploading || choosingFiles}
+              className="inline-flex h-full items-center justify-center gap-1 border-r border-hairline px-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-card hover:text-ink disabled:cursor-wait disabled:opacity-60"
+            >
+              <FolderOpen size={13} /> 文件夹
+            </button>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              disabled={uploading || choosingFiles}
+              className="inline-flex h-full items-center justify-center gap-1 px-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-card hover:text-ink disabled:cursor-wait disabled:opacity-60"
+            >
+              <FileUp size={13} /> 单文件
+            </button>
+          </div>
           <button
             onClick={() => navigate(Routes.Chats, { state: { datasetId: dataset.id } })}
             className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-2 text-xs font-bold text-white transition-colors duration-200 ease-out hover:bg-primary-active lg:h-9 lg:w-auto lg:gap-2 lg:rounded-md lg:border lg:border-border-subtle lg:bg-surface-soft lg:px-3 lg:text-text-secondary lg:hover:border-primary/30 lg:hover:bg-surface-card lg:hover:text-ink"
@@ -538,11 +892,19 @@ export default function DatasetPage() {
           <input
             ref={fileInputRef}
             type="file"
-            multiple
             accept={KNOWLEDGE_FILE_ACCEPT}
             className="hidden"
             onChange={handleUpload}
           />
+          <input
+            ref={zipInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={handleZipChange}
+          />
+          <input ref={folderInputRef} type="file" multiple className="hidden" onChange={handleFolderChange} />
+          <input ref={assetFolderInputRef} type="file" multiple className="hidden" onChange={handleAssetFolderChange} />
         </div>
       </header>
 
@@ -709,6 +1071,104 @@ export default function DatasetPage() {
           </div>
         </section>
       </main>
+
+      <ConfirmDialog
+        open={Boolean(pendingFolderImport)}
+        title="选择要上传的文档"
+        confirmLabel="上传所选"
+        cancelLabel="取消"
+        confirmVariant="primary"
+        loading={uploading}
+        onCancel={() => setPendingFolderImport(null)}
+        onConfirm={() => void handleConfirmFolderImport()}
+      >
+        <p>图片会按文件夹内的完整相对路径自动匹配，只上传所选文档实际引用的图片。</p>
+        <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-hairline bg-surface-soft p-2">
+          {pendingFolderImport?.documents.map((document) => (
+            <label
+              key={document.path}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-canvas"
+            >
+              <input
+                type="checkbox"
+                checked={pendingFolderImport.selectedPaths.has(document.path)}
+                onChange={() =>
+                  setPendingFolderImport((current) => {
+                    if (!current) return current;
+                    const selectedPaths = new Set(current.selectedPaths);
+                    if (selectedPaths.has(document.path)) selectedPaths.delete(document.path);
+                    else selectedPaths.add(document.path);
+                    return { ...current, selectedPaths };
+                  })
+                }
+              />
+              <span className="truncate font-mono text-xs text-text-secondary">{document.path}</span>
+            </label>
+          ))}
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(pendingMarkdownAssetUpload)}
+        title="建议上传图片文件夹"
+        confirmLabel="选择文件夹"
+        cancelLabel="跳过"
+        confirmVariant="primary"
+        loading={uploading}
+        loadingLabel="上传中"
+        onCancel={() => void handleSkipAssetFolderUpload()}
+        onConfirm={openAssetFolderPicker}
+      >
+        <p>当前文档包含本地图片，建议上传图片所在文件夹。</p>
+        <div className="rounded-lg border border-hairline bg-surface-soft px-3 py-2">
+          <p className="mb-2 text-xs font-semibold text-muted">
+            检测到 {pendingMarkdownAssetUpload?.references.length ?? 0} 个本地图片引用
+          </p>
+          <ul className="max-h-36 space-y-1 overflow-y-auto font-mono text-xs text-text-secondary">
+            {pendingMarkdownAssetUpload?.references.slice(0, 12).map((reference) => (
+              <li key={reference} className="truncate">
+                {reference}
+              </li>
+            ))}
+          </ul>
+          {(pendingMarkdownAssetUpload?.references.length ?? 0) > 12 && (
+            <p className="mt-2 text-xs text-muted">
+              还有 {(pendingMarkdownAssetUpload?.references.length ?? 0) - 12} 个引用未展示
+            </p>
+          )}
+        </div>
+        <p className="text-muted">补充文件夹只读取直接子级图片；也可以跳过，文件会保留但缺图时暂停自动解析。</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(missingAssetsPrompt)}
+        title="仍有图片未上传"
+        confirmLabel="继续解析"
+        cancelLabel="取消"
+        confirmVariant="primary"
+        loading={missingAssetsSubmitting}
+        loadingLabel="提交中"
+        onCancel={() => {
+          if (!missingAssetsSubmitting) setMissingAssetsPrompt(null);
+        }}
+        onConfirm={() => void handleConfirmMissingAssetsParse()}
+      >
+        <p>当前文档仍有部分图片未上传，解析后这些图片可能无法读取。是否继续解析？</p>
+        <div className="max-h-64 space-y-3 overflow-y-auto rounded-lg border border-hairline bg-surface-soft px-3 py-3">
+          {missingAssetsPrompt?.items.map((item) => (
+            <div key={item.fileId}>
+              <p className="truncate text-xs font-semibold text-ink">{item.filename}</p>
+              <ul className="mt-2 space-y-1 font-mono text-xs text-text-secondary">
+                {item.missingAssets.map((asset) => (
+                  <li key={asset} className="truncate">
+                    {asset}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={Boolean(filePendingDelete)}

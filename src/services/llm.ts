@@ -1,18 +1,18 @@
 import { apiClient } from '@/lib/api-client';
 import type {
   LLMCapability,
-  LLMConfigDTO,
+  ExecutableLLMConfigDTO,
+  CapabilityDefaultDTO,
   ProviderModelDTO,
   ProviderIconUploadResult,
   SystemProvider,
   ProviderModel,
-  SystemPreset,
   CreateProviderRequest,
   UpdateProviderRequest,
   AddProviderModelRequest,
   UpdateProviderModelRequest,
-  CreatePresetRequest,
-  UpdatePresetRequest,
+  AdminPlatformConfigSaveRequest,
+  AdminPlatformConfigSaveResult,
   UsageSummaryDTO,
   UsageStage,
   DailyUsageDTO,
@@ -32,45 +32,47 @@ export async function getLLMConfigs(filters?: {
   providerType?: string;
   capability?: LLMCapability;
   isActive?: boolean;
-}): Promise<LLMConfigDTO[]> {
-  return apiClient.get<LLMConfigDTO[]>('/api/v1/llm/configs', filters as Record<string, string | boolean>);
+}): Promise<ExecutableLLMConfigDTO[]> {
+  return apiClient.get<ExecutableLLMConfigDTO[]>('/api/v1/llm/configs', filters as Record<string, string | boolean>);
 }
 
 export async function getLLMProviders(capability?: LLMCapability): Promise<ProviderModelDTO[]> {
   return apiClient.get<ProviderModelDTO[]>('/api/v1/llm/providers', capability ? { capability } : undefined);
 }
 
-export async function setupLLMProvider(data: { providerType: string; apiKey: string }): Promise<LLMConfigDTO[]> {
-  return apiClient.post<LLMConfigDTO[]>('/api/v1/llm/configs/setup-provider', data);
-}
-
-export async function toggleLLMModel(data: {
+export async function setupLLMProvider(data: {
   providerType: string;
-  modelName: string;
-  capability?: LLMCapability;
-  enabled: boolean;
-}): Promise<void> {
-  await apiClient.patch('/api/v1/llm/configs/toggle-model', data);
+  apiKey: string;
+}): Promise<ExecutableLLMConfigDTO[]> {
+  return apiClient.post<ExecutableLLMConfigDTO[]>('/api/v1/llm/configs/setup-provider', data);
 }
 
-export async function selectEffectiveLLMModel(data: {
-  capability: LLMCapability;
-  providerType: string;
-  modelName: string;
-}): Promise<void> {
-  await apiClient.put('/api/v1/llm/configs/effective', data);
+export async function setLLMConfigActive(configId: number, isActive: boolean): Promise<void> {
+  await apiClient.patch(`/api/v1/llm/configs/${configId}/active`, { isActive });
 }
 
-export async function getDefaultLLMConfig(capability: LLMCapability): Promise<LLMConfigDTO> {
-  return apiClient.get<LLMConfigDTO>('/api/v1/llm/configs/default', { capability });
+export async function emergencyDisableLLMConfig(configId: number, confirmed: boolean): Promise<void> {
+  await apiClient.post(`/api/v1/llm/configs/${configId}/emergency-disable`, { confirmed });
 }
 
-export async function setDefaultLLMConfig(id: number, capability: LLMCapability): Promise<void> {
-  await apiClient.patch(`/api/v1/llm/configs/${id}/default?capability=${encodeURIComponent(capability)}`);
+export async function getLLMCapabilityDefaults(): Promise<CapabilityDefaultDTO[]> {
+  return apiClient.get<CapabilityDefaultDTO[]>('/api/v1/llm/defaults');
 }
 
-export async function deleteLLMConfig(id: number): Promise<void> {
-  await apiClient.delete(`/api/v1/llm/configs/${id}`);
+export async function getLLMCapabilityDefault(capability: LLMCapability): Promise<CapabilityDefaultDTO> {
+  return apiClient.get<CapabilityDefaultDTO>(`/api/v1/llm/defaults/${capability}`);
+}
+
+export async function setUserCapabilityDefault(capability: LLMCapability, configId: number): Promise<void> {
+  await apiClient.put(`/api/v1/llm/defaults/${capability}`, { configId });
+}
+
+export async function clearUserCapabilityDefault(capability: LLMCapability): Promise<void> {
+  await apiClient.delete(`/api/v1/llm/defaults/${capability}`);
+}
+
+export async function deleteLLMConfig(configId: number): Promise<void> {
+  await apiClient.delete(`/api/v1/llm/configs/${configId}`);
 }
 
 export async function listAdminProviders(page = 1, size = 20): Promise<PageResult<SystemProvider>> {
@@ -190,28 +192,42 @@ export async function reviewAdminModelSyncCandidate(
   return apiClient.patch<ModelSyncCandidate>(`/api/v1/admin/model-sync-candidates/${id}/review`, { reviewStatus });
 }
 
-export async function listAdminSystemPresets(): Promise<SystemPreset[]> {
-  return apiClient.get<SystemPreset[]>('/api/v1/admin/system-presets');
+export async function listAdminLLMConfigs(filters?: {
+  capability?: LLMCapability;
+  isActive?: boolean;
+}): Promise<ExecutableLLMConfigDTO[]> {
+  return apiClient.get<ExecutableLLMConfigDTO[]>('/api/v1/admin/llm/configs', filters);
 }
 
-export async function createAdminSystemPreset(data: CreatePresetRequest): Promise<void> {
-  await apiClient.post('/api/v1/admin/system-presets', data);
+export async function createAdminLLMConfig(
+  data: AdminPlatformConfigSaveRequest,
+): Promise<AdminPlatformConfigSaveResult> {
+  return apiClient.post<AdminPlatformConfigSaveResult>('/api/v1/admin/llm/configs', data);
 }
 
-export async function updateAdminSystemPreset(id: number, data: UpdatePresetRequest): Promise<void> {
-  await apiClient.patch(`/api/v1/admin/system-presets/${id}`, data);
+export async function updateAdminLLMConfig(
+  configId: number,
+  data: AdminPlatformConfigSaveRequest,
+): Promise<AdminPlatformConfigSaveResult> {
+  return apiClient.put<AdminPlatformConfigSaveResult>(`/api/v1/admin/llm/configs/${configId}`, data);
 }
 
-export async function toggleAdminSystemPreset(id: number, isActive: boolean): Promise<void> {
-  await apiClient.patch(`/api/v1/admin/system-presets/${id}/active?isActive=${encodeURIComponent(String(isActive))}`);
+export async function setAdminLLMConfigActive(configId: number, isActive: boolean): Promise<void> {
+  await apiClient.patch(`/api/v1/admin/llm/configs/${configId}/active`, { isActive });
 }
 
-export async function setAdminSystemPresetDefault(id: number): Promise<void> {
-  await apiClient.patch(`/api/v1/admin/system-presets/${id}/default`);
+export async function emergencyDisableAdminLLMConfig(configId: number, replacementConfigId?: number): Promise<void> {
+  await apiClient.post(`/api/v1/admin/llm/configs/${configId}/emergency-disable`, {
+    ...(replacementConfigId === undefined ? {} : { replacementConfigId }),
+  });
 }
 
-export async function deleteAdminSystemPreset(id: number): Promise<void> {
-  await apiClient.delete(`/api/v1/admin/system-presets/${id}`);
+export async function deleteAdminLLMConfig(configId: number): Promise<void> {
+  await apiClient.delete(`/api/v1/admin/llm/configs/${configId}`);
+}
+
+export async function setAdminCapabilityDefault(capability: LLMCapability, configId: number): Promise<void> {
+  await apiClient.put(`/api/v1/admin/llm/defaults/${capability}`, { configId });
 }
 
 export async function getUsageSummary(

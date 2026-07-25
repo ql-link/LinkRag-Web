@@ -105,14 +105,13 @@ describe('recall - 请求构造', () => {
     expect(init.headers.Authorization).toBe('Bearer tok-1');
   });
 
-  it('stream 请求体含 query + config_id + config_source + dataset_ids + conversation_id + turn_id，不泄漏未知字段', async () => {
+  it('stream 请求体只含 query + config_id + dataset_ids + conversation_id + turn_id', async () => {
     fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
     await recall({ query: 'hello', configId: 77, conversationId: 99, datasetIds: [1, 2] });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).toEqual({
       query: 'hello',
       config_id: 77,
-      config_source: 'USER',
       dataset_ids: [1, 2],
       conversation_id: 99,
       turn_id: expect.any(String),
@@ -123,20 +122,10 @@ describe('recall - 请求构造', () => {
     expect('sources' in body).toBe(false);
     expect('strict' in body).toBe(false);
     expect('doc_ids' in body).toBe(false);
-  });
-
-  it('系统模型 stream 请求体传 SYSTEM config_source', async () => {
-    fetchMock.mockResolvedValue(sseResponse([DONE_FRAME]));
-    await recall({
-      query: 'hello',
-      configId: 10,
-      configSource: 'SYSTEM',
-      conversationId: 99,
-      datasetIds: [1],
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(body.config_id).toBe(10);
-    expect(body.config_source).toBe('SYSTEM');
+    expect('config_source' in body).toBe(false);
+    expect('source' in body).toBe(false);
+    expect('provider_type' in body).toBe(false);
+    expect('model_name' in body).toBe(false);
   });
 
   it('传入 turnId 时请求体复用该值（本轮幂等键稳定）', async () => {

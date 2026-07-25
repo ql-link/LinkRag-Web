@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { Box, Key, Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Box, Key, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import chatIconUrl from '@/assets/icons/color/chat.svg';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import rerankIconUrl from '@/assets/icons/color/rerank.svg';
@@ -17,16 +17,20 @@ import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
+  clearUserCapabilityDefault,
+  deleteLLMConfig,
   getLLMConfigs,
+  getLLMCapabilityDefaults,
   getLLMProviders,
-  selectEffectiveLLMModel,
+  setLLMConfigActive,
+  setUserCapabilityDefault,
   setupLLMProvider,
-  toggleLLMModel,
 } from '@/services/llm';
 import type {
+  CapabilityDefaultDTO,
+  ExecutableLLMConfigDTO,
   LLMCapability,
   LLMCapabilityValue,
-  LLMConfigDTO,
   ModelCapabilityDTO,
   ProviderModelDTO,
 } from '@/types/api';
@@ -73,7 +77,7 @@ const CAPABILITIES: Array<CapabilityMeta & { value: LLMCapability }> = [
 
 const EFFECTIVE_MODEL_CAPABILITIES = CAPABILITIES;
 
-interface ConfigView extends LLMConfigDTO {
+interface ConfigView extends ExecutableLLMConfigDTO {
   providerName: string;
 }
 
@@ -104,8 +108,8 @@ function isLinkRagProvider(providerType: string) {
   return normalizeProviderToken(providerType) === LINKRAG_PROVIDER_TYPE;
 }
 
-function isConfigEditable(config: LLMConfigDTO) {
-  return config.isEditable !== false && !isLinkRagProvider(config.providerType);
+function isConfigEditable(config: ExecutableLLMConfigDTO) {
+  return config.editable;
 }
 
 function compareConfigOptions(a: ConfigView, b: ConfigView) {
@@ -114,15 +118,15 @@ function compareConfigOptions(a: ConfigView, b: ConfigView) {
   if (aReadonly !== bReadonly) {
     return aReadonly ? -1 : 1;
   }
-  if (a.isDefault !== b.isDefault) {
-    return a.isDefault ? -1 : 1;
+  if (a.scope !== b.scope) {
+    return a.scope === 'SYSTEM' ? -1 : 1;
   }
   return `${a.providerName}${getModelDisplayName(a)}`.localeCompare(`${b.providerName}${getModelDisplayName(b)}`);
 }
 
 function getConfigProviderIcon(config: ConfigView | null | undefined, darkMode: boolean) {
   if (!config) return '';
-  const isSystemConfiguredModel = config.isSystemPreset || config.isEditable === false;
+  const isSystemConfiguredModel = config.scope === 'SYSTEM';
   return getProviderIcon(
     isSystemConfiguredModel ? 'linkrag' : config.providerType,
     isSystemConfiguredModel ? 'LinkRag' : config.providerName,
@@ -132,7 +136,7 @@ function getConfigProviderIcon(config: ConfigView | null | undefined, darkMode: 
 }
 
 function getProviderGroupIcon(group: ProviderGroup, darkMode: boolean) {
-  const hasSystemConfiguredModel = group.configs.some((config) => config.isSystemPreset || config.isEditable === false);
+  const hasSystemConfiguredModel = group.configs.some((config) => config.scope === 'SYSTEM');
   return getProviderIcon(
     hasSystemConfiguredModel ? 'linkrag' : group.providerType,
     hasSystemConfiguredModel ? 'LinkRag' : group.providerName,
@@ -215,31 +219,12 @@ function compareProviders(
   return (a.providerName || a.providerType).localeCompare(b.providerName || b.providerType);
 }
 
-// Module-level SWR-style cache: persists across route navigations within the same session.
-const LLM_CACHE_TTL = 5 * 60 * 1000;
-const llmPageCache: { configs: LLMConfigDTO[] | null; providers: ProviderModelDTO[] | null; fetchedAt: number } = {
-  configs: null,
-  providers: null,
-  fetchedAt: 0,
-};
-function isCacheValid() {
-  return (
-    llmPageCache.configs !== null &&
-    llmPageCache.providers !== null &&
-    Date.now() - llmPageCache.fetchedAt < LLM_CACHE_TTL
-  );
-}
-function invalidateLLMPageCache() {
-  llmPageCache.configs = null;
-  llmPageCache.providers = null;
-  llmPageCache.fetchedAt = 0;
-}
-
 export default function LLMPage() {
   const { darkMode } = useTheme();
-  const [configs, setConfigs] = useState<LLMConfigDTO[]>(() => llmPageCache.configs ?? []);
-  const [providers, setProviders] = useState<ProviderModelDTO[]>(() => llmPageCache.providers ?? []);
-  const [loading, setLoading] = useState(() => !isCacheValid());
+  const [configs, setConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
+  const [defaults, setDefaults] = useState<CapabilityDefaultDTO[]>([]);
+  const [providers, setProviders] = useState<ProviderModelDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCapabilityFilters, setSelectedCapabilityFilters] = useState<LLMCapability[]>([]);
   const [selectedCapability, setSelectedCapability] = useState<LLMCapability>('CHAT');
@@ -275,13 +260,12 @@ export default function LLMPage() {
 
   const defaultByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView>();
-    viewConfigs.forEach((config) => {
-      if (config.isDefault && config.isActive && isSupportedCapability(config.capability)) {
-        map.set(config.capability, config);
-      }
+    defaults.forEach((selection) => {
+      const config = viewConfigs.find((item) => item.configId === selection.effectiveConfigId);
+      if (config?.isActive) map.set(selection.capability, config);
     });
     return map;
-  }, [viewConfigs]);
+  }, [defaults, viewConfigs]);
 
   const candidatesByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView[]>();
@@ -387,28 +371,15 @@ export default function LLMPage() {
   }, [providers, searchTerm, selectedCapabilityFilters]);
 
   async function loadPageData() {
-    if (isCacheValid()) {
-      // Stale-while-revalidate: cache still fresh, revalidate silently in background.
-      try {
-        const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
-        llmPageCache.configs = configResult;
-        llmPageCache.providers = providerResult;
-        llmPageCache.fetchedAt = Date.now();
-        setConfigs(configResult);
-        setProviders(providerResult);
-      } catch (error) {
-        console.error('Failed to revalidate LLM page data:', error);
-      }
-      return;
-    }
-
     setLoading(true);
     try {
-      const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
-      llmPageCache.configs = configResult;
-      llmPageCache.providers = providerResult;
-      llmPageCache.fetchedAt = Date.now();
+      const [configResult, defaultResult, providerResult] = await Promise.all([
+        getLLMConfigs(),
+        getLLMCapabilityDefaults(),
+        getLLMProviders(),
+      ]);
       setConfigs(configResult);
+      setDefaults(defaultResult);
       setProviders(providerResult);
     } catch (error) {
       console.error('Failed to load LLM page data:', error);
@@ -420,11 +391,13 @@ export default function LLMPage() {
   // Silent background revalidation after mutations — no loading state, optimistic UI stays visible.
   async function revalidate() {
     try {
-      const [configResult, providerResult] = await Promise.all([getLLMConfigs(), getLLMProviders()]);
-      llmPageCache.configs = configResult;
-      llmPageCache.providers = providerResult;
-      llmPageCache.fetchedAt = Date.now();
+      const [configResult, defaultResult, providerResult] = await Promise.all([
+        getLLMConfigs(),
+        getLLMCapabilityDefaults(),
+        getLLMProviders(),
+      ]);
       setConfigs(configResult);
+      setDefaults(defaultResult);
       setProviders(providerResult);
     } catch (error) {
       console.error('Failed to revalidate LLM page data:', error);
@@ -434,7 +407,11 @@ export default function LLMPage() {
   async function handleSetupProvider(providerType: string, apiKey: string) {
     try {
       const nextConfigs = await setupLLMProvider({ providerType, apiKey });
-      setConfigs(nextConfigs);
+      setConfigs((current) => {
+        const merged = new Map(current.map((config) => [config.configId, config]));
+        nextConfigs.forEach((config) => merged.set(config.configId, config));
+        return [...merged.values()];
+      });
       setSetupTarget(null);
       void revalidate();
     } catch (error) {
@@ -443,28 +420,29 @@ export default function LLMPage() {
   }
 
   async function handleSelectDefault(capability: LLMCapability, configId: string) {
-    const config = viewConfigs.find((item) => item.id === Number(configId));
-    if (!config || config.isDefault || !config.isActive) {
+    const config = viewConfigs.find((item) => item.configId === Number(configId));
+    const previous = defaults.find((item) => item.capability === capability);
+    if (!config || previous?.effectiveConfigId === config.configId || !config.isActive) {
       return;
     }
-    const previousDefaultId = viewConfigs.find((item) => item.capability === capability && item.isDefault)?.id;
-    setConfigs((prev) =>
-      prev.map((item) => (item.capability === capability ? { ...item, isDefault: item.id === config.id } : item)),
+    setDefaults((current) =>
+      current.map((item) =>
+        item.capability === capability
+          ? {
+              ...item,
+              userDefaultConfigId: config.scope === 'USER' ? config.configId : null,
+              effectiveConfigId: config.configId,
+            }
+          : item,
+      ),
     );
     try {
-      await selectEffectiveLLMModel({
-        capability,
-        providerType: config.providerType,
-        modelName: config.modelName,
-      });
+      if (config.scope === 'SYSTEM') await clearUserCapabilityDefault(capability);
+      else await setUserCapabilityDefault(capability, config.configId);
       void revalidate();
     } catch (error) {
       console.error('Failed to select effective config:', error);
-      setConfigs((prev) =>
-        prev.map((item) =>
-          item.capability === capability ? { ...item, isDefault: item.id === previousDefaultId } : item,
-        ),
-      );
+      setDefaults((current) => current.map((item) => (item.capability === capability && previous ? previous : item)));
     }
   }
 
@@ -473,18 +451,28 @@ export default function LLMPage() {
       return;
     }
     const nextActive = !config.isActive;
-    setConfigs((prev) => prev.map((item) => (item.id === config.id ? { ...item, isActive: nextActive } : item)));
+    setConfigs((prev) =>
+      prev.map((item) => (item.configId === config.configId ? { ...item, isActive: nextActive } : item)),
+    );
     try {
-      await toggleLLMModel({
-        providerType: config.providerType,
-        modelName: config.modelName,
-        capability: config.capability,
-        enabled: nextActive,
-      });
+      await setLLMConfigActive(config.configId, nextActive);
       void revalidate();
     } catch (error) {
       console.error('Failed to toggle model:', error);
-      setConfigs((prev) => prev.map((item) => (item.id === config.id ? { ...item, isActive: config.isActive } : item)));
+      setConfigs((prev) =>
+        prev.map((item) => (item.configId === config.configId ? { ...item, isActive: config.isActive } : item)),
+      );
+    }
+  }
+
+  async function handleDeleteConfig(config: ConfigView) {
+    if (!isConfigEditable(config) || !window.confirm(`确定删除 ${getModelDisplayName(config)} 吗？`)) return;
+    try {
+      await deleteLLMConfig(config.configId);
+      setConfigs((current) => current.filter((item) => item.configId !== config.configId));
+      void revalidate();
+    } catch (error) {
+      console.error('Failed to delete model config:', error);
     }
   }
 
@@ -497,7 +485,6 @@ export default function LLMPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
-              invalidateLLMPageCache();
               void loadPageData();
             }}
             className="inline-flex h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-soft px-3 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-surface-card hover:text-ink"
@@ -536,6 +523,7 @@ export default function LLMPage() {
               darkMode={darkMode}
               selectedCapability={selectedCapability}
               onToggleConfig={handleToggleConfig}
+              onDeleteConfig={handleDeleteConfig}
               onUpdateProvider={(provider) => setSetupTarget({ provider, mode: 'update' })}
             />
           </div>
@@ -721,10 +709,10 @@ function EffectiveModelsPanel({
                       return (
                         <button
                           type="button"
-                          key={config.id}
+                          key={config.configId}
                           onClick={(event) => {
                             event.stopPropagation();
-                            onSelect(currentCapability.value, `${config.id}`);
+                            onSelect(currentCapability.value, `${config.configId}`);
                             setOpenCapability(null);
                           }}
                           className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
@@ -820,10 +808,10 @@ function EffectiveModelsPanel({
                           return (
                             <button
                               type="button"
-                              key={config.id}
+                              key={config.configId}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                onSelect(capability.value, `${config.id}`);
+                                onSelect(capability.value, `${config.configId}`);
                                 setOpenCapability(null);
                               }}
                               className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
@@ -857,6 +845,7 @@ function ConfiguredProvidersPanel({
   darkMode,
   selectedCapability,
   onToggleConfig,
+  onDeleteConfig,
   onUpdateProvider,
 }: {
   loading: boolean;
@@ -864,6 +853,7 @@ function ConfiguredProvidersPanel({
   darkMode: boolean;
   selectedCapability: LLMCapability;
   onToggleConfig: (config: ConfigView) => void;
+  onDeleteConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   const selectedCapabilityMeta = getCapabilityMeta(selectedCapability);
@@ -934,6 +924,7 @@ function ConfiguredProvidersPanel({
                     darkMode={darkMode}
                     defaultCollapsed={false}
                     onToggleConfig={onToggleConfig}
+                    onDeleteConfig={onDeleteConfig}
                     onUpdateProvider={onUpdateProvider}
                   />
                 </Fragment>
@@ -948,6 +939,7 @@ function ConfiguredProvidersPanel({
                   darkMode={darkMode}
                   defaultCollapsed
                   onToggleConfig={onToggleConfig}
+                  onDeleteConfig={onDeleteConfig}
                   onUpdateProvider={onUpdateProvider}
                 />
               </Fragment>
@@ -964,12 +956,14 @@ function ProviderConfigCard({
   darkMode,
   defaultCollapsed = true,
   onToggleConfig,
+  onDeleteConfig,
   onUpdateProvider,
 }: {
   group: ProviderGroup;
   darkMode: boolean;
   defaultCollapsed?: boolean;
   onToggleConfig: (config: ConfigView) => void;
+  onDeleteConfig: (config: ConfigView) => void;
   onUpdateProvider: (provider: ProviderModelDTO) => void;
 }) {
   const iconUrl = getProviderGroupIcon(group, darkMode);
@@ -1051,7 +1045,19 @@ function ProviderConfigCard({
         <div className="min-h-0 overflow-hidden">
           <div className="space-y-0.5 px-0 pb-1 lg:grid lg:gap-x-6 lg:gap-y-4 lg:space-y-0 lg:px-2 lg:sm:grid-cols-2 lg:xl:grid-cols-3">
             {group.models.map((model) => (
-              <ModelConfigBlock key={model.modelName} model={model} onToggleConfig={onToggleConfig} />
+              <ModelConfigBlock
+                key={model.modelName}
+                model={model}
+                onToggleConfig={onToggleConfig}
+                onDeleteConfig={onDeleteConfig}
+                onEditConfig={() =>
+                  onUpdateProvider({
+                    providerType: group.providerType,
+                    providerName: group.providerName,
+                    models: [],
+                  })
+                }
+              />
             ))}
           </div>
         </div>
@@ -1063,9 +1069,13 @@ function ProviderConfigCard({
 function ModelConfigBlock({
   model,
   onToggleConfig,
+  onDeleteConfig,
+  onEditConfig,
 }: {
   model: ModelGroup;
   onToggleConfig: (config: ConfigView) => void;
+  onDeleteConfig: (config: ConfigView) => void;
+  onEditConfig: (config: ConfigView) => void;
 }) {
   const capabilityConfigs = [...model.configs].sort((a, b) => capabilitySort(a.capability, b.capability));
   const activeConfigCount = model.configs.filter((config) => config.isActive).length;
@@ -1080,7 +1090,13 @@ function ModelConfigBlock({
 
         <div className="flex max-w-[52%] shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1.5 lg:max-w-[56%] lg:gap-x-3">
           {capabilityConfigs.map((config) => (
-            <CapabilityControl key={config.id} config={config} onToggle={() => onToggleConfig(config)} />
+            <CapabilityControl
+              key={config.configId}
+              config={config}
+              onEdit={() => onEditConfig(config)}
+              onToggle={() => onToggleConfig(config)}
+              onDelete={() => onDeleteConfig(config)}
+            />
           ))}
         </div>
       </div>
@@ -1105,7 +1121,17 @@ function ModelConfigBlock({
   );
 }
 
-function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle: () => void }) {
+function CapabilityControl({
+  config,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  config: ConfigView;
+  onEdit: () => void;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
   const capability = getCapabilityMeta(config.capability);
   const editable = isConfigEditable(config);
   const label = editable
@@ -1114,6 +1140,7 @@ function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle:
 
   return (
     <span
+      data-config-id={config.configId}
       className={cn(
         'inline-flex h-7 min-w-0 shrink-0 items-center gap-1.5 text-[11px] font-bold transition-colors lg:gap-2',
         config.isActive ? 'text-ink' : 'text-muted',
@@ -1129,7 +1156,27 @@ function CapabilityControl({ config, onToggle }: { config: ConfigView; onToggle:
         />
       ) : null}
       <span className="hidden whitespace-nowrap leading-none lg:inline">{capability.label}</span>
-      {editable ? <MiniCapabilitySwitch checked={config.isActive} label={label} onClick={onToggle} /> : null}
+      {editable ? (
+        <>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-primary/10 hover:text-primary"
+            aria-label={`编辑 ${getModelDisplayName(config)}`}
+          >
+            <Key size={12} />
+          </button>
+          <MiniCapabilitySwitch checked={config.isActive} label={label} onClick={onToggle} />
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-error/10 hover:text-error"
+            aria-label={`删除 ${getModelDisplayName(config)}`}
+          >
+            <Trash2 size={12} />
+          </button>
+        </>
+      ) : null}
     </span>
   );
 }
