@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
+  buildAdminDefaultMutation,
   clearUserCapabilityDefault,
   createAdminLLMConfig,
   deleteLLMConfig,
@@ -14,6 +15,23 @@ import {
   setupLLMProvider,
   updateAdminLLMConfig,
 } from './llm';
+
+describe('buildAdminDefaultMutation', () => {
+  it('clears the pointer only when an existing default is unchecked', () => {
+    expect(buildAdminDefaultMutation(true, false)).toEqual({
+      setAsDefault: false,
+      clearDefault: true,
+    });
+  });
+
+  it('keeps a non-default unchanged when it remains unchecked', () => {
+    expect(buildAdminDefaultMutation(false, false)).toEqual({ setAsDefault: false });
+  });
+
+  it('sets the selected config as default when checked', () => {
+    expect(buildAdminDefaultMutation(false, true)).toEqual({ setAsDefault: true });
+  });
+});
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {

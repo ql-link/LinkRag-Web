@@ -199,6 +199,15 @@ export async function listAdminLLMConfigs(filters?: {
   return apiClient.get<ExecutableLLMConfigDTO[]>('/api/v1/admin/llm/configs', filters);
 }
 
+export function buildAdminDefaultMutation(
+  wasDefault: boolean,
+  shouldBeDefault: boolean,
+): Pick<AdminPlatformConfigSaveRequest, 'setAsDefault' | 'clearDefault'> {
+  if (shouldBeDefault) return { setAsDefault: true };
+  if (wasDefault) return { setAsDefault: false, clearDefault: true };
+  return { setAsDefault: false };
+}
+
 export async function createAdminLLMConfig(
   data: AdminPlatformConfigSaveRequest,
 ): Promise<AdminPlatformConfigSaveResult> {

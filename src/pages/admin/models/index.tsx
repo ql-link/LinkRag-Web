@@ -29,6 +29,7 @@ import { Routes } from '@/routes';
 import {
   addAdminProviderModel,
   createAdminLLMConfig,
+  buildAdminDefaultMutation,
   createAdminProvider,
   deleteAdminLLMConfig,
   deleteAdminProvider,
@@ -549,7 +550,7 @@ export default function AdminModelsPage() {
             apiBaseUrl: modelForm.apiBaseUrl.trim(),
           },
           ...(modelForm.apiKey.trim() ? { apiKey: modelForm.apiKey.trim() } : {}),
-          setAsDefault: modelForm.isDefault,
+          ...buildAdminDefaultMutation(Boolean(existingPreset?.isDefault), modelForm.isDefault),
         };
         if (existingPreset) await updateAdminLLMConfig(existingPreset.configId, request);
         else await createAdminLLMConfig(request);
@@ -644,14 +645,14 @@ export default function AdminModelsPage() {
             apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
           },
           ...(apiKey ? { apiKey } : {}),
-          setAsDefault: linkRagPresetForm.isDefault,
+          ...buildAdminDefaultMutation(editingLinkRagPreset.isDefault, linkRagPresetForm.isDefault),
         };
         await updateAdminLLMConfig(editingLinkRagPreset.configId, payload);
       } else if (linkRagPresetForm.mode === 'source') {
         const payload = {
           sourceProviderModelId: Number(linkRagPresetForm.sourceProviderModelId),
           apiKey,
-          setAsDefault: linkRagPresetForm.isDefault,
+          ...buildAdminDefaultMutation(false, linkRagPresetForm.isDefault),
         };
         await createAdminLLMConfig(payload);
       } else {
@@ -666,7 +667,7 @@ export default function AdminModelsPage() {
             apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
           },
           apiKey,
-          setAsDefault: linkRagPresetForm.isDefault,
+          ...buildAdminDefaultMutation(false, linkRagPresetForm.isDefault),
         };
         await createAdminLLMConfig(payload);
       }

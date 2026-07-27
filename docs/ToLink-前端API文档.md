@@ -721,7 +721,7 @@ DELETE /api/v1/llm/configs/{configId}
 - 创建：`POST /api/v1/admin/llm/configs`
 - 更新：`PUT /api/v1/admin/llm/configs/{configId}`
 
-请求必须在 `sourceProviderModelId` 与 `catalogMutation` 中二选一；`catalogMutation` 包含 `providerId`、`modelName`、`displayName`、`capability`、`protocol`、`apiBaseUrl`。另可提交 `apiKey` 与 `setAsDefault`。一次保存只发送一个业务写请求，Java 在同一事务中提交目录、运行配置和可选的平台默认关系。响应为 `{ config, capabilityDefault }`。
+请求必须在 `sourceProviderModelId` 与 `catalogMutation` 中二选一；`catalogMutation` 包含 `providerId`、`modelName`、`displayName`、`capability`、`protocol`、`apiBaseUrl`。另可提交 `apiKey`、`setAsDefault` 与 `clearDefault`。`setAsDefault=true` 表示设为默认，`clearDefault=true` 表示清除仍指向当前配置的默认关系，两者均为 `false` 时保持不变。一次保存只发送一个业务写请求，Java 在同一事务中提交目录、运行配置和可选的平台默认关系。响应为 `{ config, capabilityDefault }`。
 
 管理员启停、删除和切换默认分别使用：
 

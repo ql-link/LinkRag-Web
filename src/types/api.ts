@@ -256,6 +256,7 @@ export interface AdminPlatformConfigSaveRequest {
   catalogMutation?: AdminCatalogMutation;
   apiKey?: string;
   setAsDefault: boolean;
+  clearDefault?: boolean;
 }
 
 export interface AdminPlatformConfigSaveResult {
