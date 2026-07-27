@@ -991,18 +991,11 @@ export default function ChatsPage() {
     if (modelSelectionContextRef.current === context) return;
     const resolved = resolveChatModelSelection(chatModels, {
       kind: 'new',
-      effectiveConfigId: chatDefaultSelection?.effectiveConfigId ?? null,
+      defaultConfigId: chatDefaultSelection?.configId ?? null,
     });
     modelSelectionContextRef.current = context;
     setSelectedConfigId(resolved.configId);
-  }, [
-    activeConversationId,
-    addToast,
-    chatDefaultSelection?.effectiveConfigId,
-    chatModels,
-    chatModelsLoaded,
-    conversation,
-  ]);
+  }, [activeConversationId, addToast, chatDefaultSelection?.configId, chatModels, chatModelsLoaded, conversation]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
@@ -1143,13 +1136,13 @@ export default function ChatsPage() {
     setSelectedConfigId(
       resolveChatModelSelection(chatModels, {
         kind: 'new',
-        effectiveConfigId: chatDefaultSelection?.effectiveConfigId ?? null,
+        defaultConfigId: chatDefaultSelection?.configId ?? null,
       }).configId,
     );
     navigate(Routes.Chats, {
       state: selectedDatasetId ? { datasetId: selectedDatasetId } : null,
     });
-  }, [chatDefaultSelection?.effectiveConfigId, chatModels, navigate, selectedDatasetId]);
+  }, [chatDefaultSelection?.configId, chatModels, navigate, selectedDatasetId]);
 
   const handleDeleteConversation = useCallback(
     async (id: number) => {
@@ -1913,14 +1906,9 @@ export default function ChatsPage() {
                           {activeConversationId ? '当前会话' : '当前选择'}
                         </span>
                       ) : null}
-                      {model.configId === chatDefaultSelection?.userDefaultConfigId ? (
+                      {model.configId === chatDefaultSelection?.configId ? (
                         <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-text-secondary">
                           我的默认
-                        </span>
-                      ) : null}
-                      {model.configId === chatDefaultSelection?.systemDefaultConfigId ? (
-                        <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-text-secondary">
-                          平台默认
                         </span>
                       ) : null}
                       <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-muted">

@@ -261,7 +261,7 @@ export default function LLMPage() {
   const defaultByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView>();
     defaults.forEach((selection) => {
-      const config = viewConfigs.find((item) => item.configId === selection.effectiveConfigId);
+      const config = viewConfigs.find((item) => item.configId === selection.configId);
       if (config?.isActive) map.set(selection.capability, config);
     });
     return map;
@@ -427,19 +427,11 @@ export default function LLMPage() {
   async function handleSelectDefault(capability: LLMCapability, configId: string) {
     const config = viewConfigs.find((item) => item.configId === Number(configId));
     const previous = defaults.find((item) => item.capability === capability);
-    if (!config || previous?.userDefaultConfigId === config.configId || !config.isActive) {
+    if (!config || previous?.configId === config.configId || !config.isActive) {
       return;
     }
     setDefaults((current) =>
-      current.map((item) =>
-        item.capability === capability
-          ? {
-              ...item,
-              userDefaultConfigId: config.configId,
-              effectiveConfigId: config.configId,
-            }
-          : item,
-      ),
+      current.map((item) => (item.capability === capability ? { ...item, configId: config.configId } : item)),
     );
     try {
       await setUserCapabilityDefault(capability, config.configId);
@@ -450,21 +442,17 @@ export default function LLMPage() {
     }
   }
 
-  async function handleFollowPlatform(capability: LLMCapability) {
+  async function handleClearDefault(capability: LLMCapability) {
     const previous = defaults.find((item) => item.capability === capability);
-    if (!previous?.userDefaultConfigId) return;
+    if (!previous?.configId) return;
     setDefaults((current) =>
-      current.map((item) =>
-        item.capability === capability
-          ? { ...item, userDefaultConfigId: null, effectiveConfigId: item.systemDefaultConfigId }
-          : item,
-      ),
+      current.map((item) => (item.capability === capability ? { ...item, configId: null } : item)),
     );
     try {
       await clearUserCapabilityDefault(capability);
       void revalidate();
     } catch (error) {
-      console.error('Failed to follow platform default:', error);
+      console.error('Failed to clear capability default:', error);
       setDefaults((current) => current.map((item) => (item.capability === capability ? previous : item)));
     }
   }
@@ -539,7 +527,7 @@ export default function LLMPage() {
               selectedCapability={selectedCapability}
               onCapabilityChange={setSelectedCapability}
               onSelect={handleSelectDefault}
-              onFollowPlatform={handleFollowPlatform}
+              onClearDefault={handleClearDefault}
             />
 
             <ConfiguredProvidersPanel
@@ -593,7 +581,7 @@ function EffectiveModelsPanel({
   selectedCapability,
   onCapabilityChange,
   onSelect,
-  onFollowPlatform,
+  onClearDefault,
 }: {
   loading?: boolean;
   defaultByCapability: Map<LLMCapability, ConfigView>;
@@ -603,7 +591,7 @@ function EffectiveModelsPanel({
   selectedCapability: LLMCapability;
   onCapabilityChange: (capability: LLMCapability) => void;
   onSelect: (capability: LLMCapability, configId: string) => void;
-  onFollowPlatform: (capability: LLMCapability) => void;
+  onClearDefault: (capability: LLMCapability) => void;
 }) {
   const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
   const currentCapability = CAPABILITIES.find((item) => item.value === selectedCapability) ?? CAPABILITIES[0];
@@ -635,10 +623,10 @@ function EffectiveModelsPanel({
   return (
     <section className="relative z-10 overflow-visible">
       <div className="flex items-center justify-between gap-3 px-1 pb-2">
-        <h3 className="text-base font-bold text-ink">生效模型</h3>
+        <h3 className="text-base font-bold text-ink">默认模型</h3>
       </div>
       {loading ? (
-        <LoadingState label="加载生效模型..." />
+        <LoadingState label="加载默认模型..." />
       ) : (
         <>
           <div className="space-y-3 lg:hidden">
@@ -708,7 +696,7 @@ function EffectiveModelsPanel({
                   ) : null}
                   <span className="truncate text-sm font-bold text-text-secondary">{currentCapability.label}</span>
                 </div>
-                <ConfigTypePill label={currentSelection?.userDefaultConfigId ? '我的默认' : '跟随平台'} compact quiet />
+                <ConfigTypePill label={currentSelection?.configId ? '我的默认' : '未设置默认'} compact quiet />
               </div>
 
               <div className="flex min-w-0 items-center gap-3">
@@ -722,7 +710,7 @@ function EffectiveModelsPanel({
                     {current ? getModelDisplayName(current) : '未设置'}
                   </p>
                   <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
-                    {current ? current.providerName : '暂无生效模型'}
+                    {current ? current.providerName : '未设置默认模型'}
                   </p>
                 </div>
               </div>
@@ -738,18 +726,20 @@ function EffectiveModelsPanel({
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onFollowPlatform(currentCapability.value);
+                        onClearDefault(currentCapability.value);
                         setOpenCapability(null);
                       }}
                       className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
                     >
                       <div className="flex items-center gap-2.5">
-                        <ProviderIcon iconUrl="" name="平台默认" size="sm" />
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-muted">
+                          <X size={14} />
+                        </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-bold text-ink">跟随平台</p>
-                          <p className="mt-0.5 truncate text-[11px] text-muted">平台默认变化时自动跟随</p>
+                          <p className="truncate text-xs font-bold text-ink">清除默认</p>
+                          <p className="mt-0.5 truncate text-[11px] text-muted">新操作不预选模型</p>
                         </div>
-                        {!currentSelection?.userDefaultConfigId ? <Check size={14} className="text-primary" /> : null}
+                        {!currentSelection?.configId ? <Check size={14} className="text-primary" /> : null}
                       </div>
                     </button>
                     {candidates.map((config) => {
@@ -772,7 +762,7 @@ function EffectiveModelsPanel({
                               <p className="mt-0.5 truncate text-[11px] text-muted">{config.providerName}</p>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              {currentSelection?.userDefaultConfigId === config.configId ? (
+                              {currentSelection?.configId === config.configId ? (
                                 <span className="text-[10px] font-bold text-primary">我的默认</span>
                               ) : null}
                               <ConfigAccessPill config={config} compact />
@@ -829,11 +819,7 @@ function EffectiveModelsPanel({
                       ) : null}
                       <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
                     </div>
-                    <ConfigTypePill
-                      label={desktopSelection?.userDefaultConfigId ? '我的默认' : '跟随平台'}
-                      compact
-                      quiet
-                    />
+                    <ConfigTypePill label={desktopSelection?.configId ? '我的默认' : '未设置默认'} compact quiet />
                   </div>
 
                   <div className="flex min-w-0 items-start justify-between gap-3">
@@ -848,7 +834,7 @@ function EffectiveModelsPanel({
                           {desktopCurrent ? getModelDisplayName(desktopCurrent) : '未设置'}
                         </p>
                         <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-muted">
-                          {desktopCurrent ? desktopCurrent.providerName : '暂无生效模型'}
+                          {desktopCurrent ? desktopCurrent.providerName : '未设置默认模型'}
                         </p>
                       </div>
                     </div>
@@ -865,20 +851,20 @@ function EffectiveModelsPanel({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            onFollowPlatform(capability.value);
+                            onClearDefault(capability.value);
                             setOpenCapability(null);
                           }}
                           className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
                         >
                           <div className="flex items-center gap-2.5">
-                            <ProviderIcon iconUrl="" name="平台默认" size="sm" />
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-muted">
+                              <X size={14} />
+                            </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-bold text-ink">跟随平台</p>
-                              <p className="mt-0.5 truncate text-[11px] text-muted">不保留个人覆盖</p>
+                              <p className="truncate text-xs font-bold text-ink">清除默认</p>
+                              <p className="mt-0.5 truncate text-[11px] text-muted">新操作不预选模型</p>
                             </div>
-                            {!desktopSelection?.userDefaultConfigId ? (
-                              <Check size={14} className="text-primary" />
-                            ) : null}
+                            {!desktopSelection?.configId ? <Check size={14} className="text-primary" /> : null}
                           </div>
                         </button>
                         {desktopCandidates.map((config) => {
@@ -900,7 +886,7 @@ function EffectiveModelsPanel({
                                   <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                  {desktopSelection?.userDefaultConfigId === config.configId ? (
+                                  {desktopSelection?.configId === config.configId ? (
                                     <span className="text-[10px] font-bold text-primary">我的默认</span>
                                   ) : null}
                                   <ConfigAccessPill config={config} compact />

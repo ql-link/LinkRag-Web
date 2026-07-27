@@ -7,8 +7,8 @@ function model(configId: number, scope: LLMScope, displayName: string): Executab
     configId,
     scope,
     providerId: configId,
-    providerType: scope === 'USER' ? 'personal' : 'platform',
-    providerName: scope === 'USER' ? '个人' : '平台',
+    providerType: 'test',
+    providerName: '同一厂商',
     modelName: displayName,
     displayName,
     capability: 'CHAT',
@@ -24,7 +24,7 @@ function model(configId: number, scope: LLMScope, displayName: string): Executab
 }
 
 describe('chat model selection', () => {
-  it('sorts current, user default, platform default, personal and platform configs in order', () => {
+  it('sorts current and user default before all other configs without a scope preference', () => {
     const result = sortChatModels(
       [
         model(5, 'SYSTEM', 'E'),
@@ -34,14 +34,14 @@ describe('chat model selection', () => {
         model(1, 'SYSTEM', 'A'),
       ],
       3,
-      { userDefaultConfigId: 2, systemDefaultConfigId: 1, effectiveConfigId: 2 },
+      { configId: 2 },
     );
 
     expect(result.map((item) => item.configId)).toEqual([3, 2, 1, 4, 5]);
   });
 
   it('does not fall back to the first model when a new conversation has no default', () => {
-    expect(resolveChatModelSelection([model(1, 'SYSTEM', 'A')], { kind: 'new', effectiveConfigId: null })).toEqual({
+    expect(resolveChatModelSelection([model(1, 'SYSTEM', 'A')], { kind: 'new', defaultConfigId: null })).toEqual({
       configId: null,
       unavailableConversationConfig: false,
     });

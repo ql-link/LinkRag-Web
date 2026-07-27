@@ -45,9 +45,7 @@ describe('user LLM config page', () => {
     services.getLLMCapabilityDefaults.mockResolvedValue([
       {
         capability: 'CHAT',
-        userDefaultConfigId: null,
-        systemDefaultConfigId: 100,
-        effectiveConfigId: 100,
+        configId: null,
       },
     ]);
     services.getLLMProviders.mockResolvedValue([
@@ -110,13 +108,11 @@ describe('user LLM config page', () => {
     expect(services.clearUserCapabilityDefault).not.toHaveBeenCalled();
   });
 
-  it('clears the user pointer only through the explicit follow-platform option', async () => {
+  it('clears the user default through the explicit clear option', async () => {
     services.getLLMCapabilityDefaults.mockResolvedValue([
       {
         capability: 'CHAT',
-        userDefaultConfigId: 101,
-        systemDefaultConfigId: 100,
-        effectiveConfigId: 101,
+        configId: 101,
       },
     ]);
     const { container } = render(
@@ -127,11 +123,11 @@ describe('user LLM config page', () => {
     await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
     const selector = container.querySelector('[data-model-selector="CHAT"]') as HTMLElement;
     fireEvent.click(selector);
-    const followButton = [...selector.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('跟随平台'),
+    const clearButton = [...selector.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('清除默认'),
     );
-    expect(followButton).toBeDefined();
-    fireEvent.click(followButton!);
+    expect(clearButton).toBeDefined();
+    fireEvent.click(clearButton!);
 
     await waitFor(() => expect(services.clearUserCapabilityDefault).toHaveBeenCalledWith('CHAT'));
   });

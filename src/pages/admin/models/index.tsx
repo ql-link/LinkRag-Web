@@ -28,13 +28,11 @@ import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
   addAdminProviderModel,
-  clearAdminCapabilityDefault,
   createAdminLLMConfig,
   createAdminProvider,
   deleteAdminLLMConfig,
   deleteAdminProvider,
   deleteAdminProviderModel,
-  getLLMCapabilityDefaults,
   listAdminModelSyncCandidates,
   listAdminProviderModels,
   listAdminProviders,
@@ -45,7 +43,6 @@ import {
   toggleAdminProvider,
   toggleAdminProviderModel,
   setAdminLLMConfigActive,
-  setAdminCapabilityDefault,
   updateAdminProvider,
   updateAdminProviderModel,
   updateAdminLLMConfig,
@@ -65,7 +62,7 @@ import type {
   UpdateProviderRequest,
 } from '@/types/api';
 
-type PlatformConfigView = ExecutableLLMConfigDTO & { isDefault: boolean };
+type PlatformConfigView = ExecutableLLMConfigDTO;
 
 const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
   { value: 'CHAT', label: '对话' },
@@ -235,23 +232,14 @@ export default function AdminModelsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [providerResult, modelResult, configResult, defaultResult] = await Promise.all([
+      const [providerResult, modelResult, configResult] = await Promise.all([
         listAdminProviders(1, 500),
         listAdminProviderModels({ page: 1, size: 500 }),
         listAdminLLMConfigs(),
-        getLLMCapabilityDefaults(),
       ]);
       setProviders(providerResult.items || []);
       setModels(modelResult.items || []);
-      const systemDefaultByCapability = new Map(
-        defaultResult.map((selection) => [selection.capability, selection.systemDefaultConfigId]),
-      );
-      setPresets(
-        (configResult || []).map((config) => ({
-          ...config,
-          isDefault: systemDefaultByCapability.get(config.capability as LLMCapability) === config.configId,
-        })),
-      );
+      setPresets(configResult || []);
     } catch (error) {
       console.error(error);
       addToast('error', '模型管理数据加载失败');
@@ -426,7 +414,10 @@ export default function AdminModelsPage() {
           keyword,
         );
       })
-      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.capability.localeCompare(b.capability));
+      .sort(
+        (a, b) =>
+          a.capability.localeCompare(b.capability) || getModelDisplayName(a).localeCompare(getModelDisplayName(b)),
+      );
   }, [keyword, modelFilters.capability, modelFilters.status, presets, selectedProvider]);
 
   const selectedProviderModels = useMemo(() => {
@@ -546,7 +537,6 @@ export default function AdminModelsPage() {
             apiBaseUrl: modelForm.apiBaseUrl.trim(),
           },
           ...(modelForm.apiKey.trim() ? { apiKey: modelForm.apiKey.trim() } : {}),
-          setAsDefault: false,
         };
         if (existingPreset) await updateAdminLLMConfig(existingPreset.configId, request);
         else await createAdminLLMConfig(request);
@@ -640,14 +630,12 @@ export default function AdminModelsPage() {
             apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
           },
           ...(apiKey ? { apiKey } : {}),
-          setAsDefault: false,
         };
         await updateAdminLLMConfig(editingLinkRagPreset.configId, payload);
       } else if (linkRagPresetForm.mode === 'source') {
         const payload = {
           sourceProviderModelId: Number(linkRagPresetForm.sourceProviderModelId),
           apiKey,
-          setAsDefault: false,
         };
         await createAdminLLMConfig(payload);
       } else {
@@ -662,7 +650,6 @@ export default function AdminModelsPage() {
             apiBaseUrl: linkRagPresetForm.apiBaseUrl.trim(),
           },
           apiKey,
-          setAsDefault: false,
         };
         await createAdminLLMConfig(payload);
       }
@@ -684,27 +671,6 @@ export default function AdminModelsPage() {
     } catch (error) {
       console.error(error);
       addToast('error', failure);
-    }
-  }
-
-  async function handlePlatformDefaultChange(capability: LLMCapability, configId: string) {
-    const previous = presets;
-    const selectedConfigId = configId ? Number(configId) : null;
-    setPresets((current) =>
-      current.map((preset) => ({
-        ...preset,
-        isDefault: preset.capability === capability ? preset.configId === selectedConfigId : preset.isDefault,
-      })),
-    );
-    try {
-      if (selectedConfigId === null) await clearAdminCapabilityDefault(capability);
-      else await setAdminCapabilityDefault(capability, selectedConfigId);
-      addToast('success', selectedConfigId === null ? `${capabilityLabel(capability)}默认已清除` : '平台默认已更新');
-      await loadData();
-    } catch (error) {
-      console.error(error);
-      setPresets(previous);
-      addToast('error', '平台默认更新失败');
     }
   }
 
@@ -920,7 +886,6 @@ export default function AdminModelsPage() {
                       onEditModel={openEditModel}
                       onCreateLinkRagPreset={openCreateLinkRagPreset}
                       onEditLinkRagPreset={openEditLinkRagPreset}
-                      onPlatformDefaultChange={handlePlatformDefaultChange}
                       onRefreshExternal={handleRefreshExternalModels}
                       onOpenPublishCandidate={openPublishCandidate}
                       onReviewCandidate={handleReviewCandidate}
@@ -1180,7 +1145,6 @@ function ProviderWorkspace({
   onEditModel,
   onCreateLinkRagPreset,
   onEditLinkRagPreset,
-  onPlatformDefaultChange,
   onRefreshExternal,
   onOpenPublishCandidate,
   onReviewCandidate,
@@ -1215,7 +1179,6 @@ function ProviderWorkspace({
   onEditModel: (model: ProviderModel) => void;
   onCreateLinkRagPreset: () => void;
   onEditLinkRagPreset: (preset: PlatformConfigView) => void;
-  onPlatformDefaultChange: (capability: LLMCapability, configId: string) => void;
   onRefreshExternal: (provider: SystemProvider) => void;
   onOpenPublishCandidate: (candidate: ModelSyncCandidate) => void;
   onReviewCandidate: (candidate: ModelSyncCandidate, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
@@ -1299,9 +1262,6 @@ function ProviderWorkspace({
       </section>
 
       <section className="pt-1">
-        {isLinkRag ? (
-          <PlatformDefaultPanel darkMode={darkMode} configs={allPlatformConfigs} onChange={onPlatformDefaultChange} />
-        ) : null}
         <SectionHeader
           darkMode={darkMode}
           title={isLinkRag ? '平台配置' : catalogMode === 'candidates' ? '外部模型候选' : '模型能力目录'}
@@ -1455,66 +1415,6 @@ function SectionHeader({ darkMode, title, meta }: { darkMode: boolean; title: st
   );
 }
 
-function PlatformDefaultPanel({
-  darkMode,
-  configs,
-  onChange,
-}: {
-  darkMode: boolean;
-  configs: PlatformConfigView[];
-  onChange: (capability: LLMCapability, configId: string) => void;
-}) {
-  return (
-    <section
-      className={cn(
-        'mx-1 mb-5 rounded-lg border p-4',
-        darkMode ? 'border-white/[0.07] bg-white/[0.025]' : 'border-border-subtle bg-bg-card-solid',
-      )}
-    >
-      <div className="mb-4">
-        <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>平台默认</h3>
-        <p className={cn('mt-1 text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-          仅决定新操作的初始选择和排序，不会启停模型，也不会覆盖已有会话或数据集绑定。
-        </p>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {CAPABILITIES.map((capability) => {
-          const candidates = configs
-            .filter((config) => config.isActive && config.capability === capability.value)
-            .sort((a, b) => getModelDisplayName(a).localeCompare(getModelDisplayName(b)));
-          const selected = configs.find((config) => config.capability === capability.value && config.isDefault);
-          return (
-            <div key={capability.value} className="min-w-0">
-              <p className={cn('mb-1.5 text-[11px] font-bold', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-                {capability.label}
-              </p>
-              <FormSelect
-                darkMode={darkMode}
-                value={selected ? String(selected.configId) : ''}
-                placeholder="未设置"
-                options={[
-                  { value: '', label: '未设置', description: '保持未选择，不自动取第一项' },
-                  ...candidates.map((config) => ({
-                    value: String(config.configId),
-                    label: getModelDisplayName(config),
-                    description: `${config.providerName || config.providerType} · config ${config.configId}`,
-                    icon: {
-                      providerType: config.providerType,
-                      providerName: config.providerName || config.providerType,
-                      iconUrl: config.iconUrl,
-                    },
-                  })),
-                ]}
-                onChange={(value) => onChange(capability.value, value)}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function FilterLabel({ darkMode, icon, children }: { darkMode: boolean; icon?: ReactNode; children: ReactNode }) {
   return (
     <span
@@ -1597,7 +1497,6 @@ function PlatformConfigList({
                 {getModelDisplayName(preset)}
               </h4>
               <StatusPill darkMode={darkMode} active={preset.isActive} />
-              {preset.isDefault ? <SmallBadge darkMode={darkMode}>默认</SmallBadge> : null}
               <SmallBadge darkMode={darkMode}>来源 {preset.providerName || preset.providerType}</SmallBadge>
               <SmallBadge darkMode={darkMode}>{capabilityLabel(preset.capability)}</SmallBadge>
               <SmallBadge darkMode={darkMode}>{preset.protocol}</SmallBadge>
@@ -1680,7 +1579,6 @@ function ModelCapabilityList({
                   {getModelDisplayName(model)}
                 </h4>
                 <StatusPill darkMode={darkMode} active={model.isActive} />
-                {preset?.isDefault ? <SmallBadge darkMode={darkMode}>默认</SmallBadge> : null}
                 <SmallBadge darkMode={darkMode}>{capabilityLabel(model.capability)}</SmallBadge>
                 <SmallBadge darkMode={darkMode}>{model.protocol}</SmallBadge>
               </div>

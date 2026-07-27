@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
-  buildAdminDefaultMutation,
-  clearAdminCapabilityDefault,
   clearUserCapabilityDefault,
   createAdminLLMConfig,
   deleteLLMConfig,
@@ -10,29 +8,11 @@ import {
   getLLMCapabilityDefaults,
   getLLMConfigs,
   listAdminLLMConfigs,
-  setAdminCapabilityDefault,
   setLLMConfigActive,
   setUserCapabilityDefault,
   setupLLMProvider,
   updateAdminLLMConfig,
 } from './llm';
-
-describe('buildAdminDefaultMutation', () => {
-  it('clears the pointer only when an existing default is unchecked', () => {
-    expect(buildAdminDefaultMutation(true, false)).toEqual({
-      setAsDefault: false,
-      clearDefault: true,
-    });
-  });
-
-  it('keeps a non-default unchanged when it remains unchecked', () => {
-    expect(buildAdminDefaultMutation(false, false)).toEqual({ setAsDefault: false });
-  });
-
-  it('sets the selected config as default when checked', () => {
-    expect(buildAdminDefaultMutation(false, true)).toEqual({ setAsDefault: true });
-  });
-});
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
@@ -79,7 +59,7 @@ describe('unified LLM service contracts', () => {
 
   it('saves an admin platform config with exactly one business write', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({});
-    const request = { sourceProviderModelId: 7, apiKey: 'secret', setAsDefault: true };
+    const request = { sourceProviderModelId: 7, apiKey: 'secret' };
 
     await createAdminLLMConfig(request);
 
@@ -87,19 +67,16 @@ describe('unified LLM service contracts', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/api/v1/admin/llm/configs', request);
   });
 
-  it('updates a platform config and default through unified admin endpoints', async () => {
+  it('updates a platform config without any platform-default request', async () => {
     vi.mocked(apiClient.get).mockResolvedValue([]);
     vi.mocked(apiClient.put).mockResolvedValue({});
-    const request = { sourceProviderModelId: 7, setAsDefault: false };
+    const request = { sourceProviderModelId: 7 };
 
     await listAdminLLMConfigs({ capability: 'CHAT' });
     await updateAdminLLMConfig(100, request);
-    await setAdminCapabilityDefault('CHAT', 100);
-    await clearAdminCapabilityDefault('CHAT');
 
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/llm/configs', { capability: 'CHAT' });
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/configs/100', request);
-    expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/defaults/CHAT', { configId: 100 });
-    expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/admin/llm/defaults/CHAT');
+    expect(apiClient.put).toHaveBeenCalledTimes(1);
   });
 });

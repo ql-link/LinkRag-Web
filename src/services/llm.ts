@@ -199,15 +199,6 @@ export async function listAdminLLMConfigs(filters?: {
   return apiClient.get<ExecutableLLMConfigDTO[]>('/api/v1/admin/llm/configs', filters);
 }
 
-export function buildAdminDefaultMutation(
-  wasDefault: boolean,
-  shouldBeDefault: boolean,
-): Pick<AdminPlatformConfigSaveRequest, 'setAsDefault' | 'clearDefault'> {
-  if (shouldBeDefault) return { setAsDefault: true };
-  if (wasDefault) return { setAsDefault: false, clearDefault: true };
-  return { setAsDefault: false };
-}
-
 export async function createAdminLLMConfig(
   data: AdminPlatformConfigSaveRequest,
 ): Promise<AdminPlatformConfigSaveResult> {
@@ -225,22 +216,12 @@ export async function setAdminLLMConfigActive(configId: number, isActive: boolea
   await apiClient.patch(`/api/v1/admin/llm/configs/${configId}/active`, { isActive });
 }
 
-export async function emergencyDisableAdminLLMConfig(configId: number, replacementConfigId?: number): Promise<void> {
-  await apiClient.post(`/api/v1/admin/llm/configs/${configId}/emergency-disable`, {
-    ...(replacementConfigId === undefined ? {} : { replacementConfigId }),
-  });
+export async function emergencyDisableAdminLLMConfig(configId: number): Promise<void> {
+  await apiClient.post(`/api/v1/admin/llm/configs/${configId}/emergency-disable`, {});
 }
 
 export async function deleteAdminLLMConfig(configId: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/llm/configs/${configId}`);
-}
-
-export async function setAdminCapabilityDefault(capability: LLMCapability, configId: number): Promise<void> {
-  await apiClient.put(`/api/v1/admin/llm/defaults/${capability}`, { configId });
-}
-
-export async function clearAdminCapabilityDefault(capability: LLMCapability): Promise<void> {
-  await apiClient.delete(`/api/v1/admin/llm/defaults/${capability}`);
 }
 
 export async function getUsageSummary(

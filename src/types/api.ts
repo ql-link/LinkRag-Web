@@ -93,9 +93,7 @@ export interface ExecutableLLMConfigDTO {
 
 export interface CapabilityDefaultDTO {
   capability: LLMCapability;
-  userDefaultConfigId: number | null;
-  systemDefaultConfigId: number | null;
-  effectiveConfigId: number | null;
+  configId: number | null;
 }
 
 export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'SPARSE_EMBEDDING' | 'RERANK' | 'VISION' | 'ASR';
@@ -255,13 +253,10 @@ export interface AdminPlatformConfigSaveRequest {
   sourceProviderModelId?: number;
   catalogMutation?: AdminCatalogMutation;
   apiKey?: string;
-  setAsDefault: boolean;
-  clearDefault?: boolean;
 }
 
 export interface AdminPlatformConfigSaveResult {
   config: ExecutableLLMConfigDTO;
-  capabilityDefault: CapabilityDefaultDTO;
 }
 
 export interface ConversationDTO {
@@ -444,10 +439,24 @@ export type KnowledgeUploadStatus = 'UPLOADING' | 'UPLOAD_SUCCESS' | 'UPLOAD_FAI
 export type KnowledgeParseNoticeStatus = 'PARSE_NOTICE_PENDING' | 'PARSE_NOTICE_SENT' | 'PARSE_NOTICE_FAILED';
 
 export type KnowledgeParseStatus =
-  'created' | 'processing' | 'success' | 'failed' | 'NOT_STARTED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+  | 'created'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCESS'
+  | 'FAILED';
 
 export type FileParseFrontendStatus =
-  'uploaded' | 'upload_failed' | 'parse_waiting' | 'asset_missing' | 'parsing' | 'parse_success' | 'parse_failed';
+  | 'uploaded'
+  | 'upload_failed'
+  | 'parse_waiting'
+  | 'asset_missing'
+  | 'parsing'
+  | 'parse_success'
+  | 'parse_failed';
 
 export interface FileParseSubmitDTO {
   fileId: number;
@@ -739,7 +748,15 @@ export interface UpdateBlogPostRequest {
 // ── Admin Logs ─────────────────────────────────────────────────────────
 
 export type AdminLogLevel =
-  'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'ACCESS' | 'AUDIT' | (string & {});
+  | 'TRACE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'FATAL'
+  | 'ACCESS'
+  | 'AUDIT'
+  | (string & {});
 
 export interface AdminLogEntryDTO {
   id?: string | null;

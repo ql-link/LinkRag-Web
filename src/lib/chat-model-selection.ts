@@ -2,9 +2,7 @@ import { getModelDisplayName } from '@/lib/model-display';
 import type { ExecutableLLMConfigDTO } from '@/types/api';
 
 export interface ChatDefaultSelection {
-  userDefaultConfigId: number | null;
-  systemDefaultConfigId: number | null;
-  effectiveConfigId: number | null;
+  configId: number | null;
 }
 
 export function sortChatModels(
@@ -14,9 +12,8 @@ export function sortChatModels(
 ) {
   const rank = (model: ExecutableLLMConfigDTO) => {
     if (model.configId === currentConfigId) return 0;
-    if (model.configId === defaults?.userDefaultConfigId) return 1;
-    if (model.configId === defaults?.systemDefaultConfigId) return 2;
-    return model.scope === 'USER' ? 3 : 4;
+    if (model.configId === defaults?.configId) return 1;
+    return 2;
   };
 
   return [...models].sort((a, b) => {
@@ -31,9 +28,9 @@ export function sortChatModels(
 
 export function resolveChatModelSelection(
   models: ExecutableLLMConfigDTO[],
-  options: { kind: 'conversation'; lastConfigId: number | null } | { kind: 'new'; effectiveConfigId: number | null },
+  options: { kind: 'conversation'; lastConfigId: number | null } | { kind: 'new'; defaultConfigId: number | null },
 ) {
-  const requestedConfigId = options.kind === 'conversation' ? options.lastConfigId : options.effectiveConfigId;
+  const requestedConfigId = options.kind === 'conversation' ? options.lastConfigId : options.defaultConfigId;
   if (requestedConfigId === null) {
     return { configId: null, unavailableConversationConfig: false };
   }
