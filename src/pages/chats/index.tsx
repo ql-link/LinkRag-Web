@@ -68,10 +68,12 @@ import { getCachedConversations, setCachedConversations } from '@/lib/conversati
 import { getProviderIcon, isProviderIconMonochrome, normalizeProviderToken } from '@/lib/provider-icons';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { getModelDisplayName } from '@/lib/model-display';
+import { resolveChatModelSelection, sortChatModels } from '@/lib/chat-model-selection';
 import { extractLocalMarkdownImageReferences, isMarkdownKnowledgeFile } from '@/lib/markdown-assets';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import type {
   ConversationDTO,
+  CapabilityDefaultDTO,
   DatasetDTO,
   KnowledgeFileDTO,
   ExecutableLLMConfigDTO,
@@ -289,7 +291,6 @@ function linkifyRecallChunkMentions(content: string, chunks?: RecallChunk[]) {
 const INSET_MODEL_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
 
 function getModelProviderName(model: ChatModel | null | undefined) {
-  if (model?.scope === 'SYSTEM') return 'LinkRag';
   return model?.providerName?.trim() || model?.providerType || '';
 }
 
@@ -655,6 +656,7 @@ export default function ChatsPage() {
   const initialQuestionSentRef = useRef<string | null>(null);
   const kbSelectorRef = useRef<HTMLDivElement | null>(null);
   const modelSelectorRef = useRef<HTMLDivElement | null>(null);
+  const modelSelectionContextRef = useRef<string | null>(null);
   // 镜像会话列表：loadConversation 只查找用，不作为重跑触发器（避免覆盖本地消息）。
   const conversationsRef = useRef<ConversationDTO[]>([]);
 
@@ -675,8 +677,9 @@ export default function ChatsPage() {
   const [inputValue, setInputValue] = useState('');
   const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(() => routeDatasetId);
   const [chatModels, setChatModels] = useState<ChatModel[]>([]);
+  const [chatModelsLoaded, setChatModelsLoaded] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
-  const [defaultChatConfigId, setDefaultChatConfigId] = useState<number | null>(null);
+  const [chatDefaultSelection, setChatDefaultSelection] = useState<CapabilityDefaultDTO | null>(null);
   const [kbOpen, setKbOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -741,6 +744,10 @@ export default function ChatsPage() {
   const selectedModel = selectedConfigId
     ? (chatModels.find((model) => model.configId === selectedConfigId) ?? null)
     : null;
+  const orderedChatModels = useMemo(
+    () => sortChatModels(chatModels, selectedConfigId, chatDefaultSelection),
+    [chatDefaultSelection, chatModels, selectedConfigId],
+  );
   const messageTurnIdById = useMemo(() => {
     const turnIdById = new Map<string, string>();
     let currentTurnId: string | null = null;
@@ -845,13 +852,11 @@ export default function ChatsPage() {
         setDatasets(dsResult.items);
         const chatModelItems = modelResult;
         setChatModels(chatModelItems);
-        const defaultModel =
-          chatModelItems.find((model) => model.configId === defaultSelection?.effectiveConfigId) ?? chatModelItems[0];
-        const defaultConfigId = defaultModel?.configId ?? null;
-        setDefaultChatConfigId(defaultConfigId);
-        setSelectedConfigId(defaultConfigId);
+        setChatDefaultSelection(defaultSelection);
       } catch (error) {
         if (!cancelled) console.error('Failed to load chat workspace:', error);
+      } finally {
+        if (!cancelled) setChatModelsLoaded(true);
       }
     };
 
@@ -880,6 +885,8 @@ export default function ChatsPage() {
   // 否则它们异步到位后会重跑此 effect，用后端的空消息列表覆盖掉首轮乐观/流式消息。
   useEffect(() => {
     shouldStickToMessageBottomRef.current = true;
+    modelSelectionContextRef.current = null;
+    setSelectedConfigId(null);
     if (!activeConversationId || !Number.isFinite(activeConversationId)) {
       setConversation(null);
       setMessages([]);
@@ -963,9 +970,39 @@ export default function ChatsPage() {
   }, [activeConversationId, routeDatasetId]);
 
   useEffect(() => {
-    if (!defaultChatConfigId) return;
-    setSelectedConfigId(defaultChatConfigId);
-  }, [activeConversationId, defaultChatConfigId]);
+    if (!chatModelsLoaded) return;
+    if (activeConversationId) {
+      if (conversation?.id !== activeConversationId) return;
+      const context = `conversation:${activeConversationId}`;
+      if (modelSelectionContextRef.current === context) return;
+      const resolved = resolveChatModelSelection(chatModels, {
+        kind: 'conversation',
+        lastConfigId: conversation.lastConfigId,
+      });
+      modelSelectionContextRef.current = context;
+      setSelectedConfigId(resolved.configId);
+      if (resolved.unavailableConversationConfig) {
+        addToast('error', '该会话原模型已不可用，请重新选择模型');
+      }
+      return;
+    }
+
+    const context = 'new-conversation';
+    if (modelSelectionContextRef.current === context) return;
+    const resolved = resolveChatModelSelection(chatModels, {
+      kind: 'new',
+      effectiveConfigId: chatDefaultSelection?.effectiveConfigId ?? null,
+    });
+    modelSelectionContextRef.current = context;
+    setSelectedConfigId(resolved.configId);
+  }, [
+    activeConversationId,
+    addToast,
+    chatDefaultSelection?.effectiveConfigId,
+    chatModels,
+    chatModelsLoaded,
+    conversation,
+  ]);
 
   useEffect(() => {
     if (!selectedDatasetId) return;
@@ -1102,10 +1139,17 @@ export default function ChatsPage() {
     setConversation(null);
     setMessages([]);
     setInputValue('');
+    modelSelectionContextRef.current = 'new-conversation';
+    setSelectedConfigId(
+      resolveChatModelSelection(chatModels, {
+        kind: 'new',
+        effectiveConfigId: chatDefaultSelection?.effectiveConfigId ?? null,
+      }).configId,
+    );
     navigate(Routes.Chats, {
       state: selectedDatasetId ? { datasetId: selectedDatasetId } : null,
     });
-  }, [navigate, selectedDatasetId]);
+  }, [chatDefaultSelection?.effectiveConfigId, chatModels, navigate, selectedDatasetId]);
 
   const handleDeleteConversation = useCallback(
     async (id: number) => {
@@ -1208,11 +1252,23 @@ export default function ChatsPage() {
       // ChatWorkspacePanel 仍按 updatedAt 排序，因此必须同时写入本地时间，避免刚置顶又被旧时间排回去。
       const optimisticUpdatedAt = new Date().toISOString();
       setConversations((prev) => [
-        { ...activeConversation!, updatedAt: optimisticUpdatedAt },
+        {
+          ...activeConversation!,
+          lastConfigId: selectedConfigId,
+          lastModelName: selectedModel?.modelName ?? null,
+          updatedAt: optimisticUpdatedAt,
+        },
         ...prev.filter((item) => item.id !== activeConversation!.id),
       ]);
       setConversation((prev) =>
-        prev?.id === activeConversation!.id ? { ...prev, updatedAt: optimisticUpdatedAt } : prev,
+        prev?.id === activeConversation!.id
+          ? {
+              ...prev,
+              lastConfigId: selectedConfigId,
+              lastModelName: selectedModel?.modelName ?? null,
+              updatedAt: optimisticUpdatedAt,
+            }
+          : prev,
       );
 
       const userMsg: UiChatMessage = {
@@ -1832,7 +1888,7 @@ export default function ChatsPage() {
                   : 'top-[calc(100%+0.85rem)] lg:top-full lg:mt-2',
               )}
             >
-              {chatModels.map((model) => (
+              {orderedChatModels.map((model) => (
                 <button
                   key={model.configId}
                   type="button"
@@ -1850,8 +1906,26 @@ export default function ChatsPage() {
                   <ModelProviderIcon model={model} size="xs" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{getChatModelDisplayName(model)}</span>
-                    <span className="mt-0.5 block truncate text-[10px] font-normal text-muted-soft">
-                      {getModelProviderName(model)}
+                    <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1 text-[10px] font-normal text-muted-soft">
+                      <span className="truncate">{getModelProviderName(model)}</span>
+                      {model.configId === selectedConfigId ? (
+                        <span className="rounded bg-primary/10 px-1.5 py-0.5 font-bold text-primary">
+                          {activeConversationId ? '当前会话' : '当前选择'}
+                        </span>
+                      ) : null}
+                      {model.configId === chatDefaultSelection?.userDefaultConfigId ? (
+                        <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-text-secondary">
+                          我的默认
+                        </span>
+                      ) : null}
+                      {model.configId === chatDefaultSelection?.systemDefaultConfigId ? (
+                        <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-text-secondary">
+                          平台默认
+                        </span>
+                      ) : null}
+                      <span className="rounded bg-surface-soft px-1.5 py-0.5 font-bold text-muted">
+                        {model.scope === 'USER' ? '个人' : '平台'}
+                      </span>
                     </span>
                   </span>
                 </button>

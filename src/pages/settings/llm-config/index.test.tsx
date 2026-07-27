@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExecutableLLMConfigDTO } from '@/types/api';
@@ -91,5 +91,48 @@ describe('user LLM config page', () => {
     );
     await waitFor(() => expect(services.getLLMConfigs).toHaveBeenCalledTimes(2));
     expect(services.getLLMCapabilityDefaults).toHaveBeenCalledTimes(2);
+  });
+
+  it('stores a SYSTEM config as the user default instead of clearing the override', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <LLMPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
+    const selector = container.querySelector('[data-model-selector="CHAT"]') as HTMLElement;
+    fireEvent.click(selector);
+    const option = [...selector.querySelectorAll('button')].find((button) => button.textContent?.includes('平台 GPT'));
+    expect(option).toBeDefined();
+    fireEvent.click(option!);
+
+    await waitFor(() => expect(services.setUserCapabilityDefault).toHaveBeenCalledWith('CHAT', 100));
+    expect(services.clearUserCapabilityDefault).not.toHaveBeenCalled();
+  });
+
+  it('clears the user pointer only through the explicit follow-platform option', async () => {
+    services.getLLMCapabilityDefaults.mockResolvedValue([
+      {
+        capability: 'CHAT',
+        userDefaultConfigId: 101,
+        systemDefaultConfigId: 100,
+        effectiveConfigId: 101,
+      },
+    ]);
+    const { container } = render(
+      <MemoryRouter>
+        <LLMPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
+    const selector = container.querySelector('[data-model-selector="CHAT"]') as HTMLElement;
+    fireEvent.click(selector);
+    const followButton = [...selector.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('跟随平台'),
+    );
+    expect(followButton).toBeDefined();
+    fireEvent.click(followButton!);
+
+    await waitFor(() => expect(services.clearUserCapabilityDefault).toHaveBeenCalledWith('CHAT'));
   });
 });

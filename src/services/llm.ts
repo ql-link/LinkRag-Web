@@ -239,6 +239,10 @@ export async function setAdminCapabilityDefault(capability: LLMCapability, confi
   await apiClient.put(`/api/v1/admin/llm/defaults/${capability}`, { configId });
 }
 
+export async function clearAdminCapabilityDefault(capability: LLMCapability): Promise<void> {
+  await apiClient.delete(`/api/v1/admin/llm/defaults/${capability}`);
+}
+
 export async function getUsageSummary(
   startDate: string,
   endDate: string,

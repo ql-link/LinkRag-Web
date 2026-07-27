@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
   buildAdminDefaultMutation,
+  clearAdminCapabilityDefault,
   clearUserCapabilityDefault,
   createAdminLLMConfig,
   deleteLLMConfig,
@@ -94,9 +95,11 @@ describe('unified LLM service contracts', () => {
     await listAdminLLMConfigs({ capability: 'CHAT' });
     await updateAdminLLMConfig(100, request);
     await setAdminCapabilityDefault('CHAT', 100);
+    await clearAdminCapabilityDefault('CHAT');
 
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/llm/configs', { capability: 'CHAT' });
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/configs/100', request);
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/defaults/CHAT', { configId: 100 });
+    expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/admin/llm/defaults/CHAT');
   });
 });

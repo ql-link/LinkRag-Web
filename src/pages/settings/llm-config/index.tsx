@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { Box, Key, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Box, Check, Key, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import chatIconUrl from '@/assets/icons/color/chat.svg';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import rerankIconUrl from '@/assets/icons/color/rerank.svg';
@@ -267,6 +267,11 @@ export default function LLMPage() {
     return map;
   }, [defaults, viewConfigs]);
 
+  const defaultSelectionByCapability = useMemo(
+    () => new Map(defaults.map((selection) => [selection.capability, selection])),
+    [defaults],
+  );
+
   const candidatesByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView[]>();
     CAPABILITIES.forEach((capability) => map.set(capability.value, []));
@@ -422,7 +427,7 @@ export default function LLMPage() {
   async function handleSelectDefault(capability: LLMCapability, configId: string) {
     const config = viewConfigs.find((item) => item.configId === Number(configId));
     const previous = defaults.find((item) => item.capability === capability);
-    if (!config || previous?.effectiveConfigId === config.configId || !config.isActive) {
+    if (!config || previous?.userDefaultConfigId === config.configId || !config.isActive) {
       return;
     }
     setDefaults((current) =>
@@ -430,19 +435,37 @@ export default function LLMPage() {
         item.capability === capability
           ? {
               ...item,
-              userDefaultConfigId: config.scope === 'USER' ? config.configId : null,
+              userDefaultConfigId: config.configId,
               effectiveConfigId: config.configId,
             }
           : item,
       ),
     );
     try {
-      if (config.scope === 'SYSTEM') await clearUserCapabilityDefault(capability);
-      else await setUserCapabilityDefault(capability, config.configId);
+      await setUserCapabilityDefault(capability, config.configId);
       void revalidate();
     } catch (error) {
       console.error('Failed to select effective config:', error);
       setDefaults((current) => current.map((item) => (item.capability === capability && previous ? previous : item)));
+    }
+  }
+
+  async function handleFollowPlatform(capability: LLMCapability) {
+    const previous = defaults.find((item) => item.capability === capability);
+    if (!previous?.userDefaultConfigId) return;
+    setDefaults((current) =>
+      current.map((item) =>
+        item.capability === capability
+          ? { ...item, userDefaultConfigId: null, effectiveConfigId: item.systemDefaultConfigId }
+          : item,
+      ),
+    );
+    try {
+      await clearUserCapabilityDefault(capability);
+      void revalidate();
+    } catch (error) {
+      console.error('Failed to follow platform default:', error);
+      setDefaults((current) => current.map((item) => (item.capability === capability ? previous : item)));
     }
   }
 
@@ -510,11 +533,13 @@ export default function LLMPage() {
             <EffectiveModelsPanel
               loading={loading && defaultByCapability.size === 0}
               defaultByCapability={defaultByCapability}
+              defaultSelectionByCapability={defaultSelectionByCapability}
               candidatesByCapability={candidatesByCapability}
               darkMode={darkMode}
               selectedCapability={selectedCapability}
               onCapabilityChange={setSelectedCapability}
               onSelect={handleSelectDefault}
+              onFollowPlatform={handleFollowPlatform}
             />
 
             <ConfiguredProvidersPanel
@@ -562,23 +587,28 @@ export default function LLMPage() {
 function EffectiveModelsPanel({
   loading,
   defaultByCapability,
+  defaultSelectionByCapability,
   candidatesByCapability,
   darkMode,
   selectedCapability,
   onCapabilityChange,
   onSelect,
+  onFollowPlatform,
 }: {
   loading?: boolean;
   defaultByCapability: Map<LLMCapability, ConfigView>;
+  defaultSelectionByCapability: Map<LLMCapability, CapabilityDefaultDTO>;
   candidatesByCapability: Map<LLMCapability, ConfigView[]>;
   darkMode: boolean;
   selectedCapability: LLMCapability;
   onCapabilityChange: (capability: LLMCapability) => void;
   onSelect: (capability: LLMCapability, configId: string) => void;
+  onFollowPlatform: (capability: LLMCapability) => void;
 }) {
   const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
   const currentCapability = CAPABILITIES.find((item) => item.value === selectedCapability) ?? CAPABILITIES[0];
   const current = defaultByCapability.get(currentCapability.value);
+  const currentSelection = defaultSelectionByCapability.get(currentCapability.value);
   const candidates = candidatesByCapability.get(currentCapability.value) || [];
   const isOpen = openCapability === currentCapability.value;
   const selectedIcon = getConfigProviderIcon(current, darkMode);
@@ -678,7 +708,7 @@ function EffectiveModelsPanel({
                   ) : null}
                   <span className="truncate text-sm font-bold text-text-secondary">{currentCapability.label}</span>
                 </div>
-                {current ? <ConfigAccessPill config={current} compact quiet /> : null}
+                <ConfigTypePill label={currentSelection?.userDefaultConfigId ? '我的默认' : '跟随平台'} compact quiet />
               </div>
 
               <div className="flex min-w-0 items-center gap-3">
@@ -704,6 +734,24 @@ function EffectiveModelsPanel({
                   className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
                 >
                   <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onFollowPlatform(currentCapability.value);
+                        setOpenCapability(null);
+                      }}
+                      className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ProviderIcon iconUrl="" name="平台默认" size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-ink">跟随平台</p>
+                          <p className="mt-0.5 truncate text-[11px] text-muted">平台默认变化时自动跟随</p>
+                        </div>
+                        {!currentSelection?.userDefaultConfigId ? <Check size={14} className="text-primary" /> : null}
+                      </div>
+                    </button>
                     {candidates.map((config) => {
                       const optionIcon = getConfigProviderIcon(config, darkMode);
                       return (
@@ -723,7 +771,12 @@ function EffectiveModelsPanel({
                               <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
                               <p className="mt-0.5 truncate text-[11px] text-muted">{config.providerName}</p>
                             </div>
-                            <ConfigAccessPill config={config} compact />
+                            <div className="flex items-center gap-1.5">
+                              {currentSelection?.userDefaultConfigId === config.configId ? (
+                                <span className="text-[10px] font-bold text-primary">我的默认</span>
+                              ) : null}
+                              <ConfigAccessPill config={config} compact />
+                            </div>
                           </div>
                         </button>
                       );
@@ -736,6 +789,7 @@ function EffectiveModelsPanel({
           <div className="hidden gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3">
             {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
               const desktopCurrent = defaultByCapability.get(capability.value);
+              const desktopSelection = defaultSelectionByCapability.get(capability.value);
               const desktopCandidates = candidatesByCapability.get(capability.value) || [];
               const desktopOpen = openCapability === capability.value;
               const desktopIcon = getConfigProviderIcon(desktopCurrent, darkMode);
@@ -775,7 +829,11 @@ function EffectiveModelsPanel({
                       ) : null}
                       <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
                     </div>
-                    {desktopCurrent ? <ConfigAccessPill config={desktopCurrent} compact quiet /> : null}
+                    <ConfigTypePill
+                      label={desktopSelection?.userDefaultConfigId ? '我的默认' : '跟随平台'}
+                      compact
+                      quiet
+                    />
                   </div>
 
                   <div className="flex min-w-0 items-start justify-between gap-3">
@@ -803,6 +861,26 @@ function EffectiveModelsPanel({
                       className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
                     >
                       <div className="max-h-[156px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onFollowPlatform(capability.value);
+                            setOpenCapability(null);
+                          }}
+                          className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <ProviderIcon iconUrl="" name="平台默认" size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-bold text-ink">跟随平台</p>
+                              <p className="mt-0.5 truncate text-[11px] text-muted">不保留个人覆盖</p>
+                            </div>
+                            {!desktopSelection?.userDefaultConfigId ? (
+                              <Check size={14} className="text-primary" />
+                            ) : null}
+                          </div>
+                        </button>
                         {desktopCandidates.map((config) => {
                           const optionIcon = getConfigProviderIcon(config, darkMode);
                           return (
@@ -821,7 +899,12 @@ function EffectiveModelsPanel({
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
                                 </div>
-                                <ConfigAccessPill config={config} compact />
+                                <div className="flex items-center gap-1.5">
+                                  {desktopSelection?.userDefaultConfigId === config.configId ? (
+                                    <span className="text-[10px] font-bold text-primary">我的默认</span>
+                                  ) : null}
+                                  <ConfigAccessPill config={config} compact />
+                                </div>
                               </div>
                             </button>
                           );
@@ -1465,7 +1548,7 @@ function EmptyConfiguredState() {
     <div className="text-center py-16 text-muted">
       <Key size={38} className="mx-auto mb-4 text-muted-soft" />
       <p className="text-sm font-bold text-ink">暂无模型配置</p>
-      <p className="mt-1 text-xs">配置厂商后会在这里显示可用模型，LinkRag 会作为平台默认配置展示。</p>
+      <p className="mt-1 text-xs">配置厂商后会在这里显示个人模型；平台模型由管理员统一维护并共享。</p>
     </div>
   );
 }
