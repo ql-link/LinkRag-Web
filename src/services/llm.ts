@@ -21,6 +21,7 @@ import type {
   UsageTrendDTO,
   PageResult,
   ModelSyncCandidate,
+  ModelSyncBatchPublishRequest,
   ModelSyncJob,
   ModelSyncJobStatus,
   ModelSyncPublishRequest,
@@ -91,6 +92,10 @@ export async function createAdminProvider(data: CreateProviderRequest): Promise<
 
 export async function updateAdminProvider(id: number, data: UpdateProviderRequest): Promise<void> {
   await apiClient.patch(`/api/v1/admin/providers/${id}`, data);
+}
+
+export async function reorderAdminProviders(providerIds: number[]): Promise<void> {
+  await apiClient.put('/api/v1/admin/providers/order', { providerIds });
 }
 
 export async function deleteAdminProvider(id: number): Promise<void> {
@@ -185,6 +190,10 @@ export async function publishAdminModelSyncCandidate(
   return apiClient.post<ProviderModel>(`/api/v1/admin/model-sync-candidates/${id}/publish`, data);
 }
 
+export async function publishAdminModelSyncCandidates(data: ModelSyncBatchPublishRequest): Promise<ProviderModel[]> {
+  return apiClient.post<ProviderModel[]>('/api/v1/admin/model-sync-candidates/publish', data);
+}
+
 export async function reviewAdminModelSyncCandidate(
   id: number,
   reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>,
@@ -216,18 +225,12 @@ export async function setAdminLLMConfigActive(configId: number, isActive: boolea
   await apiClient.patch(`/api/v1/admin/llm/configs/${configId}/active`, { isActive });
 }
 
-export async function emergencyDisableAdminLLMConfig(configId: number, replacementConfigId?: number): Promise<void> {
-  await apiClient.post(`/api/v1/admin/llm/configs/${configId}/emergency-disable`, {
-    ...(replacementConfigId === undefined ? {} : { replacementConfigId }),
-  });
+export async function emergencyDisableAdminLLMConfig(configId: number): Promise<void> {
+  await apiClient.post(`/api/v1/admin/llm/configs/${configId}/emergency-disable`, {});
 }
 
 export async function deleteAdminLLMConfig(configId: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/llm/configs/${configId}`);
-}
-
-export async function setAdminCapabilityDefault(capability: LLMCapability, configId: number): Promise<void> {
-  await apiClient.put(`/api/v1/admin/llm/defaults/${capability}`, { configId });
 }
 
 export async function getUsageSummary(

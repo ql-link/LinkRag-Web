@@ -8,7 +8,8 @@ import {
   getLLMCapabilityDefaults,
   getLLMConfigs,
   listAdminLLMConfigs,
-  setAdminCapabilityDefault,
+  publishAdminModelSyncCandidates,
+  reorderAdminProviders,
   setLLMConfigActive,
   setUserCapabilityDefault,
   setupLLMProvider,
@@ -60,7 +61,7 @@ describe('unified LLM service contracts', () => {
 
   it('saves an admin platform config with exactly one business write', async () => {
     vi.mocked(apiClient.post).mockResolvedValue({});
-    const request = { sourceProviderModelId: 7, apiKey: 'secret', setAsDefault: true };
+    const request = { sourceProviderModelId: 7, apiKey: 'secret' };
 
     await createAdminLLMConfig(request);
 
@@ -68,17 +69,35 @@ describe('unified LLM service contracts', () => {
     expect(apiClient.post).toHaveBeenCalledWith('/api/v1/admin/llm/configs', request);
   });
 
-  it('updates a platform config and default through unified admin endpoints', async () => {
+  it('updates a platform config without any platform-default request', async () => {
     vi.mocked(apiClient.get).mockResolvedValue([]);
     vi.mocked(apiClient.put).mockResolvedValue({});
-    const request = { sourceProviderModelId: 7, setAsDefault: false };
+    const request = { sourceProviderModelId: 7 };
 
     await listAdminLLMConfigs({ capability: 'CHAT' });
     await updateAdminLLMConfig(100, request);
-    await setAdminCapabilityDefault('CHAT', 100);
 
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/llm/configs', { capability: 'CHAT' });
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/configs/100', request);
-    expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/defaults/CHAT', { configId: 100 });
+    expect(apiClient.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the complete provider order in one request', async () => {
+    vi.mocked(apiClient.put).mockResolvedValue(undefined);
+
+    await reorderAdminProviders([3, 1, 2]);
+
+    expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/providers/order', {
+      providerIds: [3, 1, 2],
+    });
+  });
+
+  it('publishes selected capabilities for one synced model in one request', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue([]);
+    const request = { candidateIds: [11, 12], modelName: 'model-a', displayName: 'Model A' };
+
+    await publishAdminModelSyncCandidates(request);
+
+    expect(apiClient.post).toHaveBeenCalledWith('/api/v1/admin/model-sync-candidates/publish', request);
   });
 });

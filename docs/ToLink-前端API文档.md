@@ -245,7 +245,7 @@ satoken: {accessToken}
 | createdAt       | string  | 创建时间                                                                |
 | updatedAt       | string  | 更新时间                                                                |
 
-该 DTO 不包含 `id`、`source`、`configSource`、`isSystemPreset` 或默认标记。默认关系由独立的 `CapabilityDefaultDTO` 返回，包含 `capability`、`userDefaultConfigId`、`systemDefaultConfigId` 和 `effectiveConfigId`。
+该 DTO 不包含 `id`、`source`、`configSource`、`isSystemPreset` 或默认标记。默认关系由独立的 `CapabilityDefaultDTO{capability,configId}` 返回；`configId` 为空表示用户未设置该能力的默认模型。
 
 ### 4.4 ConversationDTO
 
@@ -371,58 +371,57 @@ satoken: {accessToken}
 
 ### 5.1 普通用户接口
 
-| 模块     | 方法   | 路径                                           | 是否鉴权 | 说明                       |
-| -------- | ------ | ---------------------------------------------- | -------- | -------------------------- |
-| 认证     | POST   | `/api/v1/auth/login`                           | 否       | 用户登录                   |
-| 认证     | POST   | `/api/v1/auth/register`                        | 否       | 用户注册                   |
-| 认证     | POST   | `/api/v1/auth/logout`                          | 是       | 退出登录                   |
-| 用户     | GET    | `/api/v1/user/profile`                         | 是       | 获取当前用户信息           |
-| 用户     | PATCH  | `/api/v1/user/profile`                         | 是       | 修改个人资料               |
-| LLM 配置 | GET    | `/api/v1/llm/configs`                          | 是       | 获取配置列表               |
-| LLM 配置 | POST   | `/api/v1/llm/configs/setup-provider`           | 是       | 添加或刷新厂商凭据         |
-| LLM 配置 | PATCH  | `/api/v1/llm/configs/{configId}/active`        | 是       | 启停配置                   |
-| LLM 配置 | DELETE | `/api/v1/llm/configs/{configId}`               | 是       | 删除配置                   |
-| LLM 默认 | GET    | `/api/v1/llm/defaults`                         | 是       | 获取各能力默认关系         |
-| LLM 默认 | PUT    | `/api/v1/llm/defaults/{capability}`            | 是       | 设置用户默认覆盖           |
-| LLM 默认 | DELETE | `/api/v1/llm/defaults/{capability}`            | 是       | 清除用户覆盖，跟随平台默认 |
-| 用量统计 | GET    | `/api/v1/llm/usage/summary`                    | 是       | 用量汇总                   |
-| 用量统计 | GET    | `/api/v1/llm/usage/daily`                      | 是       | 日趋势                     |
-| 用量统计 | GET    | `/api/v1/llm/usage/logs`                       | 是       | 用量明细                   |
-| 对话     | POST   | `/api/v1/chat/conversations`                   | 是       | 创建对话                   |
-| 对话     | GET    | `/api/v1/chat/conversations`                   | 是       | 查询对话列表               |
-| 对话     | GET    | `/api/v1/chat/conversations/{id}/messages`     | 是       | 查询消息历史               |
-| 对话     | DELETE | `/api/v1/chat/conversations/{id}`              | 是       | 删除对话                   |
-| 数据集   | POST   | `/api/v1/datasets`                             | 是       | 创建数据集                 |
-| 数据集   | GET    | `/api/v1/datasets`                             | 是       | 数据集分页列表             |
-| 数据集   | GET    | `/api/v1/datasets/{datasetId}`                 | 是       | 数据集详情                 |
-| 数据集   | DELETE | `/api/v1/datasets/{datasetId}`                 | 是       | 删除数据集                 |
-| 知识文件 | POST   | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 上传知识文件               |
-| 知识文件 | GET    | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 知识文件列表               |
-| 知识文件 | GET    | `/api/v1/knowledge-files/{fileId}`             | 是       | 知识文件详情               |
-| 知识文件 | POST   | `/api/v1/knowledge-files/{fileId}/parse-tasks` | 是       | 创建解析任务               |
-| 知识文件 | DELETE | `/api/v1/knowledge-files/{fileId}`             | 是       | 删除知识文件               |
-| OSS      | POST   | `/api/v1/oss-files/{bizType}`                  | 否       | 通用业务文件上传           |
-| OSS      | GET    | `/api/v1/oss-files/public/**`                  | 否       | 公共文件预览               |
+| 模块     | 方法   | 路径                                           | 是否鉴权 | 说明               |
+| -------- | ------ | ---------------------------------------------- | -------- | ------------------ |
+| 认证     | POST   | `/api/v1/auth/login`                           | 否       | 用户登录           |
+| 认证     | POST   | `/api/v1/auth/register`                        | 否       | 用户注册           |
+| 认证     | POST   | `/api/v1/auth/logout`                          | 是       | 退出登录           |
+| 用户     | GET    | `/api/v1/user/profile`                         | 是       | 获取当前用户信息   |
+| 用户     | PATCH  | `/api/v1/user/profile`                         | 是       | 修改个人资料       |
+| LLM 配置 | GET    | `/api/v1/llm/configs`                          | 是       | 获取配置列表       |
+| LLM 配置 | POST   | `/api/v1/llm/configs/setup-provider`           | 是       | 添加或刷新厂商凭据 |
+| LLM 配置 | PATCH  | `/api/v1/llm/configs/{configId}/active`        | 是       | 启停配置           |
+| LLM 配置 | DELETE | `/api/v1/llm/configs/{configId}`               | 是       | 删除配置           |
+| LLM 默认 | GET    | `/api/v1/llm/defaults`                         | 是       | 获取各能力默认关系 |
+| LLM 默认 | PUT    | `/api/v1/llm/defaults/{capability}`            | 是       | 设置用户默认模型   |
+| LLM 默认 | DELETE | `/api/v1/llm/defaults/{capability}`            | 是       | 清除用户默认模型   |
+| 用量统计 | GET    | `/api/v1/llm/usage/summary`                    | 是       | 用量汇总           |
+| 用量统计 | GET    | `/api/v1/llm/usage/daily`                      | 是       | 日趋势             |
+| 用量统计 | GET    | `/api/v1/llm/usage/logs`                       | 是       | 用量明细           |
+| 对话     | POST   | `/api/v1/chat/conversations`                   | 是       | 创建对话           |
+| 对话     | GET    | `/api/v1/chat/conversations`                   | 是       | 查询对话列表       |
+| 对话     | GET    | `/api/v1/chat/conversations/{id}/messages`     | 是       | 查询消息历史       |
+| 对话     | DELETE | `/api/v1/chat/conversations/{id}`              | 是       | 删除对话           |
+| 数据集   | POST   | `/api/v1/datasets`                             | 是       | 创建数据集         |
+| 数据集   | GET    | `/api/v1/datasets`                             | 是       | 数据集分页列表     |
+| 数据集   | GET    | `/api/v1/datasets/{datasetId}`                 | 是       | 数据集详情         |
+| 数据集   | DELETE | `/api/v1/datasets/{datasetId}`                 | 是       | 删除数据集         |
+| 知识文件 | POST   | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 上传知识文件       |
+| 知识文件 | GET    | `/api/v1/datasets/{datasetId}/knowledge-files` | 是       | 知识文件列表       |
+| 知识文件 | GET    | `/api/v1/knowledge-files/{fileId}`             | 是       | 知识文件详情       |
+| 知识文件 | POST   | `/api/v1/knowledge-files/{fileId}/parse-tasks` | 是       | 创建解析任务       |
+| 知识文件 | DELETE | `/api/v1/knowledge-files/{fileId}`             | 是       | 删除知识文件       |
+| OSS      | POST   | `/api/v1/oss-files/{bizType}`                  | 否       | 通用业务文件上传   |
+| OSS      | GET    | `/api/v1/oss-files/public/**`                  | 否       | 公共文件预览       |
 
 ### 5.2 管理员接口
 
-| 模块         | 方法   | 路径                                          | 额外权限 | 说明                           |
-| ------------ | ------ | --------------------------------------------- | -------- | ------------------------------ |
-| 用户管理     | GET    | `/api/v1/admin/users`                         | `ADMIN`  | 用户列表                       |
-| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/status`             | `ADMIN`  | 修改用户状态                   |
-| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/role`               | `ADMIN`  | 修改用户角色                   |
-| 厂商管理     | GET    | `/api/v1/admin/providers`                     | `ADMIN`  | 厂商列表                       |
-| 厂商管理     | POST   | `/api/v1/admin/providers`                     | `ADMIN`  | 创建厂商                       |
-| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 更新厂商                       |
-| 厂商管理     | DELETE | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 删除厂商                       |
-| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}/active`         | `ADMIN`  | 启用或禁用厂商                 |
-| 平台模型     | GET    | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 平台可执行配置列表             |
-| 平台模型     | POST   | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 原子创建配置，可同时设为默认   |
-| 平台模型     | PUT    | `/api/v1/admin/llm/configs/{configId}`        | `ADMIN`  | 原子更新配置，可保持或切换默认 |
-| 平台模型     | PATCH  | `/api/v1/admin/llm/configs/{configId}/active` | `ADMIN`  | 启停平台配置                   |
-| 平台模型     | PUT    | `/api/v1/admin/llm/defaults/{capability}`     | `ADMIN`  | 切换平台默认                   |
-| 知识文件配置 | GET    | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 查看上传配置                   |
-| 知识文件配置 | PATCH  | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 修改上传配置                   |
+| 模块         | 方法   | 路径                                          | 额外权限 | 说明                         |
+| ------------ | ------ | --------------------------------------------- | -------- | ---------------------------- |
+| 用户管理     | GET    | `/api/v1/admin/users`                         | `ADMIN`  | 用户列表                     |
+| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/status`             | `ADMIN`  | 修改用户状态                 |
+| 用户管理     | PATCH  | `/api/v1/admin/users/{id}/role`               | `ADMIN`  | 修改用户角色                 |
+| 厂商管理     | GET    | `/api/v1/admin/providers`                     | `ADMIN`  | 厂商列表                     |
+| 厂商管理     | POST   | `/api/v1/admin/providers`                     | `ADMIN`  | 创建厂商                     |
+| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 更新厂商                     |
+| 厂商管理     | DELETE | `/api/v1/admin/providers/{id}`                | `ADMIN`  | 删除厂商                     |
+| 厂商管理     | PATCH  | `/api/v1/admin/providers/{id}/active`         | `ADMIN`  | 启用或禁用厂商               |
+| 平台模型     | GET    | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 平台可执行配置列表           |
+| 平台模型     | POST   | `/api/v1/admin/llm/configs`                   | `ADMIN`  | 原子创建配置，同能力可有多条 |
+| 平台模型     | PUT    | `/api/v1/admin/llm/configs/{configId}`        | `ADMIN`  | 原子更新配置                 |
+| 平台模型     | PATCH  | `/api/v1/admin/llm/configs/{configId}/active` | `ADMIN`  | 启停平台配置                 |
+| 知识文件配置 | GET    | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 查看上传配置                 |
+| 知识文件配置 | PATCH  | `/api/v1/admin/knowledge-file-config`         | `ADMIN`  | 修改上传配置                 |
 
 ### 5.3 非前端直连接口
 
@@ -711,23 +710,22 @@ DELETE /api/v1/llm/configs/{configId}
 
 - `GET /api/v1/llm/defaults`：一次返回全部能力默认关系。
 - `GET /api/v1/llm/defaults/{capability}`：返回单个能力默认关系。
-- `PUT /api/v1/llm/defaults/{capability}`，请求体 `{ "configId": 101 }`：设置用户默认覆盖。
-- `DELETE /api/v1/llm/defaults/{capability}`：清除用户覆盖并跟随平台默认。
+- `PUT /api/v1/llm/defaults/{capability}`，请求体 `{ "configId": 101 }`：设置用户默认，可选择本人配置或可见的平台配置。
+- `DELETE /api/v1/llm/defaults/{capability}`：清除用户默认；清除后保持未设置。
 
-默认关系只保存指针，不会改变配置的 `isActive`。
+默认关系只保存指针，不会改变配置的 `isActive`。系统不维护平台默认，也不会用平台配置或列表首项隐式兜底。
 
 ### 8.6 管理员平台配置原子保存
 
 - 创建：`POST /api/v1/admin/llm/configs`
 - 更新：`PUT /api/v1/admin/llm/configs/{configId}`
 
-请求必须在 `sourceProviderModelId` 与 `catalogMutation` 中二选一；`catalogMutation` 包含 `providerId`、`modelName`、`displayName`、`capability`、`protocol`、`apiBaseUrl`。另可提交 `apiKey` 与 `setAsDefault`。一次保存只发送一个业务写请求，Java 在同一事务中提交目录、运行配置和可选的平台默认关系。响应为 `{ config, capabilityDefault }`。
+请求必须在 `sourceProviderModelId` 与 `catalogMutation` 中二选一；`catalogMutation` 包含 `providerId`、`modelName`、`displayName`、`capability`、`protocol`、`apiBaseUrl`，另可提交 `apiKey`。一次保存只发送一个业务写请求，Java 在同一事务中提交目录和运行配置。响应为 `{ config }`，不包含默认关系。
 
-管理员启停、删除和切换默认分别使用：
+管理员启停和删除分别使用：
 
 - `PATCH /api/v1/admin/llm/configs/{configId}/active`，请求体 `{ "isActive": false }`
 - `DELETE /api/v1/admin/llm/configs/{configId}`
-- `PUT /api/v1/admin/llm/defaults/{capability}`，请求体 `{ "configId": 101 }`
 
 ---
 
