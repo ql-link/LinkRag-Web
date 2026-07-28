@@ -1,3 +1,5 @@
+import type { KnowledgeFileDTO } from '@/types/api';
+
 export const KNOWLEDGE_FILE_SUFFIXES = ['md', 'markdown', 'pdf', 'docx', 'html', 'htm'] as const;
 export const KNOWLEDGE_FILE_DISPLAY_SUFFIXES = ['Markdown', 'PDF', 'DOCX', 'HTML'] as const;
 
@@ -17,5 +19,17 @@ export function getKnowledgeFileSuffix(filename: string): string {
 export function isSupportedKnowledgeFile(file: File): boolean {
   return KNOWLEDGE_FILE_SUFFIXES.includes(
     getKnowledgeFileSuffix(file.name) as (typeof KNOWLEDGE_FILE_SUFFIXES)[number],
+  );
+}
+
+export function isFailedKnowledgeFile(
+  file: Pick<KnowledgeFileDTO, 'frontendStatus' | 'uploadStatus' | 'failureReason' | 'parseFailureReason'>,
+): boolean {
+  return Boolean(
+    file.frontendStatus === 'upload_failed' ||
+    file.frontendStatus === 'parse_failed' ||
+    file.uploadStatus === 'UPLOAD_FAILED' ||
+    file.failureReason ||
+    file.parseFailureReason,
   );
 }
