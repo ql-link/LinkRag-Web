@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
-import { Box, Check, Key, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Box, Key, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import chatIconUrl from '@/assets/icons/color/chat.svg';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import rerankIconUrl from '@/assets/icons/color/rerank.svg';
@@ -17,7 +17,6 @@ import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import {
-  clearUserCapabilityDefault,
   deleteLLMConfig,
   getLLMConfigs,
   getLLMCapabilityDefaults,
@@ -34,30 +33,6 @@ import type {
   ModelCapabilityDTO,
   ProviderModelDTO,
 } from '@/types/api';
-
-const PROVIDER_PRIORITY: Array<[number, string[]]> = [
-  [-1, ['linkrag']],
-  [0, ['openai', 'openaiapi', 'openaiapicompatible']],
-  [1, ['anthropic', 'claude']],
-  [2, ['google', 'gemini', 'googlecloud']],
-  [3, ['deepseek']],
-  [4, ['qwen', 'tongyi', 'tongyiqianwen', 'aliyun', 'wenxin', 'wenxinyiyan']],
-  [5, ['zhipu', 'glm']],
-  [6, ['moonshot', 'kimi']],
-  [7, ['volcengine', 'volc', 'doubao', 'byte', 'bytedance']],
-  [8, ['baichuan']],
-  [9, ['minimax']],
-  [10, ['mimo', 'xiaomi', 'xiaomimimo']],
-  [11, ['azure', 'azureopenai']],
-  [12, ['mistral']],
-  [13, ['cohere']],
-  [14, ['perplexity']],
-  [15, ['xai']],
-  [16, ['openrouter']],
-  [17, ['siliconflow']],
-  [18, ['stepfun']],
-  [19, ['hunyuan', 'tencentcloud', 'tencent']],
-];
 
 interface CapabilityMeta {
   value: LLMCapabilityValue;
@@ -197,28 +172,6 @@ function getModelSearchTokens(model: ModelCapabilityDTO) {
   return [model.modelName, model.displayName || ''];
 }
 
-function getProviderSortRank(providerType: string, providerName?: string) {
-  const tokens = [providerType, providerName || ''].map(normalizeProviderToken);
-  for (const [rank, patterns] of PROVIDER_PRIORITY) {
-    if (patterns.some((pattern) => tokens.some((token) => token.includes(pattern) || pattern.includes(token)))) {
-      return rank;
-    }
-  }
-  return 100;
-}
-
-function compareProviders(
-  a: { providerType: string; providerName?: string },
-  b: { providerType: string; providerName?: string },
-) {
-  const rankDiff =
-    getProviderSortRank(a.providerType, a.providerName) - getProviderSortRank(b.providerType, b.providerName);
-  if (rankDiff !== 0) {
-    return rankDiff;
-  }
-  return (a.providerName || a.providerType).localeCompare(b.providerName || b.providerType);
-}
-
 export default function LLMPage() {
   const { darkMode } = useTheme();
   const [configs, setConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
@@ -240,6 +193,10 @@ export default function LLMPage() {
   }, [providers]);
 
   const providerModelDisplayNameByKey = useMemo(() => createProviderModelDisplayNameMap(providers), [providers]);
+  const providerOrderByType = useMemo(
+    () => new Map(providers.map((provider, index) => [normalizeProviderToken(provider.providerType), index])),
+    [providers],
+  );
 
   const viewConfigs = useMemo<ConfigView[]>(() => {
     return configs.map((config) => ({
@@ -266,11 +223,6 @@ export default function LLMPage() {
     });
     return map;
   }, [defaults, viewConfigs]);
-
-  const defaultSelectionByCapability = useMemo(
-    () => new Map(defaults.map((selection) => [selection.capability, selection])),
-    [defaults],
-  );
 
   const candidatesByCapability = useMemo(() => {
     const map = new Map<LLMCapability, ConfigView[]>();
@@ -337,40 +289,43 @@ export default function LLMPage() {
         if (aHasReadonlyConfig !== bHasReadonlyConfig) {
           return aHasReadonlyConfig ? -1 : 1;
         }
-        return compareProviders(a, b);
+        const aIndex = providerOrderByType.get(normalizeProviderToken(a.providerType)) ?? Number.MAX_SAFE_INTEGER;
+        const bIndex = providerOrderByType.get(normalizeProviderToken(b.providerType)) ?? Number.MAX_SAFE_INTEGER;
+        if (aIndex !== bIndex) {
+          return aIndex - bIndex;
+        }
+        return a.providerName.localeCompare(b.providerName);
       });
-  }, [viewConfigs]);
+  }, [providerOrderByType, viewConfigs]);
 
   const filteredProviders = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
     const filterSet = new Set(selectedCapabilityFilters);
 
-    const result = providers
-      .filter((provider) => {
-        if (filterSet.size > 0) {
-          const hit = provider.models.some((model) =>
-            getModelCapabilityValues(model).some(
-              (capability) => isSupportedCapability(capability) && filterSet.has(capability),
-            ),
-          );
-          if (!hit) {
-            return false;
-          }
+    const result = providers.filter((provider) => {
+      if (filterSet.size > 0) {
+        const hit = provider.models.some((model) =>
+          getModelCapabilityValues(model).some(
+            (capability) => isSupportedCapability(capability) && filterSet.has(capability),
+          ),
+        );
+        if (!hit) {
+          return false;
         }
+      }
 
-        const searchable = [
-          provider.providerName,
-          provider.providerType,
-          ...provider.models.flatMap(getModelSearchTokens),
-        ]
-          .join(' ')
-          .toLowerCase();
-        if (!keyword) {
-          return true;
-        }
-        return searchable.includes(keyword);
-      })
-      .sort((a, b) => compareProviders(a, b));
+      const searchable = [
+        provider.providerName,
+        provider.providerType,
+        ...provider.models.flatMap(getModelSearchTokens),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!keyword) {
+        return true;
+      }
+      return searchable.includes(keyword);
+    });
 
     return result;
   }, [providers, searchTerm, selectedCapabilityFilters]);
@@ -442,21 +397,6 @@ export default function LLMPage() {
     }
   }
 
-  async function handleClearDefault(capability: LLMCapability) {
-    const previous = defaults.find((item) => item.capability === capability);
-    if (!previous?.configId) return;
-    setDefaults((current) =>
-      current.map((item) => (item.capability === capability ? { ...item, configId: null } : item)),
-    );
-    try {
-      await clearUserCapabilityDefault(capability);
-      void revalidate();
-    } catch (error) {
-      console.error('Failed to clear capability default:', error);
-      setDefaults((current) => current.map((item) => (item.capability === capability ? previous : item)));
-    }
-  }
-
   async function handleToggleConfig(config: ConfigView) {
     if (!isConfigEditable(config) || !isSupportedCapability(config.capability)) {
       return;
@@ -521,13 +461,11 @@ export default function LLMPage() {
             <EffectiveModelsPanel
               loading={loading && defaultByCapability.size === 0}
               defaultByCapability={defaultByCapability}
-              defaultSelectionByCapability={defaultSelectionByCapability}
               candidatesByCapability={candidatesByCapability}
               darkMode={darkMode}
               selectedCapability={selectedCapability}
               onCapabilityChange={setSelectedCapability}
               onSelect={handleSelectDefault}
-              onClearDefault={handleClearDefault}
             />
 
             <ConfiguredProvidersPanel
@@ -575,28 +513,23 @@ export default function LLMPage() {
 function EffectiveModelsPanel({
   loading,
   defaultByCapability,
-  defaultSelectionByCapability,
   candidatesByCapability,
   darkMode,
   selectedCapability,
   onCapabilityChange,
   onSelect,
-  onClearDefault,
 }: {
   loading?: boolean;
   defaultByCapability: Map<LLMCapability, ConfigView>;
-  defaultSelectionByCapability: Map<LLMCapability, CapabilityDefaultDTO>;
   candidatesByCapability: Map<LLMCapability, ConfigView[]>;
   darkMode: boolean;
   selectedCapability: LLMCapability;
   onCapabilityChange: (capability: LLMCapability) => void;
   onSelect: (capability: LLMCapability, configId: string) => void;
-  onClearDefault: (capability: LLMCapability) => void;
 }) {
   const [openCapability, setOpenCapability] = useState<LLMCapability | null>(null);
   const currentCapability = CAPABILITIES.find((item) => item.value === selectedCapability) ?? CAPABILITIES[0];
   const current = defaultByCapability.get(currentCapability.value);
-  const currentSelection = defaultSelectionByCapability.get(currentCapability.value);
   const candidates = candidatesByCapability.get(currentCapability.value) || [];
   const isOpen = openCapability === currentCapability.value;
   const selectedIcon = getConfigProviderIcon(current, darkMode);
@@ -684,7 +617,7 @@ function EffectiveModelsPanel({
                 setOpenCapability((prev) => (prev === currentCapability.value ? null : currentCapability.value));
               }}
             >
-              <div className="hidden min-w-0 items-center justify-between gap-3 lg:flex">
+              <div className="hidden min-w-0 items-center gap-2 lg:flex">
                 <div className="flex min-w-0 items-center gap-2">
                   {currentCapability.iconUrl ? (
                     <img
@@ -696,7 +629,6 @@ function EffectiveModelsPanel({
                   ) : null}
                   <span className="truncate text-sm font-bold text-text-secondary">{currentCapability.label}</span>
                 </div>
-                <ConfigTypePill label={currentSelection?.configId ? '我的默认' : '未设置默认'} compact quiet />
               </div>
 
               <div className="flex min-w-0 items-center gap-3">
@@ -718,30 +650,11 @@ function EffectiveModelsPanel({
               {isOpen && candidates.length > 0 ? (
                 <div
                   data-model-selector={currentCapability.value}
+                  data-model-selector-menu={currentCapability.value}
                   onClick={(event) => event.stopPropagation()}
-                  className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
+                  className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-lg border border-hairline bg-bg-card-solid p-1.5 transition-all duration-300 lg:rounded-md"
                 >
                   <div className="max-h-[220px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onClearDefault(currentCapability.value);
-                        setOpenCapability(null);
-                      }}
-                      className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-muted">
-                          <X size={14} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-bold text-ink">清除默认</p>
-                          <p className="mt-0.5 truncate text-[11px] text-muted">新操作不预选模型</p>
-                        </div>
-                        {!currentSelection?.configId ? <Check size={14} className="text-primary" /> : null}
-                      </div>
-                    </button>
                     {candidates.map((config) => {
                       const optionIcon = getConfigProviderIcon(config, darkMode);
                       return (
@@ -761,12 +674,6 @@ function EffectiveModelsPanel({
                               <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
                               <p className="mt-0.5 truncate text-[11px] text-muted">{config.providerName}</p>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {currentSelection?.configId === config.configId ? (
-                                <span className="text-[10px] font-bold text-primary">我的默认</span>
-                              ) : null}
-                              <ConfigAccessPill config={config} compact />
-                            </div>
                           </div>
                         </button>
                       );
@@ -779,7 +686,6 @@ function EffectiveModelsPanel({
           <div className="hidden gap-3 lg:grid lg:grid-cols-2 xl:grid-cols-3">
             {EFFECTIVE_MODEL_CAPABILITIES.map((capability) => {
               const desktopCurrent = defaultByCapability.get(capability.value);
-              const desktopSelection = defaultSelectionByCapability.get(capability.value);
               const desktopCandidates = candidatesByCapability.get(capability.value) || [];
               const desktopOpen = openCapability === capability.value;
               const desktopIcon = getConfigProviderIcon(desktopCurrent, darkMode);
@@ -807,7 +713,7 @@ function EffectiveModelsPanel({
                     setOpenCapability((prev) => (prev === capability.value ? null : capability.value));
                   }}
                 >
-                  <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       {capability.iconUrl ? (
                         <img
@@ -819,7 +725,6 @@ function EffectiveModelsPanel({
                       ) : null}
                       <span className="truncate text-xs font-bold text-text-secondary">{capability.label}</span>
                     </div>
-                    <ConfigTypePill label={desktopSelection?.configId ? '我的默认' : '未设置默认'} compact quiet />
                   </div>
 
                   <div className="flex min-w-0 items-start justify-between gap-3">
@@ -843,30 +748,11 @@ function EffectiveModelsPanel({
                   {desktopOpen && desktopCandidates.length > 0 ? (
                     <div
                       data-model-selector={capability.value}
+                      data-model-selector-menu={capability.value}
                       onClick={(event) => event.stopPropagation()}
-                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-xl border border-hairline bg-bg-card-solid p-1.5 (--)] transition-all duration-300"
+                      className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 rounded-md border border-hairline bg-bg-card-solid p-1.5 transition-all duration-300"
                     >
                       <div className="max-h-[156px] space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onClearDefault(capability.value);
-                            setOpenCapability(null);
-                          }}
-                          className="w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition-all duration-200 hover:border-hairline hover:bg-surface-soft"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-muted">
-                              <X size={14} />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-bold text-ink">清除默认</p>
-                              <p className="mt-0.5 truncate text-[11px] text-muted">新操作不预选模型</p>
-                            </div>
-                            {!desktopSelection?.configId ? <Check size={14} className="text-primary" /> : null}
-                          </div>
-                        </button>
                         {desktopCandidates.map((config) => {
                           const optionIcon = getConfigProviderIcon(config, darkMode);
                           return (
@@ -884,12 +770,6 @@ function EffectiveModelsPanel({
                                 <ProviderIcon iconUrl={optionIcon} name={config.providerName} size="sm" />
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-xs font-bold text-ink">{getModelDisplayName(config)}</p>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  {desktopSelection?.configId === config.configId ? (
-                                    <span className="text-[10px] font-bold text-primary">我的默认</span>
-                                  ) : null}
-                                  <ConfigAccessPill config={config} compact />
                                 </div>
                               </div>
                             </button>
@@ -1603,26 +1483,4 @@ function ProviderIcon({ iconUrl, name, size }: { iconUrl: string; name: string; 
 
 function CountPill({ label }: { label: string }) {
   return <span className="inline-flex items-center text-[10px] font-bold text-muted">{label}</span>;
-}
-
-function ConfigTypePill({ label, compact, quiet }: { label: string; compact?: boolean; quiet?: boolean }) {
-  return (
-    <span
-      className={cn(
-        compact ? 'h-5 px-1.5 text-[10px]' : 'h-6 px-2 text-[10px]',
-        'w-fit rounded-md inline-flex items-center justify-center font-bold',
-        quiet
-          ? 'bg-transparent text-muted'
-          : label === '平台'
-            ? 'bg-primary/10 text-primary'
-            : 'bg-surface-soft text-muted',
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function ConfigAccessPill({ config, compact, quiet }: { config: ConfigView; compact?: boolean; quiet?: boolean }) {
-  return <ConfigTypePill label={isConfigEditable(config) ? '自定义' : '平台'} compact={compact} quiet={quiet} />;
 }

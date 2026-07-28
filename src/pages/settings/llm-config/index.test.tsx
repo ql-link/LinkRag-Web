@@ -5,7 +5,6 @@ import type { ExecutableLLMConfigDTO } from '@/types/api';
 import LLMPage from './index';
 
 const services = vi.hoisted(() => ({
-  clearUserCapabilityDefault: vi.fn(),
   deleteLLMConfig: vi.fn(),
   getLLMCapabilityDefaults: vi.fn(),
   getLLMConfigs: vi.fn(),
@@ -100,35 +99,67 @@ describe('user LLM config page', () => {
     await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
     const selector = container.querySelector('[data-model-selector="CHAT"]') as HTMLElement;
     fireEvent.click(selector);
+    expect([...selector.querySelectorAll('button')].some((button) => button.textContent?.includes('清除默认'))).toBe(
+      false,
+    );
     const option = [...selector.querySelectorAll('button')].find((button) => button.textContent?.includes('平台 GPT'));
     expect(option).toBeDefined();
     fireEvent.click(option!);
 
     await waitFor(() => expect(services.setUserCapabilityDefault).toHaveBeenCalledWith('CHAT', 100));
-    expect(services.clearUserCapabilityDefault).not.toHaveBeenCalled();
   });
 
-  it('clears the user default through the explicit clear option', async () => {
-    services.getLLMCapabilityDefaults.mockResolvedValue([
-      {
-        capability: 'CHAT',
-        configId: 101,
-      },
-    ]);
+  it('uses the same corner radius for model menus and their selector cards', async () => {
     const { container } = render(
       <MemoryRouter>
         <LLMPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
-    const selector = container.querySelector('[data-model-selector="CHAT"]') as HTMLElement;
-    fireEvent.click(selector);
-    const clearButton = [...selector.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('清除默认'),
-    );
-    expect(clearButton).toBeDefined();
-    fireEvent.click(clearButton!);
 
-    await waitFor(() => expect(services.clearUserCapabilityDefault).toHaveBeenCalledWith('CHAT'));
+    await waitFor(() => expect(container.querySelector('[data-model-selector="CHAT"]')).not.toBeNull());
+    fireEvent.click(container.querySelector('[data-model-selector="CHAT"]') as HTMLElement);
+
+    const menus = [...container.querySelectorAll('[data-model-selector-menu="CHAT"]')];
+    expect(menus).toHaveLength(2);
+    expect(menus.every((menu) => menu.className.includes('absolute'))).toBe(true);
+    expect(menus[0].className).toContain('rounded-lg');
+    expect(menus[1].className).toContain('rounded-md');
+  });
+
+  it('keeps the provider order returned by the backend in the provider picker', async () => {
+    services.getLLMProviders.mockResolvedValue([
+      {
+        providerType: 'custom-z',
+        providerName: '自定义 Z',
+        models: [{ modelName: 'model-z', capabilities: ['CHAT'] }],
+      },
+      {
+        providerType: 'openai',
+        providerName: 'OpenAI',
+        models: [{ modelName: 'gpt-test', capabilities: ['CHAT'] }],
+      },
+    ]);
+
+    const { container } = render(
+      <MemoryRouter>
+        <LLMPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(services.getLLMProviders).toHaveBeenCalledTimes(1));
+    const openPickerButton = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '配置厂商',
+    );
+    expect(openPickerButton).toBeDefined();
+    fireEvent.click(openPickerButton!);
+
+    await waitFor(() => expect(container.textContent).toContain('自定义 Z'));
+    const providerCards = [...container.querySelectorAll('button')].filter(
+      (button) => button.textContent?.includes('MODELS') && !button.textContent.includes('配置厂商'),
+    );
+    expect(providerCards.map((button) => button.textContent)).toEqual([
+      expect.stringContaining('自定义 Z'),
+      expect.stringContaining('OpenAI'),
+    ]);
   });
 });
