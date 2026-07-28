@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_VALUES,
   GROUPS,
+  hydrateEnabledModelDefaults,
   normalizeConfig,
   toRequest,
   validateModelBindings,
@@ -11,6 +12,16 @@ import {
 const PARAMS = GROUPS.flatMap((group) => group.params);
 
 describe('dataset parse config mapping', () => {
+  it('keeps the Markdown enhancement model out of the parameter cards', () => {
+    const enhancement = GROUPS.find((group) => group.id === 'enhancement');
+
+    expect(enhancement?.params.map((param) => param.key)).toEqual([
+      'enable_table_enhancement',
+      'enable_image_enhancement',
+      'enable_heading_hierarchy',
+    ]);
+  });
+
   it('fills frontend defaults from the Python dataset config model', () => {
     const values = normalizeConfig({});
 
@@ -107,6 +118,49 @@ describe('dataset parse config mapping', () => {
       rerank_config_id: 15,
     });
   });
+
+  it('hydrates only enabled missing model bindings without overriding saved bindings', () => {
+    const values = hydrateEnabledModelDefaults(
+      {
+        ...DEFAULT_VALUES,
+        enhancement_chat_config_id: 91,
+        enable_table_enhancement: true,
+        enable_heading_hierarchy: true,
+        enable_image_enhancement: true,
+        enable_rerank: true,
+      },
+      { CHAT: 11, VISION: 12, RERANK: 13 },
+    );
+
+    expect(values).toMatchObject({
+      enhancement_chat_config_id: 91,
+      enhancement_vision_config_id: 12,
+      rerank_config_id: 13,
+    });
+  });
+
+  it('does not persist defaults for optional capabilities while their features are disabled', () => {
+    expect(
+      hydrateEnabledModelDefaults(DEFAULT_VALUES, {
+        CHAT: 11,
+        VISION: 12,
+        RERANK: 13,
+      }),
+    ).toMatchObject({
+      enhancement_chat_config_id: null,
+      enhancement_vision_config_id: null,
+      rerank_config_id: null,
+    });
+  });
+
+  it.each(['enable_table_enhancement', 'enable_heading_hierarchy'] as const)(
+    'uses the shared CHAT default when %s is enabled',
+    (feature) => {
+      const values = hydrateEnabledModelDefaults({ ...DEFAULT_VALUES, [feature]: true }, { CHAT: 11 });
+
+      expect(values.enhancement_chat_config_id).toBe(11);
+    },
+  );
 
   it.each([
     [{ dense_embedding_config_id: null }, 'dense_embedding_config_id', '请选择稠密向量模型'],

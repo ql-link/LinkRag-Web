@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
 import { useBeforeUnload, useNavigate, useParams } from 'react-router';
-import { AlertCircle, Box, BrainCircuit, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, BrainCircuit, Check, Loader2 } from 'lucide-react';
 import denseIconUrl from '@/assets/icons/color/dense.svg';
 import chatIconUrl from '@/assets/icons/color/chat.svg';
 import rerankIconUrl from '@/assets/icons/color/rerank.svg';
@@ -8,19 +8,17 @@ import sparseIconUrl from '@/assets/icons/color/sparse.svg';
 import visionIconUrl from '@/assets/icons/color/vision.svg';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { LLMConfigSelect } from '@/components/LLMConfigSelect';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
-import { getModelDisplayName } from '@/lib/model-display';
-import { getProviderIcon, normalizeProviderToken } from '@/lib/provider-icons';
+import { resolveExecutableDefaultConfigIds, type ExecutableDefaultConfigIds } from '@/lib/llm-default-selection';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { getDataset, getDatasetParseConfig, updateDatasetParseConfig } from '@/services/dataset';
-import { getLLMConfigs } from '@/services/llm';
+import { getLLMCapabilityDefaults, getLLMConfigs } from '@/services/llm';
 import type { DatasetDTO, ExecutableLLMConfigDTO, RecallSource } from '@/types/api';
 import {
   DEFAULT_VALUES,
   GROUPS,
-  isEditableKey,
+  hydrateEnabledModelDefaults,
   isRecallSource,
   normalizeConfig,
   toRequest,
@@ -32,31 +30,25 @@ import {
   type ParseConfigValues,
 } from './config-model';
 
-type DefaultModels = {
-  chat: DefaultModelInfo | null;
-  vision: DefaultModelInfo | null;
-};
-
-type DefaultModelInfo = {
-  providerType: string;
-  providerName: string;
-  modelName: string;
-  displayName?: string | null;
-};
-
-const DISPLAY_MODEL_FALLBACK = '未配置默认模型';
 const LEAVE_MESSAGE = '解析配置有未保存改动，确定离开吗？';
 const EMBEDDING_BINDING_SECTION_ID = 'embedding-binding';
 
 type EmbeddingBindingKey = 'sparse' | 'dense';
+type ModelFeatureKey =
+  | 'enable_table_enhancement'
+  | 'enable_image_enhancement'
+  | 'enable_heading_hierarchy'
+  | 'enable_rerank';
 
-function createDefaultModelInfo(config: ExecutableLLMConfigDTO): DefaultModelInfo {
-  return {
-    providerType: config.providerType,
-    providerName: config.providerName || config.providerType,
-    modelName: config.modelName,
-    displayName: config.displayName,
-  };
+const MODEL_FEATURE_GUIDES: Record<ModelFeatureKey, string> = {
+  enable_table_enhancement: '请先配置并启用 CHAT 能力模型',
+  enable_heading_hierarchy: '请先配置并启用 CHAT 能力模型',
+  enable_image_enhancement: '请先配置并启用 VISION 能力模型',
+  enable_rerank: '请先配置并启用 RERANK 能力模型',
+};
+
+function isModelFeatureKey(key: EditableParamKey): key is ModelFeatureKey {
+  return key in MODEL_FEATURE_GUIDES;
 }
 
 function getComparable(values: ParseConfigValues) {
@@ -74,12 +66,6 @@ function getRangeProgress(value: number | null, min?: number, max?: number) {
   return `${((clamped - min) / (max - min)) * 100}%`;
 }
 
-function isDisabled(param: ParamSpec, values: ParseConfigValues) {
-  if (param.key === 'table_model') return !values.enable_table_enhancement;
-  if (param.key === 'vision_model') return !values.enable_image_enhancement;
-  return false;
-}
-
 export default function DatasetParseConfigPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -88,6 +74,7 @@ export default function DatasetParseConfigPage() {
   const [values, setValues] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [initial, setInitial] = useState<ParseConfigValues>(DEFAULT_VALUES);
   const [modelConfigs, setModelConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
+  const [defaultConfigIds, setDefaultConfigIds] = useState<ExecutableDefaultConfigIds>({});
   const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -113,17 +100,25 @@ export default function DatasetParseConfigPage() {
     }),
     [modelConfigs],
   );
-  const selectedModels = useMemo<DefaultModels>(() => {
-    const chat = modelConfigs.find((config) => config.configId === values.enhancement_chat_config_id);
-    const vision = modelConfigs.find((config) => config.configId === values.enhancement_vision_config_id);
-    return {
-      chat: chat ? createDefaultModelInfo(chat) : null,
-      vision: vision ? createDefaultModelInfo(vision) : null,
-    };
-  }, [modelConfigs, values.enhancement_chat_config_id, values.enhancement_vision_config_id]);
+  const defaultPrefills = {
+    chat:
+      initial.enhancement_chat_config_id === null &&
+      defaultConfigIds.CHAT !== undefined &&
+      values.enhancement_chat_config_id === defaultConfigIds.CHAT &&
+      (values.enable_table_enhancement || values.enable_heading_hierarchy),
+    vision:
+      initial.enhancement_vision_config_id === null &&
+      defaultConfigIds.VISION !== undefined &&
+      values.enhancement_vision_config_id === defaultConfigIds.VISION &&
+      values.enable_image_enhancement,
+    rerank:
+      initial.rerank_config_id === null &&
+      defaultConfigIds.RERANK !== undefined &&
+      values.rerank_config_id === defaultConfigIds.RERANK &&
+      values.enable_rerank,
+  };
   const parseConfigNavItems = useMemo(() => {
     const isParamChanged = (param: ParamSpec) => {
-      if (!isEditableKey(param.key)) return false;
       return JSON.stringify(values[param.key]) !== JSON.stringify(initial[param.key]);
     };
 
@@ -141,11 +136,9 @@ export default function DatasetParseConfigPage() {
         id: group.id,
         name: group.name,
         note: group.en,
-        count: group.params.filter(
-          (param) => (!param.visibleWhen || param.visibleWhen(values)) && isEditableKey(param.key),
-        ).length,
+        count: group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values)).length,
         changed: group.params.some(isParamChanged),
-        errorCount: group.params.filter((param) => isEditableKey(param.key) && errors[param.key]).length,
+        errorCount: group.params.filter((param) => errors[param.key]).length,
         icon: group.icon,
       })),
     ];
@@ -217,10 +210,11 @@ export default function DatasetParseConfigPage() {
       setErrorMessage('');
 
       try {
-        const [datasetResult, configResult, configsResult] = await Promise.allSettled([
+        const [datasetResult, configResult, configsResult, defaultsResult] = await Promise.allSettled([
           getDataset(datasetId),
           getDatasetParseConfig(datasetId),
           getLLMConfigs({ isActive: true }),
+          getLLMCapabilityDefaults(),
         ]);
 
         if (cancelled) return;
@@ -233,12 +227,27 @@ export default function DatasetParseConfigPage() {
         }
 
         const normalized = normalizeConfig(configResult.value);
-        setDataset(datasetResult.value);
-        setValues(normalized);
-        setInitial(normalized);
-        setModelConfigs(
-          configsResult.status === 'fulfilled' ? configsResult.value.filter((config) => config.isActive) : [],
+        const visibleConfigs =
+          configsResult.status === 'fulfilled' ? configsResult.value.filter((config) => config.isActive) : [];
+        const resolvedDefaults = resolveExecutableDefaultConfigIds(
+          defaultsResult.status === 'fulfilled' ? defaultsResult.value : [],
+          visibleConfigs,
         );
+
+        if (configsResult.status === 'rejected') {
+          console.error('Failed to load LLM configs:', configsResult.reason);
+          addToast('error', '模型列表加载失败，请刷新重试');
+        }
+        if (defaultsResult.status === 'rejected') {
+          console.error('Failed to load LLM defaults:', defaultsResult.reason);
+          addToast('error', '用户默认模型加载失败，请手动选择');
+        }
+
+        setDataset(datasetResult.value);
+        setInitial(normalized);
+        setValues(hydrateEnabledModelDefaults(normalized, resolvedDefaults));
+        setModelConfigs(visibleConfigs);
+        setDefaultConfigIds(resolvedDefaults);
       } catch (error) {
         console.error('Failed to load dataset parse config:', error);
         if (!cancelled) {
@@ -258,9 +267,22 @@ export default function DatasetParseConfigPage() {
     return () => {
       cancelled = true;
     };
-  }, [datasetId, id]);
+  }, [addToast, datasetId, id]);
 
   function updateValue(key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) {
+    if (value === true && isModelFeatureKey(key)) {
+      const candidates =
+        key === 'enable_table_enhancement' || key === 'enable_heading_hierarchy'
+          ? configsByCapability.chat
+          : key === 'enable_image_enhancement'
+            ? configsByCapability.vision
+            : configsByCapability.rerank;
+      if (candidates.length === 0) {
+        addToast('error', MODEL_FEATURE_GUIDES[key]);
+        return;
+      }
+    }
+
     setValues((prev) => {
       const next = { ...prev, [key]: value } as ParseConfigValues;
       if (
@@ -273,7 +295,7 @@ export default function DatasetParseConfigPage() {
       if (key === 'enable_image_enhancement' && !next.enable_image_enhancement)
         next.enhancement_vision_config_id = null;
       if (key === 'enable_rerank' && !next.enable_rerank) next.rerank_config_id = null;
-      return next;
+      return hydrateEnabledModelDefaults(next, defaultConfigIds);
     });
   }
 
@@ -299,9 +321,6 @@ export default function DatasetParseConfigPage() {
       ...DEFAULT_VALUES,
       sparse_embedding_config_id: prev.sparse_embedding_config_id,
       dense_embedding_config_id: prev.dense_embedding_config_id,
-      enhancement_chat_config_id: prev.enhancement_chat_config_id,
-      enhancement_vision_config_id: prev.enhancement_vision_config_id,
-      rerank_config_id: prev.rerank_config_id,
     }));
   }
 
@@ -444,7 +463,7 @@ export default function DatasetParseConfigPage() {
                 errors={errors}
                 bindingErrors={bindingErrors}
                 disabled={saving}
-                displayModels={selectedModels}
+                defaultPrefills={defaultPrefills}
                 chatConfigs={configsByCapability.chat}
                 visionConfigs={configsByCapability.vision}
                 rerankConfigs={configsByCapability.rerank}
@@ -543,7 +562,7 @@ function ConfigGroup({
   errors,
   bindingErrors,
   disabled,
-  displayModels,
+  defaultPrefills,
   chatConfigs,
   visionConfigs,
   rerankConfigs,
@@ -556,7 +575,7 @@ function ConfigGroup({
   errors: Partial<Record<EditableParamKey, string>>;
   bindingErrors: ReturnType<typeof validateModelBindings>;
   disabled: boolean;
-  displayModels: DefaultModels;
+  defaultPrefills: { chat: boolean; vision: boolean; rerank: boolean };
   chatConfigs: ExecutableLLMConfigDTO[];
   visionConfigs: ExecutableLLMConfigDTO[];
   rerankConfigs: ExecutableLLMConfigDTO[];
@@ -569,22 +588,15 @@ function ConfigGroup({
 }) {
   const Icon = group.icon;
   const visibleParams = group.params.filter((param) => !param.visibleWhen || param.visibleWhen(values));
-  const visibleControlCount = visibleParams.filter((param) => isEditableKey(param.key)).length;
+  const visibleControlCount = visibleParams.length;
   const renderParamField = (param: ParamSpec) => (
     <ParamField
       key={param.key}
       param={param}
       values={values}
-      error={isEditableKey(param.key) ? errors[param.key] : undefined}
-      disabled={disabled || isDisabled(param, values)}
+      error={errors[param.key]}
+      disabled={disabled}
       spanFull={param.span === 'full'}
-      displayModel={
-        param.key === 'table_model'
-          ? displayModels.chat
-          : param.key === 'vision_model'
-            ? displayModels.vision
-            : undefined
-      }
       onChange={onChange}
     />
   );
@@ -615,7 +627,7 @@ function ConfigGroup({
           paramByKey={paramByKey}
           values={values}
           disabled={disabled}
-          displayModels={displayModels}
+          defaultPrefills={defaultPrefills}
           chatConfigs={chatConfigs}
           visionConfigs={visionConfigs}
           bindingErrors={bindingErrors}
@@ -630,6 +642,7 @@ function ConfigGroup({
           values={values}
           rerankConfigs={rerankConfigs}
           rerankError={bindingErrors.rerank_config_id}
+          defaultPrefill={defaultPrefills.rerank}
           disabled={disabled}
           onRerankChange={(configId) => onBindingChange('rerank_config_id', configId)}
         />
@@ -647,6 +660,7 @@ function RecallControls({
   values,
   rerankConfigs,
   rerankError,
+  defaultPrefill,
   disabled,
   onRerankChange,
 }: {
@@ -656,6 +670,7 @@ function RecallControls({
   values: ParseConfigValues;
   rerankConfigs: ExecutableLLMConfigDTO[];
   rerankError?: string;
+  defaultPrefill: boolean;
   disabled: boolean;
   onRerankChange: (configId: number | null) => void;
 }) {
@@ -695,6 +710,7 @@ function RecallControls({
           configs={rerankConfigs}
           error={rerankError}
           unavailableMessage="请先配置并启用 RERANK 能力模型"
+          helperText={defaultPrefill ? '已按用户默认预选，保存后生效' : undefined}
           disabled={disabled}
           onChange={onRerankChange}
         />
@@ -715,7 +731,7 @@ function MarkdownEnhancementControls({
   paramByKey,
   values,
   disabled,
-  displayModels,
+  defaultPrefills,
   chatConfigs,
   visionConfigs,
   bindingErrors,
@@ -725,7 +741,7 @@ function MarkdownEnhancementControls({
   paramByKey: Map<ParamSpec['key'], ParamSpec>;
   values: ParseConfigValues;
   disabled: boolean;
-  displayModels: DefaultModels;
+  defaultPrefills: { chat: boolean; vision: boolean; rerank: boolean };
   chatConfigs: ExecutableLLMConfigDTO[];
   visionConfigs: ExecutableLLMConfigDTO[];
   bindingErrors: ReturnType<typeof validateModelBindings>;
@@ -746,8 +762,6 @@ function MarkdownEnhancementControls({
           param={tableParam}
           checked={values.enable_table_enhancement}
           disabled={disabled}
-          model={displayModels.chat}
-          modelParam={paramByKey.get('table_model')}
           onToggle={() => onChange('enable_table_enhancement', !values.enable_table_enhancement)}
         />
       )}
@@ -756,8 +770,6 @@ function MarkdownEnhancementControls({
           param={imageParam}
           checked={values.enable_image_enhancement}
           disabled={disabled}
-          model={displayModels.vision}
-          modelParam={paramByKey.get('vision_model')}
           onToggle={() => onChange('enable_image_enhancement', !values.enable_image_enhancement)}
         />
       )}
@@ -777,6 +789,7 @@ function MarkdownEnhancementControls({
           configs={chatConfigs}
           error={bindingErrors.enhancement_chat_config_id}
           unavailableMessage="请先配置并启用 CHAT 能力模型"
+          helperText={defaultPrefills.chat ? '已按用户默认预选，保存后生效' : undefined}
           disabled={disabled}
           onChange={(configId) => onBindingChange('enhancement_chat_config_id', configId)}
         />
@@ -789,6 +802,7 @@ function MarkdownEnhancementControls({
           configs={visionConfigs}
           error={bindingErrors.enhancement_vision_config_id}
           unavailableMessage="请先配置并启用 VISION 能力模型"
+          helperText={defaultPrefills.vision ? '已按用户默认预选，保存后生效' : undefined}
           disabled={disabled}
           onChange={(configId) => onBindingChange('enhancement_vision_config_id', configId)}
         />
@@ -801,15 +815,11 @@ function MarkdownEnhancementItem({
   param,
   checked,
   disabled,
-  model,
-  modelParam,
   onToggle,
 }: {
   param: ParamSpec;
   checked: boolean;
   disabled: boolean;
-  model?: DefaultModelInfo | null;
-  modelParam?: ParamSpec;
   onToggle: () => void;
 }) {
   return (
@@ -823,11 +833,6 @@ function MarkdownEnhancementItem({
           <ToggleSwitch checked={checked} disabled={disabled} label={param.label} onClick={onToggle} />
         </div>
       </div>
-      {modelParam && (
-        <div className={cn('mt-3 min-w-0', !checked && 'opacity-40')}>
-          <ReadonlyModelField model={model} hint={modelParam.displaySub} />
-        </div>
-      )}
     </div>
   );
 }
@@ -869,7 +874,6 @@ function ParamField({
   error,
   disabled,
   spanFull,
-  displayModel,
   onChange,
 }: {
   param: ParamSpec;
@@ -877,11 +881,10 @@ function ParamField({
   error?: string;
   disabled: boolean;
   spanFull: boolean;
-  displayModel?: DefaultModelInfo | null;
   onChange: (key: EditableParamKey, value: ParseConfigValues[EditableParamKey]) => void;
 }) {
-  const editableKey = isEditableKey(param.key) ? param.key : null;
-  const rawValue = editableKey ? values[editableKey] : null;
+  const editableKey = param.key;
+  const rawValue = values[editableKey];
   const numericValue = typeof rawValue === 'number' ? rawValue : null;
   const booleanValue = typeof rawValue === 'boolean' ? rawValue : false;
   const segmentValue = typeof rawValue === 'string' || rawValue === null ? rawValue : null;
@@ -890,13 +893,11 @@ function ParamField({
   const segmentOptionCount = param.options?.length ?? 0;
 
   function handleNumberChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!editableKey) return;
     const next = event.target.value === '' ? null : Number(event.target.value);
     onChange(editableKey, next as ParseConfigValues[EditableParamKey]);
   }
 
   function handleMultiSelectChange(source: RecallSource) {
-    if (!editableKey) return;
     const next = arrayValue.includes(source) ? arrayValue.filter((item) => item !== source) : [...arrayValue, source];
     onChange(editableKey, next as ParseConfigValues[EditableParamKey]);
   }
@@ -906,13 +907,9 @@ function ParamField({
   const compactNumberField = param.key === 'heading_break_level';
   const wideField = spanFull || ((param.type === 'segment' || param.type === 'multiselect') && !compactChoiceField);
   const sliderField = param.type === 'slider';
-  const stackedField =
-    sliderField ||
-    compactChoiceField ||
-    (param.type === 'segment' && !stageTwoAlgorithmField) ||
-    param.type === 'display';
+  const stackedField = sliderField || compactChoiceField || (param.type === 'segment' && !stageTwoAlgorithmField);
 
-  if (stageTwoAlgorithmField && editableKey) {
+  if (stageTwoAlgorithmField) {
     const enabled = segmentValue === 'semantic_depth_window';
 
     return (
@@ -956,7 +953,7 @@ function ParamField({
 
   const control = (
     <>
-      {param.type === 'toggle' && editableKey && (
+      {param.type === 'toggle' && (
         <button
           type="button"
           onClick={() => onChange(editableKey, !booleanValue as ParseConfigValues[EditableParamKey])}
@@ -965,6 +962,7 @@ function ParamField({
             booleanValue ? 'bg-primary' : 'bg-text-main/15',
           )}
           aria-label={param.label}
+          aria-pressed={booleanValue}
         >
           <span
             className={cn(
@@ -975,7 +973,7 @@ function ParamField({
         </button>
       )}
 
-      {param.type === 'number' && editableKey && (
+      {param.type === 'number' && (
         <input
           type="number"
           value={numericValue === null ? '' : numericValue}
@@ -992,7 +990,7 @@ function ParamField({
         />
       )}
 
-      {param.type === 'slider' && editableKey && (
+      {param.type === 'slider' && (
         <div className="w-full">
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-[11px] text-muted">
@@ -1017,7 +1015,7 @@ function ParamField({
         </div>
       )}
 
-      {param.type === 'segment' && editableKey && !stageTwoAlgorithmField && (
+      {param.type === 'segment' && !stageTwoAlgorithmField && (
         <div
           className={cn(
             'grid w-full gap-1 rounded-md bg-surface-soft p-1',
@@ -1048,7 +1046,7 @@ function ParamField({
         </div>
       )}
 
-      {param.type === 'multiselect' && editableKey && (
+      {param.type === 'multiselect' && (
         <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
           {param.options?.map((option) => {
             if (typeof option.value !== 'string' || !isRecallSource(option.value)) return null;
@@ -1078,8 +1076,6 @@ function ParamField({
           })}
         </div>
       )}
-
-      {param.type === 'display' && <ReadonlyModelField model={displayModel} hint={param.displaySub} />}
     </>
   );
 
@@ -1107,7 +1103,7 @@ function ParamField({
             </span>
           )}
         </div>
-        {param.showDescription && param.description && param.type !== 'display' && (
+        {param.showDescription && param.description && (
           <p className="mt-1 text-[11.5px] leading-5 text-ink">{param.description}</p>
         )}
       </div>
@@ -1128,50 +1124,6 @@ function ParamField({
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-function ReadonlyModelField({ model, hint }: { model?: DefaultModelInfo | null; hint?: string }) {
-  const { darkMode } = useTheme();
-  const iconUrl = model ? getProviderIcon(model.providerType, model.providerName, model.modelName, { darkMode }) : '';
-
-  return (
-    <div className="flex min-w-0 items-center gap-2 py-2">
-      <ProviderIcon iconUrl={iconUrl} name={model?.providerName || '默认模型'} />
-      <div className="min-w-0 flex-1">
-        <p className={cn('truncate font-mono text-[12.5px] font-semibold', model ? 'text-ink' : 'text-error')}>
-          {getModelDisplayName(model) || DISPLAY_MODEL_FALLBACK}
-        </p>
-        <p className="mt-0.5 truncate text-[10.5px] text-muted">
-          {model ? `${model.providerName} · ${hint || '跟随用户默认模型'}` : hint || '跟随用户默认模型'}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const INSET_PROVIDER_ICON_KEYS = ['mimo', 'xiaomi', 'xiaomimimo', 'xai', 'jina'];
-
-function shouldInsetProviderIcon(name: string, iconUrl: string) {
-  const token = normalizeProviderToken(`${name} ${iconUrl}`);
-  return INSET_PROVIDER_ICON_KEYS.some((key) => token.includes(key));
-}
-
-function ProviderIcon({ iconUrl, name }: { iconUrl: string; name: string }) {
-  const iconInsetClass = shouldInsetProviderIcon(name, iconUrl) ? 'p-1' : 'p-0';
-
-  if (iconUrl) {
-    return (
-      <div className="h-6 w-6 shrink-0 overflow-hidden border-0 bg-transparent">
-        <img src={iconUrl} alt={name} className={cn('h-full w-full object-contain', iconInsetClass)} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-6 w-6 shrink-0 items-center justify-center border-0 bg-transparent">
-      <Box size={14} className="text-ink" />
     </div>
   );
 }
