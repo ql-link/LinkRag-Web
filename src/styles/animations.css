@@ -1,35 +1,5 @@
 /* ===== Keyframe Animations ===== */
 
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-14px);
-  }
-}
-
-@keyframes float-delay {
-  0%,
-  100% {
-    transform: translateY(0px) translateX(0px);
-  }
-  50% {
-    transform: translateY(-10px) translateX(8px);
-  }
-}
-
-@keyframes ribbonDrift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -12px, 0);
-  }
-}
-
 @keyframes datasetDropdownIn {
   from {
     opacity: 0;
@@ -88,7 +58,7 @@
   }
 }
 
-@keyframes indexEsWrite {
+@keyframes indexRecordWrite {
   0%,
   100% {
     transform: translateX(0);
@@ -242,18 +212,6 @@
 
 /* ===== Animation Utility Classes ===== */
 
-.animate-float-slow {
-  animation: float-slow 8s ease-in-out infinite;
-}
-
-.animate-float-delay {
-  animation: float-delay 10s ease-in-out infinite;
-}
-
-.welcome-ribbon {
-  animation: ribbonDrift 16s ease-in-out infinite;
-}
-
 .chat-rise {
   animation: chatRise 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -272,11 +230,10 @@
 
 /* ===== Welcome Page Demo Styles ===== */
 
-.welcome-grid {
-  background-image:
-    linear-gradient(to right, rgba(26, 26, 26, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(26, 26, 26, 0.05) 1px, transparent 1px);
-  background-size: 44px 44px;
+.welcome-dot-grid {
+  background-image: url('/assets/welcome-dot-grid.png');
+  background-repeat: repeat;
+  background-size: 26px 26px;
 }
 
 .welcome-demo-grid {
@@ -292,10 +249,9 @@
     linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
 }
 
-.dark .welcome-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+.welcome-dot-grid-dark {
+  filter: invert(1) brightness(1.35);
+  opacity: 0.16;
 }
 
 .demo-flow-line::after {
@@ -405,8 +361,8 @@
   stroke-width: 2.6;
 }
 
-.index-es-row {
-  animation: indexEsWrite 2.2s ease-in-out infinite;
+.index-record-row {
+  animation: indexRecordWrite 2.2s ease-in-out infinite;
 }
 
 .multi-node-pulse {

@@ -13,7 +13,6 @@ import {
   FileText,
   SearchCheck,
   ScissorsLineDashed,
-  ShieldCheck,
   TextQuote,
   Upload,
   FileType,
@@ -43,12 +42,12 @@ const workflowSlides = [
     step: '01',
     title: (
       <>
-        文档分块
+        解析与分块
         <br />
-        拖拽上传 自动切分为语义块
+        统一为 Markdown 再切成语义片段
       </>
     ),
-    description: '保留原文上下文，为后续检索准备稳定片段',
+    description: '保留标题层级与原文上下文，表格、代码、公式和图片不被粗暴切断',
     kind: 'capabilities',
   },
   {
@@ -56,12 +55,12 @@ const workflowSlides = [
     step: '02',
     title: (
       <>
-        索引构建
+        三路索引
         <br />
-        向量索引与 ES 全文索引并行写入
+        稠密、稀疏与 BM25 并行构建
       </>
     ),
-    description: '让相似含义与精确关键词都能被快速命中',
+    description: '以 MySQL 为真值源，向量与关键词索引均可诊断、可重建',
     kind: 'operations',
   },
   {
@@ -69,12 +68,12 @@ const workflowSlides = [
     step: '03',
     title: (
       <>
-        多路召回
+        混合检索
         <br />
-        跨检索通道并行获取候选片段
+        三路并行召回并做加权融合
       </>
     ),
-    description: '减少遗漏关键依据，把相关内容先聚合到一起',
+    description: '同时覆盖语义相似、术语表达与精确关键词，优先保留真正相关的片段',
     kind: 'timeline',
   },
   {
@@ -82,12 +81,12 @@ const workflowSlides = [
     step: '04',
     title: (
       <>
-        智能回答
+        有据回答
         <br />
-        结合上下文与原文片段生成答案
+        回填原文，按上下文预算流式生成
       </>
     ),
-    description: '回答保留引用依据，方便回看和核验来源',
+    description: '无依据时明确不回答；有命中则保留引用，方便回看和核验来源',
     kind: 'answer',
   },
 ] as const;
@@ -419,12 +418,13 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
     { x: 54, y: 84, near: false },
     { x: 86, y: 30, near: false },
   ];
-  const esJsonLines = [
+  const bm25RecordLines = [
     { indent: 0, text: '{' },
     { indent: 1, key: '"chunk_id"', value: '"ml-note-042-03",' },
-    { indent: 1, key: '"content"', value: '"梯度下降通过反向传播更新参数",' },
-    { indent: 1, key: '"source"', value: '"ml_notes.pdf",' },
-    { indent: 1, key: '"page"', value: '18' },
+    { indent: 1, key: '"dataset_id"', value: '42,' },
+    { indent: 1, key: '"doc_id"', value: '108,' },
+    { indent: 1, key: '"coarse"', value: '"梯度 下降 反向 传播",' },
+    { indent: 1, key: '"chunk_type"', value: '"text"' },
     { indent: 0, text: '}' },
   ];
 
@@ -535,10 +535,10 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div className="mb-2.5 flex items-center gap-2.5">
               <DatabaseZap size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
-                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>向量索引</p>
-                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>
-                  embedding vectors
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
+                  Qdrant 向量
                 </p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>dense + sparse</p>
               </div>
             </div>
             <div
@@ -606,8 +606,8 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div className="mb-2.5 flex items-center gap-2.5">
               <Database size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
-                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>ES 入库</p>
-                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>text + metadata</p>
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>BM25 索引</p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>Manticore Search</p>
               </div>
             </div>
             <div
@@ -616,11 +616,11 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 darkMode ? 'border-[#3c3c3c] bg-[#252526]/80' : 'border-border-subtle bg-white/72 backdrop-blur-sm',
               )}
             >
-              {esJsonLines.map((line, index) => (
+              {bm25RecordLines.map((line, index) => (
                 <p
                   key={index}
                   className={cn(
-                    'index-es-row flex min-w-0 whitespace-nowrap',
+                    'index-record-row flex min-w-0 whitespace-nowrap',
                     darkMode ? 'text-[#d9d9d9]' : 'text-text-main/62',
                   )}
                   style={{
@@ -649,9 +649,9 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
 
 function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
   const channels = [
-    { label: '向量召回', icon: DatabaseZap, y: 22 },
-    { label: '全文检索', icon: SearchCheck, y: 198 },
-    { label: '图谱召回', icon: ShieldCheck, y: 374 },
+    { label: '稠密向量', icon: DatabaseZap, y: 22 },
+    { label: '稀疏向量', icon: SearchCheck, y: 198 },
+    { label: 'BM25 关键词', icon: Database, y: 374 },
   ];
   const topKChunks = [
     {
@@ -872,7 +872,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
             <div>
               <p className={cn('text-[12px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
               <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                融合候选结果
+                加权融合结果
               </p>
             </div>
             <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>K=3</span>
@@ -1009,7 +1009,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
                   Top-K 片段
                 </p>
                 <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                  召回上下文
+                  正文回填结果
                 </p>
               </div>
               <div
@@ -1102,7 +1102,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
             >
               <BrainCircuit size={42} strokeWidth={1.8} />
               <span className={cn('text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>
-                LLM 智能回答
+                上下文生成
               </span>
             </div>
           </motion.div>
@@ -1118,7 +1118,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
               <div>
                 <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>AI 回答</p>
                 <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                  生成并保留引用
+                  流式生成并保留引用
                 </p>
               </div>
               <div
@@ -1176,45 +1176,13 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
   );
 }
 
-function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
+function DottedCanvasBackground({ darkMode }: { darkMode?: boolean }) {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        className={cn(
-          'absolute inset-0',
-          darkMode
-            ? 'bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_40%,#1f1f1f_100%)]'
-            : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f3eee7_40%,#f8f4ef_100%)]',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute -left-[12%] top-[7%] h-[220px] w-[72%] rotate-[-6deg] rounded-[999px]',
-          darkMode ? 'bg-[#3b82f6]/12' : 'bg-[#f0d9bf]/70',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute right-[-16%] top-[18%] h-[180px] w-[62%] rotate-[8deg] rounded-[999px]',
-          darkMode ? 'bg-[#094771]/26' : 'bg-[#ead9ca]/86',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute left-[-8%] top-[44%] h-[210px] w-[58%] rotate-[6deg] rounded-[999px]',
-          darkMode ? 'bg-[#d4a373]/12' : 'bg-[#f4e8dc]/92',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute right-[-10%] bottom-[22%] h-[220px] w-[65%] rotate-[-7deg] rounded-[999px]',
-          darkMode ? 'bg-[#3b82f6]/10' : 'bg-[#f1decc]/85',
-        )}
-      />
-      <div className="welcome-grid absolute inset-0 opacity-50" />
-      <div className="absolute left-[7%] top-[15%] h-4 w-4 rounded-full bg-primary/30 animate-float-slow" />
-      <div className="absolute right-[12%] top-[28%] h-6 w-6 rounded-full bg-primary/20 animate-float-delay" />
-      <div className="absolute left-[18%] bottom-[18%] h-5 w-5 rounded-full bg-primary/20 animate-float-slow" />
+    <div
+      className={cn('pointer-events-none absolute inset-0 overflow-hidden', darkMode ? 'bg-[#1f1f1f]' : 'bg-[#fbfaf7]')}
+      aria-hidden="true"
+    >
+      <div className={cn('welcome-dot-grid absolute inset-0', darkMode && 'welcome-dot-grid-dark')} />
     </div>
   );
 }
@@ -1383,7 +1351,7 @@ export default function WelcomePage() {
         darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
       )}
     >
-      <WarmRibbonBackground darkMode={darkMode} />
+      <DottedCanvasBackground darkMode={darkMode} />
 
       {headerPortalTarget
         ? createPortal(
