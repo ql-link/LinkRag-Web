@@ -1,4 +1,4 @@
-import { unzipSync } from 'fflate';
+import { strFromU8, unzipSync } from 'fflate';
 import { normalizeAssetRelativePath } from './markdown-assets';
 import type { VirtualFile } from './virtual-file-tree';
 
@@ -19,6 +19,7 @@ const DEFAULT_LIMITS: ZipLimits = {
 };
 
 interface CentralEntry {
+  extractionPath: string;
   path: string;
   compressedSize: number;
   expandedSize: number;
@@ -34,7 +35,7 @@ export async function extractDatasetZip(file: File, limits: ZipLimits = DEFAULT_
   const result: VirtualFile[] = [];
   for (const entry of entries) {
     if (entry.directory || isMetadataPath(entry.path)) continue;
-    const content = extracted[entry.path];
+    const content = extracted[entry.extractionPath];
     if (!content || content.byteLength !== entry.expandedSize) throw new Error('ZIP 解压结果不完整');
     const path = commonRoot ? entry.path.slice(commonRoot.length + 1) : entry.path;
     const name = path.split('/').pop() ?? path;
@@ -55,8 +56,8 @@ export function inspectCentralDirectory(bytes: Uint8Array, limits: ZipLimits = D
   if (entryCount > limits.maxEntries) throw new Error('ZIP 文件数量超限');
   if (centralOffset + centralSize > eocd) throw new Error('ZIP 中央目录损坏');
 
-  const decoder = new TextDecoder('utf-8', { fatal: true });
   const paths = new Set<string>();
+  const extractionPaths = new Set<string>();
   const entries: CentralEntry[] = [];
   let expandedTotal = 0;
   let offset = centralOffset;
@@ -75,7 +76,17 @@ export function inspectCentralDirectory(bytes: Uint8Array, limits: ZipLimits = D
       throw new Error('ZIP 中不能包含符号链接');
     }
     const rawName = bytes.subarray(offset + 46, offset + 46 + nameLength);
-    const decoded = decoder.decode(rawName).replace(/\\/g, '/').normalize('NFC');
+    const extractionPath = strFromU8(rawName, !(flags & 0x0800));
+    let decoded: string;
+    try {
+      // macOS ZIPs commonly contain UTF-8 names without setting the UTF-8 flag.
+      decoded = new TextDecoder('utf-8', { fatal: true }).decode(rawName);
+    } catch {
+      if (flags & 0x0800) throw new Error('ZIP 文件名编码无效');
+      // Keep fflate's Latin-1 decoding so the extracted entry remains addressable.
+      decoded = extractionPath;
+    }
+    decoded = decoded.replace(/\\/g, '/').normalize('NFC');
     const directory = decoded.endsWith('/');
     const trimmed = directory ? decoded.slice(0, -1) : decoded;
     if (/^(?:\/|[a-z]:\/)/i.test(trimmed)) throw new Error('ZIP 中存在绝对路径');
@@ -83,14 +94,16 @@ export function inspectCentralDirectory(bytes: Uint8Array, limits: ZipLimits = D
     if (!path) throw new Error('ZIP 中存在越界或非法路径');
     if (path.split('/').length > limits.maxDepth) throw new Error('ZIP 目录层级超限');
     if (paths.has(path)) throw new Error(`ZIP 路径冲突：${path}`);
+    if (extractionPaths.has(extractionPath)) throw new Error(`ZIP 解压路径冲突：${path}`);
     paths.add(path);
+    extractionPaths.add(extractionPath);
     expandedTotal += expandedSize;
     if (expandedTotal > limits.maxExpandedBytes) throw new Error('ZIP 解压大小超限');
     if (expandedSize > 0 && compressedSize === 0) throw new Error('ZIP 压缩比异常');
     if (compressedSize > 0 && expandedSize / compressedSize > limits.maxRatio) {
       throw new Error('ZIP 压缩比超限');
     }
-    entries.push({ path, compressedSize, expandedSize, directory });
+    entries.push({ extractionPath, path, compressedSize, expandedSize, directory });
     offset += 46 + nameLength + extraLength + commentLength;
   }
   return entries;
