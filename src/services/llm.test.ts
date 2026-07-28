@@ -8,6 +8,8 @@ import {
   getLLMCapabilityDefaults,
   getLLMConfigs,
   listAdminLLMConfigs,
+  publishAdminModelSyncCandidates,
+  reorderAdminProviders,
   setLLMConfigActive,
   setUserCapabilityDefault,
   setupLLMProvider,
@@ -78,5 +80,24 @@ describe('unified LLM service contracts', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/api/v1/admin/llm/configs', { capability: 'CHAT' });
     expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/llm/configs/100', request);
     expect(apiClient.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the complete provider order in one request', async () => {
+    vi.mocked(apiClient.put).mockResolvedValue(undefined);
+
+    await reorderAdminProviders([3, 1, 2]);
+
+    expect(apiClient.put).toHaveBeenCalledWith('/api/v1/admin/providers/order', {
+      providerIds: [3, 1, 2],
+    });
+  });
+
+  it('publishes selected capabilities for one synced model in one request', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue([]);
+    const request = { candidateIds: [11, 12], modelName: 'model-a', displayName: 'Model A' };
+
+    await publishAdminModelSyncCandidates(request);
+
+    expect(apiClient.post).toHaveBeenCalledWith('/api/v1/admin/model-sync-candidates/publish', request);
   });
 });

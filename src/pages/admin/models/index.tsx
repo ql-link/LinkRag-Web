@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import {
   Ban,
   Check,
   ChevronDown,
   Edit2,
   FileJson,
+  GripVertical,
   KeyRound,
   Loader2,
   Plus,
@@ -22,6 +23,11 @@ import {
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/contexts/ToastContext';
+import {
+  ADMIN_MODEL_CAPABILITY_ORDER,
+  compareAdminModelCapabilities,
+  compareCandidateGroupsByReleaseDate,
+} from '@/lib/admin-model-order';
 import { getModelDisplayName } from '@/lib/model-display';
 import { getProviderIcon, isProviderIconMonochrome } from '@/lib/provider-icons';
 import { cn } from '@/lib/utils';
@@ -37,8 +43,9 @@ import {
   listAdminProviderModels,
   listAdminProviders,
   listAdminLLMConfigs,
-  publishAdminModelSyncCandidate,
+  publishAdminModelSyncCandidates,
   reviewAdminModelSyncCandidate,
+  reorderAdminProviders,
   syncAdminProviderModels,
   toggleAdminProvider,
   toggleAdminProviderModel,
@@ -54,7 +61,6 @@ import type {
   LLMCapability,
   LLMProtocol,
   ModelSyncCandidate,
-  ModelSyncPublishRequest,
   ModelSyncReviewStatus,
   ProviderModel,
   SystemProvider,
@@ -64,14 +70,18 @@ import type {
 
 type PlatformConfigView = ExecutableLLMConfigDTO;
 
-const CAPABILITIES: Array<{ value: LLMCapability; label: string }> = [
-  { value: 'CHAT', label: '对话' },
-  { value: 'EMBEDDING', label: '稠密向量' },
-  { value: 'SPARSE_EMBEDDING', label: '稀疏向量' },
-  { value: 'VISION', label: '视觉' },
-  { value: 'RERANK', label: '重排' },
-  { value: 'ASR', label: '语音识别' },
-];
+const CAPABILITY_LABELS: Record<LLMCapability, string> = {
+  CHAT: '对话',
+  VISION: '视觉',
+  EMBEDDING: '稠密向量',
+  SPARSE_EMBEDDING: '稀疏向量',
+  RERANK: '重排',
+  ASR: '语音识别',
+};
+
+const CAPABILITIES = ADMIN_MODEL_CAPABILITY_ORDER.map((value) => ({ value, label: CAPABILITY_LABELS[value] }));
+const MODEL_CAPABILITY_ROW_CLASS_NAME =
+  'flex flex-col gap-2 px-2.5 py-2.5 lg:flex-row lg:items-center lg:justify-between';
 
 const PROTOCOLS: LLMProtocol[] = ['openai', 'anthropic', 'google', 'jina', 'dashscope', 'bge_m3', 'doubao_vision'];
 const LINKRAG_PROVIDER_TYPE = 'linkrag';
@@ -126,12 +136,22 @@ const linkRagPresetInitialState = {
   isActive: true,
 };
 
-const publishCandidateInitialState: Required<ModelSyncPublishRequest> = {
+interface ModelSyncCandidateGroup {
+  key: string;
+  candidates: ModelSyncCandidate[];
+  representative: ModelSyncCandidate;
+}
+
+interface PublishCandidateFormState {
+  modelName: string;
+  displayName: string;
+  candidateIds: number[];
+}
+
+const publishCandidateInitialState: PublishCandidateFormState = {
   modelName: '',
   displayName: '',
-  capability: 'CHAT',
-  protocol: 'openai',
-  apiBaseUrl: '',
+  candidateIds: [],
 };
 
 function capabilityLabel(value: string) {
@@ -223,10 +243,11 @@ export default function AdminModelsPage() {
   const [candidateTotal, setCandidateTotal] = useState(0);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [syncingProviderId, setSyncingProviderId] = useState<number | null>(null);
+  const [reorderingProviders, setReorderingProviders] = useState(false);
   const [togglingModelIds, setTogglingModelIds] = useState<Set<number>>(() => new Set());
   const [togglingPresetIds, setTogglingPresetIds] = useState<Set<number>>(() => new Set());
   const [metadataCandidate, setMetadataCandidate] = useState<ModelSyncCandidate | null>(null);
-  const [publishingCandidate, setPublishingCandidate] = useState<ModelSyncCandidate | null>(null);
+  const [publishingCandidateGroup, setPublishingCandidateGroup] = useState<ModelSyncCandidateGroup | null>(null);
   const [publishCandidateForm, setPublishCandidateForm] = useState(publishCandidateInitialState);
 
   const loadData = useCallback(async () => {
@@ -366,9 +387,9 @@ export default function AdminModelsPage() {
       .sort((a, b) => `${a.modelName}${a.capability}`.localeCompare(`${b.modelName}${b.capability}`));
   }, [keyword, modelFilters.capability, modelFilters.status, models, selectedProvider]);
 
-  const selectedCandidates = useMemo(() => {
+  const selectedCandidateGroups = useMemo<ModelSyncCandidateGroup[]>(() => {
     if (!selectedProvider || catalogMode !== 'candidates') return [];
-    return candidates
+    const filteredCandidates = candidates
       .filter((candidate) => candidate.providerId === selectedProvider.id)
       .filter((candidate) => {
         const capability = candidateCapability(candidate);
@@ -387,10 +408,22 @@ export default function AdminModelsPage() {
           ],
           keyword,
         );
+      });
+    const groups = new Map<string, ModelSyncCandidate[]>();
+    filteredCandidates.forEach((candidate) => {
+      const key = `${candidate.providerId}:${candidate.syncSource}:${candidate.externalModelId || candidate.modelName}`;
+      const items = groups.get(key) || [];
+      items.push(candidate);
+      groups.set(key, items);
+    });
+    return Array.from(groups.entries())
+      .map(([key, items]) => {
+        const sortedCandidates = [...items].sort((a, b) =>
+          compareAdminModelCapabilities(candidateCapability(a), candidateCapability(b)),
+        );
+        return { key, candidates: sortedCandidates, representative: sortedCandidates[0] };
       })
-      .sort((a, b) =>
-        `${a.modelName}${candidateCapability(a)}`.localeCompare(`${b.modelName}${candidateCapability(b)}`),
-      );
+      .sort((a, b) => compareCandidateGroupsByReleaseDate(a.candidates, b.candidates));
   }, [candidates, catalogMode, keyword, modelFilters.capability, selectedProvider]);
 
   const selectedPresets = useMemo(() => {
@@ -477,6 +510,34 @@ export default function AdminModelsPage() {
     } catch (error) {
       console.error(error);
       addToast('error', '厂商保存失败');
+    }
+  }
+
+  async function handleReorderProviders(orderedProviderIds: number[]) {
+    if (reorderingProviders || orderedProviderIds.length !== providers.length) return;
+
+    const previousProviders = providers;
+    const providerById = new Map(providers.map((provider) => [provider.id, provider]));
+    const reorderedProviders = orderedProviderIds
+      .map((providerId, index) => {
+        const provider = providerById.get(providerId);
+        return provider ? { ...provider, priority: (orderedProviderIds.length - index) * 10 } : null;
+      })
+      .filter((provider): provider is SystemProvider => provider !== null);
+
+    if (reorderedProviders.length !== providers.length) return;
+
+    setProviders(reorderedProviders);
+    setReorderingProviders(true);
+    try {
+      await reorderAdminProviders(orderedProviderIds);
+      addToast('success', '厂商顺序已更新');
+    } catch (error) {
+      console.error(error);
+      setProviders(previousProviders);
+      addToast('error', '厂商排序保存失败');
+    } finally {
+      setReorderingProviders(false);
     }
   }
 
@@ -734,36 +795,34 @@ export default function AdminModelsPage() {
     }
   }
 
-  function openPublishCandidate(candidate: ModelSyncCandidate) {
-    setPublishingCandidate(candidate);
+  function openPublishCandidate(group: ModelSyncCandidateGroup) {
+    const candidate = group.representative;
+    setPublishingCandidateGroup(group);
     setPublishCandidateForm({
       modelName: candidate.modelName || candidate.externalModelId || '',
       displayName: candidate.displayName || candidate.modelName || candidate.externalModelId || '',
-      capability: candidateCapability(candidate) || 'CHAT',
-      protocol: candidateProtocol(candidate) || selectedProvider?.defaultProtocol || 'openai',
-      apiBaseUrl: candidate.inferredApiBaseUrl || selectedProvider?.apiBaseUrl || '',
+      candidateIds: group.candidates.map((item) => item.id),
     });
   }
 
   async function handleSubmitPublishCandidate(event: FormEvent) {
     event.preventDefault();
-    if (!publishingCandidate) return;
+    if (!publishingCandidateGroup || publishCandidateForm.candidateIds.length === 0) return;
 
-    const payload: ModelSyncPublishRequest = {
+    const payload = {
       modelName: publishCandidateForm.modelName.trim(),
       displayName: publishCandidateForm.displayName.trim(),
-      capability: publishCandidateForm.capability,
-      protocol: publishCandidateForm.protocol,
-      apiBaseUrl: publishCandidateForm.apiBaseUrl.trim(),
+      candidateIds: publishCandidateForm.candidateIds,
     };
 
     try {
-      await publishAdminModelSyncCandidate(publishingCandidate.id, payload);
-      setPublishingCandidate(null);
-      addToast('success', '候选已发布到正式目录');
+      await publishAdminModelSyncCandidates(payload);
+      const providerId = publishingCandidateGroup.representative.providerId;
+      setPublishingCandidateGroup(null);
+      addToast('success', `${payload.candidateIds.length} 个能力已发布到正式目录`);
       await Promise.all([
         loadData(),
-        loadCandidates(publishingCandidate.providerId, candidateStatusFilter, modelFilters.capability || undefined),
+        loadCandidates(providerId, candidateStatusFilter, modelFilters.capability || undefined),
       ]);
     } catch (error) {
       console.error(error);
@@ -771,14 +830,18 @@ export default function AdminModelsPage() {
     }
   }
 
-  async function handleReviewCandidate(
-    candidate: ModelSyncCandidate,
+  async function handleReviewCandidateGroup(
+    group: ModelSyncCandidateGroup,
     reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>,
   ) {
     try {
-      await reviewAdminModelSyncCandidate(candidate.id, reviewStatus);
-      addToast('success', reviewStatus === 'REJECTED' ? '候选已拒绝' : '候选已恢复待审核');
-      await loadCandidates(candidate.providerId, candidateStatusFilter, modelFilters.capability || undefined);
+      await Promise.all(group.candidates.map((candidate) => reviewAdminModelSyncCandidate(candidate.id, reviewStatus)));
+      addToast('success', reviewStatus === 'REJECTED' ? '模型候选已拒绝' : '模型候选已恢复待审核');
+      await loadCandidates(
+        group.representative.providerId,
+        candidateStatusFilter,
+        modelFilters.capability || undefined,
+      );
     } catch (error) {
       console.error(error);
       addToast('error', '候选状态更新失败');
@@ -840,6 +903,9 @@ export default function AdminModelsPage() {
                 configTotal={models.length}
                 selectedProviderId={selectedProvider?.id ?? null}
                 onSelect={setSelectedProviderId}
+                reorderDisabled={Boolean(keyword)}
+                reordering={reorderingProviders}
+                onReorder={handleReorderProviders}
               />
 
               {selectedProvider ? (
@@ -859,7 +925,7 @@ export default function AdminModelsPage() {
                       allProviderModels={selectedProviderModels}
                       presets={selectedPresets}
                       allPlatformConfigs={presets}
-                      candidates={selectedCandidates}
+                      candidateGroups={selectedCandidateGroups}
                       candidateTotal={candidateTotal}
                       catalogMode={catalogMode}
                       setCatalogMode={setCatalogMode}
@@ -888,7 +954,7 @@ export default function AdminModelsPage() {
                       onEditLinkRagPreset={openEditLinkRagPreset}
                       onRefreshExternal={handleRefreshExternalModels}
                       onOpenPublishCandidate={openPublishCandidate}
-                      onReviewCandidate={handleReviewCandidate}
+                      onReviewCandidate={handleReviewCandidateGroup}
                       onViewCandidateMetadata={setMetadataCandidate}
                       togglingPresetIds={togglingPresetIds}
                       onToggleLinkRagPreset={handleToggleLinkRagPresetActive}
@@ -968,13 +1034,13 @@ export default function AdminModelsPage() {
           onSubmit={handleSubmitLinkRagPreset}
         />
       )}
-      {publishingCandidate && (
+      {publishingCandidateGroup && (
         <PublishCandidateDialog
           darkMode={darkMode}
-          candidate={publishingCandidate}
+          candidateGroup={publishingCandidateGroup}
           form={publishCandidateForm}
           setForm={setPublishCandidateForm}
-          onClose={() => setPublishingCandidate(null)}
+          onClose={() => setPublishingCandidateGroup(null)}
           onSubmit={handleSubmitPublishCandidate}
         />
       )}
@@ -1030,6 +1096,9 @@ function ProviderRail({
   configTotal,
   selectedProviderId,
   onSelect,
+  reorderDisabled,
+  reordering,
+  onReorder,
 }: {
   darkMode: boolean;
   providers: SystemProvider[];
@@ -1038,7 +1107,48 @@ function ProviderRail({
   configTotal: number;
   selectedProviderId: number | null;
   onSelect: (id: number) => void;
+  reorderDisabled: boolean;
+  reordering: boolean;
+  onReorder: (orderedProviderIds: number[]) => void;
 }) {
+  const [draggedProviderId, setDraggedProviderId] = useState<number | null>(null);
+  const [orderedProviders, setOrderedProviders] = useState(providers);
+  const orderedProvidersRef = useRef(providers);
+  const suppressClickRef = useRef(false);
+  const dragDisabled = reorderDisabled || reordering;
+
+  useEffect(() => {
+    if (draggedProviderId === null) {
+      orderedProvidersRef.current = providers;
+      setOrderedProviders(providers);
+    }
+  }, [draggedProviderId, providers]);
+
+  function handleReorderPreview(nextProviders: SystemProvider[]) {
+    orderedProvidersRef.current = nextProviders;
+    setOrderedProviders(nextProviders);
+  }
+
+  function handleDragStart(providerId: number) {
+    suppressClickRef.current = true;
+    setDraggedProviderId(providerId);
+  }
+
+  function handleDragEnd() {
+    const orderedProviderIds = orderedProvidersRef.current.map((provider) => provider.id);
+    if (orderedProviderIds.every((providerId, index) => providerId === providers[index]?.id)) {
+      orderedProvidersRef.current = providers;
+      setOrderedProviders(providers);
+    } else {
+      onReorder(orderedProviderIds);
+    }
+
+    setDraggedProviderId(null);
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
+  }
+
   return (
     <aside className={cn('min-h-0 overflow-hidden', darkMode ? 'bg-transparent' : 'bg-transparent')}>
       <div className="px-2.5 pb-7 pt-1">
@@ -1059,65 +1169,151 @@ function ProviderRail({
         </div>
       </div>
       <div className="px-1 py-3">
-        <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>厂商</h3>
-        <p aria-hidden="true" className="invisible mt-0.5 text-[11px]">
-          列表
+        <div className="flex items-center justify-between gap-3">
+          <h3 className={cn('text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>厂商</h3>
+          {reordering ? (
+            <Loader2 size={13} className={cn('animate-spin', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/40')} />
+          ) : null}
+        </div>
+        <p className={cn('mt-0.5 text-[11px]', darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40')}>
+          {reordering ? '正在保存排序' : reorderDisabled ? '清除搜索后可拖动排序' : '拖动调整展示顺序'}
         </p>
       </div>
-      <div className="max-h-[640px] overflow-y-auto overscroll-contain p-1.5 xl:h-[calc(100vh-320px)] xl:max-h-none">
+      <Reorder.Group
+        as="div"
+        axis="y"
+        values={orderedProviders}
+        onReorder={handleReorderPreview}
+        layoutScroll
+        className="max-h-[640px] overflow-y-auto overscroll-contain p-1.5 xl:h-[calc(100vh-320px)] xl:max-h-none"
+      >
         {providers.length === 0 ? (
           <div className={cn('px-3 py-10 text-center text-sm', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
             没有匹配的厂商
           </div>
         ) : (
-          providers.map((provider) => {
-            const selected = provider.id === selectedProviderId;
-            const platformProvider = isLinkRagProvider(provider);
-
-            return (
-              <button
-                key={provider.id}
-                type="button"
-                onClick={() => onSelect(provider.id)}
-                aria-current={selected ? 'true' : undefined}
-                className={cn(
-                  'flex w-full min-w-0 items-start gap-3 rounded-md px-2.5 py-2.5 text-left transition-colors duration-200 ease-out',
-                  darkMode ? 'hover:bg-white/[0.045]' : 'hover:bg-ink/[0.025]',
-                )}
-              >
-                <ProviderAvatar
-                  providerType={provider.providerType}
-                  providerName={provider.providerName}
-                  iconUrl={provider.iconUrl}
-                  darkMode={darkMode}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                      {platformProvider ? '平台模型' : provider.providerName}
-                    </span>
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 shrink-0 rounded-full',
-                        provider.isActive ? 'bg-success' : 'bg-muted-soft',
-                      )}
-                    />
-                  </span>
-                  <span
-                    className={cn(
-                      'mt-1 block truncate font-mono text-[11px]',
-                      darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
-                    )}
-                  >
-                    {platformProvider ? 'LinkRag · 全站共享' : `${provider.providerType} · ${provider.defaultProtocol}`}
-                  </span>
-                </span>
-              </button>
-            );
-          })
+          orderedProviders.map((provider) => (
+            <SortableProviderRow
+              key={provider.id}
+              provider={provider}
+              darkMode={darkMode}
+              selected={provider.id === selectedProviderId}
+              dragging={draggedProviderId === provider.id}
+              dragDisabled={dragDisabled}
+              onDragStart={() => handleDragStart(provider.id)}
+              onDragEnd={handleDragEnd}
+              onSelect={() => {
+                if (!suppressClickRef.current) onSelect(provider.id);
+              }}
+            />
+          ))
         )}
-      </div>
+      </Reorder.Group>
     </aside>
+  );
+}
+
+function SortableProviderRow({
+  provider,
+  darkMode,
+  selected,
+  dragging,
+  dragDisabled,
+  onDragStart,
+  onDragEnd,
+  onSelect,
+}: {
+  provider: SystemProvider;
+  darkMode: boolean;
+  selected: boolean;
+  dragging: boolean;
+  dragDisabled: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onSelect: () => void;
+}) {
+  const dragControls = useDragControls();
+  const platformProvider = isLinkRagProvider(provider);
+  const providerLabel = platformProvider ? '平台模型' : provider.providerName;
+
+  return (
+    <Reorder.Item
+      as="div"
+      value={provider}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      whileDrag={{ scale: 1.015 }}
+      className={cn(
+        'relative z-0 flex w-full min-w-0 items-start rounded-md transition-[background-color,box-shadow] duration-150',
+        darkMode ? 'hover:bg-white/[0.045]' : 'hover:bg-ink/[0.025]',
+        dragging &&
+          (darkMode
+            ? 'z-10 bg-[#272727] shadow-[0_8px_24px_rgba(0,0,0,0.38)]'
+            : 'z-10 bg-white shadow-[0_8px_24px_rgba(20,20,20,0.14)]'),
+      )}
+    >
+      <button
+        type="button"
+        disabled={dragDisabled}
+        aria-label={`拖动调整${providerLabel}顺序`}
+        onPointerDown={(event) => {
+          if (dragDisabled) return;
+          event.preventDefault();
+          dragControls.start(event);
+        }}
+        className={cn(
+          'flex w-7 shrink-0 touch-none justify-center self-stretch rounded-l-md pt-[18px]',
+          dragDisabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing',
+        )}
+      >
+        <GripVertical
+          size={15}
+          aria-hidden="true"
+          className={cn(
+            dragDisabled
+              ? darkMode
+                ? 'text-[#555]'
+                : 'text-text-main/15'
+              : darkMode
+                ? 'text-[#777]'
+                : 'text-text-main/25',
+          )}
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? 'true' : undefined}
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-r-md py-2.5 pl-0.5 pr-2 text-left"
+      >
+        <ProviderAvatar
+          providerType={provider.providerType}
+          providerName={provider.providerName}
+          iconUrl={provider.iconUrl}
+          darkMode={darkMode}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+              {providerLabel}
+            </span>
+            <span
+              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', provider.isActive ? 'bg-success' : 'bg-muted-soft')}
+            />
+          </span>
+          <span
+            className={cn(
+              'mt-1 block truncate font-mono text-[11px]',
+              darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+            )}
+          >
+            {platformProvider ? 'LinkRag · 全站共享' : `${provider.providerType} · ${provider.defaultProtocol}`}
+          </span>
+        </span>
+      </button>
+    </Reorder.Item>
   );
 }
 
@@ -1128,7 +1324,7 @@ function ProviderWorkspace({
   allProviderModels,
   presets,
   allPlatformConfigs,
-  candidates,
+  candidateGroups,
   candidateTotal,
   catalogMode,
   setCatalogMode,
@@ -1162,7 +1358,7 @@ function ProviderWorkspace({
   allProviderModels: ProviderModel[];
   presets: PlatformConfigView[];
   allPlatformConfigs: PlatformConfigView[];
-  candidates: ModelSyncCandidate[];
+  candidateGroups: ModelSyncCandidateGroup[];
   candidateTotal: number;
   catalogMode: CatalogMode;
   setCatalogMode: React.Dispatch<React.SetStateAction<CatalogMode>>;
@@ -1180,8 +1376,11 @@ function ProviderWorkspace({
   onCreateLinkRagPreset: () => void;
   onEditLinkRagPreset: (preset: PlatformConfigView) => void;
   onRefreshExternal: (provider: SystemProvider) => void;
-  onOpenPublishCandidate: (candidate: ModelSyncCandidate) => void;
-  onReviewCandidate: (candidate: ModelSyncCandidate, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
+  onOpenPublishCandidate: (group: ModelSyncCandidateGroup) => void;
+  onReviewCandidate: (
+    group: ModelSyncCandidateGroup,
+    reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>,
+  ) => void;
   onViewCandidateMetadata: (candidate: ModelSyncCandidate) => void;
   togglingPresetIds: Set<number>;
   onToggleLinkRagPreset: (preset: PlatformConfigView) => void;
@@ -1198,6 +1397,8 @@ function ProviderWorkspace({
   const capabilityDimensionCount = new Set(
     (isLinkRag ? allPlatformConfigs : allProviderModels).map((item) => item.capability),
   ).size;
+  const visibleModelCount = new Set(models.map((model) => model.modelName)).size;
+  const totalModelCount = new Set(allProviderModels.map((model) => model.modelName)).size;
 
   return (
     <div className="min-w-0">
@@ -1269,8 +1470,8 @@ function ProviderWorkspace({
             isLinkRag
               ? `${presets.length} 条平台配置`
               : catalogMode === 'candidates'
-                ? `${candidates.length}/${candidateTotal} 条${formatModelSyncStatus(candidateStatusFilter)} · MODELS_DEV`
-                : `${models.length}/${allProviderModels.length} 条`
+                ? `${candidateGroups.length} 个模型 · ${candidateTotal} 个能力候选 · ${formatModelSyncStatus(candidateStatusFilter)}`
+                : `${visibleModelCount}/${totalModelCount} 个模型 · ${models.length} 个能力`
           }
         />
         <div className="flex flex-col gap-2.5 px-1 pb-4 sm:flex-row sm:items-center sm:gap-3">
@@ -1376,7 +1577,7 @@ function ProviderWorkspace({
         ) : catalogMode === 'candidates' ? (
           <ModelSyncCandidateList
             darkMode={darkMode}
-            candidates={candidates}
+            candidateGroups={candidateGroups}
             loading={candidatesLoading}
             onPublish={onOpenPublishCandidate}
             onReview={onReviewCandidate}
@@ -1561,61 +1762,100 @@ function ModelCapabilityList({
 }) {
   if (models.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无匹配的模型能力" />;
 
+  const groups = Array.from(
+    models.reduce((result, model) => {
+      const items = result.get(model.modelName) || [];
+      items.push(model);
+      result.set(model.modelName, items);
+      return result;
+    }, new Map<string, ProviderModel[]>()),
+  )
+    .map(([modelName, items]) => ({
+      modelName,
+      items: [...items].sort((a, b) => compareAdminModelCapabilities(a.capability, b.capability)),
+    }))
+    .sort((a, b) => a.modelName.localeCompare(b.modelName));
+
   return (
     <div className="max-h-[calc(100vh-410px)] min-h-0 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
-      {models.map((model) => {
-        const preset = showLinkRagConfig ? findPresetForModel(presets, model) : undefined;
+      {groups.map((group) => {
+        const representative = group.items[0];
+        const activeCount = group.items.filter((model) => model.isActive).length;
         return (
           <article
-            key={model.id}
-            className={cn(
-              'flex flex-col gap-3 rounded-md px-3 py-3 xl:flex-row xl:items-start xl:justify-between',
-              darkMode ? 'hover:bg-white/[0.035]' : 'hover:bg-ink/[0.022]',
-            )}
+            key={group.modelName}
+            className={cn('rounded-md px-3 py-3', darkMode ? 'hover:bg-white/[0.035]' : 'hover:bg-ink/[0.022]')}
           >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
-                  {getModelDisplayName(model)}
-                </h4>
-                <StatusPill darkMode={darkMode} active={model.isActive} />
-                <SmallBadge darkMode={darkMode}>{capabilityLabel(model.capability)}</SmallBadge>
-                <SmallBadge darkMode={darkMode}>{model.protocol}</SmallBadge>
-              </div>
-              {model.displayName?.trim() ? (
-                <p className={cn('mt-1 font-mono text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
-                  ID: {model.modelName}
-                </p>
-              ) : null}
-              {showLinkRagConfig ? (
-                <p
-                  className={cn(
-                    'mt-2 flex items-center gap-2 font-mono text-xs',
-                    darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60',
-                  )}
-                >
-                  <KeyRound size={13} />
-                  {presetMaskedKey(preset) || '未配置 Key'}
-                </p>
-              ) : null}
-              <p className={cn('mt-3 break-all text-xs leading-5', darkMode ? 'text-[#a8a8a8]' : 'text-text-main/60')}>
-                {model.apiBaseUrl}
-              </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className={cn('truncate text-sm font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                {getModelDisplayName(representative)}
+              </h4>
+              <SmallBadge darkMode={darkMode}>{group.items.length} 个能力</SmallBadge>
+              <SmallBadge darkMode={darkMode}>
+                {activeCount}/{group.items.length} 已启用
+              </SmallBadge>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center gap-1 xl:justify-end">
-              <ActionButton onClick={() => onEdit(model)}>
-                <Edit2 size={13} />
-                编辑
-              </ActionButton>
-              <ToggleSwitch
-                checked={model.isActive}
-                disabled={togglingIds.has(model.id)}
-                onChange={() => onToggle(model)}
-              />
-              <ActionButton danger onClick={() => onDelete(model)}>
-                <Trash2 size={13} />
-                删除
-              </ActionButton>
+            {representative.displayName?.trim() ? (
+              <p className={cn('mt-1 font-mono text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
+                ID: {representative.modelName}
+              </p>
+            ) : null}
+            <div className={cn('mt-3 divide-y', darkMode ? 'divide-[#3a3a3a]' : 'divide-border-subtle')}>
+              {group.items.map((model) => {
+                const preset = showLinkRagConfig ? findPresetForModel(presets, model) : undefined;
+                return (
+                  <div key={model.id} className={MODEL_CAPABILITY_ROW_CLASS_NAME}>
+                    <div className="grid min-w-0 flex-1 items-center gap-2 lg:grid-cols-[110px_120px_minmax(0,1fr)]">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            model.isActive ? 'bg-success' : 'bg-muted-soft',
+                          )}
+                        />
+                        <span className={cn('text-xs font-bold', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/75')}>
+                          {capabilityLabel(model.capability)}
+                        </span>
+                      </div>
+                      <span className={cn('font-mono text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
+                        {model.protocol}
+                      </span>
+                      <span
+                        className={cn('truncate font-mono text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}
+                        title={model.apiBaseUrl}
+                      >
+                        {model.apiBaseUrl}
+                      </span>
+                    </div>
+                    {showLinkRagConfig ? (
+                      <span
+                        className={cn(
+                          'flex items-center gap-1.5 font-mono text-[11px]',
+                          darkMode ? 'text-[#a8a8a8]' : 'text-text-main/50',
+                        )}
+                      >
+                        <KeyRound size={12} />
+                        {presetMaskedKey(preset) || '未配置 Key'}
+                      </span>
+                    ) : null}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <ActionButton onClick={() => onEdit(model)}>
+                        <Edit2 size={13} />
+                        编辑
+                      </ActionButton>
+                      <ToggleSwitch
+                        checked={model.isActive}
+                        disabled={togglingIds.has(model.id)}
+                        onChange={() => onToggle(model)}
+                      />
+                      <ActionButton danger onClick={() => onDelete(model)}>
+                        <Trash2 size={13} />
+                        删除
+                      </ActionButton>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </article>
         );
@@ -1661,17 +1901,17 @@ function formatRawMetadata(value: string | null | undefined) {
 
 function ModelSyncCandidateList({
   darkMode,
-  candidates,
+  candidateGroups,
   loading,
   onPublish,
   onReview,
   onViewMetadata,
 }: {
   darkMode: boolean;
-  candidates: ModelSyncCandidate[];
+  candidateGroups: ModelSyncCandidateGroup[];
   loading: boolean;
-  onPublish: (candidate: ModelSyncCandidate) => void;
-  onReview: (candidate: ModelSyncCandidate, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
+  onPublish: (group: ModelSyncCandidateGroup) => void;
+  onReview: (group: ModelSyncCandidateGroup, reviewStatus: Exclude<ModelSyncReviewStatus, 'PUBLISHED'>) => void;
   onViewMetadata: (candidate: ModelSyncCandidate) => void;
 }) {
   if (loading) {
@@ -1682,20 +1922,19 @@ function ModelSyncCandidateList({
     );
   }
 
-  if (candidates.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无外部候选" />;
+  if (candidateGroups.length === 0) return <EmptyTableState darkMode={darkMode} label="暂无外部候选" />;
 
   return (
     <div className="max-h-[520px] min-h-0 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
-      {candidates.map((candidate) => {
-        const published = candidate.reviewStatus === 'PUBLISHED';
-        const rejected = candidate.reviewStatus === 'REJECTED';
-        const matchLabel = candidate.matchedProviderModelId ? '已存在/可更新' : '新增';
-        const capability = candidateCapability(candidate);
-        const protocol = candidateProtocol(candidate);
+      {candidateGroups.map((group) => {
+        const candidate = group.representative;
+        const published = group.candidates.every((item) => item.reviewStatus === 'PUBLISHED');
+        const rejected = group.candidates.every((item) => item.reviewStatus === 'REJECTED');
+        const matchedCount = group.candidates.filter((item) => item.matchedProviderModelId).length;
 
         return (
           <article
-            key={candidate.id}
+            key={group.key}
             className={cn(
               'flex flex-col gap-3 rounded-md px-3 py-3 2xl:flex-row 2xl:items-start 2xl:justify-between',
               darkMode ? 'hover:bg-white/[0.035]' : 'hover:bg-ink/[0.022]',
@@ -1707,21 +1946,45 @@ function ModelSyncCandidateList({
                   {candidate.displayName || candidate.modelName || candidate.externalModelId}
                 </h4>
                 <SmallBadge darkMode={darkMode}>{formatModelSyncStatus(candidate.reviewStatus)}</SmallBadge>
-                <SmallBadge darkMode={darkMode}>{matchLabel}</SmallBadge>
-                {capability ? <SmallBadge darkMode={darkMode}>{capabilityLabel(capability)}</SmallBadge> : null}
+                <SmallBadge darkMode={darkMode}>{group.candidates.length} 个能力</SmallBadge>
+                <SmallBadge darkMode={darkMode}>
+                  {matchedCount > 0 ? `${matchedCount}/${group.candidates.length} 已存在` : '新增'}
+                </SmallBadge>
               </div>
               <p className={cn('mt-1 font-mono text-[11px]', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>
                 {candidate.modelName || '-'} · external: {candidate.externalModelId}
               </p>
               <div className="mt-3 space-y-2">
-                <div className="grid gap-2 md:grid-cols-[140px_minmax(0,1fr)]">
-                  <CandidateMetaItem darkMode={darkMode} label="协议" value={protocol || '-'} />
-                  <CandidateMetaItem
-                    darkMode={darkMode}
-                    label="调用入口"
-                    value={candidate.inferredApiBaseUrl || '-'}
-                    mono
-                  />
+                <div className={cn('divide-y', darkMode ? 'divide-[#3a3a3a]' : 'divide-border-subtle')}>
+                  {group.candidates.map((item) => {
+                    const capability = candidateCapability(item);
+                    return (
+                      <div key={item.id} className={MODEL_CAPABILITY_ROW_CLASS_NAME}>
+                        <div className="grid min-w-0 flex-1 items-center gap-2 lg:grid-cols-[110px_120px_minmax(0,1fr)]">
+                          <div className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-soft" />
+                            <span
+                              className={cn('text-xs font-bold', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/75')}
+                            >
+                              {capability ? capabilityLabel(capability) : '-'}
+                            </span>
+                          </div>
+                          <span className={cn('font-mono text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
+                            {candidateProtocol(item) || '-'}
+                          </span>
+                          <span
+                            className={cn(
+                              'truncate font-mono text-xs',
+                              darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50',
+                            )}
+                            title={item.inferredApiBaseUrl || ''}
+                          >
+                            {item.inferredApiBaseUrl || '-'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="grid gap-2 md:grid-cols-3">
                   <CandidateMetaItem
@@ -1752,17 +2015,17 @@ function ModelSyncCandidateList({
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-1 2xl:justify-end">
-              <ActionButton onClick={() => onPublish(candidate)} disabled={published}>
+              <ActionButton onClick={() => onPublish(group)} disabled={published}>
                 <Send size={13} />
                 发布
               </ActionButton>
               {rejected ? (
-                <ActionButton onClick={() => onReview(candidate, 'PENDING')}>
+                <ActionButton onClick={() => onReview(group, 'PENDING')}>
                   <RotateCcw size={13} />
                   恢复
                 </ActionButton>
               ) : (
-                <ActionButton danger onClick={() => onReview(candidate, 'REJECTED')} disabled={published}>
+                <ActionButton danger onClick={() => onReview(group, 'REJECTED')} disabled={published}>
                   <Ban size={13} />
                   拒绝
                 </ActionButton>
@@ -2466,10 +2729,15 @@ function ProviderDialog({
   }
 
   return (
-    <DialogShell darkMode={darkMode} title={editing ? '编辑厂商' : '新增厂商'} onClose={onClose}>
+    <DialogShell
+      darkMode={darkMode}
+      title={editing ? '编辑厂商' : '新增厂商'}
+      maxWidthClassName="max-w-[min(100vw-2rem,700px)]"
+      onClose={onClose}
+    >
       <form onSubmit={onSubmit}>
-        <div className="space-y-4 p-6">
-          <FormField darkMode={darkMode} label="厂商图标" hint="支持 jpg、jpeg、png、gif、webp，最大 5MB。">
+        <div className="max-h-[calc(90vh-132px)] space-y-4 overflow-y-auto p-5 sm:p-6">
+          <FormField darkMode={darkMode} label="厂商图标" hint="可选，支持常见图片格式，最大 5MB">
             <div className="flex flex-wrap items-center gap-3">
               <ProviderAvatar
                 providerType={form.providerType}
@@ -2477,91 +2745,121 @@ function ProviderDialog({
                 iconUrl={form.iconUrl}
                 darkMode={darkMode}
               />
-              <label
-                className={cn(
-                  'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-xs font-bold',
-                  darkMode
-                    ? 'bg-white/[0.045] text-[#d6d6d6] hover:bg-white/[0.075]'
-                    : 'bg-surface-soft text-text-main/70 hover:bg-ink/[0.035]',
-                  uploadingIcon && 'cursor-not-allowed opacity-55',
-                )}
-              >
-                {uploadingIcon ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                {uploadingIcon ? '上传中' : '上传图标'}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  className="hidden"
-                  disabled={uploadingIcon}
-                  onChange={(event) => {
-                    void handleIconFileChange(event.target.files?.[0]);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
-              {form.iconUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, iconUrl: '', iconObjectKey: '' })}
+              <div className="flex flex-1 flex-wrap items-center gap-2">
+                <label
                   className={cn(
-                    'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold',
-                    darkMode ? 'text-[#a6a6a6] hover:bg-white/[0.055]' : 'text-text-main/45 hover:bg-ink/[0.035]',
+                    'inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg px-3 text-xs font-bold',
+                    darkMode
+                      ? 'bg-white/[0.045] text-[#d6d6d6] hover:bg-white/[0.075]'
+                      : 'bg-surface-soft text-text-main/70 hover:bg-ink/[0.035]',
+                    uploadingIcon && 'cursor-not-allowed opacity-55',
                   )}
                 >
-                  <X size={14} />
-                  清空
-                </button>
-              ) : null}
+                  {uploadingIcon ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                  {uploadingIcon ? '上传中' : '选择图片'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    disabled={uploadingIcon}
+                    onChange={(event) => {
+                      void handleIconFileChange(event.target.files?.[0]);
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
+                {form.iconUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, iconUrl: '', iconObjectKey: '' })}
+                    className={cn(
+                      'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold',
+                      darkMode ? 'text-[#a6a6a6] hover:bg-white/[0.055]' : 'text-text-main/45 hover:bg-ink/[0.035]',
+                    )}
+                  >
+                    <X size={14} />
+                    移除
+                  </button>
+                ) : null}
+              </div>
             </div>
           </FormField>
-          <input
-            required
-            disabled={editing}
-            value={form.providerType}
-            onChange={(e) => setForm({ ...form, providerType: e.target.value })}
-            placeholder="厂商类型，如 openai"
-            className={inputClassName(darkMode)}
-          />
-          <input
-            required
-            value={form.providerName}
-            onChange={(e) => setForm({ ...form, providerName: e.target.value })}
-            placeholder="厂商名称"
-            className={inputClassName(darkMode)}
-          />
-          <input
-            required
-            value={form.apiBaseUrl}
-            onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
-            placeholder="默认 API 地址，仅用于新增能力预填"
-            className={inputClassName(darkMode)}
-          />
-          <select
-            value={form.defaultProtocol}
-            onChange={(e) => setForm({ ...form, defaultProtocol: e.target.value as LLMProtocol })}
-            className={inputClassName(darkMode)}
-          >
-            {PROTOCOLS.map((protocol) => (
-              <option key={protocol} value={protocol}>
-                {protocol}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={form.priority}
-            onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
-            placeholder="优先级"
-            className={inputClassName(darkMode)}
-          />
-          <label className="flex items-center gap-2 text-sm">
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              darkMode={darkMode}
+              label="厂商标识"
+              hint={editing ? '保存后不可修改' : '用于系统识别，如 openai'}
+            >
+              <input
+                required
+                disabled={editing}
+                value={form.providerType}
+                onChange={(e) => setForm({ ...form, providerType: e.target.value })}
+                placeholder="openai"
+                className={inputClassName(darkMode)}
+              />
+            </FormField>
+            <FormField darkMode={darkMode} label="厂商名称" hint="管理端和用户侧展示名称">
+              <input
+                required
+                value={form.providerName}
+                onChange={(e) => setForm({ ...form, providerName: e.target.value })}
+                placeholder="OpenAI"
+                className={inputClassName(darkMode)}
+              />
+            </FormField>
+          </div>
+
+          <FormField darkMode={darkMode} label="默认调用地址" hint="新增模型时自动预填，可单独修改">
             <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              required
+              value={form.apiBaseUrl}
+              onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
+              placeholder="https://api.openai.com/v1"
+              className={inputClassName(darkMode)}
             />
-            启用
-          </label>
+          </FormField>
+
+          <FormField darkMode={darkMode} label="默认协议" hint="新增模型时自动预选">
+            <div className="flex flex-wrap gap-1.5">
+              {PROTOCOLS.map((protocol) => (
+                <FormChoice
+                  key={protocol}
+                  darkMode={darkMode}
+                  active={form.defaultProtocol === protocol}
+                  onClick={() => setForm({ ...form, defaultProtocol: protocol })}
+                >
+                  {protocol}
+                </FormChoice>
+              ))}
+            </div>
+          </FormField>
+
+          <FormField darkMode={darkMode} label="优先级" hint="数值越小，展示越靠前">
+            <input
+              type="number"
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
+              placeholder="50"
+              className={inputClassName(darkMode)}
+            />
+          </FormField>
+
+          <div
+            className={cn(
+              'flex items-center justify-between gap-4 rounded-xl border px-3.5 py-3',
+              darkMode ? 'border-[#3a3a3a] bg-white/[0.02]' : 'border-border-subtle bg-bg-base/35',
+            )}
+          >
+            <div>
+              <p className={cn('text-xs font-bold', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/70')}>启用状态</p>
+              <p className={cn('mt-1 text-[11px]', darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40')}>
+                禁用后该厂商及其模型不可用
+              </p>
+            </div>
+            <ToggleSwitch checked={form.isActive} onChange={() => setForm({ ...form, isActive: !form.isActive })} />
+          </div>
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />
       </form>
@@ -2571,21 +2869,23 @@ function ProviderDialog({
 
 function PublishCandidateDialog({
   darkMode,
-  candidate,
+  candidateGroup,
   form,
   setForm,
   onClose,
   onSubmit,
 }: {
   darkMode: boolean;
-  candidate: ModelSyncCandidate;
-  form: Required<ModelSyncPublishRequest>;
-  setForm: (form: Required<ModelSyncPublishRequest>) => void;
+  candidateGroup: ModelSyncCandidateGroup;
+  form: PublishCandidateFormState;
+  setForm: (form: PublishCandidateFormState) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent) => void;
 }) {
+  const candidate = candidateGroup.representative;
+
   return (
-    <DialogShell darkMode={darkMode} title="发布外部候选" onClose={onClose}>
+    <DialogShell darkMode={darkMode} title="发布模型能力" onClose={onClose}>
       <form onSubmit={onSubmit}>
         <div className="max-h-[calc(90vh-132px)] space-y-4 overflow-y-auto p-6">
           <div className={cn('rounded-md px-3 py-2 text-xs', darkMode ? 'bg-white/[0.035]' : 'bg-ink/[0.025]')}>
@@ -2593,7 +2893,7 @@ function PublishCandidateDialog({
               external: {candidate.externalModelId}
             </p>
             <p className={cn('mt-1', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/65')}>
-              {candidate.matchedProviderModelId ? '发布后会更新已匹配的正式模型能力。' : '发布后会新增正式模型能力。'}
+              选择要发布的能力；不同能力会保留各自同步得到的协议和调用入口。
             </p>
           </div>
           <FormField darkMode={darkMode} label="真实模型名">
@@ -2613,42 +2913,64 @@ function PublishCandidateDialog({
               className={inputClassName(darkMode)}
             />
           </FormField>
-          <FormField darkMode={darkMode} label="能力维度">
-            <div className="flex flex-wrap gap-1.5">
-              {CAPABILITIES.map((capability) => (
-                <FormChoice
-                  key={capability.value}
-                  darkMode={darkMode}
-                  active={form.capability === capability.value}
-                  onClick={() => setForm({ ...form, capability: capability.value })}
-                >
-                  {capability.label}
-                </FormChoice>
-              ))}
+          <FormField darkMode={darkMode} label="发布能力" hint={`已选择 ${form.candidateIds.length} 项`}>
+            <div className="space-y-1.5">
+              {candidateGroup.candidates.map((item) => {
+                const selected = form.candidateIds.includes(item.id);
+                const capability = candidateCapability(item);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (selected && form.candidateIds.length === 1) return;
+                      setForm({
+                        ...form,
+                        candidateIds: selected
+                          ? form.candidateIds.filter((id) => id !== item.id)
+                          : [...form.candidateIds, item.id],
+                      });
+                    }}
+                    className={cn(
+                      'flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors',
+                      selected
+                        ? darkMode
+                          ? 'border-[#666] bg-white/[0.07]'
+                          : 'border-primary/35 bg-primary/[0.045]'
+                        : darkMode
+                          ? 'border-[#3a3a3a] hover:bg-white/[0.035]'
+                          : 'border-border-subtle hover:bg-ink/[0.025]',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                        selected
+                          ? 'border-primary bg-primary text-white'
+                          : darkMode
+                            ? 'border-[#666]'
+                            : 'border-border-subtle',
+                      )}
+                    >
+                      {selected ? <Check size={11} /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block text-xs font-bold', darkMode ? 'text-[#f2f2f2]' : 'text-text-main')}>
+                        {capability ? capabilityLabel(capability) : '-'}
+                      </span>
+                      <span
+                        className={cn(
+                          'mt-1 block truncate font-mono text-[10px]',
+                          darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
+                        )}
+                      >
+                        {candidateProtocol(item) || '-'} · {item.inferredApiBaseUrl || '-'}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </FormField>
-          <FormField darkMode={darkMode} label="协议" hint="协议大小写敏感，发布时必须是小写枚举。">
-            <div className="flex flex-wrap gap-1.5">
-              {PROTOCOLS.map((protocol) => (
-                <FormChoice
-                  key={protocol}
-                  darkMode={darkMode}
-                  active={form.protocol === protocol}
-                  onClick={() => setForm({ ...form, protocol })}
-                >
-                  {protocol}
-                </FormChoice>
-              ))}
-            </div>
-          </FormField>
-          <FormField darkMode={darkMode} label="调用入口">
-            <input
-              required
-              value={form.apiBaseUrl}
-              onChange={(e) => setForm({ ...form, apiBaseUrl: e.target.value })}
-              placeholder="https://api.openai.com/v1/chat/completions"
-              className={inputClassName(darkMode)}
-            />
           </FormField>
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />
@@ -2756,11 +3078,11 @@ function LinkRagPresetDialog({
     <DialogShell
       darkMode={darkMode}
       title={editingPreset ? '编辑平台模型' : '添加平台模型'}
-      maxWidthClassName="max-w-[min(100vw-2rem,760px)]"
+      maxWidthClassName="max-w-[min(100vw-2rem,700px)]"
       onClose={onClose}
     >
       <form onSubmit={onSubmit}>
-        <div className="max-h-[calc(90vh-132px)] space-y-5 overflow-y-auto p-6">
+        <div className="max-h-[calc(90vh-132px)] space-y-4 overflow-y-auto p-5 sm:p-6">
           {!editingPreset ? (
             <div className="flex flex-wrap gap-1.5">
               <FormChoice
@@ -2783,10 +3105,10 @@ function LinkRagPresetDialog({
           {!editingPreset && form.mode === 'source' ? (
             <div className="space-y-4">
               <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-                从正式模型目录复制模型名、展示名、能力、协议和调用入口；这里只需要选择来源模型并填写平台 Key。
+                选择已上架模型后，只需补充平台 API Key。
               </p>
               <div className="grid gap-3 md:grid-cols-2">
-                <FormField darkMode={darkMode} label="来源厂商" hint="用于缩小下方正式模型目录范围，不会改变配置身份。">
+                <FormField darkMode={darkMode} label="来源厂商">
                   <FormSelect
                     darkMode={darkMode}
                     value={form.sourceProviderId}
@@ -2795,7 +3117,7 @@ function LinkRagPresetDialog({
                     onChange={(value) => setForm({ ...form, sourceProviderId: value, sourceProviderModelId: '' })}
                   />
                 </FormField>
-                <FormField darkMode={darkMode} label="来源能力" hint="用于筛选 CHAT、EMBEDDING 等能力维度。">
+                <FormField darkMode={darkMode} label="来源能力">
                   <FormSelect
                     darkMode={darkMode}
                     value={form.sourceCapability}
@@ -2811,11 +3133,7 @@ function LinkRagPresetDialog({
                   />
                 </FormField>
               </div>
-              <FormField
-                darkMode={darkMode}
-                label="已上架正式模型"
-                hint="选中的模型 ID 会作为 sourceProviderModelId 提交，后端会复制该行的运行事实。"
-              >
+              <FormField darkMode={darkMode} label="已上架正式模型" hint="将复制模型名、能力、协议和调用地址。">
                 {sourceModelsLoading ? (
                   <div className="flex min-h-[120px] items-center justify-center">
                     <Loader2
@@ -2883,68 +3201,66 @@ function LinkRagPresetDialog({
             </div>
           ) : (
             <div className="space-y-4">
-              <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
-                手动填写会原子创建平台配置；这些值会作为后端实际调用模型时使用的运行事实。
-              </p>
-              <FormField darkMode={darkMode} label="真实模型名" hint="传给模型服务的 modelName，例如 deepseek-chat。">
-                <input
-                  required
-                  value={form.modelName}
-                  onChange={(e) => setForm({ ...form, modelName: e.target.value })}
-                  placeholder="deepseek-chat"
-                  className={inputClassName(darkMode)}
-                />
-              </FormField>
-              <FormField darkMode={darkMode} label="展示名" hint="管理端和用户侧展示名称；为空时回退为真实模型名。">
-                <input
-                  value={form.displayName}
-                  onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-                  placeholder="DeepSeek Chat"
-                  className={inputClassName(darkMode)}
-                />
-              </FormField>
-              <FormField
-                darkMode={darkMode}
-                label="能力维度"
-                hint={
-                  editingPreset
-                    ? '已有配置的能力不可原地修改；如需其它能力请新增配置。'
-                    : '决定该配置服务哪类能力；同一模型多个能力需分别维护。'
-                }
-              >
-                <div className="flex flex-wrap gap-1.5">
-                  {CAPABILITIES.map((capability) => (
-                    <FormChoice
-                      key={capability.value}
-                      darkMode={darkMode}
-                      active={form.capability === capability.value}
-                      disabled={Boolean(editingPreset)}
-                      onClick={() => setForm({ ...form, capability: capability.value })}
-                    >
-                      {capability.label}
-                    </FormChoice>
-                  ))}
-                </div>
-              </FormField>
-              <FormField darkMode={darkMode} label="协议" hint="后端执行调用时使用的协议适配器，保存值必须是小写枚举。">
-                <div className="flex flex-wrap gap-1.5">
-                  {PROTOCOLS.map((protocol) => (
-                    <FormChoice
-                      key={protocol}
-                      darkMode={darkMode}
-                      active={form.protocol === protocol}
-                      onClick={() => setForm({ ...form, protocol })}
-                    >
-                      {protocol}
-                    </FormChoice>
-                  ))}
-                </div>
-              </FormField>
-              <FormField
-                darkMode={darkMode}
-                label="调用入口"
-                hint="模型服务的完整调用端点，会随平台配置保存并用于后端请求。"
-              >
+              {!editingPreset ? (
+                <p className={cn('text-xs leading-5', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/50')}>
+                  直接创建一条可供用户选择的平台配置。
+                </p>
+              ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField darkMode={darkMode} label="真实模型名" hint="API 请求中的 modelName">
+                  <input
+                    required
+                    value={form.modelName}
+                    onChange={(e) => setForm({ ...form, modelName: e.target.value })}
+                    placeholder="deepseek-chat"
+                    className={inputClassName(darkMode)}
+                  />
+                </FormField>
+                <FormField darkMode={darkMode} label="展示名" hint="可选，留空显示真实模型名">
+                  <input
+                    value={form.displayName}
+                    onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                    placeholder="DeepSeek Chat"
+                    className={inputClassName(darkMode)}
+                  />
+                </FormField>
+              </div>
+              <div className="space-y-4">
+                <FormField
+                  darkMode={darkMode}
+                  label="能力"
+                  hint={editingPreset ? '保存后不可修改' : '一个配置对应一种能力'}
+                >
+                  <div className="flex flex-wrap gap-1.5">
+                    {CAPABILITIES.map((capability) => (
+                      <FormChoice
+                        key={capability.value}
+                        darkMode={darkMode}
+                        active={form.capability === capability.value}
+                        disabled={Boolean(editingPreset)}
+                        onClick={() => setForm({ ...form, capability: capability.value })}
+                      >
+                        {capability.label}
+                      </FormChoice>
+                    ))}
+                  </div>
+                </FormField>
+                <FormField darkMode={darkMode} label="协议">
+                  <div className="flex flex-wrap gap-1.5">
+                    {PROTOCOLS.map((protocol) => (
+                      <FormChoice
+                        key={protocol}
+                        darkMode={darkMode}
+                        active={form.protocol === protocol}
+                        onClick={() => setForm({ ...form, protocol })}
+                      >
+                        {protocol}
+                      </FormChoice>
+                    ))}
+                  </div>
+                </FormField>
+              </div>
+              <FormField darkMode={darkMode} label="调用地址" hint="填写完整请求地址">
                 <input
                   required
                   value={form.apiBaseUrl}
@@ -2956,28 +3272,22 @@ function LinkRagPresetDialog({
             </div>
           )}
 
-          <div className="space-y-3">
-            <FormField
-              darkMode={darkMode}
-              label="平台 API Key"
-              hint={
-                editingPreset
-                  ? '不修改 Key 可留空；重新输入会覆盖当前 Key。'
-                  : '用户侧不会填写该 Key，由平台配置加密保存。'
-              }
-            >
-              <input
-                required={!editingPreset}
-                type="password"
-                value={form.apiKey}
-                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                placeholder="sk-platform-..."
-                className={inputClassName(darkMode)}
-              />
-            </FormField>
-            {editingPreset ? <p className="text-xs text-muted">启停状态请在配置列表中单独操作。</p> : null}
-            <p className="text-xs text-muted">默认模型请在平台模型列表上方按能力单独设置。</p>
-          </div>
+          <FormField
+            darkMode={darkMode}
+            label="平台 API Key"
+            hint={
+              editingPreset ? `留空则保留当前 Key（${presetMaskedKey(editingPreset)}）` : '将加密保存，不会展示明文'
+            }
+          >
+            <input
+              required={!editingPreset}
+              type="password"
+              value={form.apiKey}
+              onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+              placeholder={editingPreset ? '留空表示不修改' : 'sk-platform-...'}
+              className={inputClassName(darkMode)}
+            />
+          </FormField>
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />
       </form>
@@ -3021,14 +3331,15 @@ function ModelDialog({
   };
 
   return (
-    <DialogShell darkMode={darkMode} title={editing ? '编辑模型能力' : '新增模型能力'} onClose={onClose}>
+    <DialogShell
+      darkMode={darkMode}
+      title={editing ? '编辑模型' : '添加模型'}
+      maxWidthClassName="max-w-[min(100vw-2rem,700px)]"
+      onClose={onClose}
+    >
       <form onSubmit={onSubmit}>
-        <div className="space-y-4 p-6">
-          <FormField
-            darkMode={darkMode}
-            label="厂商"
-            hint={editing ? '模型能力创建后不能切换厂商。' : '选择厂商后会预填协议和 API 地址模板。'}
-          >
+        <div className="max-h-[calc(90vh-132px)] space-y-4 overflow-y-auto p-5 sm:p-6">
+          <FormField darkMode={darkMode} label="厂商" hint={editing ? '保存后不可修改' : '选择后会预填协议和调用地址'}>
             <ProviderPicker
               darkMode={darkMode}
               providers={providers}
@@ -3037,61 +3348,61 @@ function ModelDialog({
               onChange={handleProviderChange}
             />
           </FormField>
-          <FormField darkMode={darkMode} label="真实模型名" hint="传给厂商 API 的 modelName，例如 gpt-4o。">
-            <input
-              required
-              value={form.modelName}
-              onChange={(e) => setForm({ ...form, modelName: e.target.value })}
-              placeholder="gpt-4o"
-              className={inputClassName(darkMode)}
-            />
-          </FormField>
-          <FormField darkMode={darkMode} label="展示名" hint="可选；为空时界面会回退显示真实模型名。">
-            <input
-              value={form.displayName}
-              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-              placeholder="GPT-4o"
-              className={inputClassName(darkMode)}
-            />
-          </FormField>
-          <FormField
-            darkMode={darkMode}
-            label="能力维度"
-            hint={
-              currentPreset
-                ? '已有平台配置的能力不可原地修改；如需其它能力请新增配置。'
-                : '同一个模型支持多个能力时，需要分别新增多条配置。'
-            }
-          >
-            <div className="flex flex-wrap gap-1.5">
-              {CAPABILITIES.map((capability) => (
-                <FormChoice
-                  key={capability.value}
-                  darkMode={darkMode}
-                  active={form.capability === capability.value}
-                  disabled={Boolean(currentPreset)}
-                  onClick={() => setForm({ ...form, capability: capability.value })}
-                >
-                  {capability.label}
-                </FormChoice>
-              ))}
-            </div>
-          </FormField>
-          <FormField darkMode={darkMode} label="协议" hint="协议大小写敏感，保存时使用小写值。">
-            <div className="flex flex-wrap gap-1.5">
-              {PROTOCOLS.map((protocol) => (
-                <FormChoice
-                  key={protocol}
-                  darkMode={darkMode}
-                  active={form.protocol === protocol}
-                  onClick={() => setForm({ ...form, protocol })}
-                >
-                  {protocol}
-                </FormChoice>
-              ))}
-            </div>
-          </FormField>
-          <FormField darkMode={darkMode} label="调用入口" hint="模型能力真实调用入口，通常是完整端点 URL。">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField darkMode={darkMode} label="真实模型名" hint="API 请求中的 modelName">
+              <input
+                required
+                value={form.modelName}
+                onChange={(e) => setForm({ ...form, modelName: e.target.value })}
+                placeholder="gpt-4o"
+                className={inputClassName(darkMode)}
+              />
+            </FormField>
+            <FormField darkMode={darkMode} label="展示名" hint="可选，留空显示真实模型名">
+              <input
+                value={form.displayName}
+                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                placeholder="GPT-4o"
+                className={inputClassName(darkMode)}
+              />
+            </FormField>
+          </div>
+          <div className="space-y-4">
+            <FormField
+              darkMode={darkMode}
+              label="能力"
+              hint={currentPreset ? '保存后不可修改' : '一个配置对应一种能力'}
+            >
+              <div className="flex flex-wrap gap-1.5">
+                {CAPABILITIES.map((capability) => (
+                  <FormChoice
+                    key={capability.value}
+                    darkMode={darkMode}
+                    active={form.capability === capability.value}
+                    disabled={Boolean(currentPreset)}
+                    onClick={() => setForm({ ...form, capability: capability.value })}
+                  >
+                    {capability.label}
+                  </FormChoice>
+                ))}
+              </div>
+            </FormField>
+            <FormField darkMode={darkMode} label="协议">
+              <div className="flex flex-wrap gap-1.5">
+                {PROTOCOLS.map((protocol) => (
+                  <FormChoice
+                    key={protocol}
+                    darkMode={darkMode}
+                    active={form.protocol === protocol}
+                    onClick={() => setForm({ ...form, protocol })}
+                  >
+                    {protocol}
+                  </FormChoice>
+                ))}
+              </div>
+            </FormField>
+          </div>
+          <FormField darkMode={darkMode} label="调用地址" hint="填写完整请求地址">
             <input
               required
               value={form.apiBaseUrl}
@@ -3105,42 +3416,38 @@ function ModelDialog({
               <FormField
                 darkMode={darkMode}
                 label="平台 API Key"
-                hint={editing ? '不修改 Key 可留空；重新输入会覆盖当前 Key。' : '平台模型需要同时填写模型和 API Key。'}
+                hint={
+                  editing && currentPreset
+                    ? `留空则保留当前 Key（${presetMaskedKey(currentPreset)}）`
+                    : '将加密保存，不会展示明文'
+                }
               >
                 <input
                   required={!editing || !currentPreset}
                   type="password"
                   value={form.apiKey}
                   onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-                  placeholder="sk-..."
+                  placeholder={editing && currentPreset ? '留空表示不修改' : 'sk-...'}
                   className={inputClassName(darkMode)}
                 />
               </FormField>
-              {editing && currentPreset ? (
-                <p
-                  className={cn(
-                    'flex items-center gap-2 font-mono text-xs',
-                    darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45',
-                  )}
-                >
-                  <KeyRound size={13} />
-                  当前 Key：{presetMaskedKey(currentPreset)}
-                </p>
-              ) : null}
-              <p className="text-xs text-muted">默认模型请在平台模型列表上方按能力单独设置。</p>
             </div>
           ) : null}
           {editing && !linkRagModel ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-              />
-              上架
-            </label>
-          ) : !editing ? (
-            <p className={cn('text-xs', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/45')}>新增后默认上架。</p>
+            <div
+              className={cn(
+                'flex items-center justify-between gap-4 rounded-xl border px-3.5 py-3',
+                darkMode ? 'border-[#3a3a3a] bg-white/[0.02]' : 'border-border-subtle bg-bg-base/35',
+              )}
+            >
+              <div>
+                <p className={cn('text-xs font-bold', darkMode ? 'text-[#d6d6d6]' : 'text-text-main/70')}>上架状态</p>
+                <p className={cn('mt-1 text-[11px]', darkMode ? 'text-[#8f8f8f]' : 'text-text-main/40')}>
+                  下架后用户不可选择该模型
+                </p>
+              </div>
+              <ToggleSwitch checked={form.isActive} onChange={() => setForm({ ...form, isActive: !form.isActive })} />
+            </div>
           ) : null}
         </div>
         <FormActions darkMode={darkMode} onClose={onClose} />

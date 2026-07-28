@@ -202,6 +202,12 @@ export interface ModelSyncPublishRequest {
   apiBaseUrl?: string;
 }
 
+export interface ModelSyncBatchPublishRequest {
+  candidateIds: number[];
+  modelName?: string;
+  displayName?: string;
+}
+
 export interface CreateProviderRequest {
   providerType: string;
   providerName: string;
