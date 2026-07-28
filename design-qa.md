@@ -1,44 +1,49 @@
-**Design QA**
+# Design QA — LinkRag Minimal Auth
 
-- Source visual truth: `/var/folders/hz/b8t5g29j71b5cpf22bvdflgw0000gn/T/codex-clipboard-ec1e314a-01aa-46fb-8d95-2a033d91d452.png`
-- Browser-rendered implementation: `/Users/jixu/.codex/visualizations/2026/07/28/019fa90a-06b8-7e31-a856-6e2bd9f9cf6f/welcome-dot-grid-viewport.png`
-- Focused implementation crop: `/Users/jixu/.codex/visualizations/2026/07/28/019fa90a-06b8-7e31-a856-6e2bd9f9cf6f/welcome-dot-grid-detail.png`
-- Side-by-side comparison: `/Users/jixu/.codex/visualizations/2026/07/28/019fa90a-06b8-7e31-a856-6e2bd9f9cf6f/welcome-dot-grid-comparison.png`
-- Viewport: 1280 x 720 CSS px, device scale factor 1.
-- Pixel dimensions: source 585 x 336; implementation viewport 1280 x 720; focused implementation crop 585 x 180; comparison board 1194 x 224.
-- Density normalization: the source raster was cropped to 585 x 180 for the comparison board; the implementation was captured at the same 585 x 180 pixel size. No resampling was applied.
-- State: welcome page `/`, light theme, signed out, scroll position 0.
+## Visual truth and evidence
 
-**Findings**
+- Original selected direction: `/Users/jixu/.codex/generated_images/019fa90a-06b8-7e31-a856-6e2bd9f9cf6f/exec-8f297c2d-5682-4691-b364-b08e906cb87b.png`, 1448 × 1086 px.
+- User override: remove the extra decorative elements from auth and make the screen visibly calmer. This instruction intentionally supersedes the original layered-paper treatment for `/login` and `/register` only.
+- Before capture: `/tmp/linkrag-selected-auth-v2.png`, 1440 × 900 px, DPR 1.
+- Revised desktop login: `/tmp/linkrag-minimal-auth-desktop.png`, 1280 × 720 px, CSS viewport 1280 × 720, DPR 1.
+- Revised mobile register: `/tmp/linkrag-minimal-auth-mobile.png`, 390 × 844 px, CSS viewport 390 × 844, DPR 1.
+- Landing evidence stage remains covered by `/tmp/linkrag-selected-evidence.png` and was not changed in this iteration.
 
-- No actionable P0, P1, or P2 differences remain for the requested background change.
-- Fonts and typography: outside the supplied background-only reference; existing product typography was intentionally preserved and remained visually intact.
-- Spacing and layout rhythm: existing page layout was intentionally preserved. The new pattern covers the full 1280 px viewport width and the full 2425.98 px page background without changing content geometry.
-- Colors and visual tokens: the light canvas and warm-gray dots match the supplied raster because the repeating 26 x 26 tile is cropped directly from it. The prior gradients, ribbons, large grid, and floating dots are absent.
-- Image quality and asset fidelity: the supplied raster is reused as a native-resolution repeating tile, with no interpolation, stretching, placeholder, or code-drawn substitute.
-- Copy and content: outside the supplied background-only reference; all existing page copy was preserved.
+## State and interaction coverage
 
-**Full-view comparison evidence**
+- Light theme, signed-out `/login` and `/register` states.
+- Desktop login contains one form and two inputs; mobile register contains one form and four inputs.
+- The login-to-register text link was clicked in-browser and navigated to `/register` with the correct four-field form.
+- Desktop and mobile document width matches the viewport; no horizontal overflow or unwanted vertical scroll was found.
+- Browser console was checked after route switching and contained no errors.
 
-- The browser-rendered 1280 x 720 viewport shows a consistent low-contrast beige dotted canvas behind the unchanged welcome-page content.
-- DOM and computed-style checks confirmed a 26 x 26 repeating source image across the full page, with zero legacy ribbon or floating-decoration nodes.
+## Full-view and focused comparison
 
-**Focused region comparison evidence**
+- The before and after desktop screenshots were opened in the same comparison input.
+- The full-view comparison confirms removal of the floating pill navigation, angled documents, quotes, paperclip, segmented mode control, duplicate in-card logo, security claims, and duplicate home link.
+- The focused form region remains fully readable at desktop and mobile sizes. A separate crop was unnecessary because labels, inputs, CTA, and the mode-switch link are legible in the captures.
 
-- The side-by-side board compares an unobstructed 585 x 180 source crop with an equal-size browser capture. Dot spacing, scale, background tone, and contrast are visually consistent. A focused crop was required because the source contains only the background motif, while the implementation includes product content.
+## Required fidelity surfaces
 
-**Comparison history**
+- Typography: system/PingFang stack, compact heading tracking, readable labels, and stable wrapping are preserved.
+- Spacing and layout: a single 23.5rem form surface establishes the only visual focal point. Desktop whitespace is deliberate; mobile registration remains within one viewport.
+- Colors and tokens: beige dotted background and warm brown primary action remain unchanged. Card border and shadow were reduced to quiet separation.
+- Image quality: only the existing LinkRag brand asset remains; no decorative placeholder imagery or CSS illustration is present.
+- Copy and content: headings and supporting copy now describe only the immediate authentication task.
+- Accessibility: semantic labels, focus rings, practical tap targets, reduced-motion handling, and the existing reduced-transparency/contrast fallbacks remain intact.
 
-- Pass 1: no P0/P1/P2 mismatch found. The source-derived tile matched the reference without a corrective visual iteration.
+## Comparison history
 
-**Interaction and runtime checks**
+1. Previous pass matched the selected layered-paper reference but the result was rejected as visually cluttered.
+2. P1 density issue: decorative documents and duplicated navigation/brand content competed with the form. Fix: removed all nonessential auth decoration and reduced the hierarchy to brand, return action, form, and mode switch.
+3. P2 control density issue: icons and the segmented login/register switch added unnecessary chrome. Fix: removed field icons and replaced the segmented control with one contextual text link.
+4. Post-fix desktop and mobile captures show one clear focal point, no overflow, stable form hierarchy, and no remaining actionable P0/P1/P2 finding.
 
-- Tested the `查看功能` control; it scrolled to the workflow section as before.
-- Browser console warnings/errors checked: none.
-- Automated checks: typecheck, lint, 24 test files / 136 tests, and production build passed.
+## Findings
 
-**Follow-up Polish**
+- No actionable P0, P1, or P2 findings remain.
+- P3 follow-up only: the form surface could be made fully borderless in a future pass if an even more austere treatment is desired.
 
-- None required for this scoped change.
+## Final result
 
 final result: passed
