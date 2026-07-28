@@ -313,7 +313,6 @@ export interface DatasetDTO {
 
 export type PdfParserBackend = 'mineru' | 'opendataloader' | 'naive';
 export type StageTwoAlgorithm = 'noop' | 'semantic_depth_window';
-export type RecallFusionStrategy = 'rrf' | 'weighted_score';
 
 export interface DatasetParseChunkingConfig {
   heading_break_level?: number | null;
@@ -346,7 +345,6 @@ export interface DatasetParseRecallConfig {
   dense_top_k?: number | null;
   dense_score_threshold?: number | null;
   recall_enabled_sources?: RecallSource[] | null;
-  recall_fusion_strategy?: RecallFusionStrategy | null;
   fusion_bm25_weight?: number | null;
   fusion_sparse_weight?: number | null;
   fusion_dense_weight?: number | null;
