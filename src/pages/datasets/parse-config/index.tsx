@@ -507,8 +507,6 @@ function EmbeddingBindingSection({
 }) {
   const sparseUnavailable = !loading && sparseConfigs.length === 0;
   const denseUnavailable = !loading && denseConfigs.length === 0;
-  const LOCKED_HINT = '已绑定，不可修改';
-
   return (
     <section id={EMBEDDING_BINDING_SECTION_ID} className="scroll-mt-8 border-b border-border-subtle pb-8">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -527,25 +525,27 @@ function EmbeddingBindingSection({
         <LLMConfigSelect
           label="稠密向量模型"
           iconUrl={denseIconUrl}
+          variant="borderless"
           value={denseValue}
           configs={denseConfigs}
           error={denseError}
           unavailableMessage="请先配置并启用稠密向量模型"
           loading={loading}
           disabled={disabled || denseLocked}
-          helperText={denseLocked ? LOCKED_HINT : denseUnavailable ? '暂无可用配置' : ''}
+          helperText={denseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('dense', value)}
         />
         <LLMConfigSelect
           label="稀疏向量模型"
           iconUrl={sparseIconUrl}
+          variant="borderless"
           value={sparseValue}
           configs={sparseConfigs}
           error={sparseError}
           unavailableMessage="请先配置并启用稀疏向量模型"
           loading={loading}
           disabled={disabled || sparseLocked}
-          helperText={sparseLocked ? LOCKED_HINT : sparseUnavailable ? '暂无可用配置' : ''}
+          helperText={sparseUnavailable ? '暂无可用配置' : ''}
           onChange={(value) => onChange('sparse', value)}
         />
       </div>
@@ -754,58 +754,74 @@ function MarkdownEnhancementControls({
   const tableParam = paramByKey.get('enable_table_enhancement');
   const imageParam = paramByKey.get('enable_image_enhancement');
   const headingParam = paramByKey.get('enable_heading_hierarchy');
+  const chatSelector = (
+    <LLMConfigSelect
+      label="增强对话模型"
+      iconUrl={chatIconUrl}
+      variant="borderless"
+      value={values.enhancement_chat_config_id}
+      configs={chatConfigs}
+      error={bindingErrors.enhancement_chat_config_id}
+      unavailableMessage="请先配置并启用 CHAT 能力模型"
+      helperText={defaultPrefills.chat ? '已按用户默认预选，保存后生效' : ''}
+      disabled={disabled}
+      onChange={(configId) => onBindingChange('enhancement_chat_config_id', configId)}
+    />
+  );
 
   return (
     <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
       {tableParam && (
-        <MarkdownEnhancementItem
-          param={tableParam}
-          checked={values.enable_table_enhancement}
-          disabled={disabled}
-          onToggle={() => onChange('enable_table_enhancement', !values.enable_table_enhancement)}
-        />
+        <div role="group" aria-label={tableParam.label} className="min-w-0 space-y-4">
+          <MarkdownEnhancementItem
+            param={tableParam}
+            checked={values.enable_table_enhancement}
+            disabled={disabled}
+            onToggle={() => onChange('enable_table_enhancement', !values.enable_table_enhancement)}
+          />
+          {values.enable_table_enhancement && chatSelector}
+        </div>
       )}
       {imageParam && (
-        <MarkdownEnhancementItem
-          param={imageParam}
-          checked={values.enable_image_enhancement}
-          disabled={disabled}
-          onToggle={() => onChange('enable_image_enhancement', !values.enable_image_enhancement)}
-        />
+        <div role="group" aria-label={imageParam.label} className="min-w-0 space-y-4">
+          <MarkdownEnhancementItem
+            param={imageParam}
+            checked={values.enable_image_enhancement}
+            disabled={disabled}
+            onToggle={() => onChange('enable_image_enhancement', !values.enable_image_enhancement)}
+          />
+          {values.enable_image_enhancement && (
+            <LLMConfigSelect
+              label="增强视觉模型"
+              iconUrl={visionIconUrl}
+              variant="borderless"
+              value={values.enhancement_vision_config_id}
+              configs={visionConfigs}
+              error={bindingErrors.enhancement_vision_config_id}
+              unavailableMessage="请先配置并启用 VISION 能力模型"
+              helperText={defaultPrefills.vision ? '已按用户默认预选，保存后生效' : ''}
+              disabled={disabled}
+              onChange={(configId) => onBindingChange('enhancement_vision_config_id', configId)}
+            />
+          )}
+        </div>
       )}
       {headingParam && (
-        <MarkdownEnhancementItem
-          param={headingParam}
-          checked={values.enable_heading_hierarchy}
-          disabled={disabled}
-          onToggle={() => onChange('enable_heading_hierarchy', !values.enable_heading_hierarchy)}
-        />
-      )}
-      {(values.enable_table_enhancement || values.enable_heading_hierarchy) && (
-        <LLMConfigSelect
-          label="增强对话模型"
-          iconUrl={chatIconUrl}
-          value={values.enhancement_chat_config_id}
-          configs={chatConfigs}
-          error={bindingErrors.enhancement_chat_config_id}
-          unavailableMessage="请先配置并启用 CHAT 能力模型"
-          helperText={defaultPrefills.chat ? '已按用户默认预选，保存后生效' : undefined}
-          disabled={disabled}
-          onChange={(configId) => onBindingChange('enhancement_chat_config_id', configId)}
-        />
-      )}
-      {values.enable_image_enhancement && (
-        <LLMConfigSelect
-          label="增强视觉模型"
-          iconUrl={visionIconUrl}
-          value={values.enhancement_vision_config_id}
-          configs={visionConfigs}
-          error={bindingErrors.enhancement_vision_config_id}
-          unavailableMessage="请先配置并启用 VISION 能力模型"
-          helperText={defaultPrefills.vision ? '已按用户默认预选，保存后生效' : undefined}
-          disabled={disabled}
-          onChange={(configId) => onBindingChange('enhancement_vision_config_id', configId)}
-        />
+        <div
+          role="group"
+          aria-label={headingParam.label}
+          className="min-w-0 border-t border-border-subtle/70 pt-5 xl:col-span-2"
+        >
+          <MarkdownEnhancementItem
+            param={headingParam}
+            checked={values.enable_heading_hierarchy}
+            disabled={disabled}
+            onToggle={() => onChange('enable_heading_hierarchy', !values.enable_heading_hierarchy)}
+          />
+          {values.enable_heading_hierarchy && !values.enable_table_enhancement && (
+            <div className="mt-4 xl:w-[calc(50%_-_1rem)]">{chatSelector}</div>
+          )}
+        </div>
       )}
     </div>
   );
