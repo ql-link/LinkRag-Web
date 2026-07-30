@@ -93,9 +93,7 @@ export interface ExecutableLLMConfigDTO {
 
 export interface CapabilityDefaultDTO {
   capability: LLMCapability;
-  userDefaultConfigId: number | null;
-  systemDefaultConfigId: number | null;
-  effectiveConfigId: number | null;
+  configId: number | null;
 }
 
 export type LLMCapability = 'CHAT' | 'EMBEDDING' | 'SPARSE_EMBEDDING' | 'RERANK' | 'VISION' | 'ASR';
@@ -204,6 +202,12 @@ export interface ModelSyncPublishRequest {
   apiBaseUrl?: string;
 }
 
+export interface ModelSyncBatchPublishRequest {
+  candidateIds: number[];
+  modelName?: string;
+  displayName?: string;
+}
+
 export interface CreateProviderRequest {
   providerType: string;
   providerName: string;
@@ -255,12 +259,10 @@ export interface AdminPlatformConfigSaveRequest {
   sourceProviderModelId?: number;
   catalogMutation?: AdminCatalogMutation;
   apiKey?: string;
-  setAsDefault: boolean;
 }
 
 export interface AdminPlatformConfigSaveResult {
   config: ExecutableLLMConfigDTO;
-  capabilityDefault: CapabilityDefaultDTO;
 }
 
 export interface ConversationDTO {
@@ -311,7 +313,6 @@ export interface DatasetDTO {
 
 export type PdfParserBackend = 'mineru' | 'opendataloader' | 'naive';
 export type StageTwoAlgorithm = 'noop' | 'semantic_depth_window';
-export type RecallFusionStrategy = 'rrf' | 'weighted_score';
 
 export interface DatasetParseChunkingConfig {
   heading_break_level?: number | null;
@@ -344,7 +345,6 @@ export interface DatasetParseRecallConfig {
   dense_top_k?: number | null;
   dense_score_threshold?: number | null;
   recall_enabled_sources?: RecallSource[] | null;
-  recall_fusion_strategy?: RecallFusionStrategy | null;
   fusion_bm25_weight?: number | null;
   fusion_sparse_weight?: number | null;
   fusion_dense_weight?: number | null;
@@ -443,10 +443,24 @@ export type KnowledgeUploadStatus = 'UPLOADING' | 'UPLOAD_SUCCESS' | 'UPLOAD_FAI
 export type KnowledgeParseNoticeStatus = 'PARSE_NOTICE_PENDING' | 'PARSE_NOTICE_SENT' | 'PARSE_NOTICE_FAILED';
 
 export type KnowledgeParseStatus =
-  'created' | 'processing' | 'success' | 'failed' | 'NOT_STARTED' | 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+  | 'created'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCESS'
+  | 'FAILED';
 
 export type FileParseFrontendStatus =
-  'uploaded' | 'upload_failed' | 'parse_waiting' | 'asset_missing' | 'parsing' | 'parse_success' | 'parse_failed';
+  | 'uploaded'
+  | 'upload_failed'
+  | 'parse_waiting'
+  | 'asset_missing'
+  | 'parsing'
+  | 'parse_success'
+  | 'parse_failed';
 
 export interface FileParseSubmitDTO {
   fileId: number;
@@ -738,7 +752,15 @@ export interface UpdateBlogPostRequest {
 // ── Admin Logs ─────────────────────────────────────────────────────────
 
 export type AdminLogLevel =
-  'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL' | 'ACCESS' | 'AUDIT' | (string & {});
+  | 'TRACE'
+  | 'DEBUG'
+  | 'INFO'
+  | 'WARN'
+  | 'ERROR'
+  | 'FATAL'
+  | 'ACCESS'
+  | 'AUDIT'
+  | (string & {});
 
 export interface AdminLogEntryDTO {
   id?: string | null;

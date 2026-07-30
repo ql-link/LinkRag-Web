@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
 import { Routes as RoutePaths } from './routes';
 import { ToastContainer, ToastProvider, useToast } from '@/contexts/ToastContext';
 import { setToastHandler } from '@/lib/api-client';
@@ -10,10 +10,11 @@ import { useLocation } from 'react-router';
 import { ProtectedLayout } from '@/layouts/ProtectedLayout';
 import { DesktopOnlyRoute } from '@/components/DesktopOnlyRoute';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
+import { fluidEnterTransition } from '@/lib/fluid-motion';
 
 // Lazy-load public pages (welcome page is ~1600 lines with heavy animations)
 const WelcomePage = lazy(() => import('@/pages/welcome'));
-const MobileAuthPage = lazy(() => import('@/pages/mobile/MobileAuth'));
+const AuthPage = lazy(() => import('@/pages/auth'));
 const BlogsPage = lazy(() => import('@/pages/blogs'));
 const BlogDetailPage = lazy(() => import('@/pages/blogs/BlogDetail'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
@@ -26,14 +27,25 @@ const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => (
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
 
-// 根路由 `/`：移动端（<1024px）显示登录/注册页并在登录后进入对话；桌面端保持原欢迎落地页。
+// 根路由 `/` 只承载产品落地页；认证流程使用独立的 `/login` 与 `/register` 路由。
 function RootRoute() {
   const isDesktop = useIsDesktop();
   const { user } = useAuth();
   if (user) {
     return <Navigate to={isDesktop ? RoutePaths.Home : RoutePaths.Chats} replace />;
   }
-  return isDesktop ? <WelcomePage /> : <MobileAuthPage />;
+  return <WelcomePage />;
+}
+
+function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
+  const isDesktop = useIsDesktop();
+  const { user } = useAuth();
+
+  if (user) {
+    return <Navigate to={isDesktop ? RoutePaths.Home : RoutePaths.Chats} replace />;
+  }
+
+  return <AuthPage mode={mode} />;
 }
 
 function isProtectedAppPath(pathname: string) {
@@ -51,6 +63,7 @@ function AppContent() {
   const { user, loading } = useAuth();
   const { darkMode } = useTheme();
   const location = useLocation();
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     setToastHandler(addToast);
@@ -70,14 +83,16 @@ function AppContent() {
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={shellKey}
-          className="min-h-screen"
-          initial={{ opacity: 0, y: 8 }}
+          className="fluid-compositor min-h-screen"
+          initial={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
+          exit={{ opacity: 0, y: reducedMotion ? 0 : -6 }}
+          transition={fluidEnterTransition(reducedMotion)}
         >
           <Routes location={location}>
             <Route index element={<RootRoute />} />
+            <Route path={RoutePaths.Login} element={<AuthRoute mode="login" />} />
+            <Route path={RoutePaths.Register} element={<AuthRoute mode="register" />} />
             <Route path={RoutePaths.Blogs} element={<BlogsPage />} />
             <Route path={RoutePaths.BlogDetail} element={<BlogDetailPage />} />
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
@@ -144,10 +159,12 @@ function AppContent() {
 
 function App() {
   return (
-    <ToastProvider>
-      <AppContent />
-      <ToastContainer />
-    </ToastProvider>
+    <MotionConfig reducedMotion="user">
+      <ToastProvider>
+        <AppContent />
+        <ToastContainer />
+      </ToastProvider>
+    </MotionConfig>
   );
 }
 

@@ -60,7 +60,7 @@ const mockMessages = [
 
 **3. 检索策略单一**
 
-目前仅使用向量相似度检索。建议引入混合检索（Hybrid Search）：向量 + BM25，并使用 RRF 融合两种检索结果。
+目前仅使用向量相似度检索。建议引入混合检索（Hybrid Search）：向量 + BM25，并使用归一化权重融合检索结果。
 
 **4. 缺少查询改写**
 
@@ -81,11 +81,11 @@ const mockMessages = [
 
 **方案一：RAGFlow 内置混合检索**
 
-在知识库设置中开启「混合检索」模式，设置向量检索和关键词检索的权重比例（建议 0.7:0.3），选择 RRF 融合算法。
+在知识库设置中开启「混合检索」模式，并按离线评测结果设置向量检索和关键词检索的权重比例。
 
 **方案二：自建 Elasticsearch + Milvus**
 
-Milvus 存储文档向量支持 ANN 检索，Elasticsearch 做 BM25 关键词检索 + 同义词扩展，自定义 RRF 算法合并两路结果。
+Milvus 存储文档向量支持 ANN 检索，Elasticsearch 做 BM25 关键词检索 + 同义词扩展，使用归一化 weighted score 合并两路结果。
 
 建议先用内置方案验证效果，再根据需求决定是否自建。`,
     citations: [{ id: 4, title: 'Milvus 混合检索文档', source: '产品文档', page: 15 }],
