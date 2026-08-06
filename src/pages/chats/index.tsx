@@ -2344,7 +2344,7 @@ export default function ChatsPage() {
                     <Upload size={14} className="shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium">
-                        {uploading ? '上传中...' : `上传文件 · ${KNOWLEDGE_FILE_HINT || 'MD / DOCX / PDF'}`}
+                        {uploading ? '上传中...' : `上传文件 · ${KNOWLEDGE_FILE_HINT}`}
                       </p>
                     </div>
                     <input

@@ -1,11 +1,5 @@
 import { FileCode2, FileScan, Layers3, Search, type LucideIcon } from 'lucide-react';
-import type {
-  DatasetParseConfigDTO,
-  PdfParserBackend,
-  RecallFusionStrategy,
-  RecallSource,
-  StageTwoAlgorithm,
-} from '@/types/api';
+import type { DatasetParseConfigDTO, PdfParserBackend, RecallSource, StageTwoAlgorithm } from '@/types/api';
 import type { ExecutableDefaultConfigIds } from '@/lib/llm-default-selection';
 
 type SegmentValue = string | null;
@@ -30,7 +24,6 @@ type ParamKey =
   | 'dense_top_k'
   | 'dense_score_threshold'
   | 'recall_enabled_sources'
-  | 'recall_fusion_strategy'
   | 'fusion_bm25_weight'
   | 'fusion_sparse_weight'
   | 'fusion_dense_weight'
@@ -65,7 +58,6 @@ export type ParseConfigValues = {
   dense_top_k: number | null;
   dense_score_threshold: number | null;
   recall_enabled_sources: RecallSource[];
-  recall_fusion_strategy: RecallFusionStrategy;
   fusion_bm25_weight: number | null;
   fusion_sparse_weight: number | null;
   fusion_dense_weight: number | null;
@@ -129,7 +121,6 @@ export const DEFAULT_VALUES: ParseConfigValues = {
   dense_top_k: 100,
   dense_score_threshold: 0,
   recall_enabled_sources: ['bm25', 'sparse', 'dense'],
-  recall_fusion_strategy: 'rrf',
   fusion_bm25_weight: 0.2,
   fusion_sparse_weight: 0.3,
   fusion_dense_weight: 0.5,
@@ -146,7 +137,6 @@ export const RECALL_SOURCE_OPTIONS: Array<{ label: string; value: RecallSource }
 
 const ALLOWED_RECALL_SOURCES = new Set<RecallSource>(RECALL_SOURCE_OPTIONS.map((option) => option.value));
 const ALLOWED_STAGE_TWO_ALGORITHMS = new Set<StageTwoAlgorithm>(['noop', 'semantic_depth_window']);
-const ALLOWED_RECALL_FUSION_STRATEGIES = new Set<RecallFusionStrategy>(['rrf', 'weighted_score']);
 
 export const GROUPS: ParamGroup[] = [
   {
@@ -304,8 +294,8 @@ export const GROUPS: ParamGroup[] = [
     id: 'recall',
     name: '召回检索',
     en: 'Recall',
-    note: '控制检索通道、融合方式、候选数量和上下文预算',
-    count: 15,
+    note: '控制检索通道、固定加权融合、候选数量和上下文预算',
+    count: 14,
     colorClass: 'text-muted',
     dotClass: 'bg-primary/40',
     icon: Search,
@@ -321,18 +311,6 @@ export const GROUPS: ParamGroup[] = [
         showDescription: true,
       },
       {
-        key: 'recall_fusion_strategy',
-        type: 'segment',
-        label: '候选融合策略',
-        envKey: 'RECALL_FUSION_STRATEGY',
-        options: [
-          { label: '倒数融合', value: 'rrf' },
-          { label: '加权融合', value: 'weighted_score' },
-        ],
-        description: '倒数融合更看重各通道排名；加权融合会按通道分数和权重合并候选。',
-        showDescription: true,
-      },
-      {
         key: 'fusion_bm25_weight',
         type: 'number',
         label: 'BM25 融合权重',
@@ -341,7 +319,6 @@ export const GROUPS: ParamGroup[] = [
         step: 0.1,
         description: '用于加权融合，数值越高，关键词通道对候选排序影响越大。',
         showDescription: true,
-        visibleWhen: (values) => values.recall_fusion_strategy === 'weighted_score',
       },
       {
         key: 'fusion_sparse_weight',
@@ -352,7 +329,6 @@ export const GROUPS: ParamGroup[] = [
         step: 0.1,
         description: '用于加权融合，数值越高，稀疏语义通道影响越大。',
         showDescription: true,
-        visibleWhen: (values) => values.recall_fusion_strategy === 'weighted_score',
       },
       {
         key: 'fusion_dense_weight',
@@ -363,7 +339,6 @@ export const GROUPS: ParamGroup[] = [
         step: 0.1,
         description: '用于加权融合，数值越高，向量语义通道影响越大；启用通道的总权重需大于 0。',
         showDescription: true,
-        visibleWhen: (values) => values.recall_fusion_strategy === 'weighted_score',
       },
       {
         key: 'enable_rerank',
@@ -506,12 +481,6 @@ function readStageTwoAlgorithm(raw: unknown, fallback: StageTwoAlgorithm): Stage
     : fallback;
 }
 
-function readFusionStrategy(raw: unknown, fallback: RecallFusionStrategy): RecallFusionStrategy {
-  return typeof raw === 'string' && ALLOWED_RECALL_FUSION_STRATEGIES.has(raw as RecallFusionStrategy)
-    ? (raw as RecallFusionStrategy)
-    : fallback;
-}
-
 export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValues {
   const chunking = config.chunking ?? {};
   const enhancement = config.enhancement ?? {};
@@ -566,7 +535,6 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
     dense_top_k: readNumber(recall.dense_top_k, DEFAULT_VALUES.dense_top_k),
     dense_score_threshold: readNumber(recall.dense_score_threshold, DEFAULT_VALUES.dense_score_threshold),
     recall_enabled_sources: readRecallSources(recall.recall_enabled_sources, DEFAULT_VALUES.recall_enabled_sources),
-    recall_fusion_strategy: readFusionStrategy(recall.recall_fusion_strategy, DEFAULT_VALUES.recall_fusion_strategy),
     fusion_bm25_weight: readNumber(recall.fusion_bm25_weight, DEFAULT_VALUES.fusion_bm25_weight),
     fusion_sparse_weight: readNumber(recall.fusion_sparse_weight, DEFAULT_VALUES.fusion_sparse_weight),
     fusion_dense_weight: readNumber(recall.fusion_dense_weight, DEFAULT_VALUES.fusion_dense_weight),
@@ -636,7 +604,6 @@ export function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
       dense_top_k: values.dense_top_k,
       dense_score_threshold: values.dense_score_threshold,
       recall_enabled_sources: values.recall_enabled_sources,
-      recall_fusion_strategy: values.recall_fusion_strategy,
       fusion_bm25_weight: values.fusion_bm25_weight,
       fusion_sparse_weight: values.fusion_sparse_weight,
       fusion_dense_weight: values.fusion_dense_weight,
@@ -714,7 +681,7 @@ export function validateValues(values: ParseConfigValues, params: ParamSpec[]) {
     errors.hard_max_tokens = '须 ≥ 目标块最大 token';
   }
 
-  if (values.recall_fusion_strategy === 'weighted_score' && values.recall_enabled_sources.length > 0) {
+  if (values.recall_enabled_sources.length > 0) {
     const weightKeyBySource: Record<
       RecallSource,
       'fusion_bm25_weight' | 'fusion_sparse_weight' | 'fusion_dense_weight'

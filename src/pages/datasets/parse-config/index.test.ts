@@ -43,7 +43,6 @@ describe('dataset parse config mapping', () => {
       bm25_top_k: 100,
       sparse_top_k: 50,
       dense_top_k: 100,
-      recall_fusion_strategy: 'rrf',
       fusion_bm25_weight: 0.2,
       fusion_sparse_weight: 0.3,
       fusion_dense_weight: 0.5,
@@ -64,7 +63,6 @@ describe('dataset parse config mapping', () => {
       enable_table_enhancement: true,
       enable_image_enhancement: true,
       enable_rerank: true,
-      recall_fusion_strategy: 'weighted_score',
     });
 
     expect(request).toMatchObject({
@@ -85,7 +83,6 @@ describe('dataset parse config mapping', () => {
       recall: {
         enable_rerank: true,
         bm25_top_k: 100,
-        recall_fusion_strategy: 'weighted_score',
         fusion_bm25_weight: 0.2,
         fusion_sparse_weight: 0.3,
         fusion_dense_weight: 0.5,
@@ -198,7 +195,6 @@ describe('dataset parse config mapping', () => {
         min_candidate_chunk_tokens: 256,
         max_chunk_tokens: 255,
         hard_max_tokens: 1024,
-        recall_fusion_strategy: 'weighted_score',
         fusion_bm25_weight: 0,
         fusion_sparse_weight: 0,
         fusion_dense_weight: 0,

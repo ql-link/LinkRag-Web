@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, Navigate, useNavigate } from 'react-router';
-import { AnimatePresence, motion, type Variants } from 'motion/react';
+import { Link, Navigate } from 'react-router';
+import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import {
   ArrowDown,
   ArrowRight,
@@ -13,27 +13,32 @@ import {
   FileText,
   SearchCheck,
   ScissorsLineDashed,
-  ShieldCheck,
   TextQuote,
   Upload,
   FileType,
   Github,
+  Paperclip,
+  Quote,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/contexts/ToastContext';
-import { login, register } from '@/services/auth';
-import { buildRequiredFieldErrors, validateAuthForm } from '@/lib/authValidation';
 import { useTheme } from '@/contexts/ThemeContext';
+import {
+  fluidEnterTransition,
+  fluidLift,
+  fluidPress,
+  fluidSpring,
+  fluidSpringQuick,
+  fluidSpringSoft,
+} from '@/lib/fluid-motion';
 
-type AuthMode = 'login' | 'register';
-type AuthFieldKey = 'username' | 'email' | 'password' | 'confirmPassword';
 const githubProjectUrl =
   (import.meta.env.VITE_GITHUB_URL as string | undefined)?.trim() || 'https://github.com/ql-link/LinkRag';
 const darkModeLogoStyle = {
   filter: 'saturate(1.05) brightness(1.55) contrast(0.95) drop-shadow(0 0 1px rgba(255,255,255,0.45))',
 };
+const MotionLink = motion.create(Link);
 
 const scrollSections = [{ id: 'knowledge', label: '功能' }];
 
@@ -43,12 +48,12 @@ const workflowSlides = [
     step: '01',
     title: (
       <>
-        文档分块
+        解析与分块
         <br />
-        拖拽上传 自动切分为语义块
+        统一为 Markdown 再切成语义片段
       </>
     ),
-    description: '保留原文上下文，为后续检索准备稳定片段',
+    description: '保留标题层级与原文上下文，表格、代码、公式和图片不被粗暴切断',
     kind: 'capabilities',
   },
   {
@@ -56,12 +61,12 @@ const workflowSlides = [
     step: '02',
     title: (
       <>
-        索引构建
+        三路索引
         <br />
-        向量索引与 ES 全文索引并行写入
+        稠密、稀疏与 BM25 并行构建
       </>
     ),
-    description: '让相似含义与精确关键词都能被快速命中',
+    description: '以 MySQL 为真值源，向量与关键词索引均可诊断、可重建',
     kind: 'operations',
   },
   {
@@ -69,12 +74,12 @@ const workflowSlides = [
     step: '03',
     title: (
       <>
-        多路召回
+        混合检索
         <br />
-        跨检索通道并行获取候选片段
+        三路并行召回并做加权融合
       </>
     ),
-    description: '减少遗漏关键依据，把相关内容先聚合到一起',
+    description: '同时覆盖语义相似、术语表达与精确关键词，优先保留真正相关的片段',
     kind: 'timeline',
   },
   {
@@ -82,12 +87,12 @@ const workflowSlides = [
     step: '04',
     title: (
       <>
-        智能回答
+        有据回答
         <br />
-        结合上下文与原文片段生成答案
+        回填原文，按上下文预算流式生成
       </>
     ),
-    description: '回答保留引用依据，方便回看和核验来源',
+    description: '无依据时明确不回答；有命中则保留引用，方便回看和核验来源',
     kind: 'answer',
   },
 ] as const;
@@ -106,7 +111,7 @@ const fadeUpItem: Variants = {
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+    transition: fluidSpringSoft,
   },
 };
 
@@ -124,6 +129,7 @@ function LinkRagMark({ darkMode }: { darkMode?: boolean }) {
 function RevealSection({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const target = ref.current;
@@ -145,17 +151,16 @@ function RevealSection({ id, className, children }: { id?: string; className?: s
   }, []);
 
   return (
-    <section
+    <motion.section
       id={id}
       ref={ref}
-      className={cn(
-        'transition-all duration-700 ease-out',
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0',
-        className,
-      )}
+      initial={false}
+      animate={{ opacity: visible ? 1 : 0, y: reducedMotion ? 0 : visible ? 0 : 36 }}
+      transition={fluidEnterTransition(reducedMotion)}
+      className={cn('fluid-compositor', className)}
     >
       {children}
-    </section>
+    </motion.section>
   );
 }
 
@@ -419,12 +424,13 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
     { x: 54, y: 84, near: false },
     { x: 86, y: 30, near: false },
   ];
-  const esJsonLines = [
+  const bm25RecordLines = [
     { indent: 0, text: '{' },
     { indent: 1, key: '"chunk_id"', value: '"ml-note-042-03",' },
-    { indent: 1, key: '"content"', value: '"梯度下降通过反向传播更新参数",' },
-    { indent: 1, key: '"source"', value: '"ml_notes.pdf",' },
-    { indent: 1, key: '"page"', value: '18' },
+    { indent: 1, key: '"dataset_id"', value: '42,' },
+    { indent: 1, key: '"doc_id"', value: '108,' },
+    { indent: 1, key: '"coarse"', value: '"梯度 下降 反向 传播",' },
+    { indent: 1, key: '"chunk_type"', value: '"text"' },
     { indent: 0, text: '}' },
   ];
 
@@ -535,10 +541,10 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div className="mb-2.5 flex items-center gap-2.5">
               <DatabaseZap size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
-                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>向量索引</p>
-                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>
-                  embedding vectors
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
+                  Qdrant 向量
                 </p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>dense + sparse</p>
               </div>
             </div>
             <div
@@ -606,8 +612,8 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
             <div className="mb-2.5 flex items-center gap-2.5">
               <Database size={20} className={darkMode ? 'text-[#3b82f6]' : 'text-primary'} />
               <div>
-                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>ES 入库</p>
-                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>text + metadata</p>
+                <p className={cn('text-[13px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>BM25 索引</p>
+                <p className={cn('text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/48')}>Manticore Search</p>
               </div>
             </div>
             <div
@@ -616,11 +622,11 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
                 darkMode ? 'border-[#3c3c3c] bg-[#252526]/80' : 'border-border-subtle bg-white/72 backdrop-blur-sm',
               )}
             >
-              {esJsonLines.map((line, index) => (
+              {bm25RecordLines.map((line, index) => (
                 <p
                   key={index}
                   className={cn(
-                    'index-es-row flex min-w-0 whitespace-nowrap',
+                    'index-record-row flex min-w-0 whitespace-nowrap',
                     darkMode ? 'text-[#d9d9d9]' : 'text-text-main/62',
                   )}
                   style={{
@@ -649,9 +655,9 @@ function IndexingDemo({ darkMode }: { darkMode?: boolean }) {
 
 function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
   const channels = [
-    { label: '向量召回', icon: DatabaseZap, y: 22 },
-    { label: '全文检索', icon: SearchCheck, y: 198 },
-    { label: '图谱召回', icon: ShieldCheck, y: 374 },
+    { label: '稠密向量', icon: DatabaseZap, y: 22 },
+    { label: '稀疏向量', icon: SearchCheck, y: 198 },
+    { label: 'BM25 关键词', icon: Database, y: 374 },
   ];
   const topKChunks = [
     {
@@ -872,7 +878,7 @@ function RetrievalDemo({ darkMode }: { darkMode?: boolean }) {
             <div>
               <p className={cn('text-[12px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>Top-K 片段</p>
               <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                融合候选结果
+                加权融合结果
               </p>
             </div>
             <span className={cn('font-mono text-[10px]', darkMode ? 'text-[#3b82f6]' : 'text-primary')}>K=3</span>
@@ -1009,7 +1015,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
                   Top-K 片段
                 </p>
                 <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                  召回上下文
+                  正文回填结果
                 </p>
               </div>
               <div
@@ -1102,7 +1108,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
             >
               <BrainCircuit size={42} strokeWidth={1.8} />
               <span className={cn('text-[11px] font-bold', darkMode ? 'text-[#d9d9d9]' : 'text-text-main/70')}>
-                LLM 智能回答
+                上下文生成
               </span>
             </div>
           </motion.div>
@@ -1118,7 +1124,7 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
               <div>
                 <p className={cn('text-[15px] font-bold', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>AI 回答</p>
                 <p className={cn('mt-0.5 text-[10px]', darkMode ? 'text-[#858585]' : 'text-text-main/45')}>
-                  生成并保留引用
+                  流式生成并保留引用
                 </p>
               </div>
               <div
@@ -1176,75 +1182,180 @@ function AnswerGenerationDemo({ darkMode }: { darkMode?: boolean }) {
   );
 }
 
-function WarmRibbonBackground({ darkMode }: { darkMode?: boolean }) {
+const evidenceSources = [
+  {
+    name: '产品规划.pdf',
+    location: '第 3 页',
+    excerpt: '围绕用户核心场景，提供可验证的解决方案。',
+    citation: '引用 1',
+  },
+  {
+    name: '技术说明.docx',
+    location: '第 1 页',
+    excerpt: '检索增强生成结合可追溯来源，为每个结论提供可靠依据。',
+    citation: '引用 2',
+  },
+  {
+    name: '上线方案.md',
+    location: '第 2 页',
+    excerpt: '通过增量同步与版本记录协调产品目标与技术实现。',
+    citation: '引用 3',
+  },
+] as const;
+
+function EvidenceStage({ darkMode }: { darkMode?: boolean }) {
+  const reducedMotion = useReducedMotion();
+
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <RevealSection id="continuity" className="py-12 sm:py-16 lg:py-20">
       <div
         className={cn(
-          'absolute inset-0',
-          darkMode
-            ? 'bg-[linear-gradient(180deg,#1f1f1f_0%,#242424_40%,#1f1f1f_100%)]'
-            : 'bg-[linear-gradient(180deg,#f8f4ef_0%,#f3eee7_40%,#f8f4ef_100%)]',
+          'relative min-h-[50rem] overflow-hidden rounded-[2.25rem] px-5 pb-0 pt-16 text-white shadow-[0_30px_90px_rgba(77,47,31,0.22)] sm:px-10 sm:pt-20 lg:min-h-[48rem] lg:px-16',
+          darkMode ? 'bg-[#604637]' : 'bg-[#7B5037]',
         )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute -left-[12%] top-[7%] h-[220px] w-[72%] rotate-[-6deg] rounded-[999px]',
-          darkMode ? 'bg-[#3b82f6]/12' : 'bg-[#f0d9bf]/70',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute right-[-16%] top-[18%] h-[180px] w-[62%] rotate-[8deg] rounded-[999px]',
-          darkMode ? 'bg-[#094771]/26' : 'bg-[#ead9ca]/86',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute left-[-8%] top-[44%] h-[210px] w-[58%] rotate-[6deg] rounded-[999px]',
-          darkMode ? 'bg-[#d4a373]/12' : 'bg-[#f4e8dc]/92',
-        )}
-      />
-      <div
-        className={cn(
-          'welcome-ribbon absolute right-[-10%] bottom-[22%] h-[220px] w-[65%] rotate-[-7deg] rounded-[999px]',
-          darkMode ? 'bg-[#3b82f6]/10' : 'bg-[#f1decc]/85',
-        )}
-      />
-      <div className="welcome-grid absolute inset-0 opacity-50" />
-      <div className="absolute left-[7%] top-[15%] h-4 w-4 rounded-full bg-primary/30 animate-float-slow" />
-      <div className="absolute right-[12%] top-[28%] h-6 w-6 rounded-full bg-primary/20 animate-float-delay" />
-      <div className="absolute left-[18%] bottom-[18%] h-5 w-5 rounded-full bg-primary/20 animate-float-slow" />
+      >
+        <div
+          className="welcome-dot-grid pointer-events-none absolute inset-0 opacity-[0.08] invert"
+          aria-hidden="true"
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-white/[0.035]" aria-hidden="true" />
+
+        <div className="relative z-10 mx-auto max-w-[50rem] text-center">
+          <p className="mono-label mb-5 text-white/48">evidence, not assumption</p>
+          <h3 className="font-display-cn text-4xl font-semibold leading-[1.06] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+            答案不是终点，
+            <br className="sm:hidden" />
+            证据才是
+          </h3>
+          <p className="mx-auto mt-5 max-w-[42rem] text-sm leading-7 text-white/66 sm:text-base sm:leading-8">
+            把分散的资料沉淀为可验证的知识链路。每个结论都能回到来源，每次追问都有上下文可循。
+          </p>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <MotionLink
+              to={Routes.Register}
+              whileHover={reducedMotion ? undefined : fluidLift}
+              whileTap={fluidPress}
+              transition={fluidSpring}
+              className="fluid-compositor inline-flex items-center gap-2 rounded-full border border-white/62 bg-white/10 px-6 py-3 text-sm font-bold text-white backdrop-blur-lg"
+            >
+              创建知识空间
+              <ArrowRight size={16} />
+            </MotionLink>
+            <MotionLink
+              to={Routes.Login}
+              whileTap={fluidPress}
+              transition={fluidSpringQuick}
+              className="fluid-compositor rounded-full border border-white/28 px-6 py-3 text-sm font-semibold text-white/82"
+            >
+              登录 LinkRag
+            </MotionLink>
+          </div>
+        </div>
+
+        <div className="relative z-10 mx-auto mt-12 max-w-[55rem] sm:mt-14">
+          <motion.div
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 28, rotate: 0 }}
+            whileInView={{ opacity: 0.5, y: 0, rotate: -4 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={fluidEnterTransition(reducedMotion)}
+            className="fluid-compositor absolute left-3 right-14 top-8 h-[31rem] rounded-[1.75rem] bg-[#eadfce] sm:left-10 sm:right-20"
+            aria-hidden="true"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 34, rotate: 0 }}
+            whileInView={{ opacity: 0.72, y: 0, rotate: 4 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={fluidEnterTransition(reducedMotion)}
+            className="fluid-compositor absolute left-14 right-3 top-10 h-[31rem] rounded-[1.75rem] bg-[#f3eadc] sm:left-20 sm:right-10"
+            aria-hidden="true"
+          />
+
+          <motion.article
+            initial={{ opacity: 0, y: reducedMotion ? 0 : 36 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.28 }}
+            whileHover={reducedMotion ? undefined : { y: -6 }}
+            transition={fluidSpringSoft}
+            className="fluid-compositor relative min-h-[31rem] rounded-t-[1.75rem] border border-white/80 bg-[#fbf8f2] px-5 py-6 text-left text-text-main shadow-[0_28px_70px_rgba(43,26,17,0.26)] sm:px-8 sm:py-8"
+          >
+            <Paperclip
+              size={32}
+              strokeWidth={1.35}
+              className="absolute -right-2 -top-5 rotate-12 text-[#9f795e] sm:right-8"
+              aria-hidden="true"
+            />
+
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <SearchCheck size={16} />
+              </span>
+              <div>
+                <p className="text-xs font-bold tracking-[0.1em]">最终结论</p>
+                <p className="mt-0.5 text-[10px] text-text-main/38">基于 3 个来源 · 2 处引用</p>
+              </div>
+            </div>
+
+            <p className="mt-5 max-w-[44rem] text-base font-medium leading-8 text-text-main/72">
+              产品目标与技术约束之间的冲突，可以通过分阶段优化、增量同步与版本协同来化解。
+            </p>
+
+            <div className="mt-6 border-t border-border-subtle pt-5">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-text-main/38">来源证据</p>
+              <div className="overflow-hidden rounded-2xl border border-border-subtle bg-white/58">
+                {evidenceSources.map((source, index) => (
+                  <div
+                    key={source.name}
+                    className={cn(
+                      'grid gap-3 px-4 py-3.5 sm:grid-cols-[10rem_1fr_auto] sm:items-center',
+                      index > 0 && 'border-t border-border-subtle',
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <FileText size={16} className="shrink-0 text-primary" />
+                      <div>
+                        <p className="text-xs font-bold text-text-main/68">{source.name}</p>
+                        <p className="mt-0.5 text-[10px] text-text-main/34">{source.location}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs leading-5 text-text-main/48">{source.excerpt}</p>
+                    <span className="w-fit rounded-full bg-surface-soft px-2.5 py-1 text-[10px] font-bold text-text-main/42">
+                      {source.citation}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.article>
+
+          <div className="pointer-events-none absolute -top-5 left-1/2 z-20 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-white/45 bg-[#d8bda5] text-[#7B5037] shadow-md">
+            <Quote size={15} fill="currentColor" />
+          </div>
+        </div>
+      </div>
+    </RevealSection>
+  );
+}
+
+function DottedCanvasBackground({ darkMode }: { darkMode?: boolean }) {
+  return (
+    <div
+      className={cn('pointer-events-none absolute inset-0 overflow-hidden', darkMode ? 'bg-[#1f1f1f]' : 'bg-[#fbfaf7]')}
+      aria-hidden="true"
+    >
+      <div className={cn('welcome-dot-grid absolute inset-0', darkMode && 'welcome-dot-grid-dark')} />
     </div>
   );
 }
 
 export default function WelcomePage() {
   const { darkMode } = useTheme();
-  const navigate = useNavigate();
+  const reducedMotion = useReducedMotion();
   const knowledgeRef = useRef<HTMLDivElement | null>(null);
-  const loginRef = useRef<HTMLDivElement | null>(null);
-  const { user, setUser, refreshProfile } = useAuth();
-  const { addToast } = useToast();
-  const [mode, setMode] = useState<AuthMode>('login');
-  const [submitting, setSubmitting] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<AuthFieldKey, string>>>({});
+  const { user } = useAuth();
   const [activeFlowIndex, setActiveFlowIndex] = useState(0);
   const [hasUserSelectedFlow, setHasUserSelectedFlow] = useState(false);
   const [headerPortalTarget, setHeaderPortalTarget] = useState<HTMLElement | null>(null);
-  const [headerCompact, setHeaderCompact] = useState(false);
-  const usernameInputRef = useRef<HTMLInputElement | null>(null);
-  const emailInputRef = useRef<HTMLInputElement | null>(null);
-  const passwordInputRef = useRef<HTMLInputElement | null>(null);
-  const confirmPasswordInputRef = useRef<HTMLInputElement | null>(null);
-  const [form, setForm] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    email: '',
-  });
-
-  const heading = useMemo(() => (mode === 'login' ? '登录' : '注册'), [mode]);
   const activeWorkflowSlide = workflowSlides[activeFlowIndex];
 
   useEffect(() => {
@@ -1262,16 +1373,6 @@ export default function WelcomePage() {
 
     return () => window.clearInterval(timer);
   }, [hasUserSelectedFlow]);
-
-  useEffect(() => {
-    const updateHeaderCompact = () => {
-      setHeaderCompact(window.scrollY > 36);
-    };
-
-    updateHeaderCompact();
-    window.addEventListener('scroll', updateHeaderCompact, { passive: true });
-    return () => window.removeEventListener('scroll', updateHeaderCompact);
-  }, []);
 
   if (user) {
     return <Navigate to={Routes.Home} replace />;
@@ -1298,84 +1399,6 @@ export default function WelcomePage() {
     scrollElementIntoCenteredView(knowledgeRef.current);
   }
 
-  function scrollToLogin(nextMode: AuthMode) {
-    setMode(nextMode);
-    setFieldErrors({});
-    scrollElementIntoCenteredView(loginRef.current);
-  }
-
-  function clearFieldError(field: AuthFieldKey) {
-    setFieldErrors((prev) => {
-      if (!prev[field]) return prev;
-      const next = { ...prev };
-      delete next[field];
-      return next;
-    });
-  }
-
-  function focusFirstInvalidField(nextFieldErrors: Partial<Record<AuthFieldKey, string>>) {
-    if (nextFieldErrors.username) {
-      usernameInputRef.current?.focus();
-      return;
-    }
-    if (nextFieldErrors.email) {
-      emailInputRef.current?.focus();
-      return;
-    }
-    if (nextFieldErrors.password) {
-      passwordInputRef.current?.focus();
-      return;
-    }
-    if (nextFieldErrors.confirmPassword) {
-      confirmPasswordInputRef.current?.focus();
-    }
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const requiredFieldErrors = buildRequiredFieldErrors(form, mode);
-    if (Object.keys(requiredFieldErrors).length > 0) {
-      setFieldErrors(requiredFieldErrors);
-      focusFirstInvalidField(requiredFieldErrors);
-      return;
-    }
-    setFieldErrors({});
-
-    const validationMessage = validateAuthForm(form, mode);
-    if (validationMessage) {
-      addToast('error', validationMessage, 5000);
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      if (mode === 'login') {
-        await login({
-          account: form.username.trim(),
-          password: form.password,
-        });
-      } else {
-        await register({
-          username: form.username.trim(),
-          password: form.password,
-          email: form.email.trim(),
-        });
-      }
-
-      await refreshProfile();
-      addToast('success', mode === 'login' ? '登录成功' : '注册成功');
-      navigate(Routes.Home, { replace: true });
-    } catch (submitError) {
-      if (!(submitError instanceof Error)) {
-        addToast('error', '认证失败，请稍后再试', 5000);
-      }
-      setUser(null);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   return (
     <div
       className={cn(
@@ -1383,52 +1406,28 @@ export default function WelcomePage() {
         darkMode ? 'bg-[#1e1e1e] text-[#cccccc]' : 'bg-bg-base text-text-main',
       )}
     >
-      <WarmRibbonBackground darkMode={darkMode} />
+      <DottedCanvasBackground darkMode={darkMode} />
 
       {headerPortalTarget
         ? createPortal(
-            <header
-              className={cn(
-                'welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 transition-all duration-300 lg:px-8',
-                headerCompact ? 'py-2' : 'py-3',
-              )}
-            >
+            <header className="welcome-floating-header pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 py-3 lg:px-8">
               <div
                 className={cn(
-                  'pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 backdrop-blur-xl transition-all duration-300',
-                  headerCompact ? 'py-2 shadow-md' : 'py-3 shadow-lg',
+                  'fluid-material pointer-events-auto relative mx-auto flex max-w-[1240px] items-center justify-between rounded-full px-4 py-3',
                   darkMode
-                    ? headerCompact
-                      ? 'bg-[#252526]/98 border border-[#454545] shadow-black/30'
-                      : 'bg-[#252526]/95 border border-[#3c3c3c] shadow-black/25'
-                    : headerCompact
-                      ? 'bg-white/96 border border-white shadow-text-main/12'
-                      : 'bg-white/92 border border-white/90 shadow-text-main/10',
+                    ? 'border-[#3c3c3c] bg-[#252526]/95 shadow-black/25'
+                    : 'border-white/90 bg-white/82 shadow-text-main/10',
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      'flex items-center justify-center transition-all duration-300',
-                      headerCompact ? 'h-10 w-10' : 'h-12 w-12',
-                    )}
-                  >
+                  <div className="flex h-12 w-12 items-center justify-center">
                     <LinkRagMark darkMode={darkMode} />
                   </div>
                   <div>
-                    <p
-                      className={cn(
-                        'mono-label transition-all duration-300',
-                        headerCompact ? 'mb-0 text-[8px]' : 'mb-1',
-                        darkMode ? 'text-[#858585]' : '',
-                      )}
-                    >
-                      knowledge workspace
-                    </p>
+                    <p className={cn('mono-label mb-1', darkMode ? 'text-[#858585]' : '')}>knowledge workspace</p>
                     <h1
                       className={cn(
-                        'font-bold tracking-tight transition-all duration-300',
-                        headerCompact ? 'text-base' : 'text-lg',
+                        'text-lg font-bold tracking-[-0.02em]',
                         darkMode ? 'text-[#e0e0e0]' : 'text-text-main',
                       )}
                     >
@@ -1447,7 +1446,7 @@ export default function WelcomePage() {
                         scrollToKnowledge();
                       }}
                       className={cn(
-                        'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                        'text-sm font-bold uppercase tracking-[0.18em]',
                         darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                       )}
                     >
@@ -1457,7 +1456,7 @@ export default function WelcomePage() {
                   <Link
                     to={Routes.Blogs}
                     className={cn(
-                      'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                      'text-sm font-bold uppercase tracking-[0.18em]',
                       darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                     )}
                   >
@@ -1466,7 +1465,7 @@ export default function WelcomePage() {
                   <Link
                     to={Routes.Feedback}
                     className={cn(
-                      'text-sm font-bold uppercase tracking-[0.18em] transition-colors',
+                      'text-sm font-bold uppercase tracking-[0.18em]',
                       darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                     )}
                   >
@@ -1478,7 +1477,7 @@ export default function WelcomePage() {
                     rel="noreferrer noopener"
                     aria-label="打开项目仓库"
                     className={cn(
-                      'group inline-flex h-9 w-9 items-center justify-center transition-colors',
+                      'group inline-flex h-9 w-9 items-center justify-center',
                       darkMode ? 'text-[#858585] hover:text-[#e0e0e0]' : 'text-text-main/45 hover:text-text-main',
                     )}
                   >
@@ -1487,28 +1486,32 @@ export default function WelcomePage() {
                 </nav>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => scrollToLogin('login')}
+                  <MotionLink
+                    to={Routes.Login}
+                    whileTap={fluidPress}
+                    transition={fluidSpringQuick}
                     className={cn(
-                      'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
+                      'fluid-compositor rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em]',
                       darkMode
                         ? 'bg-[#2d2d2d] text-[#e0e0e0] hover:bg-[#3a3a3a]'
                         : 'bg-bg-base text-text-main hover:bg-white',
                     )}
                   >
                     登录
-                  </button>
-                  <button
-                    onClick={() => scrollToLogin('register')}
+                  </MotionLink>
+                  <MotionLink
+                    to={Routes.Register}
+                    whileTap={fluidPress}
+                    transition={fluidSpringQuick}
                     className={cn(
-                      'rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition-opacity',
+                      'fluid-compositor rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em]',
                       darkMode
                         ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
                         : 'bg-[#7B6B5D] text-white hover:opacity-90',
                     )}
                   >
                     注册
-                  </button>
+                  </MotionLink>
                 </div>
               </div>
             </header>,
@@ -1555,22 +1558,29 @@ export default function WelcomePage() {
             initial="hidden"
             animate="show"
           >
-            <motion.button
+            <motion.div
               variants={fadeUpItem}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => scrollToLogin('login')}
-              className={cn(
-                'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] shadow-sm transition-opacity',
-                darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
-              )}
+              whileHover={reducedMotion ? undefined : { y: -3 }}
+              whileTap={fluidPress}
+              transition={fluidSpring}
+              className="fluid-compositor"
             >
-              开始使用
-              <ArrowRight size={16} />
-            </motion.button>
+              <Link
+                to={Routes.Login}
+                className={cn(
+                  'flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-[0.22em] shadow-sm',
+                  darkMode ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]' : 'bg-[#7B6B5D] text-white hover:opacity-90',
+                )}
+              >
+                开始使用
+                <ArrowRight size={16} />
+              </Link>
+            </motion.div>
             <motion.a
               variants={fadeUpItem}
-              whileHover={{ y: -3 }}
+              whileHover={reducedMotion ? undefined : { y: -3 }}
+              whileTap={fluidPress}
+              transition={fluidSpring}
               href="#knowledge"
               onClick={(event) => {
                 event.preventDefault();
@@ -1610,8 +1620,8 @@ export default function WelcomePage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="grid w-full items-center gap-8 py-6 lg:min-h-[540px] lg:grid-cols-[0.92fr_1.08fr]"
+                  transition={fluidEnterTransition(reducedMotion)}
+                  className="fluid-compositor grid w-full items-center gap-8 py-6 lg:min-h-[540px] lg:grid-cols-[0.92fr_1.08fr]"
                 >
                   <div>
                     <p className={cn('mono-label mb-5', darkMode ? 'text-[#858585]' : '')}>
@@ -1648,15 +1658,18 @@ export default function WelcomePage() {
 
             <div className="mt-5 flex items-center justify-center gap-3">
               {workflowSlides.map((slide, index) => (
-                <button
+                <motion.button
                   key={slide.id}
                   type="button"
                   onClick={() => {
                     setHasUserSelectedFlow(true);
                     setActiveFlowIndex(index);
                   }}
+                  layout
+                  whileTap={fluidPress}
+                  transition={fluidSpringQuick}
                   className={cn(
-                    'h-2.5 rounded-full transition-all',
+                    'fluid-compositor h-2.5 rounded-full',
                     activeFlowIndex === index ? 'w-8' : 'w-2.5',
                     darkMode
                       ? activeFlowIndex === index
@@ -1673,293 +1686,7 @@ export default function WelcomePage() {
           </div>
         </RevealSection>
 
-        <RevealSection id="login" className="min-h-[92vh] flex items-center py-16 lg:py-20 scroll-mt-28">
-          <div ref={loginRef} className="grid w-full items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <h3
-                className={cn(
-                  'serif-heading text-4xl leading-tight lg:text-6xl',
-                  darkMode ? 'text-[#f2f2f2]' : 'text-text-main',
-                )}
-              >
-                进入工作台
-                <br />
-                登录或注册后开始使用
-              </h3>
-              <p
-                className={cn(
-                  'mt-6 max-w-[480px] text-base leading-8',
-                  darkMode ? 'text-[#9d9d9d]' : 'text-text-main/58',
-                )}
-              >
-                登录已有账号或注册新账号 进入工作台后，即可构建知识库并进行问答。
-              </p>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              className={cn(
-                'rounded-[34px] p-7 shadow-xl lg:p-8 card-glow',
-                darkMode
-                  ? 'bg-[#252526] border border-[#3c3c3c]'
-                  : 'bg-white/84 backdrop-blur-sm border border-white/85',
-              )}
-            >
-              <div className="mb-6">
-                <h3 className={cn('text-3xl font-bold tracking-tight', darkMode ? 'text-[#f0f0f0]' : 'text-text-main')}>
-                  {heading}
-                </h3>
-                <div className="mt-3 text-sm leading-6">
-                  {mode === 'login' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('register');
-                        setFieldErrors({});
-                      }}
-                      className={cn(
-                        'font-medium transition-colors',
-                        darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main',
-                      )}
-                    >
-                      没有账号？注册
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('login');
-                        setFieldErrors({});
-                      }}
-                      className={cn(
-                        'font-medium transition-colors',
-                        darkMode ? 'text-[#d0d0d0] hover:text-[#f0f0f0]' : 'text-text-main/70 hover:text-text-main',
-                      )}
-                    >
-                      已有账号？登录
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div
-                className={cn(
-                  'mb-6 grid grid-cols-2 gap-2 rounded-2xl p-1',
-                  darkMode ? 'bg-[#1e1e1e]' : 'bg-bg-base/70',
-                )}
-              >
-                <motion.button
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setMode('login');
-                    setFieldErrors({});
-                  }}
-                  className={cn(
-                    'rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
-                    mode === 'login'
-                      ? darkMode
-                        ? 'bg-[#2d2d2d] text-[#f0f0f0]'
-                        : 'bg-white text-text-main shadow-sm'
-                      : darkMode
-                        ? 'text-[#858585] hover:text-[#cccccc]'
-                        : 'text-text-main/50 hover:text-text-main',
-                  )}
-                >
-                  登录
-                </motion.button>
-                <motion.button
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    setMode('register');
-                    setFieldErrors({});
-                  }}
-                  className={cn(
-                    'rounded-2xl py-3 text-xs font-bold uppercase tracking-[0.22em] transition-colors',
-                    mode === 'register'
-                      ? darkMode
-                        ? 'bg-[#2d2d2d] text-[#f0f0f0]'
-                        : 'bg-white text-text-main shadow-sm'
-                      : darkMode
-                        ? 'text-[#858585] hover:text-[#cccccc]'
-                        : 'text-text-main/50 hover:text-text-main',
-                  )}
-                >
-                  注册
-                </motion.button>
-              </div>
-
-              <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-                <label className="block">
-                  <span
-                    className={cn(
-                      'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
-                      darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
-                    )}
-                  >
-                    用户名
-                  </span>
-                  <input
-                    ref={usernameInputRef}
-                    value={form.username}
-                    onChange={(event) => {
-                      clearFieldError('username');
-                      setForm((prev) => ({ ...prev, username: event.target.value }));
-                    }}
-                    className={cn(
-                      'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                      fieldErrors.username &&
-                        (darkMode
-                          ? 'border-red-500 placeholder:!text-red-300'
-                          : 'border-red-400 placeholder:!text-red-500'),
-                    )}
-                    placeholder={fieldErrors.username ?? '输入用户名'}
-                  />
-                </label>
-
-                <AnimatePresence initial={false}>
-                  {mode === 'register' && (
-                    <motion.div
-                      key="register-email"
-                      initial={{ height: 0, opacity: 0, y: -8 }}
-                      animate={{ height: 'auto', opacity: 1, y: 0 }}
-                      exit={{ height: 0, opacity: 0, y: -8 }}
-                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <label className="block">
-                        <span
-                          className={cn(
-                            'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
-                            darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
-                          )}
-                        >
-                          邮箱
-                        </span>
-                        <input
-                          ref={emailInputRef}
-                          type="email"
-                          value={form.email}
-                          onChange={(event) => {
-                            clearFieldError('email');
-                            setForm((prev) => ({ ...prev, email: event.target.value }));
-                          }}
-                          className={cn(
-                            'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
-                            darkMode
-                              ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                              : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                            fieldErrors.email &&
-                              (darkMode
-                                ? 'border-red-500 placeholder:!text-red-300'
-                                : 'border-red-400 placeholder:!text-red-500'),
-                          )}
-                          placeholder={fieldErrors.email ?? 'name@example.com'}
-                        />
-                      </label>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <label className="block">
-                  <span
-                    className={cn(
-                      'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
-                      darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
-                    )}
-                  >
-                    密码
-                  </span>
-                  <input
-                    ref={passwordInputRef}
-                    type="password"
-                    value={form.password}
-                    onChange={(event) => {
-                      clearFieldError('password');
-                      setForm((prev) => ({ ...prev, password: event.target.value }));
-                    }}
-                    className={cn(
-                      'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
-                      darkMode
-                        ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                        : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                      fieldErrors.password &&
-                        (darkMode
-                          ? 'border-red-500 placeholder:!text-red-300'
-                          : 'border-red-400 placeholder:!text-red-500'),
-                    )}
-                    placeholder={fieldErrors.password ?? '输入密码'}
-                  />
-                </label>
-
-                <AnimatePresence initial={false}>
-                  {mode === 'register' && (
-                    <motion.label
-                      key="register-confirm-password"
-                      initial={{ height: 0, opacity: 0, y: -8 }}
-                      animate={{ height: 'auto', opacity: 1, y: 0 }}
-                      exit={{ height: 0, opacity: 0, y: -8 }}
-                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                      className="block overflow-hidden"
-                    >
-                      <span
-                        className={cn(
-                          'mb-2 block text-xs font-bold uppercase tracking-[0.22em]',
-                          darkMode ? 'text-[#b5b5b5]' : 'text-text-main/60',
-                        )}
-                      >
-                        确认密码
-                      </span>
-                      <input
-                        ref={confirmPasswordInputRef}
-                        type="password"
-                        value={form.confirmPassword}
-                        onChange={(event) => {
-                          clearFieldError('confirmPassword');
-                          setForm((prev) => ({ ...prev, confirmPassword: event.target.value }));
-                        }}
-                        className={cn(
-                          'w-full rounded-2xl px-4 py-3 text-sm focus:outline-none',
-                          darkMode
-                            ? 'bg-[#2d2d2d] border border-[#3c3c3c] text-[#e0e0e0] placeholder:text-[#6b6b6b]'
-                            : 'bg-bg-base/45 border border-border-subtle placeholder:text-text-main/30',
-                          fieldErrors.confirmPassword &&
-                            (darkMode
-                              ? 'border-red-500 placeholder:!text-red-300'
-                              : 'border-red-400 placeholder:!text-red-500'),
-                        )}
-                        placeholder={fieldErrors.confirmPassword ?? '再次输入密码'}
-                      />
-                    </motion.label>
-                  )}
-                </AnimatePresence>
-
-                <motion.button
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.985 }}
-                  type="submit"
-                  disabled={submitting}
-                  className={cn(
-                    'mt-2 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-bold uppercase tracking-[0.24em] transition-opacity',
-                    darkMode
-                      ? 'bg-[#8A7662] text-white hover:bg-[#7B6B5D]'
-                      : 'bg-[#7B6B5D] text-white hover:opacity-90',
-                    submitting && 'opacity-70',
-                  )}
-                >
-                  {submitting ? '处理中...' : mode === 'login' ? '登录' : '注册'}
-                  {!submitting && <ArrowRight size={16} />}
-                </motion.button>
-              </form>
-            </motion.div>
-          </div>
-        </RevealSection>
+        <EvidenceStage darkMode={darkMode} />
       </main>
 
       <footer className="relative z-10 py-6 text-center">
@@ -1968,7 +1695,7 @@ export default function WelcomePage() {
           target="_blank"
           rel="noreferrer noopener"
           className={cn(
-            'text-xs transition-colors',
+            'text-xs',
             darkMode ? 'text-[#5a5a5a] hover:text-[#858585]' : 'text-text-main/30 hover:text-text-main/55',
           )}
         >

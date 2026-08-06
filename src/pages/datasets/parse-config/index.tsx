@@ -637,7 +637,6 @@ function ConfigGroup({
       ) : group.id === 'recall' ? (
         <RecallControls
           paramByKey={paramByKey}
-          weighted={values.recall_fusion_strategy === 'weighted_score'}
           renderParam={renderParamField}
           values={values}
           rerankConfigs={rerankConfigs}
@@ -655,7 +654,6 @@ function ConfigGroup({
 
 function RecallControls({
   paramByKey,
-  weighted,
   renderParam,
   values,
   rerankConfigs,
@@ -665,7 +663,6 @@ function RecallControls({
   onRerankChange,
 }: {
   paramByKey: Map<ParamSpec['key'], ParamSpec>;
-  weighted: boolean;
   renderParam: (param: ParamSpec) => ReactNode;
   values: ParseConfigValues;
   rerankConfigs: ExecutableLLMConfigDTO[];
@@ -683,16 +680,13 @@ function RecallControls({
     <div className="space-y-7">
       <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
         {renderParamByKey('recall_enabled_sources')}
-        {renderParamByKey('recall_fusion_strategy')}
       </div>
 
-      {weighted && (
-        <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-y border-border-subtle/70 py-5 xl:grid-cols-2">
-          {renderParamByKey('fusion_bm25_weight')}
-          {renderParamByKey('fusion_sparse_weight')}
-          {renderParamByKey('fusion_dense_weight')}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-5 border-y border-border-subtle/70 py-5 xl:grid-cols-2">
+        {renderParamByKey('fusion_bm25_weight')}
+        {renderParamByKey('fusion_sparse_weight')}
+        {renderParamByKey('fusion_dense_weight')}
+      </div>
 
       <div className="grid grid-cols-1 gap-x-8 gap-y-5 xl:grid-cols-2">
         {renderParamByKey('enable_rerank')}
@@ -919,7 +913,7 @@ function ParamField({
   }
 
   const stageTwoAlgorithmField = param.type === 'stage-toggle' && param.key === 'stage_two_algorithm';
-  const compactChoiceField = param.key === 'recall_enabled_sources' || param.key === 'recall_fusion_strategy';
+  const compactChoiceField = param.key === 'recall_enabled_sources';
   const compactNumberField = param.key === 'heading_break_level';
   const wideField = spanFull || ((param.type === 'segment' || param.type === 'multiselect') && !compactChoiceField);
   const sliderField = param.type === 'slider';
