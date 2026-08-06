@@ -1,4 +1,4 @@
-import { useState, useEffect, type MouseEvent } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import {
   AlertCircle,
@@ -22,13 +22,10 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { LLMConfigSelect } from '@/components/LLMConfigSelect';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDatasets, createDataset, updateDataset, deleteDataset } from '@/services/dataset';
-import { getLLMConfigs } from '@/services/llm';
+import { getLLMCapabilityDefaults, getLLMConfigs } from '@/services/llm';
 import { useToast } from '@/contexts/ToastContext';
+import { resolveExecutableDefaultConfigIds, type ExecutableDefaultConfigIds } from '@/lib/llm-default-selection';
 import type { DatasetDTO, ExecutableLLMConfigDTO } from '@/types/api';
-
-function getInitialConfigId(configs: ExecutableLLMConfigDTO[]) {
-  return configs[0]?.configId ?? null;
-}
 
 export default function DatasetsPage() {
   const navigate = useNavigate();
@@ -43,6 +40,7 @@ export default function DatasetsPage() {
   const [newDatasetDesc, setNewDatasetDesc] = useState('');
   const [sparseEmbeddingConfigs, setSparseEmbeddingConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
   const [denseEmbeddingConfigs, setDenseEmbeddingConfigs] = useState<ExecutableLLMConfigDTO[]>([]);
+  const [embeddingDefaultConfigIds, setEmbeddingDefaultConfigIds] = useState<ExecutableDefaultConfigIds>({});
   const [embeddingConfigsLoading, setEmbeddingConfigsLoading] = useState(true);
   const [selectedSparseEmbeddingConfigId, setSelectedSparseEmbeddingConfigId] = useState<number | null>(null);
   const [selectedDenseEmbeddingConfigId, setSelectedDenseEmbeddingConfigId] = useState<number | null>(null);
@@ -58,18 +56,7 @@ export default function DatasetsPage() {
   const [deletingDatasetIds, setDeletingDatasetIds] = useState<number[]>([]);
   const [datasetPendingDelete, setDatasetPendingDelete] = useState<DatasetDTO | null>(null);
 
-  useEffect(() => {
-    loadDatasets();
-    loadEmbeddingConfigs();
-  }, []);
-
-  useEffect(() => {
-    if (!createDialogOpen) return;
-    setSelectedSparseEmbeddingConfigId((current) => current ?? getInitialConfigId(sparseEmbeddingConfigs));
-    setSelectedDenseEmbeddingConfigId((current) => current ?? getInitialConfigId(denseEmbeddingConfigs));
-  }, [createDialogOpen, denseEmbeddingConfigs, sparseEmbeddingConfigs]);
-
-  const loadDatasets = async () => {
+  const loadDatasets = useCallback(async () => {
     setLoading(true);
     setErrorMessage('');
     try {
@@ -81,32 +68,59 @@ export default function DatasetsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadEmbeddingConfigs = async () => {
+  const loadEmbeddingConfigs = useCallback(async () => {
     setEmbeddingConfigsLoading(true);
-    try {
-      const [sparseConfigs, denseConfigs] = await Promise.all([
-        getLLMConfigs({ capability: 'SPARSE_EMBEDDING', isActive: true }),
-        getLLMConfigs({ capability: 'EMBEDDING', isActive: true }),
-      ]);
-      setSparseEmbeddingConfigs(
-        sparseConfigs.filter((config) => config.capability === 'SPARSE_EMBEDDING' && config.isActive),
-      );
-      setDenseEmbeddingConfigs(denseConfigs.filter((config) => config.capability === 'EMBEDDING' && config.isActive));
-    } catch (error) {
-      console.error('Failed to load embedding configs:', error);
-      setSparseEmbeddingConfigs([]);
-      setDenseEmbeddingConfigs([]);
-    } finally {
-      setEmbeddingConfigsLoading(false);
+    const [sparseResult, denseResult, defaultsResult] = await Promise.allSettled([
+      getLLMConfigs({ capability: 'SPARSE_EMBEDDING', isActive: true }),
+      getLLMConfigs({ capability: 'EMBEDDING', isActive: true }),
+      getLLMCapabilityDefaults(),
+    ]);
+
+    const sparseConfigs =
+      sparseResult.status === 'fulfilled'
+        ? sparseResult.value.filter((config) => config.capability === 'SPARSE_EMBEDDING' && config.isActive)
+        : [];
+    const denseConfigs =
+      denseResult.status === 'fulfilled'
+        ? denseResult.value.filter((config) => config.capability === 'EMBEDDING' && config.isActive)
+        : [];
+    const defaults = defaultsResult.status === 'fulfilled' ? defaultsResult.value : [];
+
+    if (sparseResult.status === 'rejected' || denseResult.status === 'rejected') {
+      console.error('Failed to load embedding configs:', {
+        sparse: sparseResult.status === 'rejected' ? sparseResult.reason : undefined,
+        dense: denseResult.status === 'rejected' ? denseResult.reason : undefined,
+      });
+      addToast('error', '向量模型加载失败，请刷新重试');
     }
-  };
+    if (defaultsResult.status === 'rejected') {
+      console.error('Failed to load LLM defaults:', defaultsResult.reason);
+      addToast('error', '用户默认模型加载失败，请手动选择');
+    }
+
+    setSparseEmbeddingConfigs(sparseConfigs);
+    setDenseEmbeddingConfigs(denseConfigs);
+    setEmbeddingDefaultConfigIds(resolveExecutableDefaultConfigIds(defaults, [...sparseConfigs, ...denseConfigs]));
+    setEmbeddingConfigsLoading(false);
+  }, [addToast]);
+
+  useEffect(() => {
+    void loadDatasets();
+    void loadEmbeddingConfigs();
+  }, [loadDatasets, loadEmbeddingConfigs]);
+
+  useEffect(() => {
+    if (!createDialogOpen) return;
+    setSelectedSparseEmbeddingConfigId((current) => current ?? embeddingDefaultConfigIds.SPARSE_EMBEDDING ?? null);
+    setSelectedDenseEmbeddingConfigId((current) => current ?? embeddingDefaultConfigIds.EMBEDDING ?? null);
+  }, [createDialogOpen, embeddingDefaultConfigIds]);
 
   const openCreateDialog = () => {
     setCreateFieldErrors({});
-    setSelectedSparseEmbeddingConfigId(getInitialConfigId(sparseEmbeddingConfigs));
-    setSelectedDenseEmbeddingConfigId(getInitialConfigId(denseEmbeddingConfigs));
+    setSelectedSparseEmbeddingConfigId(embeddingDefaultConfigIds.SPARSE_EMBEDDING ?? null);
+    setSelectedDenseEmbeddingConfigId(embeddingDefaultConfigIds.EMBEDDING ?? null);
     setCreateDialogOpen(true);
   };
 
@@ -520,7 +534,7 @@ export default function DatasetsPage() {
                     configs={sparseEmbeddingConfigs}
                     loading={embeddingConfigsLoading}
                     error={createFieldErrors.sparseEmbeddingConfigId}
-                    unavailableMessage="请先配置并启用 SPARSE_EMBEDDING 能力模型"
+                    unavailableMessage="请先配置并启用稀疏向量模型"
                     helperText=""
                     onChange={(value) => {
                       setSelectedSparseEmbeddingConfigId(value);
@@ -534,7 +548,7 @@ export default function DatasetsPage() {
                     configs={denseEmbeddingConfigs}
                     loading={embeddingConfigsLoading}
                     error={createFieldErrors.denseEmbeddingConfigId}
-                    unavailableMessage="请先配置并启用 EMBEDDING 能力模型"
+                    unavailableMessage="请先配置并启用稠密向量模型"
                     helperText=""
                     onChange={(value) => {
                       setSelectedDenseEmbeddingConfigId(value);

@@ -10,6 +10,7 @@ interface LLMConfigSelectProps {
   label: string;
   value: number | null;
   configs: ExecutableLLMConfigDTO[];
+  variant?: 'default' | 'borderless';
   loading?: boolean;
   disabled?: boolean;
   error?: string;
@@ -31,6 +32,7 @@ export function LLMConfigSelect({
   label,
   value,
   configs,
+  variant = 'default',
   loading = false,
   disabled = false,
   error,
@@ -108,21 +110,23 @@ export function LLMConfigSelect({
         data-config-id={value ?? undefined}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          'flex h-10 w-full items-center gap-2 rounded-lg bg-primary/[0.04] px-2 text-left transition-colors',
-          'hover:bg-primary/[0.07] focus:bg-primary/[0.08] focus:outline-none',
-          error && 'bg-error/10',
+          'flex h-10 w-full items-center gap-2 rounded-lg text-left transition-colors focus:outline-none',
+          variant === 'default'
+            ? 'border border-border-subtle bg-bg-card-solid px-2 hover:border-primary/25 hover:bg-surface-soft focus:border-primary/40 focus:bg-bg-card-solid'
+            : 'bg-transparent px-0',
+          error && variant === 'default' && 'border-error/35 bg-bg-card-solid',
           inactive && 'cursor-not-allowed opacity-60',
         )}
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden text-muted">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden text-muted">
           {loading ? (
-            <Loader2 size={14} className="animate-spin" />
+            <Loader2 size={16} className="animate-spin" />
           ) : unavailable ? (
-            <AlertCircle size={14} className="text-error" />
+            <AlertCircle size={16} className="text-error" />
           ) : selectedIcon ? (
-            <img src={selectedIcon} alt="" aria-hidden="true" className="h-5 w-5 object-contain" />
+            <img src={selectedIcon} alt="" aria-hidden="true" className="h-6 w-6 object-contain" />
           ) : (
-            <Box size={14} />
+            <Box size={18} />
           )}
         </span>
         <span className={cn('min-w-0 flex-1 truncate text-sm font-semibold', value ? 'text-ink' : 'text-muted')}>
@@ -136,7 +140,9 @@ export function LLMConfigSelect({
                   ? '暂无可用'
                   : '选择模型'}
         </span>
-        <ChevronDown size={16} className={cn('text-muted transition-transform', open && 'rotate-180')} />
+        {variant === 'default' && (
+          <ChevronDown size={16} className={cn('text-muted transition-transform', open && 'rotate-180')} />
+        )}
       </button>
       {helper && <p className={cn('mt-1 text-[11px] leading-5', error ? 'text-error' : 'text-muted')}>{helper}</p>}
 
@@ -147,7 +153,7 @@ export function LLMConfigSelect({
             ref={listRef}
             role="listbox"
             style={position}
-            className="overflow-y-auto rounded-xl bg-bg-frosted p-1.5 shadow-dialog"
+            className="overflow-y-auto rounded-xl border border-hairline bg-bg-card-solid p-1.5 shadow-dialog"
           >
             {historical && (
               <div
@@ -156,7 +162,7 @@ export function LLMConfigSelect({
                 data-config-id={value}
                 className="mb-1 flex items-center gap-2 rounded-lg bg-primary/8 px-2.5 py-2 text-sm font-semibold"
               >
-                <Box size={14} />
+                <Box size={18} />
                 <span className="flex-1">当前绑定 #{value}</span>
                 <Check size={14} className="text-primary" />
               </div>
@@ -182,11 +188,11 @@ export function LLMConfigSelect({
                     active ? 'bg-primary/10 text-ink' : 'text-text-secondary hover:bg-bg-card-solid',
                   )}
                 >
-                  <span className="flex h-6 w-6 items-center justify-center">
+                  <span className="flex h-7 w-7 items-center justify-center">
                     {providerIcon ? (
-                      <img src={providerIcon} alt="" className="h-5 w-5 object-contain" />
+                      <img src={providerIcon} alt="" className="h-6 w-6 object-contain" />
                     ) : (
-                      <Box size={14} />
+                      <Box size={18} />
                     )}
                   </span>
                   <span className="min-w-0 flex-1">

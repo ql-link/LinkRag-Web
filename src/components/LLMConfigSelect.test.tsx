@@ -38,6 +38,11 @@ describe('LLMConfigSelect', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /model-100/ }));
+    expect(screen.getByRole('button', { name: /model-100/ })).toHaveClass('bg-bg-card-solid', 'px-2');
+    expect(screen.getByRole('button', { name: /model-100/ }).querySelector('img')).toHaveClass('h-6', 'w-6');
+    expect(screen.getByRole('button', { name: /model-100/ }).querySelector('.lucide-chevron-down')).not.toBeNull();
+    expect(screen.getByRole('listbox')).toHaveClass('bg-bg-card-solid');
+    expect(screen.getByRole('option', { name: /model-100/ }).querySelector('img')).toHaveClass('h-6', 'w-6');
     expect(screen.getByRole('option', { name: /model-100/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('option', { name: /model-100/ })).toHaveAttribute('data-config-id', '100');
 
@@ -52,5 +57,27 @@ describe('LLMConfigSelect', () => {
     );
 
     expect(screen.getByRole('option', { name: /model-100/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('can hide the trigger frame without changing the default dropdown style', () => {
+    render(
+      <LLMConfigSelect
+        label="稠密向量模型"
+        value={100}
+        configs={[config(100, 'SYSTEM')]}
+        variant="borderless"
+        unavailableMessage="暂无模型"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /model-100/ })).toHaveClass('bg-transparent', 'px-0');
+    expect(screen.getByRole('button', { name: /model-100/ })).not.toHaveClass(
+      'border',
+      'border-border-subtle',
+      'bg-bg-card-solid',
+      'px-2',
+    );
+    expect(screen.getByRole('button', { name: /model-100/ }).querySelector('.lucide-chevron-down')).toBeNull();
   });
 });

@@ -1,8 +1,9 @@
 import { FileCode2, FileScan, Layers3, Search, type LucideIcon } from 'lucide-react';
 import type { DatasetParseConfigDTO, PdfParserBackend, RecallSource, StageTwoAlgorithm } from '@/types/api';
+import type { ExecutableDefaultConfigIds } from '@/lib/llm-default-selection';
 
 type SegmentValue = string | null;
-type ParamType = 'toggle' | 'stage-toggle' | 'number' | 'slider' | 'segment' | 'multiselect' | 'display';
+type ParamType = 'toggle' | 'stage-toggle' | 'number' | 'slider' | 'segment' | 'multiselect';
 type ParamKey =
   | 'heading_break_level'
   | 'min_candidate_chunk_tokens'
@@ -28,11 +29,9 @@ type ParamKey =
   | 'fusion_dense_weight'
   | 'enable_rerank'
   | 'rerank_top_n'
-  | 'recall_strict'
-  | 'table_model'
-  | 'vision_model';
+  | 'recall_strict';
 
-export type EditableParamKey = Exclude<ParamKey, 'table_model' | 'vision_model'>;
+export type EditableParamKey = ParamKey;
 
 export type ParseConfigValues = {
   sparse_embedding_config_id: number | null;
@@ -79,7 +78,6 @@ export interface ParamSpec {
   step?: number;
   integer?: boolean;
   options?: Array<{ label: string; value: SegmentValue }>;
-  displaySub?: string;
   span?: 'full';
   compactOptions?: boolean;
   visibleWhen?: (values: ParseConfigValues) => boolean;
@@ -262,20 +260,6 @@ export const GROUPS: ParamGroup[] = [
         envKey: 'MARKDOWN_PARSER_ENABLE_HEADING_HIERARCHY',
         description: '根据文档样式还原标题层级，帮助分块识别更准确的结构边界。',
         showDescription: true,
-      },
-      {
-        key: 'table_model',
-        type: 'display',
-        label: '表格增强模型',
-        envKey: 'MARKDOWN_PARSER_TABLE_MODEL',
-        displaySub: '数据集固定 CHAT 模型',
-      },
-      {
-        key: 'vision_model',
-        type: 'display',
-        label: '图片增强模型',
-        envKey: 'MARKDOWN_PARSER_VISION_MODEL',
-        displaySub: '数据集固定 VISION 模型',
       },
     ],
   },
@@ -560,6 +544,33 @@ export function normalizeConfig(config: DatasetParseConfigDTO): ParseConfigValue
   };
 }
 
+export function hydrateEnabledModelDefaults(
+  values: ParseConfigValues,
+  defaultConfigIds: ExecutableDefaultConfigIds,
+): ParseConfigValues {
+  const next = { ...values };
+
+  if (
+    (next.enable_table_enhancement || next.enable_heading_hierarchy) &&
+    next.enhancement_chat_config_id === null &&
+    defaultConfigIds.CHAT !== undefined
+  ) {
+    next.enhancement_chat_config_id = defaultConfigIds.CHAT;
+  }
+  if (
+    next.enable_image_enhancement &&
+    next.enhancement_vision_config_id === null &&
+    defaultConfigIds.VISION !== undefined
+  ) {
+    next.enhancement_vision_config_id = defaultConfigIds.VISION;
+  }
+  if (next.enable_rerank && next.rerank_config_id === null && defaultConfigIds.RERANK !== undefined) {
+    next.rerank_config_id = defaultConfigIds.RERANK;
+  }
+
+  return next;
+}
+
 export function toRequest(values: ParseConfigValues): DatasetParseConfigDTO {
   return {
     sparse_embedding_config_id: values.sparse_embedding_config_id,
@@ -624,10 +635,6 @@ export function validateModelBindings(values: ParseConfigValues): Partial<Record
   };
 }
 
-export function isEditableKey(key: ParamKey): key is EditableParamKey {
-  return key !== 'table_model' && key !== 'vision_model';
-}
-
 export function validateValues(values: ParseConfigValues, params: ParamSpec[]) {
   const errors: Partial<Record<EditableParamKey, string>> = {};
 
@@ -636,7 +643,7 @@ export function validateValues(values: ParseConfigValues, params: ParamSpec[]) {
       continue;
     }
 
-    if (!isEditableKey(param.key) || (param.type !== 'number' && param.type !== 'slider')) {
+    if (param.type !== 'number' && param.type !== 'slider') {
       continue;
     }
 
