@@ -18,6 +18,7 @@ export const Routes = {
   ProfilePage: '/settings/profile',
   AdminPage: '/settings/admin',
   AdminRoot: '/admin',
+  AdminLogin: '/admin/login',
   AdminUsers: '/admin/users',
   AdminBlogs: '/admin/blogs',
   AdminModels: '/admin/models',

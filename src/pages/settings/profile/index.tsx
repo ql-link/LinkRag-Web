@@ -176,10 +176,6 @@ export default function ProfilePage() {
     };
   }, [avatarCropSrc]);
 
-  function handleOpenAdminPage() {
-    navigate(Routes.AdminBlogs);
-  }
-
   async function handleLogout() {
     try {
       await logout();
@@ -502,17 +498,6 @@ export default function ProfilePage() {
                       </p>
                     </div>
                   </div>
-
-                  {profile?.role === 'ADMIN' && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAdminPage}
-                      className="hidden h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-border-subtle px-4 text-xs font-bold text-text-secondary transition-colors hover:border-primary/30 hover:bg-ink/[0.035] hover:text-ink lg:inline-flex"
-                    >
-                      <ShieldCheck size={15} />
-                      后台管理
-                    </button>
-                  )}
                 </div>
 
                 <div className="py-1">

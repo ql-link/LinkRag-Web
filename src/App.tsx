@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
 import { Routes as RoutePaths } from './routes';
 import { ToastContainer, ToastProvider, useToast } from '@/contexts/ToastContext';
 import { setToastHandler } from '@/lib/api-client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLocation } from 'react-router';
 import { ProtectedLayout } from '@/layouts/ProtectedLayout';
@@ -20,10 +21,10 @@ const BlogDetailPage = lazy(() => import('@/pages/blogs/BlogDetail'));
 const FeedbackPage = lazy(() => import('@/pages/feedback'));
 
 const AdminLayout = lazy(() => import('@/layouts/AdminLayout').then((m) => ({ default: m.AdminLayout })));
+const AdminLoginPage = lazy(() => import('@/pages/admin/login'));
 const AdminModelsPage = lazy(() => import('@/pages/admin/models'));
 const AdminLogsPage = lazy(() => import('@/pages/admin/logs'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/users'));
-const CreatorLayout = lazy(() => import('@/layouts/CreatorLayout').then((m) => ({ default: m.CreatorLayout })));
 const CreatorBlogsPage = lazy(() => import('@/pages/creator/blogs'));
 const CreatorBlogEditor = lazy(() => import('@/pages/creator/blogs/editor'));
 
@@ -46,6 +47,20 @@ function AuthRoute({ mode }: { mode: 'login' | 'register' }) {
   }
 
   return <AuthPage mode={mode} />;
+}
+
+function AdminLoginRoute({ loadingView }: { loadingView: ReactNode }) {
+  const { admin, loading } = useAdminAuth();
+  if (loading) return loadingView;
+  if (admin) return <Navigate to={RoutePaths.AdminUsers} replace />;
+  return <AdminLoginPage />;
+}
+
+function AdminAccessRoute({ loadingView }: { loadingView: ReactNode }) {
+  const { admin, loading } = useAdminAuth();
+  if (loading) return loadingView;
+  if (!admin) return <Navigate to={RoutePaths.AdminLogin} replace />;
+  return <Outlet />;
 }
 
 function isProtectedAppPath(pathname: string) {
@@ -97,52 +112,40 @@ function AppContent() {
             <Route path={RoutePaths.BlogDetail} element={<BlogDetailPage />} />
             <Route path={RoutePaths.Feedback} element={<FeedbackPage />} />
 
-            {/* Creator Routes */}
-            {user?.role === 'ADMIN' && (
-              <>
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to={RoutePaths.AdminUsers} replace />} />
-                  <Route path="users" element={<AdminUsersPage />} />
-                  <Route path="blogs" element={<CreatorBlogsPage />} />
-                  <Route
-                    path="models"
-                    element={
-                      <DesktopOnlyRoute>
-                        <AdminModelsPage />
-                      </DesktopOnlyRoute>
-                    }
-                  />
-                  <Route
-                    path="logs"
-                    element={
-                      <DesktopOnlyRoute>
-                        <AdminLogsPage />
-                      </DesktopOnlyRoute>
-                    }
-                  />
-                </Route>
+            {/* 管理端使用独立登录态与固定路由树，不依赖 C 端账号状态。 */}
+            <Route path={RoutePaths.AdminLogin} element={<AdminLoginRoute loadingView={loadingView} />} />
+            <Route path={RoutePaths.AdminRoot} element={<AdminAccessRoute loadingView={loadingView} />}>
+              <Route element={<AdminLayout />}>
+                <Route index element={<Navigate to={RoutePaths.AdminUsers} replace />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="blogs" element={<CreatorBlogsPage />} />
                 <Route
-                  path="/admin/blogs/edit/:id"
+                  path="models"
                   element={
                     <DesktopOnlyRoute>
-                      <CreatorBlogEditor />
+                      <AdminModelsPage />
                     </DesktopOnlyRoute>
                   }
                 />
-                <Route path="/creator" element={<CreatorLayout />}>
-                  <Route index element={<Navigate to="/creator/blogs" replace />} />
-                  <Route path="blogs" element={<CreatorBlogsPage />} />
-                </Route>
                 <Route
-                  path="/creator/blogs/edit/:id"
+                  path="logs"
                   element={
                     <DesktopOnlyRoute>
-                      <CreatorBlogEditor />
+                      <AdminLogsPage />
                     </DesktopOnlyRoute>
                   }
                 />
-              </>
-            )}
+              </Route>
+              <Route
+                path="blogs/edit/:id"
+                element={
+                  <DesktopOnlyRoute>
+                    <CreatorBlogEditor />
+                  </DesktopOnlyRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to={RoutePaths.AdminUsers} replace />} />
+            </Route>
 
             <Route
               path="*"

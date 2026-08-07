@@ -271,10 +271,7 @@ export default function AdminUsersPage() {
           darkMode ? 'border-[#3a3a3a]' : 'border-border-subtle',
         )}
       >
-        <Breadcrumb
-          items={[{ label: '后台管理', path: Routes.AdminPage }, { label: '用户看板' }]}
-          darkMode={darkMode}
-        />
+        <Breadcrumb items={[{ label: '管理端', path: Routes.AdminRoot }, { label: '用户看板' }]} darkMode={darkMode} />
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:pb-8">
