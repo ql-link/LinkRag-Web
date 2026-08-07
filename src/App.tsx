@@ -13,6 +13,9 @@ import { DesktopOnlyRoute } from '@/components/DesktopOnlyRoute';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { fluidEnterTransition } from '@/lib/fluid-motion';
 
+const DEFAULT_DOCUMENT_TITLE = 'LinkRag - 可视化、可溯源的 RAG 知识库';
+const ADMIN_DOCUMENT_TITLE = 'LinkRag Admin';
+
 // Lazy-load public pages (welcome page is ~1600 lines with heavy animations)
 const WelcomePage = lazy(() => import('@/pages/welcome'));
 const AuthPage = lazy(() => import('@/pages/auth'));
@@ -83,6 +86,12 @@ function AppContent() {
   useEffect(() => {
     setToastHandler(addToast);
   }, [addToast]);
+
+  useEffect(() => {
+    const isAdminPath =
+      location.pathname === RoutePaths.AdminRoot || location.pathname.startsWith(`${RoutePaths.AdminRoot}/`);
+    document.title = isAdminPath ? ADMIN_DOCUMENT_TITLE : DEFAULT_DOCUMENT_TITLE;
+  }, [location.pathname]);
 
   const loadingView = (
     <div
