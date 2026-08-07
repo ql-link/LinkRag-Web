@@ -1,5 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { ApiError, isAuthError, isForbiddenError, isConflictError } from './api-client';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import {
+  ApiError,
+  apiClient,
+  clearToken,
+  getToken,
+  isAuthError,
+  isForbiddenError,
+  isConflictError,
+  setToken,
+} from './api-client';
+
+beforeEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
 
 describe('ApiError', () => {
   it('should create an error with code and message', () => {
@@ -32,5 +46,35 @@ describe('error type guards', () => {
   it('isConflictError returns true for 409', () => {
     expect(isConflictError(new ApiError(409, '冲突'))).toBe(true);
     expect(isConflictError(new ApiError(400, '错误'))).toBe(false);
+  });
+});
+
+describe('isolated auth scopes', () => {
+  it('stores C-side and admin-side credentials independently', () => {
+    setToken('user-token');
+    setToken('admin-token', 'admin');
+
+    expect(getToken()).toBe('user-token');
+    expect(getToken('admin')).toBe('admin-token');
+
+    clearToken('admin');
+    expect(getToken()).toBe('user-token');
+    expect(getToken('admin')).toBeNull();
+  });
+
+  it('uses the admin credential for admin APIs and the user credential for C-side APIs', async () => {
+    setToken('user-token');
+    setToken('admin-token', 'admin');
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 200,
+      json: vi.fn().mockResolvedValue({ code: 200, message: 'ok', data: {} }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiClient.get('/api/v1/admin/users/dashboard');
+    await apiClient.get('/api/v1/user/profile');
+
+    expect(fetchMock.mock.calls[0][1].headers.satoken).toBe('admin-token');
+    expect(fetchMock.mock.calls[1][1].headers.satoken).toBe('user-token');
   });
 });

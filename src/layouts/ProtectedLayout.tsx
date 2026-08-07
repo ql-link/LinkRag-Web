@@ -9,7 +9,6 @@ import { getCachedConversations, setCachedConversations, clearConversationsCache
 import { deleteConversation, getConversations, updateConversation } from '@/services/chat';
 import type { ConversationDTO } from '@/types/api';
 import { Routes as RoutePaths } from '@/routes';
-import { DesktopOnlyRoute } from '@/components/DesktopOnlyRoute';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import { preloadProviderIcons } from '@/lib/provider-icons';
@@ -27,7 +26,6 @@ const FeedbackPage = lazy(() => import('@/pages/feedback'));
 const UsagePage = lazy(() => import('@/pages/usage'));
 const LLMPage = lazy(() => import('@/pages/settings/llm-config'));
 const ProfilePage = lazy(() => import('@/pages/settings/profile'));
-const AdminPage = lazy(() => import('@/pages/settings/admin'));
 
 function PageLoader() {
   return (
@@ -61,14 +59,6 @@ function AppRoutesContent({ isDesktop, location }: { isDesktop: boolean; locatio
         <Route path={RoutePaths.Usage} element={<UsagePage />} />
         <Route path={RoutePaths.LLMPage} element={<LLMPage />} />
         <Route path={RoutePaths.ProfilePage} element={<ProfilePage />} />
-        <Route
-          path={RoutePaths.AdminPage}
-          element={
-            <DesktopOnlyRoute>
-              <AdminPage />
-            </DesktopOnlyRoute>
-          }
-        />
         <Route path={RoutePaths.Welcome} element={<Navigate to={defaultRoute} replace />} />
         <Route path="*" element={<Navigate to={defaultRoute} replace />} />
       </Routes>

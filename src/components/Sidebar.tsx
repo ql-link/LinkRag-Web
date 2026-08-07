@@ -10,7 +10,6 @@ import {
   LogOut,
   Cpu,
   BarChart3,
-  ShieldCheck,
   Moon,
   Sun,
 } from 'lucide-react';
@@ -215,24 +214,6 @@ export function Sidebar({
                 <User size={15} />
                 <span className="text-sm font-medium">个人信息</span>
               </button>
-              {user?.role === 'ADMIN' && (
-                <button
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    onNavigate?.();
-                    navigate(Routes.AdminBlogs);
-                  }}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-md px-3 py-2 transition-[background-color,color] duration-200 ease-out',
-                    darkMode
-                      ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
-                      : 'text-text-secondary hover:bg-ink/[0.035] hover:text-ink',
-                  )}
-                >
-                  <ShieldCheck size={15} />
-                  <span className="text-sm font-medium">后台管理</span>
-                </button>
-              )}
               <button
                 onClick={handleLogout}
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-error transition-[background-color,color] duration-200 ease-out hover:bg-error/[0.035] hover:text-error/80"

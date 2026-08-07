@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BarChart3, BookOpen, Cpu, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
+import { BarChart3, BookOpen, Cpu, LogOut, ScrollText, Settings2, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Routes as RoutePaths } from '@/routes';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 function PageLoader() {
   const { darkMode } = useTheme();
@@ -17,6 +18,7 @@ function PageLoader() {
 export function AdminLayout() {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
+  const { admin, logout } = useAdminAuth();
 
   const menuItems = [
     { label: '用户看板', path: RoutePaths.AdminUsers, icon: <BarChart3 size={16} /> },
@@ -25,6 +27,11 @@ export function AdminLayout() {
     { label: '日志追踪', path: RoutePaths.AdminLogs, icon: <ScrollText size={16} /> },
     { label: '配置管理', path: '#', icon: <Settings2 size={16} />, disabled: true },
   ];
+
+  async function handleLogout() {
+    await logout();
+    navigate(RoutePaths.AdminLogin, { replace: true });
+  }
 
   return (
     <div
@@ -45,19 +52,12 @@ export function AdminLayout() {
               <ShieldCheck size={16} className={darkMode ? 'text-[#a6a6a6]' : 'text-primary'} />
               <h1 className={cn('mono-label', darkMode ? 'text-[#a6a6a6]' : 'text-text-main/60')}>Admin Console</h1>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate(RoutePaths.ProfilePage)}
-              className={cn(
-                'flex h-9 items-center gap-2 rounded-md px-2 text-xs font-bold transition-colors',
-                darkMode
-                  ? 'text-[#a6a6a6] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
-                  : 'text-text-main/65 hover:bg-ink/[0.035] hover:text-text-main',
-              )}
-            >
-              <ArrowLeft size={15} />
-              返回个人信息
-            </button>
+            <div className="px-2">
+              <p className={cn('truncate text-xs font-bold', darkMode ? 'text-[#e6e6e6]' : 'text-text-main')}>
+                {admin?.nickname || admin?.username}
+              </p>
+              <p className={cn('mt-1 text-[10px]', darkMode ? 'text-[#777]' : 'text-text-main/40')}>管理员账号</p>
+            </div>
           </div>
           <h3 className={cn('mono-label mb-3 px-3', darkMode && 'text-[#a6a6a6]')}>管理模块</h3>
           <nav className="flex flex-col gap-1">
@@ -97,13 +97,69 @@ export function AdminLayout() {
               ),
             )}
           </nav>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={cn(
+              'mt-6 flex h-9 w-full items-center gap-2 rounded-md px-3 text-xs font-bold transition-colors',
+              darkMode
+                ? 'text-[#999] hover:bg-white/[0.045] hover:text-[#f2f2f2]'
+                : 'text-text-main/55 hover:bg-ink/[0.035] hover:text-text-main',
+            )}
+          >
+            <LogOut size={15} />
+            退出管理端
+          </button>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-hidden">
-        <Suspense fallback={<PageLoader />}>
-          <Outlet />
-        </Suspense>
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header
+          className={cn(
+            'mb-2 flex shrink-0 items-center gap-2 overflow-x-auto rounded-xl border px-2 py-2 lg:hidden',
+            darkMode ? 'border-[#3a3a3a] bg-[#2b2b2b]' : 'border-border-subtle bg-white',
+          )}
+        >
+          <span className="flex shrink-0 items-center gap-1.5 px-2 text-xs font-bold">
+            <ShieldCheck size={14} className="text-primary" /> 管理端
+          </span>
+          {menuItems
+            .filter((item) => !item.disabled)
+            .map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  cn(
+                    'flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold',
+                    isActive
+                      ? darkMode
+                        ? 'bg-white/[0.08] text-white'
+                        : 'bg-ink/[0.06] text-ink'
+                      : darkMode
+                        ? 'text-[#999]'
+                        : 'text-text-main/55',
+                  )
+                }
+              >
+                {item.icon}
+                {item.label}
+              </NavLink>
+            ))}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={cn('ml-auto shrink-0 rounded-lg p-2', darkMode ? 'text-[#999]' : 'text-text-main/50')}
+            aria-label="退出管理端"
+          >
+            <LogOut size={16} />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
+        </div>
       </main>
     </div>
   );

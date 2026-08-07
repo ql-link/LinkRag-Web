@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpenText, Search, Settings } from 'lucide-react';
+import { ArrowRight, BookOpenText, Search } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { ZoomableImage } from '@/components/MediaPreview';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getPublicPosts } from '@/services/blog';
-import { isLoggedIn } from '@/services/auth';
-import { getProfile } from '@/services/user';
 import type { BlogPostPublicListDTO } from '@/types/api';
 
 function formatDate(value: string | null) {
@@ -139,18 +137,9 @@ export default function BlogsPage() {
   const [query, setQuery] = useState('');
   const [posts, setPosts] = useState<BlogPostPublicListDTO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-
-    if (isLoggedIn()) {
-      getProfile()
-        .then((user) => {
-          if (isMounted && user?.role === 'ADMIN') setIsAdmin(true);
-        })
-        .catch(() => {});
-    }
 
     setLoading(true);
     getPublicPosts(1, 100)
@@ -199,26 +188,6 @@ export default function BlogsPage() {
             博客与更新
           </h2>
         </div>
-
-        {isAdmin && (
-          <Link
-            to={Routes.AdminBlogs}
-            className={cn(
-              'group flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-300',
-              darkMode
-                ? 'border-[#3a3a3a] bg-[#303030] text-[#f2f2f2] hover:border-primary'
-                : 'rounded-md border-border-subtle bg-surface-soft text-text-main hover:border-primary hover:bg-surface-card',
-            )}
-          >
-            <Settings
-              size={14}
-              className={cn(
-                darkMode ? 'text-[#a6a6a6] group-hover:text-primary' : 'text-text-main/50 group-hover:text-primary',
-              )}
-            />
-            创作者中心
-          </Link>
-        )}
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pb-24 pt-8 sm:px-8 sm:pb-12 sm:pt-12">

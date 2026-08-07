@@ -7,6 +7,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 /** Default request timeout in milliseconds */
 const DEFAULT_TIMEOUT = 15_000;
 
+export type AuthScope = 'user' | 'admin';
+
+const TOKEN_STORAGE_KEYS: Record<AuthScope, string> = {
+  user: 'accessToken',
+  admin: 'adminAccessToken',
+};
+
 export class ApiError extends Error {
   constructor(
     public code: number,
@@ -37,16 +44,16 @@ export function setToastHandler(handler: ToastHandler) {
   toastHandler = handler;
 }
 
-function getToken(): string | null {
-  return localStorage.getItem('accessToken');
+function getToken(scope: AuthScope = 'user'): string | null {
+  return localStorage.getItem(TOKEN_STORAGE_KEYS[scope]);
 }
 
-function setToken(token: string) {
-  localStorage.setItem('accessToken', token);
+function setToken(token: string, scope: AuthScope = 'user') {
+  localStorage.setItem(TOKEN_STORAGE_KEYS[scope], token);
 }
 
-function clearToken() {
-  localStorage.removeItem('accessToken');
+function clearToken(scope: AuthScope = 'user') {
+  localStorage.removeItem(TOKEN_STORAGE_KEYS[scope]);
 }
 
 interface RequestOptions {
@@ -57,6 +64,8 @@ interface RequestOptions {
   timeout?: number;
   /** AbortSignal for external cancellation (e.g. component unmount) */
   signal?: AbortSignal;
+  /** Selects the isolated C-side or admin-side credential. */
+  authScope?: AuthScope;
 }
 
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
@@ -84,7 +93,9 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     requestHeaders['Content-Type'] = 'application/json';
   }
 
-  const token = getToken();
+  // 管理 API 默认读取独立的管理端凭证；认证与个人资料等共享接口可显式指定作用域。
+  const authScope = options.authScope ?? (path.startsWith('/api/v1/admin/') ? 'admin' : 'user');
+  const token = getToken(authScope);
   if (token) {
     requestHeaders['satoken'] = token;
   }
@@ -152,7 +163,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     const isAuth = response.status === 401 || result.code === 401;
     const message = result.message || (isAuth ? '未登录或登录已过期' : '请求失败');
     if (isAuth) {
-      clearToken();
+      clearToken(authScope);
     }
     toastHandler?.('error', message);
     throw new ApiError(result.code || response.status, message, result.data);
@@ -165,28 +176,40 @@ export const apiClient = {
   get<T>(
     path: string,
     params?: Record<string, string | number | boolean>,
-    options?: Pick<RequestOptions, 'timeout' | 'signal'>,
+    options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>,
   ): Promise<T> {
     return request<T>('GET', path, { params, ...options });
   },
 
-  post<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  post<T>(
+    path: string,
+    body?: unknown,
+    options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>,
+  ): Promise<T> {
     return request<T>('POST', path, { body, ...options });
   },
 
-  patch<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  patch<T>(
+    path: string,
+    body?: unknown,
+    options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>,
+  ): Promise<T> {
     return request<T>('PATCH', path, { body, ...options });
   },
 
-  put<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  put<T>(path: string, body?: unknown, options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>): Promise<T> {
     return request<T>('PUT', path, { body, ...options });
   },
 
-  delete<T>(path: string, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  delete<T>(path: string, options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>): Promise<T> {
     return request<T>('DELETE', path, options);
   },
 
-  postForm<T>(path: string, formData: FormData, options?: Pick<RequestOptions, 'timeout' | 'signal'>): Promise<T> {
+  postForm<T>(
+    path: string,
+    formData: FormData,
+    options?: Pick<RequestOptions, 'timeout' | 'signal' | 'authScope'>,
+  ): Promise<T> {
     return request<T>('POST', path, {
       headers: {},
       body: formData,

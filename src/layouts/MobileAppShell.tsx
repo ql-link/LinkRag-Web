@@ -25,7 +25,6 @@ function getMobileTitle(pathname: string): string {
   if (pathname.startsWith('/usage')) return '用量';
   if (pathname.startsWith('/settings/llm-config')) return '模型配置';
   if (pathname.startsWith('/settings/profile')) return '个人信息';
-  if (pathname.startsWith('/settings/admin')) return '后台管理';
   return 'LinkRag';
 }
 
