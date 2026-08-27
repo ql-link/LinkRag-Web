@@ -157,7 +157,7 @@ function recallErrorMessage(error: unknown): string {
   if (isRecallError(error)) {
     const e = error as RecallError;
     switch (e.code) {
-      case 'RECALL_SESSION_UNAUTHORIZED':
+      case 'ACCESS_TOKEN_UNAUTHORIZED':
         return '登录已过期，请重新登录后重试';
       case 'RECALL_SCOPE_FORBIDDEN':
         return '无权访问所选知识库';

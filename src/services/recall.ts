@@ -1,19 +1,17 @@
-import { apiClient } from '@/lib/api-client';
-import { normalizeRecallStreamUrl } from '@/lib/public-url';
+import { getToken } from '@/lib/api-client';
 import { RAG_QUERY_MAX_LENGTH_MESSAGE, isRagQueryTooLong, normalizeRagQuery } from '@/lib/rag-query';
-import type { RecallSessionDTO, RecallDonePayload, RecallErrorPayload, RecallStreamEvent } from '@/types/api';
+import type { RecallAccessContext, RecallDonePayload, RecallErrorPayload, RecallStreamEvent } from '@/types/api';
 
 // LINK-105：前端直连 Python 召回 SSE。
 //
-// 两步建连：
-//   1. 带登录态 POST /api/v1/recall/sessions（经 apiClient，自动带 satoken）→ 拿短期 token + streamUrl。
-//   2. 直连 Python：fetch 流式（ReadableStream）连 streamUrl，带 Authorization: Bearer。
+// 单 token 建连：Java 登录返回的 accessToken 同时用于 Java Sa-Token 与 Python RS256 验签。
+// 前端直接 fetch Python 流式端点，不再调用 /api/v1/recall/sessions 换取第二枚 token。
 //      不能用 EventSource——它无法设 Authorization 头。
 
 /** 召回错误码：握手前 HTTP 错误 + 握手后 error 事件 + 客户端本地错误。 */
 export type RecallErrorCode =
   // 握手前 HTTP 错误（流未开始）
-  | 'RECALL_SESSION_UNAUTHORIZED' // 401：token 缺失/过期/无效 → 回 Java 重申 token
+  | 'ACCESS_TOKEN_UNAUTHORIZED' // 401：登录 token 缺失/过期/无效 → 重新登录
   | 'RECALL_SCOPE_FORBIDDEN' // 403：datasetIds 越权 → 收敛到授权范围
   | 'RECALL_INVALID_REQUEST' // 400/422：参数问题（空 query / 未知字段）→ 修正
   | 'RECALL_RATE_LIMITED' // 429：并发流超限 → 退避重试 / 提示已有召回进行中
@@ -30,14 +28,14 @@ export type RecallErrorCode =
 
 const HTTP_STATUS_TO_CODE: Record<number, RecallErrorCode> = {
   400: 'RECALL_INVALID_REQUEST',
-  401: 'RECALL_SESSION_UNAUTHORIZED',
+  401: 'ACCESS_TOKEN_UNAUTHORIZED',
   403: 'RECALL_SCOPE_FORBIDDEN',
   422: 'RECALL_INVALID_REQUEST',
   429: 'RECALL_RATE_LIMITED',
 };
 
 const KNOWN_CODES: ReadonlySet<string> = new Set<RecallErrorCode>([
-  'RECALL_SESSION_UNAUTHORIZED',
+  'ACCESS_TOKEN_UNAUTHORIZED',
   'RECALL_SCOPE_FORBIDDEN',
   'RECALL_INVALID_REQUEST',
   'RECALL_RATE_LIMITED',
@@ -67,9 +65,9 @@ export function isRecallError(error: unknown): error is RecallError {
   return error instanceof RecallError;
 }
 
-/** token 过期需回 Java 重申（401）。 */
+/** token 过期或无效，调用方应引导用户重新登录。 */
 export function isRecallUnauthorized(error: unknown): boolean {
-  return isRecallError(error) && error.code === 'RECALL_SESSION_UNAUTHORIZED';
+  return isRecallError(error) && error.code === 'ACCESS_TOKEN_UNAUTHORIZED';
 }
 
 /** 用户主动断开，调用方通常应静默忽略（不弹 toast）。 */
@@ -81,62 +79,22 @@ function normalizeErrorCode(raw: unknown, fallback: RecallErrorCode): RecallErro
   return typeof raw === 'string' && KNOWN_CODES.has(raw) ? (raw as RecallErrorCode) : fallback;
 }
 
-// ── 1. 申请 session token（向 Java，带登录态） ──────────────────────────────
+// ── 1. 复用 Java 登录 access token ─────────────────────────────────────────
 
-/** 后端原始返回，兼容 snake_case / camelCase。 */
-interface RawRecallSession {
-  token: string;
-  streamUrl?: string;
-  stream_url?: string;
-  datasetIds?: number[];
-  dataset_ids?: number[];
-  expiresIn?: number;
-  expires_in?: number;
-}
-
-/**
- * 向 Java 申请短期召回 session（LINK-104）。
- * 走 apiClient（自动带登录态 satoken 头、按 Result 解包）。
- *
- * <p>{@code datasetIds} 必须显式非空：Java 端 {@code @NotEmpty} 强校验，缺省/空列表会被 400 拒绝
- * （避免下发空 dataset_ids claim 被 Python 误判为「全库授权」造成越权放大）。</p>
- */
-export async function createRecallSession(datasetIds: number[], signal?: AbortSignal): Promise<RecallSessionDTO> {
-  const raw = await apiClient.post<RawRecallSession>('/api/v1/recall/sessions', { datasetIds }, { signal });
-  const streamUrl = raw.streamUrl ?? raw.stream_url ?? '';
+/** 从统一登录态读取 Java accessToken，构造直连 Python 所需的本地上下文。 */
+export async function getRecallAccessContext(
+  datasetIds: number[],
+  _signal?: AbortSignal,
+): Promise<RecallAccessContext> {
+  const token = getToken();
+  if (!token) {
+    throw new RecallError('ACCESS_TOKEN_UNAUTHORIZED', '登录状态已失效，请重新登录', 401);
+  }
   return {
-    token: raw.token,
-    streamUrl: normalizeRecallStreamUrl(streamUrl),
-    datasetIds: raw.datasetIds ?? raw.dataset_ids,
-    expiresIn: raw.expiresIn ?? raw.expires_in,
+    token,
+    streamUrl: '/api/v1/rag/stream',
+    datasetIds,
   };
-}
-
-// ── token 复用：未过期前断线重连复用同一 token，401 才回 Java 重申 ──────────
-
-let cachedSession: RecallSessionDTO | null = null;
-// 缓存的 session 绑定其授权的 datasetIds——换数据集范围必须重新签发，
-// 否则复用旧 scope 的 token 会被 Python 判 403（RECALL_SCOPE_FORBIDDEN）。
-let cachedKey: string | null = null;
-
-/** 稳定的 datasetIds 缓存键（去重 + 升序，与顺序无关）。 */
-function sessionKey(datasetIds: number[]): string {
-  return [...new Set(datasetIds)].sort((a, b) => a - b).join(',');
-}
-
-/** 取已缓存 session（需同一 datasetIds 范围），没有则向 Java 申请并缓存。 */
-async function getOrCreateSession(datasetIds: number[], signal?: AbortSignal): Promise<RecallSessionDTO> {
-  const key = sessionKey(datasetIds);
-  if (cachedSession && cachedKey === key) return cachedSession;
-  cachedSession = await createRecallSession(datasetIds, signal);
-  cachedKey = key;
-  return cachedSession;
-}
-
-/** 清除缓存 session（token 过期/无效时），下次将回 Java 重申。 */
-export function clearRecallSession(): void {
-  cachedSession = null;
-  cachedKey = null;
 }
 
 // ── 单用户并发上限：重连前先 abort 旧连接，否则旧连接占名额导致新连接 429 ────
@@ -202,7 +160,7 @@ function parseFrame(frame: string): RecallStreamEvent | null {
 export interface RecallOptions {
   /** 必填，非空非纯空白 */
   query: string;
-  /** 必填非空：既用于签发 session token 的授权范围，也作为本次 stream 的检索范围（必须 ⊆ token 授权范围）。 */
+  /** 必填非空：Python 会按当前用户的实时数据集归属校验该检索范围。 */
   datasetIds: number[];
   /**
    * 必填：本次生成所用 CHAT 模型配置 id（用户在对话页选中的模型）。
@@ -217,7 +175,7 @@ export interface RecallOptions {
   /**
    * 本轮落库幂等键（对话流「后台续跑 + 可靠落库」）。一轮「用户提问 + 助手回答」对应一个稳定 UUID，
    * 同一轮断线重连/重试必须复用同一值——后端据此 upsert 同一行，避免重复落库。
-   * 不传则由 {@link recall} 自动生成一个并在本次调用内（含 401 重申后的重试）复用。
+   * 不传则由 {@link recall} 自动生成一个并在本次调用内复用。
    */
   turnId?: string;
   /**
@@ -248,7 +206,7 @@ export interface RecallOptions {
  * 成功（recall_done）resolve；error 事件 / 握手前 HTTP 错误 / abort / 网络错误 reject(RecallError)。
  */
 async function streamOnce(
-  session: RecallSessionDTO,
+  accessContext: RecallAccessContext,
   options: RecallOptions,
   signal: AbortSignal,
 ): Promise<RecallDonePayload> {
@@ -256,9 +214,9 @@ async function streamOnce(
   //
   // LINK-157：dataset_ids 必须「显式携带」，不能省略。后端按 (user_id, dataset_ids[0])
   // 解析数据集级召回配置（top_k / 分数阈值 / token 预算，见 LINK-148）；省略时会退回
-  // token 授权范围里「第一个」数据集或系统默认，生效配置可能与用户正在对话的数据集不符。
+  // 当前数据库授权范围里「第一个」数据集或系统默认，生效配置可能与用户正在对话的数据集不符。
   // conversation_id 是对话轮次落库的挂载锚点，缺失后端 422、不进入召回生成。
-  // user_id 只取 session token claims，body 不传（多传也会被 Python 当未知字段 422）。
+  // user_id 只取 access token claims，body 不传（多传也会被 Python 当未知字段 422）。
   // datasetIds 由 recall() 前置校验保证非空，这里恒定写入以让契约显式化。
   //
   // LINK-181：conversation_id 必填。Python 侧 extra="forbid" + 字段必填，缺失/拼错直接 422
@@ -288,10 +246,10 @@ async function streamOnce(
 
   let resp: Response;
   try {
-    resp = await fetch(session.streamUrl, {
+    resp = await fetch(accessContext.streamUrl, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${session.token}`,
+        Authorization: `Bearer ${accessContext.token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -420,7 +378,7 @@ function boundaryEnd(buffer: string, start: number): number {
  *
  * 自动处理：
  *  - 客户端校验 query（空/纯空白直接抛 RECALL_INVALID_REQUEST，不发请求）；
- *  - token 复用：复用已缓存 session，401（token 过期）时回 Java 重申一次并重试；
+ *  - token 复用：直接读取 Java 登录 accessToken；401 时交由调用方引导重新登录；
  *  - 并发管理：发起前先 abort 上一个进行中的召回，避免旧连接占名额导致 429。
  *
  * @returns recall_done 的 payload（hits 已按 fused_score 降序）
@@ -435,7 +393,7 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
     throw new RecallError('RECALL_INVALID_REQUEST', RAG_QUERY_MAX_LENGTH_MESSAGE);
   }
   if (!options.datasetIds || options.datasetIds.length === 0) {
-    // Java 端 @NotEmpty 必拒，提前本地拦截避免一次必败的 400 请求。
+    // Python 业务必须有明确检索范围，提前本地拦截避免一次必败请求。
     throw new RecallError('RECALL_INVALID_REQUEST', 'datasetIds 不能为空');
   }
   if (!Number.isInteger(options.configId) || options.configId <= 0) {
@@ -447,7 +405,7 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
     throw new RecallError('RECALL_INVALID_REQUEST', 'conversationId 不能为空');
   }
 
-  // 本轮落库幂等键：每轮一个稳定 UUID，本次调用内（含 401 重申后的重试）复用同一值，
+  // 本轮落库幂等键：每轮一个稳定 UUID，本次调用内复用同一值，
   // 保证后端「后台续跑 + 可靠落库」按同一行 upsert，不重复落库。
   const turnId = options.turnId ?? generateTurnId();
   const requestOptions: RecallOptions = { ...options, query, turnId };
@@ -465,18 +423,8 @@ export async function recall(options: RecallOptions): Promise<RecallDonePayload>
   }
 
   try {
-    const session = await getOrCreateSession(requestOptions.datasetIds, controller.signal);
-    try {
-      return await streamOnce(session, requestOptions, controller.signal);
-    } catch (error) {
-      // token 过期：清缓存、回 Java 重申一次后重试。
-      if (isRecallUnauthorized(error)) {
-        clearRecallSession();
-        const fresh = await getOrCreateSession(requestOptions.datasetIds, controller.signal);
-        return await streamOnce(fresh, requestOptions, controller.signal);
-      }
-      throw error;
-    }
+    const accessContext = await getRecallAccessContext(requestOptions.datasetIds, controller.signal);
+    return await streamOnce(accessContext, requestOptions, controller.signal);
   } finally {
     if (activeController === controller) activeController = null;
   }

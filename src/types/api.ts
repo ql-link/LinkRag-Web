@@ -607,21 +607,18 @@ export interface OssUploadResult {
 }
 
 // ── Recall (direct-to-Python SSE) ──────────────────────────────────────────
-// LINK-105: 前端先向 Java 申请短期 session token（LINK-104），再直连 Python 拉 SSE。
+// 前端复用 Java 登录 accessToken，直连 Python 拉 SSE。
 
 /**
- * Java 签发的短期召回 session（POST /api/v1/recall/sessions 的 data）。
- * 兼容后端可能的 snake_case 字段，已由 service 层归一化为 camelCase。
+ * 直连 Python 所需的本地连接上下文。
  */
-export interface RecallSessionDTO {
-  /** 直连 Python 用的短期 Bearer token */
+export interface RecallAccessContext {
+  /** Java 登录返回、同时可供 Python 验签的 Bearer access token */
   token: string;
-  /** Python SSE 端点的完整地址（POST），由 Java 下发 */
+  /** Python SSE 端点（POST） */
   streamUrl: string;
-  /** token 授权的数据集范围；请求中的 datasetIds 必须 ⊆ 此集合 */
+  /** 本次请求的数据集范围；Python 按共享数据库实时校验 */
   datasetIds?: number[];
-  /** token 有效期（秒） */
-  expiresIn?: number;
 }
 
 /** 召回命中项（chunk_id + 元信息 + 正文）。 */

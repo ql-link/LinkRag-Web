@@ -30,7 +30,7 @@ The web frontend for LinkRag — make your knowledge base visual, conversational
 
 LinkRag is an enterprise-grade RAG system that lets anyone turn their documents into a knowledge base they can talk to. This repository is its **web frontend** — the entry point users actually touch: manage datasets and knowledge files, visualize how documents relate to each other as a graph, and ask traceable, source-grounded AI questions over your knowledge base.
 
-The UI talks to two backends: regular business (login, config, datasets, files, usage) goes through the Java admin service; chat retrieval and generation are streamed **directly from the Python RAG service**, using a short-lived token issued by Java — see [System Boundary](#system-boundary) below.
+The UI talks to two backends: regular business (login, config, datasets, files, usage) goes through the Java admin service; chat retrieval and generation are streamed **directly from the Python RAG service**, using the same Java login access token, which Python verifies locally — see [System Boundary](#system-boundary) below.
 
 ## Key Features
 
@@ -44,10 +44,10 @@ The UI talks to two backends: regular business (login, config, datasets, files, 
 
 ## System Boundary
 
-LinkRag follows a "Java admin service + Python RAG engine" split, and this repo is the user-facing frontend that talks to both: every request converges on a single API client, then forks into two lines — carry a token to the Java admin service for regular business, or carry a short-lived pass to stream answers directly from Python (see the architecture sketch at the top).
+LinkRag follows a "Java admin service + Python RAG engine" split. The same access token returned by Java login is used for both services: as `satoken` for Java and as a Bearer token for Python streaming APIs.
 
 - **Regular business** — goes through a single `apiClient`, sending the `satoken` header to the Java admin service's `/api/v1/*` (login, datasets, files, model config, usage).
-- **Chat recall** — the frontend first asks Java for a short-lived recall session (`POST /api/v1/recall/sessions`; Java checks auth and dataset permission, then issues a token carrying a `streamUrl`), then uses that token to pull the recall/generation SSE stream **directly from Python**. Java is not on this streaming path (see [src/services/recall.ts](src/services/recall.ts), [src/types/api.ts](src/types/api.ts)).
+- **Chat recall** — the frontend sends the Java login `accessToken` as `Authorization: Bearer` directly to Python `/api/v1/rag/stream`; there is no recall-session exchange. Java is not on the recall/generation request path (see [src/services/recall.ts](src/services/recall.ts), [src/types/api.ts](src/types/api.ts)).
 
 ## Tech Stack
 
@@ -110,7 +110,7 @@ src/
 - Service root: `http://{host}:8080`
 - API prefix: `/api/v1`
 - Auth header: `satoken: {accessToken}` (note: not `Authorization: Bearer`)
-- Chat recall: the frontend pulls the SSE stream directly from Python's `streamUrl` using a session token issued by Java (see [System Boundary](#system-boundary) above)
+- Chat recall: the frontend uses the Java login `accessToken` to pull SSE directly from Python `/api/v1/rag/stream` (see [System Boundary](#system-boundary) above)
 
 See [docs/ToLink-前端API文档.md](docs/ToLink-前端API文档.md) for the full interface contract.
 
