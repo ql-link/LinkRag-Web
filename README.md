@@ -44,10 +44,10 @@ LinkRag 是一套企业级 RAG 系统，让任何人都能把文档变成可对�
 
 ## 系统边界
 
-LinkRag 采用「Java 管理端 + Python RAG 执行端」协作模式，本仓库是面向用户的前端，同时与两端打交道：所有请求收敛到统一的 API 客户端，再分流成两条线——带令牌走 Java 办常规业务，凭临时通行证直连 Python 拉逐字流式问答（见文首架构图）。
+LinkRag 采用「Java 管理端 + Python RAG 执行端」协作模式，本仓库是面向用户的前端，同时与两端打交道。Java 登录返回的同一枚 access token 用于两端：作为 `satoken` 访问 Java，作为 Bearer token 直连 Python 拉逐字流式问答。
 
 - **常规业务**：走统一的 `apiClient`，带 `satoken` 头请求 Java 管理端的 `/api/v1/*`（登录、数据集、文件、模型配置、用量）。
-- **聊天召回**：前端先向 Java 申请一个短期召回 session（`POST /api/v1/recall/sessions`，Java 校验登录态与数据集权限后签发含 `streamUrl` 的 token），再凭 token **直连 Python** 拉召回 / 生成的 SSE 流。Java 不在这条流式路径上（实现见 [src/services/recall.ts](src/services/recall.ts)、[src/types/api.ts](src/types/api.ts)）。
+- **聊天召回**：前端把 Java 登录 `accessToken` 作为 `Authorization: Bearer`，直接请求 Python `/api/v1/rag/stream`。Java 不在召回 / 生成请求路径上（实现见 [src/services/recall.ts](src/services/recall.ts)、[src/types/api.ts](src/types/api.ts)）。
 
 ## 技术栈
 
@@ -110,7 +110,7 @@ src/
 - 服务根地址：`http://{host}:8080`
 - 业务接口前缀：`/api/v1`
 - 认证请求头：`satoken: {accessToken}`（注意：不是 `Authorization: Bearer`）
-- 聊天召回：前端凭 Java 签发的 session token 直连 Python 的 `streamUrl` 拉 SSE（见上方[系统边界](#系统边界)）
+- 聊天召回：前端凭 Java 登录 `accessToken` 直连 Python `/api/v1/rag/stream` 拉 SSE（见上方[系统边界](#系统边界)）
 
 更多接口约定见 [docs/ToLink-前端API文档.md](docs/ToLink-前端API文档.md)。
 
