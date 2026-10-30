@@ -167,6 +167,10 @@ LinkRag is made up of three repositories working together:
 
 The `docs/` directory holds the frontend API doc, integration plans, and handover docs — useful references for development and integration.
 
+## Also from our team
+
+[DrawOffer](https://www.drawoffer.com) is an AI job-search tool built by the same team: AI resume editing, tailoring to job descriptions, mock interviews and application tracking. It uses LinkRag for document retrieval.
+
 ## License
 
 Released under the MIT License.

@@ -167,6 +167,10 @@ LinkRag 由三个仓库协作组成：
 
 `docs/` 目录包含前端 API 文档、联调计划、交接文档等，可作为开发与对接参考。
 
+## 团队的其他产品
+
+[DrawOffer 职绘](https://www.drawoffer.com) 是同一团队开发的 AI 求职工具：AI 改简历、按岗位 JD 调整简历、AI 模拟面试与求职进度管理。LinkRag 为它提供资料检索。
+
 ## 许可证
 
 本项目基于 MIT License 开源。
